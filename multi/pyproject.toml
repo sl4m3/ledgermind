@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-memory-multi"
+version = "1.0.0"
+description = "Universal bridge for agent-memory-core to various LLMs and frameworks"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "agent-memory-core @ file://localhost/data/data/com.termux/files/home/projects/agent-memory/core"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["adapters*", "frameworks*", "prompts*", "manager.py", "schema.py"]
