@@ -19,30 +19,52 @@ class MCPRole(str, enum.Enum):
     ADMIN = "admin"
 
 class MCPServer:
-    def __init__(self, memory: Memory, server_name: str = "AgentMemory", default_role: MCPRole = MCPRole.AGENT):
+    def __init__(self, memory: Memory, server_name: str = "AgentMemory", 
+                 default_role: MCPRole = MCPRole.AGENT,
+                 capabilities: Optional[Dict[str, bool]] = None):
         self.memory = memory
         self.mcp = FastMCP(f"{server_name} (v{MCP_API_VERSION})")
         self.env_context = EnvironmentContext(memory)
         self.default_role = default_role
         
-        # Hardened Security Check: Enforce secret presence for privileged roles at instantiation
-        if self.default_role in [MCPRole.AGENT, MCPRole.ADMIN]:
+        # Initialize capabilities: either from provided dict or derived from role
+        self.capabilities = capabilities or self._get_default_capabilities(default_role)
+        
+        # Hardened Security Check: Only enforce secret if no explicit capabilities provided
+        # or if we're still using the legacy role-based approach for privileged roles.
+        if not capabilities and self.default_role in [MCPRole.AGENT, MCPRole.ADMIN]:
             if not os.environ.get("AGENT_MEMORY_SECRET"):
                 # Downgrade immediately if secret is missing to fail safe
-                # print("SECURITY WARNING: Downgrading to VIEWER due to missing secret.")
                 self.default_role = MCPRole.VIEWER
+                self.capabilities = self._get_default_capabilities(MCPRole.VIEWER)
         
         self._last_write_time = 0
         self._write_cooldown = 2.0 
         self.audit = AuditLogger(memory.storage_path) # Audit integration
         self._register_tools()
 
-    def _check_auth(self, required_role: MCPRole, tool_name: str = "unknown") -> bool:
-        role_hierarchy = {MCPRole.VIEWER: 0, MCPRole.AGENT: 1, MCPRole.ADMIN: 2}
-        allowed = role_hierarchy.get(self.default_role, 0) >= role_hierarchy.get(required_role, 0)
+    def _get_default_capabilities(self, role: MCPRole) -> Dict[str, bool]:
+        """Maps legacy roles to granular capabilities."""
+        caps = {
+            "read": True,
+            "propose": False,
+            "supersede": False,
+            "accept": False,
+            "sync": False
+        }
+        if role in [MCPRole.AGENT, MCPRole.ADMIN]:
+            caps["propose"] = True
+            caps["supersede"] = True
+            caps["sync"] = True
+        if role == MCPRole.ADMIN:
+            caps["accept"] = True
+        return caps
+
+    def _check_auth(self, capability: str, tool_name: str = "unknown") -> bool:
+        allowed = self.capabilities.get(capability, False)
         
         if not allowed:
-            self.audit.log_access(self.default_role.value, tool_name, {}, False, "Permission denied")
+            self.audit.log_access(self.default_role.value, tool_name, {}, False, f"Permission denied: missing '{capability}'")
         
         return allowed
 
@@ -59,8 +81,8 @@ class MCPServer:
         return self.memory.semantic.get_head_hash()
 
     def handle_record_decision(self, request: RecordDecisionRequest) -> DecisionResponse:
-        if not self._check_auth(MCPRole.AGENT, "record_decision"):
-            return DecisionResponse(status="error", message="Permission denied")
+        if not self._check_auth("propose", "record_decision"):
+            return DecisionResponse(status="error", message="Permission denied: missing 'propose'")
         
         try:
             self._apply_cooldown()
@@ -78,8 +100,8 @@ class MCPServer:
             return DecisionResponse(status="error", message=str(e))
 
     def handle_supersede_decision(self, request: SupersedeDecisionRequest) -> DecisionResponse:
-        if not self._check_auth(MCPRole.AGENT, "supersede_decision"):
-            return DecisionResponse(status="error", message="Permission denied")
+        if not self._check_auth("supersede", "supersede_decision"):
+            return DecisionResponse(status="error", message="Permission denied: missing 'supersede'")
         
         # Isolation Rule Enforcement
         if self.default_role == MCPRole.AGENT:
@@ -108,6 +130,8 @@ class MCPServer:
             return DecisionResponse(status="error", message=str(e))
 
     def handle_search(self, request: SearchDecisionsRequest) -> SearchResponse:
+        if not self._check_auth("read", "search_decisions"):
+            return SearchResponse(status="error", message="Permission denied: missing 'read'")
         try:
             results = self.memory.search_decisions(request.query, limit=request.limit, mode=request.mode)
             self.audit.log_access(self.default_role.value, "search_decisions", {"query": request.query, "mode": request.mode}, True)
@@ -117,8 +141,8 @@ class MCPServer:
             return SearchResponse(status="error", message=str(e))
 
     def handle_accept_proposal(self, request: AcceptProposalRequest) -> BaseResponse:
-        if not self._check_auth(MCPRole.ADMIN, "accept_proposal"):
-            return BaseResponse(status="error", message="Security Violation: ADMIN required")
+        if not self._check_auth("accept", "accept_proposal"):
+            return BaseResponse(status="error", message="Security Violation: 'accept' capability required")
         try:
             self.memory.accept_proposal(request.proposal_id)
             commit_hash = self._get_commit_hash()
@@ -160,6 +184,8 @@ class MCPServer:
         @self.mcp.tool()
         def sync_git_history(repo_path: str = ".", limit: int = 20) -> str:
             """Syncs Git commit history into episodic memory."""
+            if not self._check_auth("sync", "sync_git_history"):
+                return SyncGitResponse(status="error", message="Permission denied: missing 'sync'").model_dump_json()
             count = self.memory.sync_git(repo_path=repo_path, limit=limit)
             return SyncGitResponse(status="success", indexed_commits=count).model_dump_json()
 
@@ -167,22 +193,23 @@ class MCPServer:
         self.mcp.run()
 
     @classmethod
-    def serve(cls, storage_path: str = ".agent_memory", server_name: str = "AgentMemory", role: str = "agent"):
+    def serve(cls, storage_path: str = ".agent_memory", server_name: str = "AgentMemory", 
+              role: str = "agent", capabilities: Optional[Dict[str, bool]] = None):
         from agent_memory_adapters.embeddings import MockEmbeddingProvider
         from agent_memory_core.core.schemas import TrustBoundary
         import sys
         
         mcp_role = MCPRole(role)
         
-        # Security Enforcement: Privileged roles require a secret token
-        if mcp_role in [MCPRole.AGENT, MCPRole.ADMIN]:
+        # Security Enforcement: Privileged roles require a secret token UNLESS explicit capabilities are set.
+        if not capabilities and mcp_role in [MCPRole.AGENT, MCPRole.ADMIN]:
             secret = os.environ.get("AGENT_MEMORY_SECRET")
             if not secret:
-                print(f"SECURITY ERROR: Role '{role}' requires AGENT_MEMORY_SECRET environment variable to be set.", file=sys.stderr)
+                print(f"SECURITY ERROR: Role '{role}' requires AGENT_MEMORY_SECRET environment variable or explicit capabilities.", file=sys.stderr)
                 print("Falling back to VIEWER role for safety.", file=sys.stderr)
                 mcp_role = MCPRole.VIEWER
         
         trust = TrustBoundary.HUMAN_ONLY if mcp_role == MCPRole.VIEWER else TrustBoundary.AGENT_WITH_INTENT
         memory = Memory(storage_path=storage_path, embedding_provider=MockEmbeddingProvider(), trust_boundary=trust)
-        server = cls(memory, server_name=server_name, default_role=mcp_role)
+        server = cls(memory, server_name=server_name, default_role=mcp_role, capabilities=capabilities)
         server.run()
