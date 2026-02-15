@@ -127,6 +127,23 @@ Inherits from `BaseResponse`.
 }
 ```
 
+## Search & Ranking Policy
+
+The Agent Memory system uses a **Graph-First Hybrid Search** approach. Vector similarity is used for candidate selection, while the Semantic Graph determines final ranking and visibility.
+
+### Guarantees
+1.  **Strict Mode Isolation**: In `strict` mode, non-active decisions are NEVER returned, regardless of their vector similarity.
+2.  **State-Aware Ranking**: Active decisions are boosted (+1.0 to score), ensuring they appear above superseded or draft versions of the same or similar knowledge.
+3.  **Automatic Deduplication**: If multiple versions of the same `target` (e.g., "database_policy") are matched, the system deduplicates them, returning only the most relevant active version.
+4.  **Authority Weighting**: Decisions created by humans (detected via the absence of the `[via MCP]` marker) receive an authority boost (+0.1).
+
+### Status Penalties (Balanced Mode)
+- `superseded`: Score × 0.2
+- `deprecated`: Score × 0.05
+- `draft`: Score × 0.4
+
+---
+
 ## Error Codes & Status
 - **Permission Denied**: Returned when a tool is called with insufficient RBAC role or missing `AGENT_MEMORY_SECRET`.
 - **Isolation Violation**: Returned when an Agent tries to supersede a Human-created decision.

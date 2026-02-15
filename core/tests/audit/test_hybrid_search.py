@@ -70,8 +70,11 @@ def test_search_mode_audit_includes_all(tmp_path):
     # В режиме 'strict' только 1 результат
     assert len(memory.search_decisions("policy", mode="strict")) == 1
     
-    # В режиме 'balanced' (по умолчанию) могут быть оба, если лимит позволяет
-    results = memory.search_decisions("policy", mode="balanced", limit=10)
+    # В режиме 'balanced' (по умолчанию) теперь тоже 1 из-за дедупликации
+    assert len(memory.search_decisions("policy", mode="balanced")) == 1
+
+    # В режиме 'audit' возвращаются оба
+    results = memory.search_decisions("policy", mode="audit", limit=10)
     assert len(results) == 2
     statuses = [r['status'] for r in results]
     assert "active" in statuses

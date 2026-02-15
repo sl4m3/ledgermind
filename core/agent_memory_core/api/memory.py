@@ -282,19 +282,25 @@ class Memory:
 
     def search_decisions(self, query: str, limit: int = 5, mode: str = "balanced") -> List[Dict[str, Any]]:
         """
-        Hybrid Search with state-aware ranking.
+        Hybrid Search with state-aware ranking and target-based deduplication.
+        
+        Guarantees:
+        1. 'strict' mode never returns non-active decisions.
+        2. 'balanced' mode prioritizes 'active' over 'superseded' regardless of vector score.
+        3. If multiple versions of the same target are found, only the most relevant/active is kept.
         """
         if not self.embedding_provider:
             return []
         
         try:
             query_emb = self.embedding_provider.get_embedding(query)
-            # Fetch more results to allow room for filtering and re-ranking
-            raw_results = self.vector.search(query_emb, limit=limit * 3)
+            # Fetch significantly more candidates to allow for filtering and state-based re-ranking
+            raw_results = self.vector.search(query_emb, limit=limit * 5)
             
-            scored_results = []
             from agent_memory_core.stores.semantic_store.loader import MemoryLoader
             
+            # Phase 1: Enrich candidates with semantic state
+            candidates = []
             for doc_id, vector_score, preview in raw_results:
                 try:
                     file_path = os.path.join(self.semantic.repo_path, doc_id)
@@ -303,39 +309,59 @@ class Memory:
                     with open(file_path, 'r', encoding='utf-8') as f:
                         data, _ = MemoryLoader.parse(f.read())
                         status = data.get("context", {}).get("status", "unknown")
-                        source = data.get("source", "unknown")
+                        target = data.get("context", {}).get("target", "unknown")
                         
-                        # Apply Search Policy
                         if mode == "strict" and status != "active":
                             continue
                         
-                        # --- Hybrid Ranking Logic ---
-                        # 1. Base Score from Vector
+                        # Phase 2: Scoring Policy
+                        # Base: vector similarity
                         final_score = vector_score
                         
-                        # 2. Status Penalty
-                        if status == "superseded": final_score *= 0.3
-                        elif status == "deprecated": final_score *= 0.1
-                        elif status == "draft": final_score *= 0.5
-                        
-                        # 3. Authority Bonus (Human > Agent)
-                        if "[via MCP]" not in str(data.get("context", {}).get("rationale", "")):
-                            final_score += 0.05
+                        # Rule: Active Status Priority
+                        if status == "active":
+                            final_score += 1.0 # Significant boost to keep active on top
+                        elif status == "superseded":
+                            final_score *= 0.2 # Heavy penalty for deprecated knowledge
+                        elif status == "deprecated":
+                            final_score *= 0.05
+                        elif status == "draft":
+                            final_score *= 0.4
                             
-                        scored_results.append({
+                        # Rule: Authority Bonus
+                        if "[via MCP]" not in str(data.get("context", {}).get("rationale", "")):
+                            final_score += 0.1
+                            
+                        candidates.append({
                             "id": doc_id,
                             "score": round(final_score, 4),
                             "status": status,
+                            "target": target,
                             "preview": preview,
                             "kind": data.get("kind"),
                             "is_active": (status == "active")
                         })
                 except Exception: continue
             
-            # Re-sort by adjusted score
-            scored_results.sort(key=lambda x: x['score'], reverse=True)
-            return scored_results[:limit]
+            # Phase 3: Target-based Deduplication (skip in 'audit' mode)
+            if mode == "audit":
+                final_list = candidates
+            else:
+                # If multiple versions for the same target exist, keep the one with the highest score
+                unique_results = {}
+                for c in sorted(candidates, key=lambda x: x['score'], reverse=True):
+                    target = c['target']
+                    if target not in unique_results:
+                        unique_results[target] = c
+                    else:
+                        # If we found an active version of a previously seen target, swap it
+                        if c['is_active'] and not unique_results[target]['is_active']:
+                            unique_results[target] = c
+                final_list = list(unique_results.values())
+            final_list.sort(key=lambda x: x['score'], reverse=True)
+            
+            return final_list[:limit]
         except Exception as e:
-            logger.error(f"Search failed: {e}")
+            logger.error(f"Hybrid Search failed: {e}")
             return []
 
