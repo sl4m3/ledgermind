@@ -19,6 +19,7 @@ from agent_memory_core.reasoning.conflict import ConflictEngine
 from agent_memory_core.reasoning.resolution import ResolutionEngine
 from agent_memory_core.reasoning.decay import DecayEngine, DecayReport
 from agent_memory_core.reasoning.reflection import ReflectionEngine
+from agent_memory_core.reasoning.git_indexer import GitIndexer
 
 class Memory:
     """
@@ -165,6 +166,13 @@ class Memory:
         Execute the reflection process to identify patterns and suggest improvements.
         """
         return self.reflection_engine.run_cycle()
+
+    def sync_git(self, repo_path: str = ".", limit: int = 20) -> int:
+        """
+        Syncs recent Git commits into episodic memory.
+        """
+        indexer = GitIndexer(repo_path)
+        return indexer.index_to_memory(self, limit=limit)
 
     def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> MemoryDecision:
         """
