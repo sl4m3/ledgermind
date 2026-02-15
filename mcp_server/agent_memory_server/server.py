@@ -5,6 +5,12 @@ import enum
 from mcp.server.fastmcp import FastMCP
 from agent_memory_core.api.memory import Memory
 from agent_memory_server.tools.environment import EnvironmentContext
+from agent_memory_server.contracts import (
+    RecordDecisionRequest, SupersedeDecisionRequest, 
+    SearchDecisionsRequest, AcceptProposalRequest,
+    DecisionResponse, SearchResponse, BaseResponse, SyncGitResponse,
+    MCP_API_VERSION
+)
 
 class MCPRole(str, enum.Enum):
     VIEWER = "viewer"
@@ -14,7 +20,8 @@ class MCPRole(str, enum.Enum):
 class MCPServer:
     def __init__(self, memory: Memory, server_name: str = "AgentMemory", default_role: MCPRole = MCPRole.AGENT):
         self.memory = memory
-        self.mcp = FastMCP(server_name)
+        # Добавляем версию API в название сервера для видимости клиентам
+        self.mcp = FastMCP(f"{server_name} (v{MCP_API_VERSION})")
         self.env_context = EnvironmentContext(memory)
         self.default_role = default_role
         self._register_tools()
@@ -23,43 +30,88 @@ class MCPServer:
         role_hierarchy = {MCPRole.VIEWER: 0, MCPRole.AGENT: 1, MCPRole.ADMIN: 2}
         return role_hierarchy.get(self.default_role, 0) >= role_hierarchy.get(required_role, 0)
 
-    # --- Tool Logic (Internal) ---
+    # --- Tool Handlers with Contract Validation ---
 
-    def handle_record_decision(self, **kwargs) -> str:
+    def handle_record_decision(self, request: RecordDecisionRequest) -> DecisionResponse:
         if not self._check_auth(MCPRole.AGENT):
-            return json.dumps({"status": "error", "message": "Permission denied"})
-        if len(kwargs.get('rationale', '').strip()) < 10:
-            return json.dumps({"status": "error", "message": "Rationale too short"})
+            return DecisionResponse(status="error", message="Permission denied")
         
-        result = self.memory.record_decision(
-            title=kwargs['title'], target=kwargs['target'],
-            rationale=f"[via MCP:{self.default_role.value}] {kwargs['rationale']}",
-            consequences=kwargs.get('consequences', [])
-        )
-        return json.dumps({"status": "success", "decision_id": result.metadata.get("file_id")}, ensure_ascii=False)
-
-    def handle_accept_proposal(self, proposal_id: str) -> str:
-        if not self._check_auth(MCPRole.ADMIN):
-            return json.dumps({"status": "error", "message": "Security Violation: ADMIN required"})
         try:
-            result = self.memory.accept_proposal(proposal_id)
-            return json.dumps({"status": "success", "message": "Accepted"}, ensure_ascii=False)
+            result = self.memory.record_decision(
+                title=request.title, 
+                target=request.target,
+                rationale=f"[via MCP:{self.default_role.value}] {request.rationale}",
+                consequences=request.consequences
+            )
+            return DecisionResponse(status="success", decision_id=result.metadata.get("file_id"))
         except Exception as e:
-            return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+            return DecisionResponse(status="error", message=str(e))
+
+    def handle_supersede_decision(self, request: SupersedeDecisionRequest) -> DecisionResponse:
+        if not self._check_auth(MCPRole.AGENT):
+            return DecisionResponse(status="error", message="Permission denied")
+        
+        try:
+            result = self.memory.supersede_decision(
+                title=request.title, target=request.target,
+                rationale=f"[via MCP:{self.default_role.value}] {request.rationale}",
+                old_decision_ids=request.old_decision_ids,
+                consequences=request.consequences
+            )
+            return DecisionResponse(status="success", decision_id=result.metadata.get("file_id"))
+        except Exception as e:
+            return DecisionResponse(status="error", message=str(e))
+
+    def handle_search(self, request: SearchDecisionsRequest) -> SearchResponse:
+        try:
+            results = self.memory.search_decisions(request.query, limit=request.limit)
+            return SearchResponse(status="success", results=results)
+        except Exception as e:
+            return SearchResponse(status="error", message=str(e))
+
+    def handle_accept_proposal(self, request: AcceptProposalRequest) -> BaseResponse:
+        if not self._check_auth(MCPRole.ADMIN):
+            return BaseResponse(status="error", message="Security Violation: ADMIN required")
+        try:
+            self.memory.accept_proposal(request.proposal_id)
+            return BaseResponse(status="success", message="Accepted")
+        except Exception as e:
+            return BaseResponse(status="error", message=str(e))
 
     def _register_tools(self):
+        """
+        Регистрация инструментов. FastMCP автоматически использует аннотации типов 
+        Pydantic моделей для генерации JSON-схем инструментов.
+        """
         @self.mcp.tool()
         def record_decision(title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> str:
-            return self.handle_record_decision(title=title, target=target, rationale=rationale, consequences=consequences)
+            """Records a strategic decision into semantic memory."""
+            req = RecordDecisionRequest(title=title, target=target, rationale=rationale, consequences=consequences or [])
+            return self.handle_record_decision(req).model_dump_json()
 
         @self.mcp.tool()
-        def accept_proposal(proposal_id: str) -> str:
-            return self.handle_accept_proposal(proposal_id)
+        def supersede_decision(title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None) -> str:
+            """Replaces old decisions with a new one."""
+            req = SupersedeDecisionRequest(title=title, target=target, rationale=rationale, old_decision_ids=old_decision_ids, consequences=consequences or [])
+            return self.handle_supersede_decision(req).model_dump_json()
 
         @self.mcp.tool()
         def search_decisions(query: str, limit: int = 5) -> str:
-            results = self.memory.search_decisions(query, limit=limit)
-            return json.dumps({"status": "success", "results": results}, ensure_ascii=False)
+            """Semantic search for active decisions and rules."""
+            req = SearchDecisionsRequest(query=query, limit=limit)
+            return self.handle_search(req).model_dump_json()
+
+        @self.mcp.tool()
+        def accept_proposal(proposal_id: str) -> str:
+            """Converts a draft proposal into an active decision."""
+            req = AcceptProposalRequest(proposal_id=proposal_id)
+            return self.handle_accept_proposal(req).model_dump_json()
+
+        @self.mcp.tool()
+        def sync_git_history(repo_path: str = ".", limit: int = 20) -> str:
+            """Syncs Git commit history into episodic memory."""
+            count = self.memory.sync_git(repo_path=repo_path, limit=limit)
+            return SyncGitResponse(status="success", indexed_commits=count).model_dump_json()
 
     def run(self):
         self.mcp.run()
