@@ -22,6 +22,10 @@ class SupersedeDecisionRequest(BaseModel):
 class SearchDecisionsRequest(BaseModel):
     query: str = Field(..., min_length=1)
     limit: int = Field(default=5, ge=1, le=20)
+    mode: Literal["strict", "balanced", "audit"] = Field(
+        default="balanced", 
+        description="strict: only active; balanced: active preferred; audit: all history"
+    )
 
 class AcceptProposalRequest(BaseModel):
     proposal_id: str = Field(..., description="The filename of the proposal to accept")
