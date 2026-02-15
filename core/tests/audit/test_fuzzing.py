@@ -9,7 +9,7 @@ def test_random_supersede_chain(temp_storage):
     target = "evolution_target"
     
     # Create initial
-    memory.record_decision(title="v0", target=target, rationale="Start")
+    memory.record_decision(title="v0", target=target, rationale="Start of the evolution chain")
     
     for i in range(1, 6): # Reduced to 5 for speed, but with sleep
         time.sleep(1.1)
@@ -27,7 +27,7 @@ def test_random_supersede_chain(temp_storage):
         res = memory.supersede_decision(
             title=f"v{i}", 
             target=target, 
-            rationale=f"Update {i}", 
+            rationale=f"Update version {i} for evolution chain", 
             old_decision_ids=[active_fid]
         )
         assert res.should_persist is True

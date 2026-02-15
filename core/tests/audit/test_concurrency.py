@@ -63,7 +63,7 @@ def test_supersede_consistency_under_load(tmp_path):
     target = "consistent_target"
     
     # Создаем начальное состояние
-    memory.record_decision("v0", target, "Initial")
+    memory.record_decision("v0", target, "Initial version of decision")
     
     def writer_loop(path, stop_ev):
         m = Memory(storage_path=path)

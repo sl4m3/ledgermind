@@ -45,12 +45,12 @@ def test_isolation_violation_link_to_deleted(temp_storage):
     """Verify that deleting a file manually breaks integrity if links exist."""
     memory = Memory(storage_path=temp_storage)
     # Create two decisions with link
-    res1 = memory.record_decision(title="D1", target="T1", rationale="R1")
+    res1 = memory.record_decision(title="D1", target="TargetArea", rationale="Rationale for first decision")
     fid1 = memory.get_decisions()[0]
     
     import time
     time.sleep(1.1)
-    memory.supersede_decision(title="D2", target="T1", rationale="R2", old_decision_ids=[fid1])
+    memory.supersede_decision(title="D2", target="TargetArea", rationale="Rationale for second decision that supersedes the first", old_decision_ids=[fid1])
     
     # Now manually delete fid1 (the parent)
     os.remove(os.path.join(temp_storage, "semantic", fid1))

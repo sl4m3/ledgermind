@@ -17,11 +17,11 @@ def test_hybrid_search_policy(tmp_path):
     )
     
     # Recording first decision
-    memory.record_decision("Version 1", "policy", "Old rule")
+    memory.record_decision("Version 1", "policy_target", "Old rule rationale string")
     old_id = memory.get_decisions()[0]
     
     # Superseding with second decision
-    memory.supersede_decision("Version 2", "policy", "New rule", [old_id])
+    memory.supersede_decision("Version 2", "policy_target", "New rule rationale string is long enough", [old_id])
     
     # Searching for 'rule' in strict mode
     results = memory.search_decisions("rule", limit=10, mode="strict")
@@ -63,9 +63,9 @@ def test_search_mode_audit_includes_all(tmp_path):
     storage_path = str(tmp_path / "memory")
     memory = Memory(storage_path=storage_path, embedding_provider=SimpleMockProvider())
     
-    memory.record_decision("Old Policy", "policy", "Old")
+    memory.record_decision("Old Policy", "policy_target", "Old rationale string")
     old_id = memory.get_decisions()[0]
-    memory.supersede_decision("New Policy", "policy", "New", [old_id])
+    memory.supersede_decision("New Policy", "policy_target", "New rationale string for audit", [old_id])
     
     # В режиме 'strict' только 1 результат
     assert len(memory.search_decisions("policy", mode="strict")) == 1

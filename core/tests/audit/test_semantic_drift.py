@@ -31,10 +31,10 @@ def test_semantic_search_stability_under_drift(temp_storage):
     
     # Записываем набор разнородных решений
     decisions = [
-        ("Database migration to PostgreSQL", "infra", "Better scalability"),
-        ("Use React for frontend", "ui", "Component reuse"),
+        ("Database migration to PostgreSQL", "infrastructure", "Better scalability"),
+        ("Use React for frontend", "user_interface", "Component reuse"),
         ("Implement JWT auth", "security", "Standard approach"),
-        ("Add prometheus monitoring", "ops", "Visibility")
+        ("Add prometheus monitoring", "operations", "Visibility")
     ]
     
     for title, target, rationale in decisions:

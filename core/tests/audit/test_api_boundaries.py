@@ -3,16 +3,17 @@ import os
 from agent_memory_core.api.memory import Memory
 from agent_memory_core.core.schemas import TrustBoundary
 
+from agent_memory_core.core.exceptions import InvariantViolation
+
 def test_trust_boundary_human_only(temp_storage):
     """Verify that AGENT cannot write decisions in HUMAN_ONLY mode."""
     memory = Memory(storage_path=temp_storage, trust_boundary=TrustBoundary.HUMAN_ONLY)
     
     # Agent recording decision
-    res = memory.record_decision(title="Autonomous Choice", target="security", rationale="Because I can")
+    with pytest.raises(InvariantViolation) as excinfo:
+        memory.record_decision(title="Autonomous Choice", target="security", rationale="Because I can")
     
-    # Rejected by Trust Boundary
-    assert res.should_persist is False
-    assert "Trust Boundary Violation" in res.reason
+    assert "Trust Boundary Violation" in str(excinfo.value)
     
     # Ensure nothing was saved to semantic
     sem_path = os.path.join(temp_storage, "semantic")
