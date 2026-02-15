@@ -62,8 +62,8 @@ class SemanticStore:
             for f in untracked:
                 logger.info(f"Recovering untracked file: {f}")
                 try:
-                    subprocess.run(["git", "add", f], cwd=self.repo_path, check=True)
-                    subprocess.run(["git", "commit", "-m", f"Recovery: auto-fix untracked file {f}"], cwd=self.repo_path, check=True)
+                    subprocess.run(["git", "add", "--", f], cwd=self.repo_path, check=True)
+                    subprocess.run(["git", "commit", "-m", f"Recovery: auto-fix untracked file {f}", "--"], cwd=self.repo_path, check=True)
                 except subprocess.CalledProcessError as e:
                     logger.error(f"Failed to recover {f}: {e}")
 
@@ -127,8 +127,8 @@ class SemanticStore:
                 
             logger.info(f"Saving semantic event to {filename}", extra={"kind": event.kind, "source": event.source})
             
-            subprocess.run(["git", "add", filename], cwd=self.repo_path, check=True, capture_output=True)
-            subprocess.run(["git", "commit", "-m", f"Add {event.kind}: {event.content[:50]}"], 
+            subprocess.run(["git", "add", "--", filename], cwd=self.repo_path, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", f"Add {event.kind}: {event.content[:50]}", "--"], 
                            cwd=self.repo_path, check=True, capture_output=True)
             return filename
         finally:
@@ -162,8 +162,8 @@ class SemanticStore:
 
             logger.info(f"Updating decision {filename}: {commit_msg}")
             
-            subprocess.run(["git", "add", filename], cwd=self.repo_path, check=True, capture_output=True)
-            subprocess.run(["git", "commit", "-m", commit_msg], cwd=self.repo_path, check=True, capture_output=True)
+            subprocess.run(["git", "add", "--", filename], cwd=self.repo_path, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", commit_msg, "--"], cwd=self.repo_path, check=True, capture_output=True)
         finally:
             self._release_lock()
 

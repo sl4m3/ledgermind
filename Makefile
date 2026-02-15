@@ -9,7 +9,8 @@ install-multi:
 	pip install -e ./multi
 
 test:
-	pytest core/tests multi/tests
+	cd core && pytest tests
+	cd multi && pytest tests
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +

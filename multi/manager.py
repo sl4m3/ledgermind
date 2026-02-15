@@ -1,11 +1,7 @@
 from typing import Any, Dict, List, Optional
-from .schema import ToolSchemaGenerator
-
-# Попробуем импортировать Memory для типизации, но не падаем, если пакета еще нет в среде
-try:
-    from api.memory import Memory
-except ImportError:
-    Memory = Any
+from schema import ToolSchemaGenerator
+from api.memory import Memory
+from core.schemas import KIND_DECISION
 
 class MemoryMultiManager:
     """Менеджер для работы с памятью в мульти-модельной среде."""
@@ -35,11 +31,7 @@ class MemoryMultiManager:
 
         try:
             if tool_name == "record_decision":
-                required = {"title", "target", "rationale"}
-                missing = required - set(arguments.keys())
-                if missing:
-                    return {"status": "error", "message": f"Missing required parameters: {missing}"}
-                
+                # record_decision ожидает именованные аргументы, совпадающие со схемой
                 result = self.core.record_decision(**arguments)
                 return {
                     "status": "success",
@@ -48,11 +40,6 @@ class MemoryMultiManager:
                 }
             
             elif tool_name == "supersede_decision":
-                required = {"title", "target", "rationale", "old_decision_ids"}
-                missing = required - set(arguments.keys())
-                if missing:
-                    return {"status": "error", "message": f"Missing required parameters: {missing}"}
-
                 result = self.core.supersede_decision(**arguments)
                 return {
                     "status": "success",
@@ -62,6 +49,7 @@ class MemoryMultiManager:
             return {"status": "error", "message": f"Unknown tool: {tool_name}"}
         
         except TypeError as e:
-            return {"status": "error", "message": f"Invalid argument types: {str(e)}"}
+            # Это произойдет, если LLM передаст неверные аргументы, которые не примет метод ядра
+            return {"status": "error", "message": f"Invalid arguments: {str(e)}"}
         except Exception as e:
             return {"status": "error", "message": f"Unexpected error: {str(e)}"}
