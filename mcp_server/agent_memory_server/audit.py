@@ -20,10 +20,11 @@ class AuditLogger:
 
     def log_access(self, role: str, tool: str, params: dict, success: bool, error: str = None):
         status = "ALLOWED" if success else "DENIED"
-        # Mask sensitive params if needed (e.g. huge vectors)
-        sanitized_params = {k: v for k, v in params.items() if k != "old_decision_ids"} 
+        pid = os.getpid()
+        # Mask sensitive params or large payloads
+        sanitized_params = {k: v for k, v in params.items() if k not in ["old_decision_ids", "embedding"]} 
         
-        msg = f"Role: {role} | Tool: {tool} | Status: {status} | Params: {sanitized_params}"
+        msg = f"PID: {pid} | Role: {role} | Tool: {tool} | Status: {status} | Params: {sanitized_params}"
         if error:
             msg += f" | Error: {error}"
             
