@@ -182,7 +182,7 @@ class MCPServer:
                 print("Falling back to VIEWER role for safety.", file=sys.stderr)
                 mcp_role = MCPRole.VIEWER
         
-        trust = TrustBoundary.AGENT_WITH_INTENT if mcp_role != MCPRole.ADMIN else TrustBoundary.HUMAN_ONLY
+        trust = TrustBoundary.HUMAN_ONLY if mcp_role == MCPRole.VIEWER else TrustBoundary.AGENT_WITH_INTENT
         memory = Memory(storage_path=storage_path, embedding_provider=MockEmbeddingProvider(), trust_boundary=trust)
         server = cls(memory, server_name=server_name, default_role=mcp_role)
         server.run()
