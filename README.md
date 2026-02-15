@@ -6,8 +6,8 @@ A modular, secure, and auditable memory ecosystem for autonomous agents. Designe
 
 The system is split into three distinct layers to ensure a clean boundary between domain logic and infrastructure:
 
-1.  **[Core](./core)** (`agent-memory-core` v1.8.0): The domain heart. Handles storage (Semantic, Episodic, Vector), Competitive Reasoning (Reflection v3, Distillation), and Transactional Integrity.
-2.  **[MCP Server](./mcp_server)** (`agent-memory-server` v1.3.0): The enforcement layer and transport. Implements RBAC, Isolation Rules, and strict API contracts.
+1.  **[Core](./core)** (`agent-memory-core` v1.10.0): The domain heart. Handles storage (Semantic, Episodic, Vector), Competitive Reasoning (Reflection v4, Distillation), and Transactional Integrity.
+2.  **[MCP Server](./mcp_server)** (`agent-memory-server` v1.4.0): The enforcement layer and transport. Implements RBAC, Isolation Rules, and strict API contracts.
 3.  **[Adapters](./adapters)** (`agent-memory-adapters` v1.0.0): LLM-specific clients (OpenAI, Anthropic, Gemini, etc.) that connect to the MCP Server.
 
 ## 🛡 Security & Governance
