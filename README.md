@@ -6,7 +6,7 @@ A modular, secure, and auditable memory ecosystem for autonomous agents. Designe
 
 The system is split into three distinct layers to ensure a clean boundary between domain logic and infrastructure:
 
-1.  **[Core](./core)** (`agent-memory-core` v1.15.0): The domain heart. Handles storage (Semantic, Episodic, Vector), Competitive Reasoning (Reflection v4, Distillation), and Transactional Integrity.
+1.  **[Core](./core)** (`agent-memory-core` v1.16.0): The domain heart. Handles storage (**Hybrid Semantic Store: SQLite + Git**, Episodic, Vector), Competitive Reasoning (Reflection v4, Distillation), and Transactional Integrity.
 2.  **[MCP Server](./mcp_server)** (`agent-memory-server` v1.8.0): The enforcement layer and transport. Implements RBAC, Isolation Rules, and a **formal industrial-grade API specification**.
 3.  **[Adapters](./adapters)** (`agent-memory-adapters` v1.1.0): LLM-specific clients (OpenAI, Anthropic, Gemini, etc.) that connect to the MCP Server.
 
@@ -17,10 +17,13 @@ As of v1.12.0, the system enforces a strict separation between transport and log
 - **Client-Side Proxy**: The `MCPMemoryProxy` provides a seamless interface for adapters to perform RPC calls to the remote memory server.
 - **Transport Agnostic**: The system supports any MCP-compatible transport (stdio, SSE, etc.), enabling distributed memory setups.
 
+## 🛡 Security & Governance
+
 Unlike traditional "store-all" memories, this system enforces strict rules:
 - **Process Invariants**: Protects against panic-decisions via Review Windows and Evidence Thresholds.
 - **Authority Model**: RBAC (viewer/agent/admin) ensures only authorized entities can promote hypotheses to truths.
-- **High-Concurrency Semantic Store**: Git-backed storage with OS-level locking, atomic commit guards, and intelligent conflict resolution (supporting 15+ retries with exponential backoff).
+- **Hybrid Semantic Store**: High-performance metadata indexing in SQLite combined with Git-backed cold storage for immutable audit logs.
+- **High-Concurrency Support**: Git-backed storage with OS-level locking, atomic commit guards, and intelligent conflict resolution (supporting 15+ retries with exponential backoff).
 - **Falsifiable Reflection**: Prevents self-confirmation loops by penalizing hypotheses with negative evidence.
 
 ## 🧪 Testing & Reliability (New in v1.11.0)

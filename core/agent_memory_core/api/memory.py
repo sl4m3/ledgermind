@@ -102,21 +102,27 @@ class Memory:
             elif decision.store_type == "semantic":
                 # Use Transaction for atomic save + status updates
                 with self.semantic.transaction():
-                    # Ensure bidirectional links in context before saving
+                    # 1. Update back-links and deactivate old versions BEFORE saving new one
+                    # to satisfy SQLite UNIQUE constraint on active targets.
+                    if intent and intent.resolution_type == "supersede":
+                        for old_id in intent.target_decision_ids:
+                            # We can't know new_fid yet, so we do it in two steps 
+                            # or just update status to 'superseded' first.
+                            self.semantic.update_decision(
+                                old_id, 
+                                {"status": "superseded"},
+                                commit_msg=f"Deactivating for transition"
+                            )
+
+                    # 2. Prepare context for new decision
                     if intent and intent.resolution_type == "supersede" and isinstance(event.context, DecisionContent):
                         event.context.supersedes = intent.target_decision_ids
                     
+                    # 3. Save new decision (this updates SQLite and Git)
                     new_fid = self.semantic.save(event)
                     decision.metadata["file_id"] = new_fid
                     
-                    # Update vector index if provider is available
-                    if self.embedding_provider:
-                        try:
-                            emb = self.embedding_provider.get_embedding(f"{event.content} {getattr(event.context, 'rationale', '')}")
-                            self.vector.update_index(new_fid, emb, event.content)
-                        except Exception as e:
-                            logger.error(f"Failed to update vector index for {new_fid}: {e}")
-
+                    # 4. Now that we have new_fid, update back-links properly
                     if intent and intent.resolution_type == "supersede":
                         for old_id in intent.target_decision_ids:
                             self.semantic.update_decision(
@@ -124,6 +130,14 @@ class Memory:
                                 {"status": "superseded", "superseded_by": new_fid},
                                 commit_msg=f"Superseded by {new_fid}"
                             )
+
+                    # 5. Update vector index if provider is available
+                    if self.embedding_provider:
+                        try:
+                            emb = self.embedding_provider.get_embedding(f"{event.content} {getattr(event.context, 'rationale', '')}")
+                            self.vector.update_index(new_fid, emb, event.content)
+                        except Exception as e:
+                            logger.error(f"Failed to update vector index for {new_fid}: {e}")
                 
                 # Immortal Link (after transaction success)
                 self.episodic.append(event, linked_id=new_fid)
