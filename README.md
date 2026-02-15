@@ -6,7 +6,7 @@ A modular, secure, and auditable memory ecosystem for autonomous agents. Designe
 
 The system is split into three distinct layers to ensure a clean boundary between domain logic and infrastructure:
 
-1.  **[Core](./core)** (`agent-memory-core` v1.11.0): The domain heart. Handles storage (Semantic, Episodic, Vector), Competitive Reasoning (Reflection v4, Distillation), and Transactional Integrity.
+1.  **[Core](./core)** (`agent-memory-core` v1.14.0): The domain heart. Handles storage (Semantic, Episodic, Vector), Competitive Reasoning (Reflection v4, Distillation), and Transactional Integrity.
 2.  **[MCP Server](./mcp_server)** (`agent-memory-server` v1.6.0): The enforcement layer and transport. Implements RBAC, Isolation Rules, and strict API contracts.
 3.  **[Adapters](./adapters)** (`agent-memory-adapters` v1.1.0): LLM-specific clients (OpenAI, Anthropic, Gemini, etc.) that connect to the MCP Server.
 
@@ -68,4 +68,4 @@ async def main():
 ## 📜 Key Features
 - **Git History Indexing**: Learns from human code commits.
 - **Trajectory Distillation**: Turns successful episode sequences into SOPs (Standard Operating Procedures).
-- **Hybrid Search**: Cross-references vector similarity with Graph truth (hides superseded knowledge).
+- **Graph-First Hybrid Search**: Cross-references vector similarity with Graph truth. Guaranteed to prioritize active decisions and deduplicate by target.
