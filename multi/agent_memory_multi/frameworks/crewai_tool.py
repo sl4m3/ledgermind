@@ -9,7 +9,7 @@ except ImportError:
     CREWAI_AVAILABLE = False
 
 if TYPE_CHECKING:
-    from manager import MemoryMultiManager
+    from agent_memory_multi.manager import MemoryMultiManager
 
 # Используем те же схемы Pydantic, что и для LangChain
 from .langchain_tool import RecordDecisionInput, SupersedeDecisionInput

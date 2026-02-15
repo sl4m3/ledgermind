@@ -2,8 +2,8 @@ import pytest
 import os
 import shutil
 import time
-from api.memory import Memory
-from core.schemas import TrustBoundary, MemoryEvent
+from agent_memory_core.api.memory import Memory
+from agent_memory_core.core.schemas import TrustBoundary, MemoryEvent
 from pydantic import ValidationError
 
 def test_replay_determinism(temp_storage):

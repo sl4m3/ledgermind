@@ -1,9 +1,9 @@
 import pytest
 import os
-from api.memory import Memory
-from stores.semantic_store.integrity import IntegrityViolation
-from stores.semantic_store.transitions import TransitionError
-from stores.semantic_store.loader import MemoryLoader
+from agent_memory_core.api.memory import Memory
+from agent_memory_core.stores.semantic_store.integrity import IntegrityViolation
+from agent_memory_core.stores.semantic_store.transitions import TransitionError
+from agent_memory_core.stores.semantic_store.loader import MemoryLoader
 from datetime import datetime
 
 def test_S1_multiple_active_targets(temp_storage):

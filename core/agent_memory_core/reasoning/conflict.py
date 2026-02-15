@@ -1,7 +1,7 @@
 from typing import List, Optional
 import os
-from core.schemas import MemoryEvent, KIND_DECISION
-from stores.semantic_store.loader import MemoryLoader
+from agent_memory_core.core.schemas import MemoryEvent, KIND_DECISION
+from agent_memory_core.stores.semantic_store.loader import MemoryLoader
 
 class ConflictEngine:
     """

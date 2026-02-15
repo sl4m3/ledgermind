@@ -1,8 +1,8 @@
 import pytest
 import os
 import subprocess
-from api.memory import Memory
-from stores.semantic_store.integrity import IntegrityViolation
+from agent_memory_core.api.memory import Memory
+from agent_memory_core.stores.semantic_store.integrity import IntegrityViolation
 
 def test_recovery_untracked_file(temp_storage):
     """Verify that untracked files (left after a crash) are recovered on next start."""

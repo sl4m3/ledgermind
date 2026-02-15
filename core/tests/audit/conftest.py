@@ -1,7 +1,7 @@
 import pytest
 import shutil
 import os
-from api.memory import Memory
+from agent_memory_core.api.memory import Memory
 
 @pytest.fixture
 def temp_storage(tmp_path):

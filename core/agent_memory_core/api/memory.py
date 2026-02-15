@@ -2,19 +2,19 @@ import os
 import yaml
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
-from core.router import MemoryRouter
-from core.policy import MemoryPolicy
-from core.schemas import (
+from agent_memory_core.core.router import MemoryRouter
+from agent_memory_core.core.policy import MemoryPolicy
+from agent_memory_core.core.schemas import (
     MemoryEvent, MemoryDecision, ResolutionIntent, TrustBoundary, 
     DecisionContent, SEMANTIC_KINDS, KIND_DECISION, EmbeddingProvider
 )
-from stores.episodic import EpisodicStore
-from stores.semantic import SemanticStore
-from stores.vector import VectorStore
-from reasoning.conflict import ConflictEngine
-from reasoning.resolution import ResolutionEngine
-from reasoning.decay import DecayEngine, DecayReport
-from reasoning.reflection import ReflectionEngine
+from agent_memory_core.stores.episodic import EpisodicStore
+from agent_memory_core.stores.semantic import SemanticStore
+from agent_memory_core.stores.vector import VectorStore
+from agent_memory_core.reasoning.conflict import ConflictEngine
+from agent_memory_core.reasoning.resolution import ResolutionEngine
+from agent_memory_core.reasoning.decay import DecayEngine, DecayReport
+from agent_memory_core.reasoning.reflection import ReflectionEngine
 
 class Memory:
     """
@@ -213,7 +213,7 @@ class Memory:
         """
         Converts a proposal into an active semantic decision.
         """
-        from stores.semantic_store.loader import MemoryLoader
+        from agent_memory_core.stores.semantic_store.loader import MemoryLoader
         
         file_path = os.path.join(self.semantic.repo_path, proposal_id)
         if not os.path.exists(file_path):

@@ -7,8 +7,8 @@ The primary interface for the memory system.
 ### Initialization
 
 ```python
-from api.memory import Memory
-from core.schemas import TrustBoundary
+from agent_memory_core.api.memory import Memory
+from agent_memory_core.core.schemas import TrustBoundary
 
 memory = Memory(
     storage_path="./memory", 

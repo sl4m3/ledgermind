@@ -1,7 +1,7 @@
 import pytest
 import os
 import sqlite3
-from core.schemas import MemoryEvent
+from agent_memory_core.core.schemas import MemoryEvent
 
 def test_D3_semantic_immunity(memory, temp_storage):
     """D3: Events linked to semantic decisions are NEVER pruned/archived."""

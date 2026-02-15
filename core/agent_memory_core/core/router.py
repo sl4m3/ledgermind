@@ -1,7 +1,7 @@
 from typing import Optional, List, Any
 from .schemas import MemoryEvent, MemoryDecision, ResolutionIntent, SEMANTIC_KINDS, KIND_DECISION
-from reasoning.conflict import ConflictEngine
-from reasoning.resolution import ResolutionEngine
+from agent_memory_core.reasoning.conflict import ConflictEngine
+from agent_memory_core.reasoning.resolution import ResolutionEngine
 
 class MemoryRouter:
     """

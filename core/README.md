@@ -1,4 +1,4 @@
-# agent-memory-core v1.3.1-evolution
+# agent-memory-core v1.3.2
 
 Универсальный модуль долгосрочной памяти для ИИ-агентов с гарантированной целостностью.
 
@@ -28,7 +28,7 @@
 ## ⚡ Быстрый старт
 
 ```python
-from api.memory import Memory
+from agent_memory_core.api.memory import Memory
 
 memory = Memory(storage_path="./my_agent_memory")
 

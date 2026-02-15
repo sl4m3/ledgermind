@@ -4,10 +4,10 @@ import yaml
 import time
 import logging
 from typing import List, Optional, Any
-from core.schemas import MemoryEvent, TrustBoundary
-from stores.semantic_store.integrity import IntegrityChecker, IntegrityViolation
-from stores.semantic_store.transitions import TransitionValidator
-from stores.semantic_store.loader import MemoryLoader
+from agent_memory_core.core.schemas import MemoryEvent, TrustBoundary
+from agent_memory_core.stores.semantic_store.integrity import IntegrityChecker, IntegrityViolation
+from agent_memory_core.stores.semantic_store.transitions import TransitionValidator
+from agent_memory_core.stores.semantic_store.loader import MemoryLoader
 
 # Setup structured logging
 logger = logging.getLogger("agent-memory-core.semantic")

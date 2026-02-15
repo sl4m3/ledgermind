@@ -4,7 +4,7 @@ import os
 # Добавляем путь к core, чтобы тесты multi могли найти api.memory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../core")))
 
-from manager import MemoryMultiManager
+from agent_memory_multi.manager import MemoryMultiManager
 from unittest.mock import MagicMock
 
 def test_manager_init():

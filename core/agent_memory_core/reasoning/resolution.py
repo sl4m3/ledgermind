@@ -1,5 +1,5 @@
 from typing import List, Optional, Set
-from core.schemas import ResolutionIntent
+from agent_memory_core.core.schemas import ResolutionIntent
 
 class ResolutionEngine:
     def __init__(self, semantic_store_path: str):

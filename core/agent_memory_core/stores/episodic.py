@@ -1,7 +1,7 @@
 import sqlite3
 import json
 from typing import List, Optional, Dict, Any
-from core.schemas import MemoryEvent
+from agent_memory_core.core.schemas import MemoryEvent
 
 class EpisodicStore:
     def __init__(self, db_path: str):

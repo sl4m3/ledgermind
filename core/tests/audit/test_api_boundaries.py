@@ -1,7 +1,7 @@
 import pytest
 import os
-from api.memory import Memory
-from core.schemas import TrustBoundary
+from agent_memory_core.api.memory import Memory
+from agent_memory_core.core.schemas import TrustBoundary
 
 def test_trust_boundary_human_only(temp_storage):
     """Verify that AGENT cannot write decisions in HUMAN_ONLY mode."""

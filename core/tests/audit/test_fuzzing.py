@@ -1,7 +1,7 @@
 import os
 import pytest
 import time
-from api.memory import Memory
+from agent_memory_core.api.memory import Memory
 
 def test_random_supersede_chain(temp_storage):
     """Fuzzing-like test: long chain of supersedes."""

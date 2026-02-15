@@ -12,18 +12,18 @@
 
 ## 📂 Структура проекта
 
-- `adapters/`: Адаптеры для API провайдеров и MCP сервер.
-- `frameworks/`: Обертки для AI-фреймворков и сборщик контекста окружения.
-- `embeddings.py`: Логика работы с векторными вложениями и Fallback-система.
-- `manager.py`: Центральный контроллер `MemoryMultiManager`.
+- `agent_memory_multi/adapters/`: Адаптеры для API провайдеров и MCP сервер.
+- `agent_memory_multi/frameworks/`: Обертки для AI-фреймворков и сборщик контекста окружения.
+- `agent_memory_multi/embeddings.py`: Логика работы с векторными вложениями и Fallback-система.
+- `agent_memory_multi/manager.py`: Центральный контроллер `MemoryMultiManager`.
 
 ## 🛠 Использование
 
 ### Запуск MCP Сервера
 ```python
-from manager import MemoryMultiManager
-from adapters import MCPMemoryAdapter
-from api.memory import Memory
+from agent_memory_multi.manager import MemoryMultiManager
+from agent_memory_multi.adapters import MCPMemoryAdapter
+from agent_memory_core.api.memory import Memory
 
 core = Memory("./storage")
 manager = MemoryMultiManager(core)
@@ -41,7 +41,7 @@ manager.handle_tool_call("capture_context", {"label": "before_migration"})
 
 ### Настройка Fallback Embeddings
 ```python
-from embeddings import FallbackEmbeddingProvider, OpenAIEmbeddingProvider, OllamaEmbeddingProvider
+from agent_memory_multi.embeddings import FallbackEmbeddingProvider, OpenAIEmbeddingProvider, OllamaEmbeddingProvider
 
 provider = FallbackEmbeddingProvider([
     OpenAIEmbeddingProvider(),

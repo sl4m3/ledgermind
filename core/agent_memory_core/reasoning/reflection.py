@@ -2,9 +2,9 @@ import logging
 import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
-from core.schemas import MemoryEvent, KIND_PROPOSAL, ProposalContent, ProposalStatus, KIND_RESULT, KIND_ERROR
-from stores.episodic import EpisodicStore
-from stores.semantic import SemanticStore
+from agent_memory_core.core.schemas import MemoryEvent, KIND_PROPOSAL, ProposalContent, ProposalStatus, KIND_RESULT, KIND_ERROR
+from agent_memory_core.stores.episodic import EpisodicStore
+from agent_memory_core.stores.semantic import SemanticStore
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ class ReflectionEngine:
     def _get_all_draft_proposals(self) -> Dict[str, Dict[str, Any]]:
         """Загружает все текущие черновики из семантической памяти."""
         drafts = {}
-        from stores.semantic_store.loader import MemoryLoader
+        from agent_memory_core.stores.semantic_store.loader import MemoryLoader
         for fid in self.semantic.list_decisions():
             try:
                 with open(os.path.join(self.semantic.repo_path, fid), 'r') as f:
