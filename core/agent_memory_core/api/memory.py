@@ -1,7 +1,11 @@
 import os
 import yaml
+import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
+
+logger = logging.getLogger(__name__)
+
 from agent_memory_core.core.router import MemoryRouter
 from agent_memory_core.core.policy import MemoryPolicy
 from agent_memory_core.core.schemas import (

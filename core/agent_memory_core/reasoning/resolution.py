@@ -16,5 +16,7 @@ class ResolutionEngine:
         addressed = set(intent.target_decision_ids)
         actual = set(conflict_files)
         
-        # Intent must address at least all actual conflicts
+        # Intent must address at least all actual conflicts.
+        # Logical check: actual ⊆ addressed.
+        # This means all conflict files MUST be present in target_decision_ids.
         return actual.issubset(addressed)
