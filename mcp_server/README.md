@@ -1,4 +1,4 @@
-# Agent Memory Server v1.2.0
+# Agent Memory Server v1.3.0
 
 Dedicated MCP (Model Context Protocol) Server for the Agent Memory System. Acts as the primary enforcement layer and provides a structured API contract for memory operations.
 
@@ -11,8 +11,17 @@ The server implements Role-Based Access Control to ensure memory integrity:
 | Role | Permissions | Description |
 | :--- | :--- | :--- |
 | `viewer` | Read-only | Can search and list decisions. Cannot write anything. |
-| `agent` | Restricted Write | Can record decisions and create proposals. Cannot accept proposals or override Admin decisions. |
+| `agent` | Restricted Write | Can record decisions and create proposals. **Cannot** accept proposals or override Admin/Human decisions. |
 | `admin` | Full Access | Complete control, including `accept_proposal` and configuration changes. |
+
+## 🛡 Security & Hardening (Threat Model)
+
+The server is designed to withstand malicious or erroneous client behavior:
+
+- **Isolation Rule**: Clients with the `agent` role are strictly forbidden from superseding decisions created by humans.
+- **Rate Limiting**: Integrated cooldown mechanism (2s) to prevent resource exhaustion and Git index flooding.
+- **Contract-First Validation**: All incoming data is validated against strict Pydantic schemas.
+- **Traceability**: Every record is tagged with the source role (e.g., `[via MCP:agent]`).
 
 ## 📜 API Contract (v1.0.0)
 
@@ -23,26 +32,19 @@ Every tool call is validated against strict Pydantic schemas. Responses are alwa
 #### 1. `record_decision`
 - **Request:** `RecordDecisionRequest` (title, target, rationale, consequences)
 - **Validation:** `rationale` must be at least 10 characters.
-- **Response:** `DecisionResponse` (status, decision_id, message)
+- **Enforcement**: Role `agent` or `admin`.
 
 #### 2. `supersede_decision`
 - **Request:** `SupersedeDecisionRequest` (title, target, rationale, old_decision_ids, consequences)
-- **Validation:** `rationale` must be at least 15 characters.
-- **Response:** `DecisionResponse`
+- **Enforcement**: Role `agent` (restricted by Isolation Rule) or `admin`.
 
 #### 3. `search_decisions`
 - **Request:** `SearchDecisionsRequest` (query, limit)
-- **Response:** `SearchResponse` (list of `SearchResultItem`)
+- **Response:** `SearchResponse` (validated by Semantic Store truth).
 
 #### 4. `accept_proposal`
 - **Request:** `AcceptProposalRequest` (proposal_id)
-- **Enforcement:** Requires `admin` role.
-- **Response:** `BaseResponse`
-
-## 🚀 Features
-- **Strict Validation**: Contract-first design using Pydantic.
-- **Security First**: Every request is validated against the assigned role.
-- **Traceability**: All writes via MCP are tagged with the role (e.g., `[via MCP:agent]`).
+- **Enforcement:** Requires `admin` role and fulfillment of the **Review Window** (PI1).
 
 ## 🛠 Installation
 ```bash
