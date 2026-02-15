@@ -6,6 +6,8 @@ from agent_memory_core.core.schemas import MemoryEvent, KIND_PROPOSAL, ProposalC
 from agent_memory_core.stores.episodic import EpisodicStore
 from agent_memory_core.stores.semantic import SemanticStore
 
+from agent_memory_core.reasoning.distillation import DistillationEngine
+
 logger = logging.getLogger(__name__)
 
 class ReflectionPolicy:
@@ -35,10 +37,23 @@ class ReflectionEngine:
     def run_cycle(self) -> List[str]:
         """Запускает цикл анализа."""
         logger.info("Starting mature reflection cycle...")
-        # Берем больше событий для анализа баланса успехов и ошибок
-        recent_events = self.episodic.query(limit=1000, status='active')
         
-        # 1. Группируем события по мишеням (targets)
+        # 0. Дистилляция процедурного опыта (MemP)
+        distiller = DistillationEngine(self.episodic)
+        procedural_proposals = distiller.distill_trajectories()
+        result_ids = []
+        
+        for prop in procedural_proposals:
+            event = MemoryEvent(
+                source="reflection_engine",
+                kind=KIND_PROPOSAL,
+                content=prop.title,
+                context=prop
+            )
+            result_ids.append(self.semantic.save(event))
+
+        # 1. Группируем события по мишеням (targets) для анализа ошибок
+        recent_events = self.episodic.query(limit=1000, status='active')
         patterns = self._analyze_patterns(recent_events)
         
         # 2. Получаем все текущие черновики предложений
