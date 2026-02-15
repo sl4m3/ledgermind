@@ -277,48 +277,61 @@ class Memory:
             commit_msg=f"Rejected proposal: {reason}"
         )
 
-    def search_decisions(self, query: str, limit: int = 5, include_inactive: bool = False) -> List[Dict[str, Any]]:
+    def search_decisions(self, query: str, limit: int = 5, mode: str = "balanced") -> List[Dict[str, Any]]:
         """
-        Search for relevant decisions using vector similarity, validated by Semantic Store truth.
+        Hybrid Search with state-aware ranking.
         """
         if not self.embedding_provider:
             return []
         
         try:
             query_emb = self.embedding_provider.get_embedding(query)
-            results = self.vector.search(query_emb, limit=limit * 2) # Get more to filter
+            # Fetch more results to allow room for filtering and re-ranking
+            raw_results = self.vector.search(query_emb, limit=limit * 3)
             
-            output = []
+            scored_results = []
             from agent_memory_core.stores.semantic_store.loader import MemoryLoader
             
-            for doc_id, score, preview in results:
-                # Cross-reference with Graph Truth
+            for doc_id, vector_score, preview in raw_results:
                 try:
                     file_path = os.path.join(self.semantic.repo_path, doc_id)
-                    if not os.path.exists(file_path):
-                        continue # File might have been deleted but index not updated
+                    if not os.path.exists(file_path): continue
                         
                     with open(file_path, 'r', encoding='utf-8') as f:
                         data, _ = MemoryLoader.parse(f.read())
                         status = data.get("context", {}).get("status", "unknown")
+                        source = data.get("source", "unknown")
                         
-                        if not include_inactive and status != "active":
-                            continue # Graph Truth: This knowledge is no longer valid
+                        # Apply Search Policy
+                        if mode == "strict" and status != "active":
+                            continue
+                        
+                        # --- Hybrid Ranking Logic ---
+                        # 1. Base Score from Vector
+                        final_score = vector_score
+                        
+                        # 2. Status Penalty
+                        if status == "superseded": final_score *= 0.3
+                        elif status == "deprecated": final_score *= 0.1
+                        elif status == "draft": final_score *= 0.5
+                        
+                        # 3. Authority Bonus (Human > Agent)
+                        if "[via MCP]" not in str(data.get("context", {}).get("rationale", "")):
+                            final_score += 0.05
                             
-                        output.append({
+                        scored_results.append({
                             "id": doc_id,
-                            "score": round(score, 4),
+                            "score": round(final_score, 4),
                             "status": status,
                             "preview": preview,
-                            "kind": data.get("kind")
+                            "kind": data.get("kind"),
+                            "is_active": (status == "active")
                         })
-                except Exception:
-                    continue
-                
-                if len(output) >= limit:
-                    break
-                    
-            return output
+                except Exception: continue
+            
+            # Re-sort by adjusted score
+            scored_results.sort(key=lambda x: x['score'], reverse=True)
+            return scored_results[:limit]
         except Exception as e:
             logger.error(f"Search failed: {e}")
             return []
