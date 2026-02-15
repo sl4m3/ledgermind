@@ -1,7 +1,12 @@
 import logging
+import os
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 from core.schemas import MemoryEvent, KIND_PROPOSAL, ProposalContent, ProposalStatus, KIND_RESULT, KIND_ERROR
+from stores.episodic import EpisodicStore
+from stores.semantic import SemanticStore
+
+logger = logging.getLogger(__name__)
 
 class ReflectionPolicy:
     """Конфигурация правил для Reflection Engine."""

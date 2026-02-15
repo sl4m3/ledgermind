@@ -1,4 +1,4 @@
-# agent-memory-core v1.3.0-evolution
+# agent-memory-core v1.3.1-evolution
 
 Универсальный модуль долгосрочной памяти для ИИ-агентов с гарантированной целостностью.
 

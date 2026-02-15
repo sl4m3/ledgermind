@@ -167,78 +167,44 @@ class SemanticStore:
         finally:
             self._release_lock()
 
-    def list_decisions(self) -> List[str]:
-        """
-        List all semantic records.
-        """
-        return [f for f in os.listdir(self.repo_path) if f.endswith(".md") or f.endswith(".yaml")]
-
-        def list_active_conflicts(self, target: str) -> List[str]:
-
+        def list_decisions(self) -> List[str]:
             """
-
-            Identify active decisions that conflict with the given target.
-
+            List all semantic records.
             """
-
-            conflicts = []
-
-            for filename in self.list_decisions():
-
-                try:
-
-                    with open(os.path.join(self.repo_path, filename), 'r', encoding='utf-8') as f:
-
-                        data, _ = MemoryLoader.parse(f.read())
-
-                        ctx = data.get("context", {})
-
-                        if (data.get("kind") == "decision" and 
-
-                            ctx.get("target") == target and 
-
-                            ctx.get("status") == "active"):
-
-                            conflicts.append(filename)
-
-                except Exception:
-
-                    continue
-
-            return conflicts
-
+            return [f for f in os.listdir(self.repo_path) if f.endswith(".md") or f.endswith(".yaml")]
     
-
-        def find_proposal(self, target: str) -> Optional[str]:
-
+        def list_active_conflicts(self, target: str) -> List[str]:
             """
-
-            Finds an existing draft proposal for a given target.
-
+            Identify active decisions that conflict with the given target.
             """
-
+            conflicts = []
             for filename in self.list_decisions():
-
                 try:
-
                     with open(os.path.join(self.repo_path, filename), 'r', encoding='utf-8') as f:
-
                         data, _ = MemoryLoader.parse(f.read())
-
                         ctx = data.get("context", {})
-
-                        if (data.get("kind") == "proposal" and 
-
+                        if (data.get("kind") == "decision" and 
                             ctx.get("target") == target and 
-
-                            ctx.get("status") == "draft"):
-
-                            return filename
-
+                            ctx.get("status") == "active"):
+                            conflicts.append(filename)
                 except Exception:
-
                     continue
-
+            return conflicts
+    
+        def find_proposal(self, target: str) -> Optional[str]:
+            """
+            Finds an existing draft proposal for a given target.
+            """
+            for filename in self.list_decisions():
+                try:
+                    with open(os.path.join(self.repo_path, filename), 'r', encoding='utf-8') as f:
+                        data, _ = MemoryLoader.parse(f.read())
+                        ctx = data.get("context", {})
+                        if (data.get("kind") == "proposal" and 
+                            ctx.get("target") == target and 
+                            ctx.get("status") == "draft"):
+                            return filename
+                except Exception:
+                    continue
             return None
-
     
