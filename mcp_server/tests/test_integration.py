@@ -12,8 +12,15 @@ def mock_memory(tmp_path):
     # Mock semantic repo path for isolation check
     m.semantic = MagicMock()
     m.semantic.repo_path = str(tmp_path / "semantic")
+    m.semantic.get_head_hash.return_value = "mock_hash_456"
     os.makedirs(m.semantic.repo_path, exist_ok=True)
     return m
+
+@pytest.fixture(autouse=True)
+def set_auth_token():
+    os.environ["AGENT_MEMORY_SECRET"] = "integration-test-secret"
+    yield
+    os.environ.pop("AGENT_MEMORY_SECRET", None)
 
 def test_isolation_rule_enforcement(mock_memory):
     """Проверяет, что агент не может вытеснить решение, созданное человеком (без [via MCP])."""

@@ -24,6 +24,14 @@ class MCPServer:
         self.mcp = FastMCP(f"{server_name} (v{MCP_API_VERSION})")
         self.env_context = EnvironmentContext(memory)
         self.default_role = default_role
+        
+        # Hardened Security Check: Enforce secret presence for privileged roles at instantiation
+        if self.default_role in [MCPRole.AGENT, MCPRole.ADMIN]:
+            if not os.environ.get("AGENT_MEMORY_SECRET"):
+                # Downgrade immediately if secret is missing to fail safe
+                # print("SECURITY WARNING: Downgrading to VIEWER due to missing secret.")
+                self.default_role = MCPRole.VIEWER
+        
         self._last_write_time = 0
         self._write_cooldown = 2.0 
         self.audit = AuditLogger(memory.storage_path) # Audit integration
@@ -47,6 +55,9 @@ class MCPServer:
 
     # --- Tool Handlers with Contract Validation ---
 
+    def _get_commit_hash(self) -> Optional[str]:
+        return self.memory.semantic.get_head_hash()
+
     def handle_record_decision(self, request: RecordDecisionRequest) -> DecisionResponse:
         if not self._check_auth(MCPRole.AGENT, "record_decision"):
             return DecisionResponse(status="error", message="Permission denied")
@@ -59,7 +70,8 @@ class MCPServer:
                 rationale=f"[via MCP:{self.default_role.value}] {request.rationale}",
                 consequences=request.consequences
             )
-            self.audit.log_access(self.default_role.value, "record_decision", request.model_dump(), True)
+            commit_hash = self._get_commit_hash()
+            self.audit.log_access(self.default_role.value, "record_decision", request.model_dump(), True, commit_hash=commit_hash)
             return DecisionResponse(status="success", decision_id=result.metadata.get("file_id"))
         except Exception as e:
             self.audit.log_access(self.default_role.value, "record_decision", request.model_dump(), False, str(e))
@@ -88,7 +100,8 @@ class MCPServer:
                 old_decision_ids=request.old_decision_ids,
                 consequences=request.consequences
             )
-            self.audit.log_access(self.default_role.value, "supersede_decision", request.model_dump(), True)
+            commit_hash = self._get_commit_hash()
+            self.audit.log_access(self.default_role.value, "supersede_decision", request.model_dump(), True, commit_hash=commit_hash)
             return DecisionResponse(status="success", decision_id=result.metadata.get("file_id"))
         except Exception as e:
             self.audit.log_access(self.default_role.value, "supersede_decision", request.model_dump(), False, str(e))
@@ -108,7 +121,8 @@ class MCPServer:
             return BaseResponse(status="error", message="Security Violation: ADMIN required")
         try:
             self.memory.accept_proposal(request.proposal_id)
-            self.audit.log_access(self.default_role.value, "accept_proposal", request.model_dump(), True)
+            commit_hash = self._get_commit_hash()
+            self.audit.log_access(self.default_role.value, "accept_proposal", request.model_dump(), True, commit_hash=commit_hash)
             return BaseResponse(status="success", message="Accepted")
         except Exception as e:
             self.audit.log_access(self.default_role.value, "accept_proposal", request.model_dump(), False, str(e))
