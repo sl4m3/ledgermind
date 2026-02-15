@@ -11,6 +11,9 @@ class MemoryPolicy:
         if event.kind == "config_change":
             return True
 
+        if event.kind == "context_snapshot":
+            return True
+
         if event.kind == "result" and event.context.get("reused"):
             return True
 
