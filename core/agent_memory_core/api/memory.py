@@ -241,6 +241,13 @@ class Memory:
         if ctx.get("status") != "draft":
             raise ValueError(f"Proposal {proposal_id} is already {ctx.get('status')}")
 
+        # PI1 Enforcement: Review Window (1 hour for AI-generated proposals)
+        if data.get("source") == "reflection_engine":
+            from datetime import timedelta
+            created_at = datetime.fromisoformat(ctx.get("first_observed_at"))
+            if datetime.now() - created_at < timedelta(hours=1):
+                raise PermissionError(f"PI1 Violation: Proposal {proposal_id} is in Review Window (1h required)")
+
         # Convert proposal to decision
         # Note: In a more advanced version, we might check if it supersedes anything
         decision = self.record_decision(
@@ -270,28 +277,47 @@ class Memory:
             commit_msg=f"Rejected proposal: {reason}"
         )
 
-    def search_decisions(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def search_decisions(self, query: str, limit: int = 5, include_inactive: bool = False) -> List[Dict[str, Any]]:
         """
-        Search for relevant decisions using vector similarity.
-        
-        :param query: Natural language query.
-        :param limit: Maximum number of results.
-        :return: List of matches with scores and previews.
+        Search for relevant decisions using vector similarity, validated by Semantic Store truth.
         """
         if not self.embedding_provider:
             return []
         
         try:
             query_emb = self.embedding_provider.get_embedding(query)
-            results = self.vector.search(query_emb, limit=limit)
+            results = self.vector.search(query_emb, limit=limit * 2) # Get more to filter
             
             output = []
+            from agent_memory_core.stores.semantic_store.loader import MemoryLoader
+            
             for doc_id, score, preview in results:
-                output.append({
-                    "id": doc_id,
-                    "score": round(score, 4),
-                    "preview": preview
-                })
+                # Cross-reference with Graph Truth
+                try:
+                    file_path = os.path.join(self.semantic.repo_path, doc_id)
+                    if not os.path.exists(file_path):
+                        continue # File might have been deleted but index not updated
+                        
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        data, _ = MemoryLoader.parse(f.read())
+                        status = data.get("context", {}).get("status", "unknown")
+                        
+                        if not include_inactive and status != "active":
+                            continue # Graph Truth: This knowledge is no longer valid
+                            
+                        output.append({
+                            "id": doc_id,
+                            "score": round(score, 4),
+                            "status": status,
+                            "preview": preview,
+                            "kind": data.get("kind")
+                        })
+                except Exception:
+                    continue
+                
+                if len(output) >= limit:
+                    break
+                    
             return output
         except Exception as e:
             logger.error(f"Search failed: {e}")

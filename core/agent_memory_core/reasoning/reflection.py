@@ -176,6 +176,11 @@ class ReflectionEngine:
 
     def _create_proposal(self, target: str, stats: Dict[str, Any]) -> str:
         """Создание предложения с учетом конфликтов с текущей истиной."""
+        # PI2 Enforcement: Evidence Threshold
+        if len(stats.get('evidence', [])) < 3:
+            logger.info(f"PI2: Skipping proposal for {target} - insufficient evidence ({len(stats['evidence'])} < 3)")
+            return ""
+
         active_decisions = self.semantic.list_active_conflicts(target)
         confidence = self._calculate_confidence(stats['errors'], stats['successes'])
         
