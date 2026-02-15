@@ -1,0 +1,30 @@
+import logging
+import os
+from datetime import datetime
+from agent_memory_server.contracts import BaseResponse
+
+class AuditLogger:
+    def __init__(self, storage_path: str):
+        self.log_path = os.path.join(storage_path, "audit.log")
+        self._setup_logger()
+
+    def _setup_logger(self):
+        self.logger = logging.getLogger("agent_memory_audit")
+        self.logger.setLevel(logging.INFO)
+        # Ensure we don't add multiple handlers
+        if not self.logger.handlers:
+            fh = logging.FileHandler(self.log_path)
+            formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
+            fh.setFormatter(formatter)
+            self.logger.addHandler(fh)
+
+    def log_access(self, role: str, tool: str, params: dict, success: bool, error: str = None):
+        status = "ALLOWED" if success else "DENIED"
+        # Mask sensitive params if needed (e.g. huge vectors)
+        sanitized_params = {k: v for k, v in params.items() if k != "old_decision_ids"} 
+        
+        msg = f"Role: {role} | Tool: {tool} | Status: {status} | Params: {sanitized_params}"
+        if error:
+            msg += f" | Error: {error}"
+            
+        self.logger.info(msg)

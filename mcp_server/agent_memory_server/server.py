@@ -5,6 +5,7 @@ import enum
 from mcp.server.fastmcp import FastMCP
 from agent_memory_core.api.memory import Memory
 from agent_memory_server.tools.environment import EnvironmentContext
+from agent_memory_server.audit import AuditLogger
 from agent_memory_server.contracts import (
     RecordDecisionRequest, SupersedeDecisionRequest, 
     SearchDecisionsRequest, AcceptProposalRequest,
@@ -24,8 +25,18 @@ class MCPServer:
         self.env_context = EnvironmentContext(memory)
         self.default_role = default_role
         self._last_write_time = 0
-        self._write_cooldown = 2.0 # 2 seconds between write operations
+        self._write_cooldown = 2.0 
+        self.audit = AuditLogger(memory.storage_path) # Audit integration
         self._register_tools()
+
+    def _check_auth(self, required_role: MCPRole, tool_name: str = "unknown") -> bool:
+        role_hierarchy = {MCPRole.VIEWER: 0, MCPRole.AGENT: 1, MCPRole.ADMIN: 2}
+        allowed = role_hierarchy.get(self.default_role, 0) >= role_hierarchy.get(required_role, 0)
+        
+        if not allowed:
+            self.audit.log_access(self.default_role.value, tool_name, {}, False, "Permission denied")
+        
+        return allowed
 
     def _apply_cooldown(self):
         import time
@@ -37,7 +48,7 @@ class MCPServer:
     # --- Tool Handlers with Contract Validation ---
 
     def handle_record_decision(self, request: RecordDecisionRequest) -> DecisionResponse:
-        if not self._check_auth(MCPRole.AGENT):
+        if not self._check_auth(MCPRole.AGENT, "record_decision"):
             return DecisionResponse(status="error", message="Permission denied")
         
         try:
@@ -48,28 +59,26 @@ class MCPServer:
                 rationale=f"[via MCP:{self.default_role.value}] {request.rationale}",
                 consequences=request.consequences
             )
+            self.audit.log_access(self.default_role.value, "record_decision", request.model_dump(), True)
             return DecisionResponse(status="success", decision_id=result.metadata.get("file_id"))
         except Exception as e:
+            self.audit.log_access(self.default_role.value, "record_decision", request.model_dump(), False, str(e))
             return DecisionResponse(status="error", message=str(e))
 
     def handle_supersede_decision(self, request: SupersedeDecisionRequest) -> DecisionResponse:
-        if not self._check_auth(MCPRole.AGENT):
+        if not self._check_auth(MCPRole.AGENT, "supersede_decision"):
             return DecisionResponse(status="error", message="Permission denied")
         
         # Isolation Rule Enforcement
         if self.default_role == MCPRole.AGENT:
             for old_id in request.old_decision_ids:
                 try:
-                    # Check if the decision being replaced is a "Human" decision
-                    # (Human decisions don't have [via MCP] in their rationale)
-                    # This is a heuristic for the prototype
                     file_path = os.path.join(self.memory.semantic.repo_path, old_id)
                     with open(file_path, 'r') as f:
                         if "[via MCP]" not in f.read():
-                            return DecisionResponse(
-                                status="error", 
-                                message=f"Isolation Violation: Decision {old_id} was created by HUMAN and cannot be superseded by MCP AGENT."
-                            )
+                            err = f"Isolation Violation: Decision {old_id} created by HUMAN."
+                            self.audit.log_access(self.default_role.value, "supersede_decision", request.model_dump(), False, err)
+                            return DecisionResponse(status="error", message=err)
                 except Exception: continue
 
         try:
@@ -79,24 +88,30 @@ class MCPServer:
                 old_decision_ids=request.old_decision_ids,
                 consequences=request.consequences
             )
+            self.audit.log_access(self.default_role.value, "supersede_decision", request.model_dump(), True)
             return DecisionResponse(status="success", decision_id=result.metadata.get("file_id"))
         except Exception as e:
+            self.audit.log_access(self.default_role.value, "supersede_decision", request.model_dump(), False, str(e))
             return DecisionResponse(status="error", message=str(e))
 
     def handle_search(self, request: SearchDecisionsRequest) -> SearchResponse:
         try:
             results = self.memory.search_decisions(request.query, limit=request.limit, mode=request.mode)
+            self.audit.log_access(self.default_role.value, "search_decisions", {"query": request.query, "mode": request.mode}, True)
             return SearchResponse(status="success", results=results)
         except Exception as e:
+            self.audit.log_access(self.default_role.value, "search_decisions", request.model_dump(), False, str(e))
             return SearchResponse(status="error", message=str(e))
 
     def handle_accept_proposal(self, request: AcceptProposalRequest) -> BaseResponse:
-        if not self._check_auth(MCPRole.ADMIN):
+        if not self._check_auth(MCPRole.ADMIN, "accept_proposal"):
             return BaseResponse(status="error", message="Security Violation: ADMIN required")
         try:
             self.memory.accept_proposal(request.proposal_id)
+            self.audit.log_access(self.default_role.value, "accept_proposal", request.model_dump(), True)
             return BaseResponse(status="success", message="Accepted")
         except Exception as e:
+            self.audit.log_access(self.default_role.value, "accept_proposal", request.model_dump(), False, str(e))
             return BaseResponse(status="error", message=str(e))
 
     def _register_tools(self):
@@ -141,7 +156,18 @@ class MCPServer:
     def serve(cls, storage_path: str = ".agent_memory", server_name: str = "AgentMemory", role: str = "agent"):
         from agent_memory_core.embeddings import MockEmbeddingProvider
         from agent_memory_core.core.schemas import TrustBoundary
+        import sys
+        
         mcp_role = MCPRole(role)
+        
+        # Security Enforcement: Privileged roles require a secret token
+        if mcp_role in [MCPRole.AGENT, MCPRole.ADMIN]:
+            secret = os.environ.get("AGENT_MEMORY_SECRET")
+            if not secret:
+                print(f"SECURITY ERROR: Role '{role}' requires AGENT_MEMORY_SECRET environment variable to be set.", file=sys.stderr)
+                print("Falling back to VIEWER role for safety.", file=sys.stderr)
+                mcp_role = MCPRole.VIEWER
+        
         trust = TrustBoundary.AGENT_WITH_INTENT if mcp_role != MCPRole.ADMIN else TrustBoundary.HUMAN_ONLY
         memory = Memory(storage_path=storage_path, embedding_provider=MockEmbeddingProvider(), trust_boundary=trust)
         server = cls(memory, server_name=server_name, default_role=mcp_role)
