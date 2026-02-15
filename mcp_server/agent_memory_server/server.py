@@ -28,11 +28,11 @@ class MCPServer:
         self.default_role = default_role
         
         # Initialize capabilities: either from provided dict or derived from role
-        self.capabilities = capabilities or self._get_default_capabilities(default_role)
+        self.capabilities = capabilities if capabilities is not None else self._get_default_capabilities(default_role)
         
         # Hardened Security Check: Only enforce secret if no explicit capabilities provided
         # or if we're still using the legacy role-based approach for privileged roles.
-        if not capabilities and self.default_role in [MCPRole.AGENT, MCPRole.ADMIN]:
+        if capabilities is None and self.default_role in [MCPRole.AGENT, MCPRole.ADMIN]:
             if not os.environ.get("AGENT_MEMORY_SECRET"):
                 # Downgrade immediately if secret is missing to fail safe
                 self.default_role = MCPRole.VIEWER
@@ -202,7 +202,7 @@ class MCPServer:
         mcp_role = MCPRole(role)
         
         # Security Enforcement: Privileged roles require a secret token UNLESS explicit capabilities are set.
-        if not capabilities and mcp_role in [MCPRole.AGENT, MCPRole.ADMIN]:
+        if capabilities is None and mcp_role in [MCPRole.AGENT, MCPRole.ADMIN]:
             secret = os.environ.get("AGENT_MEMORY_SECRET")
             if not secret:
                 print(f"SECURITY ERROR: Role '{role}' requires AGENT_MEMORY_SECRET environment variable or explicit capabilities.", file=sys.stderr)
