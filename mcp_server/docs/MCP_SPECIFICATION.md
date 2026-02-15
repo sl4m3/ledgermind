@@ -42,3 +42,13 @@ The server uses standard MCP error patterns:
 - `-32602`: Invalid params (Validation error).
 - `-32000`: Execution error (Integrity violation or Git failure).
 - `403`: Permission Denied (Auth failure).
+
+## 🔍 Search & Ranking Policy
+
+The Agent Memory system uses a **Graph-First Hybrid Search** approach with **Recursive Truth Resolution**. Vector similarity is used for initial candidate selection, but the Semantic Graph is the final authority on what is returned to the agent.
+
+### Guarantees
+1.  **Recursive Truth Resolution**: If a search query matches an old (superseded) decision, the system automatically follows the evolution graph to return the latest `active` version of that knowledge. The agent always receives the current "Truth".
+2.  **Strict Mode Isolation**: In `strict` mode, non-active decisions are NEVER returned, regardless of their vector similarity.
+3.  **State-Aware Ranking**: Active decisions are heavily boosted (+1.0 to score), ensuring they appear above any historical data.
+4.  **Automatic Deduplication**: The system deduplicates results by `target`, ensuring only the most relevant version of a rule is shown.
