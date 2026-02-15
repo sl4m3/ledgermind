@@ -1,16 +1,12 @@
-from typing import Any, Dict, List, Optional, Type, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Type
 from pydantic import BaseModel, Field
 
 try:
     from langchain_core.tools import BaseTool
     LANGCHAIN_AVAILABLE = True
 except ImportError:
-    # Опциональная зависимость
     class BaseTool: pass
     LANGCHAIN_AVAILABLE = False
-
-if TYPE_CHECKING:
-    from agent_memory_multi.manager import MemoryMultiManager
 
 class RecordDecisionInput(BaseModel):
     title: str = Field(description="Краткий заголовок решения.")
@@ -29,40 +25,32 @@ class RecordDecisionTool(BaseTool):
     name: str = "record_decision"
     description: str = "Записывает стратегическое решение в долгосрочную память."
     args_schema: Type[BaseModel] = RecordDecisionInput
-    manager: 'MemoryMultiManager' = Field(exclude=True)
+    memory: Any = Field(exclude=True)
 
     def _run(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> str:
-        res = self.manager.handle_tool_call("record_decision", {
-            "title": title, "target": target, "rationale": rationale, "consequences": consequences
-        })
+        res = self.memory.record_decision(
+            title=title, target=target, rationale=rationale, consequences=consequences
+        )
         return str(res)
-
-    async def _arun(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> str:
-        """Асинхронная версия записи решения."""
-        return self._run(title, target, rationale, consequences)
 
 class SupersedeDecisionTool(BaseTool):
     name: str = "supersede_decision"
     description: str = "Заменяет устаревшие решения новым."
     args_schema: Type[BaseModel] = SupersedeDecisionInput
-    manager: 'MemoryMultiManager' = Field(exclude=True)
+    memory: Any = Field(exclude=True)
 
     def _run(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None) -> str:
-        res = self.manager.handle_tool_call("supersede_decision", {
-            "title": title, "target": target, "rationale": rationale, 
-            "old_decision_ids": old_decision_ids, "consequences": consequences
-        })
+        res = self.memory.supersede_decision(
+            title=title, target=target, rationale=rationale, 
+            old_decision_ids=old_decision_ids, consequences=consequences
+        )
         return str(res)
 
-    async def _arun(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None) -> str:
-        """Асинхронная версия замены решения."""
-        return self._run(title, target, rationale, old_decision_ids, consequences)
-
-def get_langchain_tools(manager: 'MemoryMultiManager') -> List[BaseTool]:
-    """Возвращает список инструментов для LangChain."""
+def get_langchain_tools(memory_provider: Any) -> List[BaseTool]:
+    """Returns a list of tools for LangChain."""
     if not LANGCHAIN_AVAILABLE:
         return []
     return [
-        RecordDecisionTool(manager=manager),
-        SupersedeDecisionTool(manager=manager)
+        RecordDecisionTool(memory=memory_provider),
+        SupersedeDecisionTool(memory=memory_provider)
     ]

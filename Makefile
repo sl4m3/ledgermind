@@ -1,16 +1,19 @@
-.PHONY: install install-core install-multi test clean
+.PHONY: install install-core install-server install-adapters test clean
 
-install: install-core install-multi
+install: install-core install-server install-adapters
 
 install-core:
 	pip install -e ./core
 
-install-multi:
-	pip install -e ./multi
+install-server:
+	pip install -e ./mcp_server
+
+install-adapters:
+	pip install -e ./adapters
 
 test:
 	cd core && pytest tests
-	cd multi && pytest tests
+	# server and adapters tests to be added
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +

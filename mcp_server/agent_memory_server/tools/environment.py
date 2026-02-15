@@ -1,17 +1,15 @@
 import os
 import subprocess
-from typing import Dict, Any, List, Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from agent_memory_multi.manager import MemoryMultiManager
+from typing import Dict, Any, List, Optional
+from agent_memory_core.api.memory import Memory
 
 class EnvironmentContext:
     """
     Инструмент для сбора контекста окружения (файлы, переменные, состояние git).
-    Результаты сохраняются в эпизодическую память.
+    Результаты сохраняются в эпизодическую память через ядро.
     """
-    def __init__(self, manager: 'MemoryMultiManager'):
-        self.manager = manager
+    def __init__(self, memory: Memory):
+        self.memory = memory
 
     def capture_context(self, label: str = "general_context") -> Dict[str, Any]:
         """
@@ -24,22 +22,17 @@ class EnvironmentContext:
             "env_vars": self._get_filtered_env()
         }
 
-        if self.manager.core:
-            # Записываем как эпизодическое событие
-            self.manager.core.process_event(
-                source="system",
-                kind="context_snapshot",
-                content=f"Snapshot: {label}",
-                context=context_data
-            )
-            return {"status": "success", "label": label, "message": "Context captured to episodic memory"}
-        
-        return {"status": "error", "message": "Core memory not initialized"}
+        # Записываем как эпизодическое событие напрямую через ядро
+        self.memory.process_event(
+            source="system",
+            kind="context_snapshot",
+            content=f"Snapshot: {label}",
+            context=context_data
+        )
+        return {"status": "success", "label": label, "message": "Context captured to episodic memory"}
 
     def _get_file_tree(self, max_depth: int = 2) -> List[str]:
-        """Возвращает список файлов в текущей директории."""
         try:
-            # Используем find или просто os.walk для кроссплатформенности
             files = []
             for root, dirs, filenames in os.walk(".", topdown=True):
                 depth = root.count(os.sep)
@@ -47,14 +40,13 @@ class EnvironmentContext:
                     continue
                 for f in filenames:
                     files.append(os.path.join(root, f))
-                if len(files) > 50: # Лимит для предотвращения переполнения контекста
+                if len(files) > 50:
                     break
             return files
         except Exception:
             return []
 
     def _get_git_status(self) -> str:
-        """Возвращает краткий статус git."""
         try:
             res = subprocess.run(["git", "status", "--short"], capture_output=True, text=True, timeout=5)
             return res.stdout.strip()
@@ -62,6 +54,5 @@ class EnvironmentContext:
             return "not a git repo or git not found"
 
     def _get_filtered_env(self) -> Dict[str, str]:
-        """Возвращает безопасные переменные окружения."""
         allowed = {"PYTHONPATH", "LANG", "SHELL", "PWD"}
         return {k: v for k, v in os.environ.items() if k in allowed}

@@ -1,63 +1,39 @@
-# Agent Memory Monorepo
+# Agent Memory System
 
-Экосистема пакетов для управления долгосрочной и краткосрочной памятью автономных агентов. Система спроектирована для обеспечения "объяснимости" (explainability) и аудируемости действий ИИ.
+A modular and auditable memory ecosystem for autonomous agents.
 
-## Структура проекта
+## 🏗 Architecture
 
-### 1. Core (`agent-memory-core`)
-Ядро системы, отвечающее за логику хранения, обработку конфликтов и эволюцию знаний.
+The system is split into three distinct layers to ensure a clean boundary between domain logic and infrastructure:
 
-*   **Episodic Memory (SQLite):** Хранит поток событий, логов и краткосрочных данных. Поддерживает автоматическое затухание (decay) и очистку старых записей.
-*   **Semantic Memory (Git + Markdown):** Хранит важные решения и знания в виде Markdown-файлов в Git-репозитории. Это обеспечивает:
-    *   **Аудируемость:** Каждое изменение — это коммит.
-    *   **Версионирование:** Можно отследить, как менялись взгляды агента.
-    *   **Безопасность:** Механизм `TrustBoundary` контролирует, что агент может менять сам, а что — только человек.
-*   **Reasoning Engines:** Включает модули для обнаружения конфликтов в решениях и их автоматического или управляемого разрешения.
+1.  **[Core](./core)** (`agent-memory-core`): The heart of the system. Handles storage (Semantic, Episodic, Vector), Reasoning (Reflection, Distillation), and Invariants. No external LLM dependencies.
+2.  **[MCP Server](./mcp_server)** (`agent-memory-server`): The primary enforcement layer and transport. Connects the Core to the world via the Model Context Protocol.
+3.  **[Adapters](./adapters)** (`agent-memory-adapters`): LLM-specific clients (OpenAI, Anthropic, Gemini, etc.) that connect to the MCP Server and format tools for each model.
 
-### 2. Multi (`agent-memory-multi`)
-Универсальный мост между ядром памяти и современными LLM/фреймворками.
+## 🚀 Quick Start
 
-*   **Адаптеры для LLM:** Готовые интеграции для **Google Gemini**, **OpenAI**, **Anthropic** и **Ollama**. Автоматически генерирует JSON-схемы инструментов (Tool/Function Calling).
-*   **Интеграция с фреймворками:** Поддержка **LangChain** и **CrewAI** (экспортирует память как стандартные инструменты/tools).
-*   **Менеджер вызовов:** Упрощает обработку ответов от моделей, транслируя их в вызовы API ядра.
-
-## Установка
-
-### Базовая установка (ядро)
+### Installation
 ```bash
-pip install ./core
+pip install -e ./core -e ./mcp_server -e ./adapters
 ```
 
-### Полная установка (с поддержкой LLM)
+### Starting the Memory Server
 ```bash
-pip install ./core ./multi
+agent-memory-mcp --path ./.agent_memory
 ```
 
-## Использование с Google Gemini
-
+### Connecting an Agent (OpenAI Example)
 ```python
 from agent_memory_core.api.memory import Memory
-from agent_memory_multi.manager import MemoryMultiManager
-from agent_memory_multi.adapters.google_adapter import GoogleAdapter
+from agent_memory_adapters.openai import OpenAIAdapter
 
-# Инициализация
-core = Memory(storage_path="./mem_data")
-manager = MemoryMultiManager(core)
-adapter = GoogleAdapter(manager)
-
-# Получение инструментов для модели
-tools = adapter.get_tool_definitions()
-# ... передайте tools в genai.GenerativeModel
+# In-process usage (direct)
+memory = Memory(storage_path="./mem")
+adapter = OpenAIAdapter(memory)
+openai_tools = adapter.get_tool_definitions()
 ```
 
-## Разработка и Тестирование
-
-Для установки в режиме редактирования:
-```bash
-pip install -e ./core -e ./multi
-```
-
-Запуск всех тестов:
-```bash
-make test
-```
+## 🛡 Key Concepts
+- **Git-Backed Semantic Memory**: Every decision is a versioned Markdown file.
+- **Process Invariants**: Rules like "Review Window" and "Evidence Threshold" ensure memory stability.
+- **Trajectory Distillation**: Learns from success by turning episodic sequences into procedural rules.
