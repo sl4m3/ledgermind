@@ -34,8 +34,17 @@ If this variable is missing, the server will automatically downgrade the session
 Start the server with a specific role:
 ```bash
 export AGENT_MEMORY_SECRET="your-secure-token"
-agent-memory-mcp --path ./.agent_memory --role admin
+agent-memory-mcp run --path ./.agent_memory --role admin
 ```
+
+## 🛠 API Specification
+
+The server follows a strict formal contract. 
+- **Specification**: See [MCP_SPECIFICATION.md](./docs/MCP_SPECIFICATION.md) for detailed tool schemas and data models.
+- **JSON Schemas**: You can export the latest machine-readable schemas using the CLI:
+  ```bash
+  agent-memory-mcp export-schema > schema.json
+  ```
 
 ## 🛠 Installation
 ```bash
