@@ -3,7 +3,7 @@ import shutil
 import sqlite3
 import logging
 import time
-from typing import List, Optional
+from typing import List, Optional, Any
 from contextlib import contextmanager
 
 logger = logging.getLogger("agent-memory-core.transactions")
@@ -21,9 +21,12 @@ class FileSystemLock:
         start_time = time.time()
         flags = os.O_RDWR | os.O_CREAT
         
+        # Open file once
+        if self._fd is None:
+            self._fd = os.open(self.lock_path, flags)
+
         while True:
             try:
-                self._fd = os.open(self.lock_path, flags)
                 import fcntl
                 op = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
                 fcntl.flock(self._fd, op | fcntl.LOCK_NB)
@@ -31,11 +34,7 @@ class FileSystemLock:
                 os.ftruncate(self._fd, 0)
                 os.write(self._fd, str(os.getpid()).encode())
                 return
-            except (OSError, IOError, ImportError):
-                if self._fd:
-                    os.close(self._fd)
-                    self._fd = None
-                
+            except (BlockingIOError, OSError):
                 if time.time() - start_time > self.timeout:
                     raise TimeoutError(f"Could not acquire lock on {self.lock_path} after {self.timeout}s")
                 time.sleep(0.1)
@@ -46,7 +45,11 @@ class FileSystemLock:
                 import fcntl
                 fcntl.flock(self._fd, fcntl.LOCK_UN)
             except (ImportError, OSError): pass
-            os.close(self._fd)
+            
+            # Close FD to release resources
+            try:
+                os.close(self._fd)
+            except OSError: pass
             self._fd = None
 
 class TransactionManager:
