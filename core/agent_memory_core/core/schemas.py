@@ -26,6 +26,16 @@ class ProposalStatus(str, Enum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
 
+class ProceduralStep(BaseModel):
+    action: str
+    rationale: Optional[str] = None
+    expected_outcome: Optional[str] = None
+
+class ProceduralContent(BaseModel):
+    steps: List[ProceduralStep]
+    target_task: str
+    success_evidence_ids: List[int]
+
 class ProposalContent(BaseModel):
     title: StrictStr
     target: StrictStr
@@ -35,6 +45,9 @@ class ProposalContent(BaseModel):
     evidence_event_ids: List[int] = Field(default_factory=list)
     suggested_consequences: List[str] = Field(default_factory=list)
     suggested_supersedes: List[str] = Field(default_factory=list) # Какие решения предлагается заменить
+    
+    # MemP extension: Procedural data
+    procedural: Optional[ProceduralContent] = None
     
     first_observed_at: datetime = Field(default_factory=datetime.now)
     last_observed_at: datetime = Field(default_factory=datetime.now)
@@ -62,7 +75,7 @@ class DecisionContent(BaseModel):
 class MemoryEvent(BaseModel):
     schema_version: int = Field(default=1)
     source: Literal["user", "agent", "system", "reflection_engine"]
-    kind: Literal["decision", "error", "config_change", "assumption", "constraint", "result", "proposal", "context_snapshot"]
+    kind: Literal["decision", "error", "config_change", "assumption", "constraint", "result", "proposal", "context_snapshot", "task", "call"]
     content: StrictStr
     context: Union[DecisionContent, ProposalContent, Dict[str, Any]] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.now)
