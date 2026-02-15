@@ -102,67 +102,79 @@ class ReflectionEngine:
 
     def _evaluate_hypothesis(self, fid: str, data: Dict[str, Any], stats: Dict[str, Any]):
         """
-        Pits the hypothesis against new evidence. 
-        Successes in the same target area are treated as potential falsification signals.
+        Pits the hypothesis against new evidence using an epistemic model.
+        Successes in the same target area are treated as active objections.
         """
         ctx = data['context']
         
-        # Check for direct falsification (e.g., if hypothesis says "Always fails" but we see success)
-        if stats['successes'] > stats['errors'] * 2 and ctx['confidence'] > 0.5:
-            logger.warning(f"Falsification triggered for {fid}: high success rate contradicts hypothesis.")
-            self.semantic.update_decision(fid, {
-                "status": ProposalStatus.FALSIFIED,
-                "confidence": 0.1,
-                "rationale": f"FALSIFIED: Observed {stats['successes']} successes which contradicts the necessity of this proposal."
-            }, commit_msg="Reflection: Hypothesis falsified by counter-evidence.")
-            return
-
-        # Update stats
+        # 1. Update Evidence & Objections
         new_errors = ctx.get('hit_count', 0) + stats['errors']
         new_successes = ctx.get('miss_count', 0) + stats['successes']
         
-        # Bayesian-ish confidence: posterior probability of the problem being "real"
-        # Confidence = (errors - successes) / (total + 1)
-        total = new_errors + new_successes
-        confidence = max(0.0, (new_errors - new_successes) / (total + 1))
+        objections = list(set(ctx.get('objections', [])))
+        if stats['successes'] > 0:
+            objections.append(f"Observed {stats['successes']} successes which contradicts strictly failure-based rationale.")
         
+        # 2. Epistemic Confidence Calculation
+        # Confidence = (Positive Evidence - Negative Evidence) / (Total Potential + Complexity Penalty)
+        # We use a formula that rewards consistency and penalizes objections
+        total = new_errors + new_successes
+        base_confidence = (new_errors - (new_successes * 1.5)) / (total + 2)
+        confidence = max(0.0, min(1.0, base_confidence))
+        
+        # 3. Automatic Falsification
+        if confidence < 0.1 and new_successes > new_errors:
+            self.semantic.update_decision(fid, {
+                "status": ProposalStatus.FALSIFIED,
+                "confidence": 0.0,
+                "objections": objections + ["Hypothesis failed to explain high success rate."]
+            }, commit_msg="Reflection: Hypothesis falsified by epistemic scrutiny.")
+            return
+
         first_seen = datetime.fromisoformat(ctx['first_observed_at'])
         last_seen = datetime.fromisoformat(stats['last_seen'])
         
         ready = (confidence >= self.policy.ready_threshold and 
-                 (last_seen - first_seen) >= self.policy.observation_window)
+                 (last_seen - first_seen) >= self.policy.observation_window and
+                 len(objections) < 3)
 
         self.semantic.update_decision(fid, {
             "confidence": confidence,
             "hit_count": new_errors,
             "miss_count": new_successes,
+            "objections": list(set(objections)),
             "ready_for_review": ready,
             "counter_evidence_event_ids": list(set(ctx.get('counter_evidence_event_ids', []) + [e['id'] for e in stats['success_events']]))
-        }, commit_msg=f"Reflection: Re-evaluating confidence: {confidence:.2f}")
+        }, commit_msg=f"Reflection: Epistemic evaluation: confidence={confidence:.2f}")
 
     def _generate_competing_hypotheses(self, target: str, stats: Dict[str, Any]) -> List[str]:
         """
-        Generates alternative explanations for a set of errors.
-        In this version, we generate a 'Primary' and an 'Alternative' (placeholders).
+        Generates competing explanations with structured strengths and objections.
         """
-        # In a real system, an LLM would generate these different rationales.
-        # Here we simulate two competing views.
-        
+        # H1: Missing Constraint (Conservative)
         h1_ctx = ProposalContent(
-            title=f"Fix recurring issue in {target}",
+            title=f"Missing constraint in {target}",
             target=target,
-            rationale=f"Pattern of {stats['errors']} errors indicates a missing constraint or rule.",
+            rationale=f"Pattern of failures suggests a strict rule is missing.",
             confidence=0.5,
+            strengths=["Directly addresses observed errors", "Provides clear guardrails"],
+            objections=["May be too rigid", "Does not explain occasional successes"],
+            counter_patterns=["Transient network issues", "User manual overrides"],
+            epistemic_merit=0.7,
             evidence_event_ids=[e['id'] for e in stats['error_events']],
             first_observed_at=datetime.now()
         )
         
-        # The competition: Maybe it's just transient?
+        # H2: Environmental Fluctuation (Alternative)
         h2_ctx = ProposalContent(
-            title=f"Observe {target} for transient failures",
+            title=f"Environmental fluctuation in {target}",
             target=target,
-            rationale=f"Failures might be environmental. Requires more observation before locking in a rule.",
+            rationale=f"Errors correlate with external factors, not logic flaws.",
             confidence=0.4,
+            strengths=["Explains why successes still occur", "Low risk of over-engineering"],
+            objections=["Hard to prove", "Does not provide a fix"],
+            counter_patterns=["Logical code bugs", "Consistent misconfiguration"],
+            epistemic_merit=0.6,
             evidence_event_ids=[e['id'] for e in stats['error_events']],
             first_observed_at=datetime.now()
         )
@@ -172,7 +184,7 @@ class ReflectionEngine:
             event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
             fids.append(self.semantic.save(event))
         
-        # Link them as competitors
+        # Link them as competitors for future cross-comparison
         for i, fid in enumerate(fids):
             competitors = [f for f in fids if f != fid]
             self.semantic.update_decision(fid, {"competing_proposal_ids": competitors}, commit_msg="Linking competitors.")
