@@ -4,22 +4,10 @@ import json
 from agent_memory_server.server import MCPServer
 
 def export_schemas():
-    """Outputs JSON schemas for all MCP tool contracts."""
-    from agent_memory_server import contracts
-    import pydantic
-    
-    schemas = {
-        "version": contracts.MCP_API_VERSION,
-        "models": {
-            "RecordDecisionRequest": contracts.RecordDecisionRequest.model_json_schema(),
-            "SupersedeDecisionRequest": contracts.SupersedeDecisionRequest.model_json_schema(),
-            "SearchDecisionsRequest": contracts.SearchDecisionsRequest.model_json_schema(),
-            "AcceptProposalRequest": contracts.AcceptProposalRequest.model_json_schema(),
-            "SearchResponse": contracts.SearchResponse.model_json_schema(),
-            "BaseResponse": contracts.BaseResponse.model_json_schema(),
-        }
-    }
-    print(json.dumps(schemas, indent=2))
+    """Outputs the formal industrial-grade API specification."""
+    from agent_memory_server.specification import MCPApiSpecification
+    spec = MCPApiSpecification.generate_full_spec()
+    print(json.dumps(spec, indent=2))
 
 def main():
     parser = argparse.ArgumentParser(description="Agent Memory MCP Server Launcher")
