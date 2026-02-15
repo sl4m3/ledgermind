@@ -296,86 +296,105 @@ class Memory:
 
     def search_decisions(self, query: str, limit: int = 5, mode: str = "balanced") -> List[Dict[str, Any]]:
         """
-        Hybrid Search with state-aware ranking and target-based deduplication.
+        Hybrid Search with Recursive Truth Resolution and Target Deduplication.
         
         Guarantees:
-        1. 'strict' mode never returns non-active decisions.
-        2. 'balanced' mode prioritizes 'active' over 'superseded' regardless of vector score.
-        3. If multiple versions of the same target are found, only the most relevant/active is kept.
+        1. Navigation via Vectors, Verification via Semantic Graph.
+        2. If a superseded decision is found, the system follows links to the latest active version.
+        3. 'strict' mode never returns non-active decisions.
         """
         if not self.embedding_provider:
             return []
         
         try:
             query_emb = self.embedding_provider.get_embedding(query)
-            # Fetch significantly more candidates to allow for filtering and state-based re-ranking
+            # Fetch candidates (fetch more to allow for redirection and filtering)
             raw_results = self.vector.search(query_emb, limit=limit * 5)
             
             from agent_memory_core.stores.semantic_store.loader import MemoryLoader
             
-            # Phase 1: Enrich candidates with semantic state
             candidates = []
             for doc_id, vector_score, preview in raw_results:
                 try:
-                    file_path = os.path.join(self.semantic.repo_path, doc_id)
-                    if not os.path.exists(file_path): continue
+                    # 1. Resolve to the latest version if needed (Follow the graph)
+                    final_id, data = self._resolve_to_truth(doc_id, mode)
+                    if not data: continue
                         
-                    with open(file_path, 'r', encoding='utf-8') as f:
-                        data, _ = MemoryLoader.parse(f.read())
-                        status = data.get("context", {}).get("status", "unknown")
-                        target = data.get("context", {}).get("target", "unknown")
+                    status = data.get("context", {}).get("status", "unknown")
+                    target = data.get("context", {}).get("target", "unknown")
+                    
+                    # 2. Apply Mode Filtering
+                    if mode == "strict" and status != "active":
+                        continue
+                    
+                    # 3. Hybrid Scoring Policy
+                    final_score = vector_score
+                    
+                    # Rule: Truth Alignment
+                    if status == "active":
+                        final_score += 1.0 # Active decisions are boosted to the top
+                    elif status == "superseded":
+                        final_score *= 0.1 # Superseded are heavily penalized if not redirected
                         
-                        if mode == "strict" and status != "active":
-                            continue
+                    # Rule: Authority Bonus (Human > Agent)
+                    if "[via MCP]" not in str(data.get("context", {}).get("rationale", "")):
+                        final_score += 0.1
                         
-                        # Phase 2: Scoring Policy
-                        # Base: vector similarity
-                        final_score = vector_score
-                        
-                        # Rule: Active Status Priority
-                        if status == "active":
-                            final_score += 1.0 # Significant boost to keep active on top
-                        elif status == "superseded":
-                            final_score *= 0.2 # Heavy penalty for deprecated knowledge
-                        elif status == "deprecated":
-                            final_score *= 0.05
-                        elif status == "draft":
-                            final_score *= 0.4
-                            
-                        # Rule: Authority Bonus
-                        if "[via MCP]" not in str(data.get("context", {}).get("rationale", "")):
-                            final_score += 0.1
-                            
-                        candidates.append({
-                            "id": doc_id,
-                            "score": round(final_score, 4),
-                            "status": status,
-                            "target": target,
-                            "preview": preview,
-                            "kind": data.get("kind"),
-                            "is_active": (status == "active")
-                        })
+                    candidates.append({
+                        "id": final_id,
+                        "score": round(final_score, 4),
+                        "status": status,
+                        "target": target,
+                        "preview": data.get("content", preview)[:200],
+                        "kind": data.get("kind"),
+                        "is_active": (status == "active")
+                    })
                 except Exception: continue
             
-            # Phase 3: Target-based Deduplication (skip in 'audit' mode)
+            # Phase 3: Final Selection & Deduplication
             if mode == "audit":
                 final_list = candidates
             else:
-                # If multiple versions for the same target exist, keep the one with the highest score
                 unique_results = {}
                 for c in sorted(candidates, key=lambda x: x['score'], reverse=True):
                     target = c['target']
                     if target not in unique_results:
                         unique_results[target] = c
-                    else:
-                        # If we found an active version of a previously seen target, swap it
-                        if c['is_active'] and not unique_results[target]['is_active']:
-                            unique_results[target] = c
+                    elif c['is_active'] and not unique_results[target]['is_active']:
+                        unique_results[target] = c
                 final_list = list(unique_results.values())
-            final_list.sort(key=lambda x: x['score'], reverse=True)
             
+            final_list.sort(key=lambda x: x['score'], reverse=True)
             return final_list[:limit]
         except Exception as e:
             logger.error(f"Hybrid Search failed: {e}")
             return []
+
+    def _resolve_to_truth(self, doc_id: str, mode: str) -> Tuple[str, Optional[Dict[str, Any]]]:
+        """Recursively follows 'superseded_by' links to find the latest version of a decision."""
+        from agent_memory_core.stores.semantic_store.loader import MemoryLoader
+        
+        current_id = doc_id
+        depth = 0
+        max_depth = 5 # Prevent infinite loops in corrupted graphs
+        
+        while depth < max_depth:
+            file_path = os.path.join(self.semantic.repo_path, current_id)
+            if not os.path.exists(file_path): return current_id, None
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data, _ = MemoryLoader.parse(f.read())
+                
+            status = data.get("context", {}).get("status")
+            successor = data.get("context", {}).get("superseded_by")
+            
+            # If in audit mode or already active or no successor, stop here
+            if mode == "audit" or status == "active" or not successor:
+                return current_id, data
+                
+            # Follow the knowledge evolution link
+            current_id = successor
+            depth += 1
+            
+        return current_id, None
 
