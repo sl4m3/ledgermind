@@ -18,6 +18,7 @@ def main():
     run_parser.add_argument("--path", default=".agent_memory", help="Path to memory storage")
     run_parser.add_argument("--name", default="AgentMemory", help="MCP Server Name")
     run_parser.add_argument("--role", default="agent", choices=["viewer", "agent", "admin"], help="Authority role")
+    run_parser.add_argument("--capabilities", help="JSON string of capabilities (e.g. '{\"read\": true}')")
     
     # Export schema command
     subparsers.add_parser("export-schema", help="Export JSON schemas for API contracts")
@@ -31,11 +32,21 @@ def main():
         path = getattr(args, "path", ".agent_memory")
         name = getattr(args, "name", "AgentMemory")
         role = getattr(args, "role", "agent")
+        caps_str = getattr(args, "capabilities", None)
         
+        capabilities = None
+        if caps_str:
+            try:
+                capabilities = json.loads(caps_str)
+            except json.JSONDecodeError:
+                print(f"Error: Invalid JSON for capabilities: {caps_str}")
+                return
+
         MCPServer.serve(
             storage_path=path,
             server_name=name,
-            role=role
+            role=role,
+            capabilities=capabilities
         )
 
 if __name__ == "__main__":
