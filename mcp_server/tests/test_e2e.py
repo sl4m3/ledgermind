@@ -28,7 +28,7 @@ def test_e2e_record_and_search(real_memory):
     # 1. Записываем решение
     req = RecordDecisionRequest(
         title="E2E Strategy",
-        target="testing",
+        target="testing_area",
         rationale="Testing real integration between MCP and Core layers."
     )
     resp = server.handle_record_decision(req)
@@ -51,14 +51,14 @@ def test_e2e_supersede_workflow(real_memory):
     
     # Записываем v1
     r1 = server.handle_record_decision(RecordDecisionRequest(
-        title="v1", target="t1", rationale="Initial version of knowledge"
+        title="v1", target="target_area", rationale="Initial version of knowledge base"
     ))
     id1 = r1.decision_id
     
     # Вытесняем v2 (через MCP инструменты используют [via MCP] метку автоматически)
     from agent_memory_server.contracts import SupersedeDecisionRequest
     r2 = server.handle_supersede_decision(SupersedeDecisionRequest(
-        title="v2", target="t1", rationale="Improved version of knowledge",
+        title="v2", target="target_area", rationale="Improved version of knowledge base information",
         old_decision_ids=[id1]
     ))
     assert r2.status == "success"
