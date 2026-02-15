@@ -19,6 +19,7 @@ def main():
     run_parser.add_argument("--name", default="AgentMemory", help="MCP Server Name")
     run_parser.add_argument("--role", default="agent", choices=["viewer", "agent", "admin"], help="Authority role")
     run_parser.add_argument("--capabilities", help="JSON string of capabilities (e.g. '{\"read\": true}')")
+    run_parser.add_argument("--capability", action="store_true", help="Enable capability-based mode")
     
     # Export schema command
     subparsers.add_parser("export-schema", help="Export JSON schemas for API contracts")
@@ -33,6 +34,7 @@ def main():
         name = getattr(args, "name", "AgentMemory")
         role = getattr(args, "role", "agent")
         caps_str = getattr(args, "capabilities", None)
+        is_capability_mode = getattr(args, "capability", False)
         
         capabilities = None
         if caps_str:
@@ -41,6 +43,8 @@ def main():
             except json.JSONDecodeError:
                 print(f"Error: Invalid JSON for capabilities: {caps_str}")
                 return
+        elif is_capability_mode:
+            capabilities = {}
 
         MCPServer.serve(
             storage_path=path,
