@@ -1,0 +1,393 @@
+{
+  "mcp_api_version": "1.0.0",
+  "info": {
+    "title": "Agent Memory MCP API",
+    "description": "Formal contract for autonomous agent memory management.",
+    "contact": "https://github.com/sl4m3/agent-memory"
+  },
+  "tools": {
+    "record_decision": {
+      "description": "Records a strategic decision with rationale and consequences.",
+      "input_schema": {
+        "properties": {
+          "title": {
+            "description": "Short title of the decision",
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "target": {
+            "description": "The object or area this decision applies to",
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          },
+          "rationale": {
+            "description": "Detailed explanation of why this decision was made",
+            "minLength": 10,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "consequences": {
+            "description": "List of rules or effects resulting from this decision",
+            "items": {
+              "type": "string"
+            },
+            "title": "Consequences",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "target",
+          "rationale"
+        ],
+        "title": "RecordDecisionRequest",
+        "type": "object"
+      },
+      "output_schema": {
+        "properties": {
+          "status": {
+            "enum": [
+              "success",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Decision Id"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "DecisionResponse",
+        "type": "object"
+      }
+    },
+    "supersede_decision": {
+      "description": "Replaces existing decisions with a new one, maintaining graph integrity.",
+      "input_schema": {
+        "properties": {
+          "title": {
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "target": {
+            "minLength": 1,
+            "title": "Target",
+            "type": "string"
+          },
+          "rationale": {
+            "minLength": 15,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "old_decision_ids": {
+            "description": "IDs of decisions to be superseded",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Old Decision Ids",
+            "type": "array"
+          },
+          "consequences": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Consequences",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "target",
+          "rationale",
+          "old_decision_ids"
+        ],
+        "title": "SupersedeDecisionRequest",
+        "type": "object"
+      },
+      "output_schema": {
+        "properties": {
+          "status": {
+            "enum": [
+              "success",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Decision Id"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "DecisionResponse",
+        "type": "object"
+      }
+    },
+    "search_decisions": {
+      "description": "Hybrid semantic search with state-aware ranking.",
+      "input_schema": {
+        "properties": {
+          "query": {
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          },
+          "limit": {
+            "default": 5,
+            "maximum": 20,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "mode": {
+            "default": "balanced",
+            "description": "strict: only active; balanced: active preferred; audit: all history",
+            "enum": [
+              "strict",
+              "balanced",
+              "audit"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "SearchDecisionsRequest",
+        "type": "object"
+      },
+      "output_schema": {
+        "$defs": {
+          "SearchResultItem": {
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "score": {
+                "title": "Score",
+                "type": "number"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "preview": {
+                "title": "Preview",
+                "type": "string"
+              },
+              "kind": {
+                "title": "Kind",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "score",
+              "status",
+              "preview",
+              "kind"
+            ],
+            "title": "SearchResultItem",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "status": {
+            "enum": [
+              "success",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/$defs/SearchResultItem"
+            },
+            "title": "Results",
+            "type": "array"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SearchResponse",
+        "type": "object"
+      }
+    },
+    "accept_proposal": {
+      "description": "Promotes a draft proposal to an active decision (ADMIN only).",
+      "input_schema": {
+        "properties": {
+          "proposal_id": {
+            "description": "The filename of the proposal to accept",
+            "title": "Proposal Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_id"
+        ],
+        "title": "AcceptProposalRequest",
+        "type": "object"
+      },
+      "output_schema": {
+        "properties": {
+          "status": {
+            "enum": [
+              "success",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "BaseResponse",
+        "type": "object"
+      }
+    },
+    "sync_git_history": {
+      "description": "Syncs Git commit history into episodic memory for context.",
+      "input_schema": {
+        "properties": {
+          "repo_path": {
+            "default": ".",
+            "description": "Path to the git repository to sync",
+            "title": "Repo Path",
+            "type": "string"
+          },
+          "limit": {
+            "default": 20,
+            "description": "Max number of recent commits to index",
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "title": "SyncGitHistoryRequest",
+        "type": "object"
+      },
+      "output_schema": {
+        "properties": {
+          "status": {
+            "enum": [
+              "success",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Message"
+          },
+          "indexed_commits": {
+            "default": 0,
+            "title": "Indexed Commits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SyncGitResponse",
+        "type": "object"
+      }
+    }
+  },
+  "errors": {
+    "403": "Permission Denied: Missing or invalid AGENT_MEMORY_SECRET.",
+    "409": "Conflict: Target already has an active decision (use supersede).",
+    "422": "Validation Error: Schema mismatch.",
+    "429": "Rate Limit: Cooldown violation."
+  }
+}

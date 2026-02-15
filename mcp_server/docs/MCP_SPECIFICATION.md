@@ -8,7 +8,10 @@ This is the **formal API contract** for the Agent Memory Ecosystem. It follows t
 3.  **Cross-Client Stability**: Any MCP-compliant client (Node.js, Go, Rust) can interact with this server using the exported spec.
 
 ## 📂 Machine-Readable Specification
-The full specification, including all Request/Response models, can be exported as a single JSON file:
+The canonical JSON schema is available at:
+[`mcp_server/schema/mcp_api_v1.json`](../schema/mcp_api_v1.json)
+
+You can also export it dynamically from the server CLI:
 ```bash
 agent-memory-mcp export-schema > mcp_api_v1.json
 ```

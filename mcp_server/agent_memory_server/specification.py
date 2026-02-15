@@ -39,6 +39,11 @@ class MCPApiSpecification:
                     "description": "Promotes a draft proposal to an active decision (ADMIN only).",
                     "input_schema": contracts.AcceptProposalRequest.model_json_schema(),
                     "output_schema": contracts.BaseResponse.model_json_schema()
+                },
+                "sync_git_history": {
+                    "description": "Syncs Git commit history into episodic memory for context.",
+                    "input_schema": contracts.SyncGitHistoryRequest.model_json_schema(),
+                    "output_schema": contracts.SyncGitResponse.model_json_schema()
                 }
             },
             "errors": {
@@ -53,4 +58,4 @@ class MCPApiSpecification:
     def export_to_file(cls, path: str):
         spec = cls.generate_full_spec()
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(spec, indent=2, f)
+            json.dump(spec, f, indent=2)
