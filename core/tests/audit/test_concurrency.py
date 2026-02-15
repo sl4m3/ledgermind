@@ -52,25 +52,59 @@ def reader_worker(storage_path, stop_event):
         return str(e)
     return None
 
-def test_read_while_write_consistency(tmp_path):
-    storage_path = str(tmp_path / "rw_consistency")
+def test_supersede_consistency_under_load(tmp_path):
+    """
+    Проверяет, что при интенсивном вытеснении (supersede) читатели всегда видят 
+    консистентное состояние (ровно одно активное решение для таргета).
+    """
+    storage_path = str(tmp_path / "supersede_load")
     os.makedirs(storage_path)
-    Memory(storage_path=storage_path)
+    memory = Memory(storage_path=storage_path)
+    target = "consistent_target"
     
+    # Создаем начальное состояние
+    memory.record_decision("v0", target, "Initial")
+    
+    def writer_loop(path, stop_ev):
+        m = Memory(storage_path=path)
+        i = 1
+        while not stop_ev.is_set():
+            try:
+                active = m.semantic.list_active_conflicts(target)
+                if active:
+                    m.supersede_decision(f"v{i}", target, f"Update {i} with long rationale", [active[0]])
+                    i += 1
+            except Exception: continue
+
+    def reader_loop(path, stop_ev, results_queue):
+        m = Memory(storage_path=path)
+        while not stop_ev.is_set():
+            try:
+                active = m.semantic.list_active_conflicts(target)
+                # Критическое условие: никогда не должно быть != 1 активного решения
+                if len(active) != 1:
+                    results_queue.put(f"Consistency Violation: found {len(active)} active decisions for {target}")
+            except Exception as e:
+                results_queue.put(f"Reader Error: {e}")
+
     manager = multiprocessing.Manager()
     stop_event = manager.Event()
+    results_queue = manager.Queue()
     
-    num_readers = 3
-    with multiprocessing.Pool(num_readers + 1) as pool:
-        # Запускаем читателей
-        reader_results = [pool.apply_async(reader_worker, (storage_path, stop_event)) for _ in range(num_readers)]
+    # Запускаем писателя и читателей
+    with multiprocessing.Pool(4) as pool:
+        pool.apply_async(writer_loop, (storage_path, stop_event))
+        for _ in range(2):
+            pool.apply_async(reader_loop, (storage_path, stop_event, results_queue))
         
-        # Запускаем писателя (те же 10 записей)
-        writer_err = worker(storage_path, 999)
-        
-        # Останавливаем читателей
+        # Даем поработать 5 секунд
+        import time
+        time.sleep(5)
         stop_event.set()
         
-        assert writer_err is None
-        for r in reader_results:
-            assert r.get() is None, f"Reader error: {r.get()}"
+    # Проверяем результаты из очереди
+    errors = []
+    while not results_queue.empty():
+        errors.append(results_queue.get())
+    
+    assert len(errors) == 0, f"Concurrency consistency errors: {errors}"

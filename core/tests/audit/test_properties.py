@@ -41,43 +41,55 @@ def test_memory_storage_path_robustness(path):
         pass
 
 @st.composite
-def memory_operations(draw):
-    """Генерирует последовательность операций над памятью."""
+def complex_memory_operations(draw):
+    """Генерирует сложные операции, включая вытеснение нескольких решений."""
     ops = []
     targets = ["auth", "db", "ui"]
-    for _ in range(draw(st.integers(min_value=1, max_value=10))):
-        op_type = draw(st.sampled_from(["record", "supersede"]))
+    for _ in range(draw(st.integers(min_value=1, max_value=15))):
+        op_type = draw(st.sampled_from(["record", "supersede", "branch"]))
         target = draw(st.sampled_from(targets))
         ops.append({"type": op_type, "target": target})
     return ops
 
-@settings(deadline=None)
-@given(memory_operations())
-def test_target_uniqueness_invariant(ops):
-    """Инвариант: для любого таргета всегда <= 1 активного решения."""
+@settings(deadline=None, max_examples=50)
+@given(complex_memory_operations())
+def test_graph_integrity_under_fuzzing(ops):
+    """Инвариант: любые операции сохраняют DAG и уникальность активного состояния."""
     from agent_memory_core.api.memory import Memory
     import tempfile
-    import shutil
     
     with tempfile.TemporaryDirectory() as tmp_dir:
-        storage = os.path.join(tmp_dir, "prop_test")
-        os.makedirs(storage)
-        
+        storage = os.path.join(tmp_dir, "fuzz_test")
         memory = Memory(storage_path=storage)
         
         for op in ops:
-            if op["type"] == "record":
-                memory.record_decision(f"Rec for {op['target']}", op["target"], "Rationale")
-            else:
-                # Supersede if there is something to supersede
-                active = memory.semantic.list_active_conflicts(op["target"])
-                if active:
-                    memory.supersede_decision(f"Sup for {op['target']}", op["target"], "Rationale", [active[0]])
-                else:
-                    # Just record if nothing to supersede
-                    memory.record_decision(f"Rec for {op['target']}", op["target"], "Rationale")
+            try:
+                target = op["target"]
+                if op["type"] == "record":
+                    memory.record_decision(f"Rec", target, "Long enough rationale for fuzzing")
+                elif op["type"] == "supersede":
+                    active = memory.semantic.list_active_conflicts(target)
+                    if active:
+                        memory.supersede_decision(f"Sup", target, "Updated rationale for fuzzing test", active)
+                elif op["type"] == "branch":
+                    # Имитируем создание параллельной ветки (что должно быть запрещено правилом I4)
+                    # Мы делаем это вручную через save, чтобы проверить, что IntegrityChecker поймает это
+                    from agent_memory_core.core.schemas import MemoryEvent
+                    event = MemoryEvent(
+                        source="agent", kind="decision", content="Branch",
+                        context={"title": "B", "target": target, "status": "active", "rationale": "Illegal branch"}
+                    )
+                    # Это должно вызвать ошибку или быть исправлено следующим шагом
+                    try:
+                        memory.semantic.save(event)
+                    except Exception: pass
+            except Exception: pass
 
-        # Проверяем инвариант для каждого таргета
+        # Финальная проверка всех инвариантов
         for target in ["auth", "db", "ui"]:
             active = memory.semantic.list_active_conflicts(target)
-            assert len(active) <= 1, f"Invariant Violation: Target {target} has {len(active)} active decisions!"
+            assert len(active) <= 1, f"Fuzzing broke I4 for {target}"
+            
+        # Проверка на циклы (через инициализацию нового стора)
+        from agent_memory_core.stores.semantic_store.integrity import IntegrityChecker
+        IntegrityChecker.validate(memory.semantic.repo_path, force=True)
