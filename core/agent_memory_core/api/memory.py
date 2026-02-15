@@ -12,6 +12,7 @@ from agent_memory_core.core.schemas import (
     MemoryEvent, MemoryDecision, ResolutionIntent, TrustBoundary, 
     DecisionContent, SEMANTIC_KINDS, KIND_DECISION, EmbeddingProvider
 )
+from agent_memory_core.core.exceptions import InvariantViolation, ConflictError
 from agent_memory_core.stores.episodic import EpisodicStore
 from agent_memory_core.stores.semantic import SemanticStore
 from agent_memory_core.stores.vector import VectorStore
@@ -193,6 +194,9 @@ class Memory:
     def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> MemoryDecision:
         """
         Helper to record a new decision in semantic memory.
+        Raises:
+            ConflictError: If target already has an active decision.
+            InvariantViolation: If other invariants are violated.
         """
         ctx = {
             "title": title,
@@ -201,16 +205,26 @@ class Memory:
             "rationale": rationale,
             "consequences": consequences or []
         }
-        return self.process_event(
+        decision = self.process_event(
             source="agent",
             kind=KIND_DECISION,
             content=title,
             context=ctx
         )
+        
+        if not decision.should_persist:
+            if "CONFLICT" in decision.reason:
+                raise ConflictError(decision.reason)
+            raise InvariantViolation(f"Failed to record decision: {decision.reason}")
+            
+        return decision
 
     def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None) -> MemoryDecision:
         """
         Helper to evolve knowledge by superseding existing decisions.
+        Raises:
+            ConflictError: If resolution intent is invalid or incomplete.
+            InvariantViolation: If other invariants are violated.
         """
         active_files = self.semantic.list_active_conflicts(target)
         for oid in old_decision_ids:
@@ -229,13 +243,20 @@ class Memory:
             "rationale": rationale,
             "consequences": consequences or []
         }
-        return self.process_event(
+        decision = self.process_event(
             source="agent",
             kind=KIND_DECISION,
             content=title,
             context=ctx,
             intent=intent
         )
+
+        if not decision.should_persist:
+            if "CONFLICT" in decision.reason:
+                raise ConflictError(decision.reason)
+            raise InvariantViolation(f"Failed to supersede decision: {decision.reason}")
+            
+        return decision
 
     def accept_proposal(self, proposal_id: str) -> MemoryDecision:
         """

@@ -20,6 +20,8 @@ KIND_SNAPSHOT = "context_snapshot"
 SEMANTIC_KINDS = [KIND_DECISION, KIND_CONSTRAINT, KIND_ASSUMPTION, KIND_PROPOSAL]
 
 StrictStr = Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
+RationaleStr = Annotated[str, StringConstraints(min_length=10, strip_whitespace=True)]
+TargetStr = Annotated[str, StringConstraints(min_length=3, strip_whitespace=True)]
 
 class ProposalStatus(str, Enum):
     DRAFT = "draft"
@@ -39,9 +41,9 @@ class ProceduralContent(BaseModel):
 
 class ProposalContent(BaseModel):
     title: StrictStr
-    target: StrictStr
+    target: TargetStr
     status: ProposalStatus = ProposalStatus.DRAFT
-    rationale: StrictStr
+    rationale: RationaleStr
     confidence: float = Field(ge=0.0, le=1.0)
     
     # Epistemic Model Fields
@@ -52,9 +54,6 @@ class ProposalContent(BaseModel):
     
     evidence_event_ids: List[int] = Field(default_factory=list)
     counter_evidence_event_ids: List[int] = Field(default_factory=list) # Events that weaken this hypothesis
-    
-    suggested_consequences: List[str] = Field(default_factory=list)
-    suggested_supersedes: List[str] = Field(default_factory=list)
     
     suggested_consequences: List[str] = Field(default_factory=list)
     suggested_supersedes: List[str] = Field(default_factory=list) # Какие решения предлагается заменить
@@ -71,9 +70,9 @@ class ProposalContent(BaseModel):
 
 class DecisionContent(BaseModel):
     title: StrictStr
-    target: StrictStr
+    target: TargetStr
     status: Literal["active", "deprecated", "superseded"] = "active"
-    rationale: StrictStr
+    rationale: RationaleStr
     consequences: List[str] = Field(default_factory=list)
     supersedes: List[str] = Field(default_factory=list)
     superseded_by: Optional[str] = None
@@ -121,7 +120,7 @@ class MemoryDecision(BaseModel):
 
 class ResolutionIntent(BaseModel):
     resolution_type: Literal["supersede", "deprecate", "abort"]
-    rationale: StrictStr
+    rationale: Annotated[str, StringConstraints(min_length=15, strip_whitespace=True)]
     target_decision_ids: List[str]
 
 class EmbeddingProvider:
