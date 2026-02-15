@@ -4,12 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-multi"
-version = "1.0.0"
+version = "1.1.0"
 description = "Universal bridge for agent-memory-core to various LLMs and frameworks"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "agent-memory-core @ file://localhost/data/data/com.termux/files/home/projects/agent-memory/core"
+    "agent-memory-core @ file://localhost/data/data/com.termux/files/home/projects/agent-memory/core",
+    "mcp>=0.1.0",
+    "fastmcp>=0.1.0"
 ]
 
 [tool.setuptools]

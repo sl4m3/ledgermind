@@ -25,3 +25,7 @@ Cycles (A -> B -> A) are strictly prohibited and will result in a system halt.
 ## I6: Immortal Evidence
 Episodic events linked to semantic decisions MUST NEVER be physically pruned (deleted), 
 regardless of their age or TTL.
+
+## I7: The Hypothesis Invariant
+The Reflection engine MUST only create memories of `kind: proposal`. No automated process is allowed to create or modify `kind: decision` directly. Transition from `proposal` to `decision` requires an explicit `ResolutionIntent` signed by a trusted boundary.
+Proposals MUST NOT interfere with the Single Active Reality (I4) or Conflict Engine until accepted.

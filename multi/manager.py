@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional
 from schema import ToolSchemaGenerator
 from api.memory import Memory
 from core.schemas import KIND_DECISION
+from frameworks.environment_context import EnvironmentContext
 
 class MemoryMultiManager:
     """Менеджер для работы с памятью в мульти-модельной среде."""
@@ -13,13 +14,35 @@ class MemoryMultiManager:
         """
         self.core = core_memory
         self.schema_gen = ToolSchemaGenerator()
+        self.env_context = EnvironmentContext(self) if self.core else None
 
     def get_tools(self, provider: str = "openai") -> List[Dict[str, Any]]:
         """Возвращает список инструментов в формате конкретного провайдера."""
-        return [
+        tools = [
             self.schema_gen.get_decision_tool_schema(provider),
             self.schema_gen.get_supersede_tool_schema(provider)
         ]
+        # Добавляем инструмент захвата контекста (в будущем можно вынести схему в schema.py)
+        tools.append({
+            "name": "capture_context",
+            "description": "Сделать снимок текущего окружения (файлы, git) и сохранить в эпизодическую память.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string", "description": "Метка для снимка (например, 'before_fix')."}
+                }
+            }
+        } if provider != "anthropic" else {
+            "name": "capture_context",
+            "description": "Сделать снимок текущего окружения (файлы, git) и сохранить в эпизодическую память.",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "label": {"type": "string", "description": "Метка для снимка (например, 'before_fix')."}
+                }
+            }
+        })
+        return tools
 
     def handle_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -45,6 +68,11 @@ class MemoryMultiManager:
                     "status": "success",
                     "message": "Decision superseded successfully"
                 }
+
+            elif tool_name == "capture_context":
+                if not self.env_context:
+                    self.env_context = EnvironmentContext(self)
+                return self.env_context.capture_context(**arguments)
             
             return {"status": "error", "message": f"Unknown tool: {tool_name}"}
         

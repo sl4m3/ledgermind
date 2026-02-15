@@ -6,13 +6,15 @@ from core.router import MemoryRouter
 from core.policy import MemoryPolicy
 from core.schemas import (
     MemoryEvent, MemoryDecision, ResolutionIntent, TrustBoundary, 
-    DecisionContent, SEMANTIC_KINDS, KIND_DECISION
+    DecisionContent, SEMANTIC_KINDS, KIND_DECISION, EmbeddingProvider
 )
 from stores.episodic import EpisodicStore
 from stores.semantic import SemanticStore
+from stores.vector import VectorStore
 from reasoning.conflict import ConflictEngine
 from reasoning.resolution import ResolutionEngine
 from reasoning.decay import DecayEngine, DecayReport
+from reasoning.reflection import ReflectionEngine
 
 class Memory:
     """
@@ -24,13 +26,15 @@ class Memory:
                  ttl_days: int = 30, 
                  trust_boundary: TrustBoundary = TrustBoundary.AGENT_WITH_INTENT,
                  episodic_store: Optional[EpisodicStore] = None,
-                 semantic_store: Optional[SemanticStore] = None):
+                 semantic_store: Optional[SemanticStore] = None,
+                 embedding_provider: Optional[EmbeddingProvider] = None):
         """
         Initialize the memory system.
         
         :param storage_path: Base directory for all memory storage.
         :param ttl_days: Number of days before episodic memory starts to decay.
         :param trust_boundary: Security policy for determining what can be persisted.
+        :param embedding_provider: Provider for generating embeddings (optional).
         """
         self.storage_path = storage_path
         self.trust_boundary = trust_boundary
@@ -45,10 +49,13 @@ class Memory:
         
         self.episodic = episodic_store or EpisodicStore(os.path.join(storage_path, "episodic.db"))
         self.semantic = semantic_store or SemanticStore(os.path.join(storage_path, "semantic"), trust_boundary=trust_boundary)
+        self.vector = VectorStore(os.path.join(storage_path, "vector.db"))
+        self.embedding_provider = embedding_provider
         
         self.conflict_engine = ConflictEngine(self.semantic.repo_path)
         self.resolution_engine = ResolutionEngine(self.semantic.repo_path)
         self.decay_engine = DecayEngine(ttl_days=ttl_days)
+        self.reflection_engine = ReflectionEngine(self.episodic, self.semantic)
         
         self.router = MemoryRouter(
             self.policy, 
@@ -93,7 +100,17 @@ class Memory:
                     event.context.supersedes = intent.target_decision_ids
                 
                 new_fid = self.semantic.save(event)
+                decision.metadata["file_id"] = new_fid
                 
+                # Update vector index if provider is available
+                if self.embedding_provider:
+                    try:
+                        emb = self.embedding_provider.get_embedding(f"{event.content} {getattr(event.context, 'rationale', '')}")
+                        self.vector.update_index(new_fid, emb, event.content)
+                    except Exception as e:
+                        # Vector index is auxiliary, don't fail the whole process if it fails
+                        logger.error(f"Failed to update vector index for {new_fid}: {e}")
+
                 if intent and intent.resolution_type == "supersede":
                     for old_id in intent.target_decision_ids:
                         self.semantic.update_decision(
@@ -138,6 +155,12 @@ class Memory:
             self.episodic.physical_prune(to_prune)
             
         return DecayReport(len(to_archive), len(to_prune), retained)
+
+    def run_reflection(self) -> List[str]:
+        """
+        Execute the reflection process to identify patterns and suggest improvements.
+        """
+        return self.reflection_engine.run_cycle()
 
     def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> MemoryDecision:
         """
@@ -185,4 +208,80 @@ class Memory:
             context=ctx,
             intent=intent
         )
+
+    def accept_proposal(self, proposal_id: str) -> MemoryDecision:
+        """
+        Converts a proposal into an active semantic decision.
+        """
+        from stores.semantic_store.loader import MemoryLoader
+        
+        file_path = os.path.join(self.semantic.repo_path, proposal_id)
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Proposal not found: {proposal_id}")
+            
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data, _ = MemoryLoader.parse(f.read())
+        
+        if data.get("kind") != "proposal":
+            raise ValueError(f"File {proposal_id} is not a proposal")
+            
+        ctx = data.get("context", {})
+        if ctx.get("status") != "draft":
+            raise ValueError(f"Proposal {proposal_id} is already {ctx.get('status')}")
+
+        # Convert proposal to decision
+        # Note: In a more advanced version, we might check if it supersedes anything
+        decision = self.record_decision(
+            title=ctx.get("title"),
+            target=ctx.get("target"),
+            rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
+            consequences=ctx.get("suggested_consequences", [])
+        )
+        
+        if decision.should_persist:
+            new_id = decision.metadata.get("file_id")
+            self.semantic.update_decision(
+                proposal_id, 
+                {"status": "accepted", "converted_to": new_id}, 
+                commit_msg=f"Accepted and converted to {new_id}"
+            )
+            
+        return decision
+
+    def reject_proposal(self, proposal_id: str, reason: str):
+        """
+        Marks a proposal as rejected.
+        """
+        self.semantic.update_decision(
+            proposal_id, 
+            {"status": "rejected", "rejection_reason": reason}, 
+            commit_msg=f"Rejected proposal: {reason}"
+        )
+
+    def search_decisions(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Search for relevant decisions using vector similarity.
+        
+        :param query: Natural language query.
+        :param limit: Maximum number of results.
+        :return: List of matches with scores and previews.
+        """
+        if not self.embedding_provider:
+            return []
+        
+        try:
+            query_emb = self.embedding_provider.get_embedding(query)
+            results = self.vector.search(query_emb, limit=limit)
+            
+            output = []
+            for doc_id, score, preview in results:
+                output.append({
+                    "id": doc_id,
+                    "score": round(score, 4),
+                    "preview": preview
+                })
+            return output
+        except Exception as e:
+            logger.error(f"Search failed: {e}")
+            return []
 

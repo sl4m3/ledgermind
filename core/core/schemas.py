@@ -14,10 +14,33 @@ KIND_CONFIG = "config_change"
 KIND_ASSUMPTION = "assumption"
 KIND_CONSTRAINT = "constraint"
 KIND_RESULT = "result"
+KIND_PROPOSAL = "proposal"
 
-SEMANTIC_KINDS = [KIND_DECISION, KIND_CONSTRAINT, KIND_ASSUMPTION]
+SEMANTIC_KINDS = [KIND_DECISION, KIND_CONSTRAINT, KIND_ASSUMPTION, KIND_PROPOSAL]
 
 StrictStr = Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
+
+class ProposalStatus(str, Enum):
+    DRAFT = "draft"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+class ProposalContent(BaseModel):
+    title: StrictStr
+    target: StrictStr
+    status: ProposalStatus = ProposalStatus.DRAFT
+    rationale: StrictStr
+    confidence: float = Field(ge=0.0, le=1.0)
+    evidence_event_ids: List[int] = Field(default_factory=list)
+    suggested_consequences: List[str] = Field(default_factory=list)
+    suggested_supersedes: List[str] = Field(default_factory=list) # Какие решения предлагается заменить
+    
+    first_observed_at: datetime = Field(default_factory=datetime.now)
+    last_observed_at: datetime = Field(default_factory=datetime.now)
+    hit_count: int = 0
+    miss_count: int = 0 # Количество успешных операций в этой области
+    
+    ready_for_review: bool = False
 
 class DecisionContent(BaseModel):
     title: StrictStr
@@ -37,10 +60,10 @@ class DecisionContent(BaseModel):
 
 class MemoryEvent(BaseModel):
     schema_version: int = Field(default=1)
-    source: Literal["user", "agent", "system"]
-    kind: Literal["decision", "error", "config_change", "assumption", "constraint", "result"]
+    source: Literal["user", "agent", "system", "reflection_engine"]
+    kind: Literal["decision", "error", "config_change", "assumption", "constraint", "result", "proposal"]
     content: StrictStr
-    context: Union[DecisionContent, Dict[str, Any]] = Field(default_factory=dict)
+    context: Union[DecisionContent, ProposalContent, Dict[str, Any]] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.now)
 
     @field_validator('content')
@@ -53,10 +76,13 @@ class MemoryEvent(BaseModel):
     @model_validator(mode='after')
     def validate_semantic_context(self) -> 'MemoryEvent':
         if self.kind in SEMANTIC_KINDS:
-            # Force validation of context as DecisionContent for semantic types
-            if isinstance(self.context, dict):
-                # This will raise ValidationError if required fields are missing/empty
-                self.context = DecisionContent(**self.context)
+            if self.kind == KIND_PROPOSAL:
+                if isinstance(self.context, dict):
+                    self.context = ProposalContent(**self.context)
+            else:
+                # Force validation of context as DecisionContent for other semantic types
+                if isinstance(self.context, dict):
+                    self.context = DecisionContent(**self.context)
         return self
 
 class MemoryDecision(BaseModel):
@@ -70,3 +96,11 @@ class ResolutionIntent(BaseModel):
     resolution_type: Literal["supersede", "deprecate", "abort"]
     rationale: StrictStr
     target_decision_ids: List[str]
+
+class EmbeddingProvider:
+    """Interface for generating text embeddings."""
+    def get_embedding(self, text: str) -> List[float]:
+        raise NotImplementedError
+
+    def get_embeddings(self, texts: List[str]) -> List[List[float]]:
+        return [self.get_embedding(t) for t in texts]

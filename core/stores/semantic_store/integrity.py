@@ -71,11 +71,14 @@ class IntegrityChecker:
             if not data or "context" not in data:
                 continue
                 
+            kind = data.get("kind", "decision") # Default to decision for legacy
             ctx = data["context"]
             target = ctx.get("target")
             status = ctx.get("status")
 
-            if status == "active" and target:
+            # I4: Single active decision per target
+            # ONLY for decisions, proposals are excluded from reality checks
+            if kind == "decision" and status == "active" and target:
                 if target in active_targets:
                     raise IntegrityViolation(
                         f"I4 Violation: Multiple active decisions for target '{target}'",

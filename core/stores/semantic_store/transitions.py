@@ -30,6 +30,9 @@ class TransitionValidator:
         
         for field in TransitionValidator.IMMUTABLE_CONTEXT:
             if old_ctx.get(field) != new_ctx.get(field):
+                # Proposals are hypotheses, allow updating rationale as more evidence arrives
+                if old_data.get("kind") == "proposal":
+                    continue
                 raise TransitionError(f"I1 Violation: Semantic context field '{field}' is immutable. Change rejected.")
                 
         # Also, check kind-specific constraints
