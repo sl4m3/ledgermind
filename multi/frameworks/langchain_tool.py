@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Type
 from pydantic import BaseModel, Field
 from langchain_core.tools import BaseTool
-from ..manager import MemoryMultiManager
+from manager import MemoryMultiManager
 
 class RecordDecisionInput(BaseModel):
     title: str = Field(description="Краткий заголовок решения.")

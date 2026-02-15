@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Type
 from pydantic import BaseModel, Field
 from crewai.tools import BaseTool
-from ..manager import MemoryMultiManager
+from manager import MemoryMultiManager
 
 # Используем те же схемы Pydantic, что и для LangChain
 from .langchain_tool import RecordDecisionInput, SupersedeDecisionInput
