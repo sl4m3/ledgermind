@@ -1,4 +1,4 @@
-# Agent Memory Multi v1.1.2
+# Agent Memory Multi v1.1.3
 
 Универсальный мост (Bridge) между ядром памяти `agent-memory-core` и различными LLM-провайдерами.
 
