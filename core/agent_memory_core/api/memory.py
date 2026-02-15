@@ -100,30 +100,32 @@ class Memory:
             if decision.store_type == "episodic":
                 self.episodic.append(event)
             elif decision.store_type == "semantic":
-                # Ensure bidirectional links in context before saving
-                if intent and intent.resolution_type == "supersede" and isinstance(event.context, DecisionContent):
-                    event.context.supersedes = intent.target_decision_ids
-                
-                new_fid = self.semantic.save(event)
-                decision.metadata["file_id"] = new_fid
-                
-                # Update vector index if provider is available
-                if self.embedding_provider:
-                    try:
-                        emb = self.embedding_provider.get_embedding(f"{event.content} {getattr(event.context, 'rationale', '')}")
-                        self.vector.update_index(new_fid, emb, event.content)
-                    except Exception as e:
-                        # Vector index is auxiliary, don't fail the whole process if it fails
-                        logger.error(f"Failed to update vector index for {new_fid}: {e}")
+                # Use Transaction for atomic save + status updates
+                with self.semantic.transaction():
+                    # Ensure bidirectional links in context before saving
+                    if intent and intent.resolution_type == "supersede" and isinstance(event.context, DecisionContent):
+                        event.context.supersedes = intent.target_decision_ids
+                    
+                    new_fid = self.semantic.save(event)
+                    decision.metadata["file_id"] = new_fid
+                    
+                    # Update vector index if provider is available
+                    if self.embedding_provider:
+                        try:
+                            emb = self.embedding_provider.get_embedding(f"{event.content} {getattr(event.context, 'rationale', '')}")
+                            self.vector.update_index(new_fid, emb, event.content)
+                        except Exception as e:
+                            logger.error(f"Failed to update vector index for {new_fid}: {e}")
 
-                if intent and intent.resolution_type == "supersede":
-                    for old_id in intent.target_decision_ids:
-                        self.semantic.update_decision(
-                            old_id, 
-                            {"status": "superseded", "superseded_by": new_fid},
-                            commit_msg=f"Superseded by {new_fid}"
-                        )
-                # Immortal Link
+                    if intent and intent.resolution_type == "supersede":
+                        for old_id in intent.target_decision_ids:
+                            self.semantic.update_decision(
+                                old_id, 
+                                {"status": "superseded", "superseded_by": new_fid},
+                                commit_msg=f"Superseded by {new_fid}"
+                            )
+                
+                # Immortal Link (after transaction success)
                 self.episodic.append(event, linked_id=new_fid)
                 
         return decision
@@ -250,20 +252,21 @@ class Memory:
 
         # Convert proposal to decision
         # Note: In a more advanced version, we might check if it supersedes anything
-        decision = self.record_decision(
-            title=ctx.get("title"),
-            target=ctx.get("target"),
-            rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
-            consequences=ctx.get("suggested_consequences", [])
-        )
-        
-        if decision.should_persist:
-            new_id = decision.metadata.get("file_id")
-            self.semantic.update_decision(
-                proposal_id, 
-                {"status": "accepted", "converted_to": new_id}, 
-                commit_msg=f"Accepted and converted to {new_id}"
+        with self.semantic.transaction():
+            decision = self.record_decision(
+                title=ctx.get("title"),
+                target=ctx.get("target"),
+                rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
+                consequences=ctx.get("suggested_consequences", [])
             )
+            
+            if decision.should_persist:
+                new_id = decision.metadata.get("file_id")
+                self.semantic.update_decision(
+                    proposal_id, 
+                    {"status": "accepted", "converted_to": new_id}, 
+                    commit_msg=f"Accepted and converted to {new_id}"
+                )
             
         return decision
 
