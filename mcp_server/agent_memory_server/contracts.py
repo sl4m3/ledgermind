@@ -30,6 +30,10 @@ class SearchDecisionsRequest(BaseModel):
 class AcceptProposalRequest(BaseModel):
     proposal_id: str = Field(..., description="The filename of the proposal to accept")
 
+class SyncGitHistoryRequest(BaseModel):
+    repo_path: str = Field(default=".", description="Path to the git repository to sync")
+    limit: int = Field(default=20, ge=1, le=100, description="Max number of recent commits to index")
+
 # --- Response Models ---
 
 class BaseResponse(BaseModel):
