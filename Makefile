@@ -13,7 +13,7 @@ install-adapters:
 
 test:
 	cd core && pytest tests
-	# server and adapters tests to be added
+	cd mcp_server && pytest tests
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
