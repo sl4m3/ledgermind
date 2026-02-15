@@ -45,14 +45,16 @@ class ProposalContent(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     
     # Epistemic Model Fields
-    strengths: List[str] = Field(default_factory=list, description="Почему эта гипотеза вероятна")
-    objections: List[str] = Field(default_factory=list, description="Факты или логика против этой гипотезы")
-    counter_patterns: List[str] = Field(default_factory=list, description="Сценарии, в которых эта гипотеза НЕ работает")
-    epistemic_merit: float = Field(default=0.5, ge=0.0, le=1.0, description="Качество самой гипотезы (логичность, фальсифицируемость)")
+    strengths: List[str] = Field(default_factory=list, description="Arguments in favor of this hypothesis")
+    objections: List[str] = Field(default_factory=list, description="Active counter-arguments or missing evidence")
+    counter_patterns: List[str] = Field(default_factory=list, description="Scenarios where this hypothesis was expected to trigger but didn't")
+    alternative_ids: List[str] = Field(default_factory=list, description="IDs of competing proposals for the same cluster of evidence")
     
     evidence_event_ids: List[int] = Field(default_factory=list)
-    counter_evidence_event_ids: List[int] = Field(default_factory=list) # Events that contradict this hypothesis
-    competing_proposal_ids: List[str] = Field(default_factory=list) # Alternative hypotheses
+    counter_evidence_event_ids: List[int] = Field(default_factory=list) # Events that weaken this hypothesis
+    
+    suggested_consequences: List[str] = Field(default_factory=list)
+    suggested_supersedes: List[str] = Field(default_factory=list)
     
     suggested_consequences: List[str] = Field(default_factory=list)
     suggested_supersedes: List[str] = Field(default_factory=list) # Какие решения предлагается заменить
