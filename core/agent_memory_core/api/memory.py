@@ -21,6 +21,7 @@ from agent_memory_core.reasoning.resolution import ResolutionEngine
 from agent_memory_core.reasoning.decay import DecayEngine, DecayReport
 from agent_memory_core.reasoning.reflection import ReflectionEngine
 from agent_memory_core.reasoning.git_indexer import GitIndexer
+from agent_memory_core.reasoning.ranking.policy import RankingPolicy
 
 class Memory:
     """
@@ -341,29 +342,24 @@ class Memory:
                     final_id, data = self._resolve_to_truth(doc_id, mode)
                     if not data: continue
                         
-                    status = data.get("context", {}).get("status", "unknown")
-                    target = data.get("context", {}).get("target", "unknown")
+                    ctx = data.get("context", {})
+                    status = ctx.get("status", "unknown")
+                    target = ctx.get("target", "unknown")
                     
                     # 2. Apply Mode Filtering
                     if mode == "strict" and status != "active":
                         continue
                     
-                    # 3. Hybrid Scoring Policy
-                    final_score = vector_score
-                    
-                    # Rule: Truth Alignment
-                    if status == "active":
-                        final_score += 1.0 # Active decisions are boosted to the top
-                    elif status == "superseded":
-                        final_score *= 0.1 # Superseded are heavily penalized if not redirected
-                        
-                    # Rule: Authority Bonus (Human > Agent)
-                    if "[via MCP]" not in str(data.get("context", {}).get("rationale", "")):
-                        final_score += 0.1
+                    # 3. Hybrid Scoring Policy (Delegated to RankingPolicy)
+                    final_score = RankingPolicy.calculate_score(
+                        vector_score=vector_score,
+                        metadata=ctx,
+                        timestamp=datetime.fromisoformat(data.get("timestamp")) if data.get("timestamp") else None
+                    )
                         
                     candidates.append({
                         "id": final_id,
-                        "score": round(final_score, 4),
+                        "score": final_score,
                         "status": status,
                         "target": target,
                         "preview": data.get("content", preview)[:200],
