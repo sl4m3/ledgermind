@@ -108,6 +108,18 @@ class MCPMemoryAdapter:
             return json.dumps(result, ensure_ascii=False)
 
         @self.mcp.tool()
+        def sync_git_history(repo_path: str = ".", limit: int = 20) -> str:
+            """
+            Синхронизирует историю коммитов Git с эпизодической памятью.
+            Это позволяет системе учитывать изменения кода, сделанные людьми, при рефлексии.
+            """
+            if not self.manager.core:
+                return json.dumps({"status": "error", "message": "Core memory not initialized"})
+            
+            count = self.manager.core.sync_git(repo_path=repo_path, limit=limit)
+            return json.dumps({"status": "success", "indexed_commits": count}, ensure_ascii=False)
+
+        @self.mcp.tool()
         def run_reflection() -> str:
             """
             Запускает процесс саморефлексии для поиска паттернов и генерации предложений (Proposals).
