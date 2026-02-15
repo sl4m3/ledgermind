@@ -1,50 +1,50 @@
 # agent-memory-core v1.22.0
 
-Универсальный модуль долгосрочной памяти для ИИ-агентов с гарантированной целостностью, эпистемическим моделированием и гибридным хранилищем.
+A universal long-term memory module for AI agents featuring guaranteed integrity, epistemic modeling, and hybrid storage.
 
-## 🛡 Гарантии целостности и надежности
+## 🛡 Integrity & Reliability Guarantees
 
-- **Structured Ranking Policy**: Формализованная политика ранжирования для гибридного поиска. Векторное сходство корректируется бонусами за статус "Active" (Truth Bias), авторитет источника (Human > Agent) и штрафами за устаревание (Superseded/Deprecated). Это гарантирует, что агент всегда получает наиболее релевантную и *действующую* информацию.
-- **Boundary Enforcement**: Строгая валидация входных данных и бизнес-правил на границе API. Невалидные операции (нарушающие инварианты I1-I7) отсекаются с явными исключениями (`ConflictError`, `InvariantViolation`), защищая хранилище от некорректных вызовов клиентов.
-- **Hybrid Semantic Store**: Двухуровневая архитектура хранения. SQLite обеспечивает ACID-транзакции и мгновенную проверку инвариантов метаданных, в то время как Git служит надежным append-only логом для аудита и версионирования контента.
-- **ACID-compliant Transactions**: Поддержка атомарных многофайловых операций через `SemanticStore.transaction()`. Изменения либо применяются полностью (commit), либо автоматически откатываются (rollback) при сбое. Используется WAL-механизм для восстановления файловой системы.
-- **Proactive Validation**: Валидация всех архитектурных инвариантов (`IntegrityChecker`) выполняется **ДО** фиксации изменений в Git и SQLite.
-- **Robust Locking**: Кросс-платформенная (`fcntl`-based) блокировка файлов гарантирует безопасность при параллельной работе нескольких агентов.
-- **Recursive Truth Resolution**: Гибридный поиск автоматически следует по цепочкам вытеснения знаний. Агент всегда получает актуальную "истину", даже если поиск нашел устаревшую версию.
+- **Structured Ranking Policy**: Formalized ranking policy for hybrid search. Vector similarity is adjusted with bonuses for "Active" status (Truth Bias), source authority (Human > Agent), and penalties for obsolescence (Superseded/Deprecated). This ensures the agent always receives the most relevant and *active* information.
+- **Boundary Enforcement**: Strict validation of input data and business rules at the API boundary. Invalid operations (violating invariants I1-I7) are rejected with explicit exceptions (`ConflictError`, `InvariantViolation`), protecting the store from incorrect client calls.
+- **Hybrid Semantic Store**: A two-tier storage architecture. SQLite provides ACID transactions and instant metadata invariant checks, while Git serves as a reliable append-only log for audit and content versioning.
+- **ACID-compliant Transactions**: Support for atomic multi-file operations via `SemanticStore.transaction()`. Changes are either fully applied (commit) or automatically rolled back (rollback) upon failure. A WAL-like mechanism is used for filesystem recovery.
+- **Proactive Validation**: All architectural invariants are validated (`IntegrityChecker`) **BEFORE** changes are committed to Git and SQLite.
+- **Robust Locking**: Cross-platform (`fcntl`-based) file locking ensures safety during parallel operation by multiple agents.
+- **Recursive Truth Resolution**: Hybrid search automatically follows knowledge supersession chains. The agent always receives the current "truth," even if the initial search hit an outdated version.
 
-## 🚀 Основные функции (Reasoning v5)
+## 🚀 Core Features (Reasoning v5)
 
-- **Epistemic Reflection & Falsification**: Система рефлексии нового поколения, строящая научную модель гипотез:
-    - **Competing Hypotheses**: Для каждого паттерна ошибок генерируются альтернативные объяснения (логический сбой vs внешний шум), которые конкурируют за уверенность.
-    - **Scientific Falsification**: Система активно ищет опровержения. Любой успех в контексте гипотезы об ошибке снижает её вес вплоть до полной фальсификации.
-    - **Bayesian-ish Confidence**: Уверенность рассчитывается на основе баланса подтверждающих и опровергающих улик.
-    - **Structured Scrutiny**: Предложения (Proposals) содержат эксплицитные `strengths` и `objections` для прозрачного аудита.
-- **Procedural Distillation (MemP)**: Автоматическое извлечение процедурных знаний (SOP) из успешных цепочек событий (траекторий).
-- **Git History Indexing**: Обогащение памяти знаниями из истории коммитов человеческого кода.
-- **Knowledge Evolution**: Строгий процесс замещения старых знаний новыми через DAG-структуру.
+- **Epistemic Reflection & Falsification**: Next-generation reflection system building a scientific hypothesis model:
+    - **Competing Hypotheses**: For each error pattern, alternative explanations (logic failure vs. external noise) are generated and compete for confidence.
+    - **Scientific Falsification**: The system actively seeks refutations. Any success in the context of an error hypothesis reduces its weight until it is potentially falsified.
+    - **Bayesian-ish Confidence**: Confidence is calculated based on the balance of supporting and refuting evidence.
+    - **Structured Scrutiny**: Proposals contain explicit `strengths` and `objections` for transparent auditing.
+- **Procedural Distillation (MemP)**: Automatic extraction of procedural knowledge (SOPs) from successful event chains (trajectories).
+- **Git History Indexing**: Enriching memory with knowledge from human code commit history.
+- **Knowledge Evolution**: A rigorous process for replacing old knowledge with new information via a DAG structure.
 
-## 🛠 Архитектура
+## 🛠 Architecture
 
-- **Semantic Store**: Markdown-файлы с метаданными в SQLite. Хранилище "истин" и правил.
-- **Episodic Store**: SQLite БД для потока событий (append-only log).
-- **Vector Store**: Индекс для быстрого поиска кандидатов по семантической близости.
+- **Semantic Store**: Markdown files with metadata in SQLite. The repository for "truths" and rules.
+- **Episodic Store**: SQLite database for the event stream (append-only log).
+- **Vector Store**: Index for fast candidate retrieval based on semantic similarity.
 - **Reasoning Engines**: Reflection, Conflict, Distillation, Decay.
 
-## ⚡ Быстрый старт
+## ⚡ Quick Start
 
 ```python
 from agent_memory_core.api.memory import Memory
 
-# Инициализация с гибридным хранилищем
+# Initialization with hybrid storage
 memory = Memory(storage_path="./my_agent_memory")
 
-# Запись решения
+# Recording a decision
 memory.record_decision(
     title="Use PostgreSQL",
     target="database",
     rationale="Need ACID and vertical scaling for initial phase"
 )
 
-# Гибридный поиск с Recursive Truth Resolution
+# Hybrid search with Recursive Truth Resolution
 results = memory.search_decisions("How to store structured data?", mode="balanced")
 ```
