@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional
 import json
 from mcp.server.fastmcp import FastMCP
-from manager import MemoryMultiManager
+from agent_memory_multi.manager import MemoryMultiManager
 
 class MCPMemoryAdapter:
     """

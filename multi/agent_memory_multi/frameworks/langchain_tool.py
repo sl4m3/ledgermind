@@ -10,7 +10,7 @@ except ImportError:
     LANGCHAIN_AVAILABLE = False
 
 if TYPE_CHECKING:
-    from manager import MemoryMultiManager
+    from agent_memory_multi.manager import MemoryMultiManager
 
 class RecordDecisionInput(BaseModel):
     title: str = Field(description="Краткий заголовок решения.")

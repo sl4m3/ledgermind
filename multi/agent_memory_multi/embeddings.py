@@ -1,7 +1,7 @@
 import os
 import logging
 from typing import List, Optional
-from core.schemas import EmbeddingProvider
+from agent_memory_core.core.schemas import EmbeddingProvider
 
 logger = logging.getLogger("agent-memory-multi.embeddings")
 

@@ -36,9 +36,9 @@ pip install ./core ./multi
 ## Использование с Google Gemini
 
 ```python
-from api.memory import Memory
-from manager import MemoryMultiManager
-from adapters.google_adapter import GoogleAdapter
+from agent_memory_core.api.memory import Memory
+from agent_memory_multi.manager import MemoryMultiManager
+from agent_memory_multi.adapters.google_adapter import GoogleAdapter
 
 # Инициализация
 core = Memory(storage_path="./mem_data")

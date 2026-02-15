@@ -3,7 +3,7 @@ import subprocess
 from typing import Dict, Any, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from manager import MemoryMultiManager
+    from agent_memory_multi.manager import MemoryMultiManager
 
 class EnvironmentContext:
     """

@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional
-from schema import ToolSchemaGenerator
-from api.memory import Memory
-from core.schemas import KIND_DECISION
-from frameworks.environment_context import EnvironmentContext
+from agent_memory_multi.schema import ToolSchemaGenerator
+from agent_memory_core.api.memory import Memory
+from agent_memory_core.core.schemas import KIND_DECISION
+from agent_memory_multi.frameworks.environment_context import EnvironmentContext
 
 class MemoryMultiManager:
     """Менеджер для работы с памятью в мульти-модельной среде."""
