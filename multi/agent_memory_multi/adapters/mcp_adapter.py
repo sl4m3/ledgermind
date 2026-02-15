@@ -26,17 +26,15 @@ class MCPMemoryAdapter:
         def record_decision(title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> str:
             """
             Записывает стратегическое решение в долгосрочную семантическую память.
-            
-            Args:
-                title: Краткий заголовок решения.
-                target: Область применения (например, 'auth', 'database').
-                rationale: Обоснование решения.
-                consequences: Список ожидаемых последствий (опционально).
             """
+            # MCP Hardening: Rationale quality check
+            if len(rationale.strip()) < 10:
+                return json.dumps({"status": "error", "message": "Rationale too short (min 10 chars required for MCP)"})
+
             args = {
                 "title": title,
                 "target": target,
-                "rationale": rationale,
+                "rationale": f"[via MCP] {rationale}",
                 "consequences": consequences or []
             }
             result = self.manager.handle_tool_call("record_decision", args)
@@ -46,18 +44,14 @@ class MCPMemoryAdapter:
         def supersede_decision(title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None) -> str:
             """
             Заменяет старые решения новым, обновляя семантическую память.
-            
-            Args:
-                title: Заголовок нового решения.
-                target: Область применения.
-                rationale: Почему старые решения заменяются.
-                old_decision_ids: Список ID заменяемых решений.
-                consequences: Новые последствия (опционально).
             """
+            if len(rationale.strip()) < 15:
+                return json.dumps({"status": "error", "message": "Rationale too short for supersede (min 15 chars)"})
+
             args = {
                 "title": title,
                 "target": target,
-                "rationale": rationale,
+                "rationale": f"[via MCP] {rationale}",
                 "old_decision_ids": old_decision_ids,
                 "consequences": consequences or []
             }
@@ -138,8 +132,13 @@ class MCPMemoryAdapter:
             if not self.manager.core:
                 return json.dumps({"status": "error", "message": "Core memory not initialized"})
             
-            result = self.manager.core.accept_proposal(proposal_id)
-            return json.dumps({"status": "success", "message": "Proposal accepted"}, ensure_ascii=False)
+            try:
+                result = self.manager.core.accept_proposal(proposal_id)
+                return json.dumps({"status": "success", "message": "Proposal accepted", "decision_id": result.metadata.get("file_id")}, ensure_ascii=False)
+            except PermissionError as e:
+                return json.dumps({"status": "error", "message": str(e)}, ensure_ascii=False)
+            except Exception as e:
+                return json.dumps({"status": "error", "message": f"Failed to accept proposal: {str(e)}"}, ensure_ascii=False)
 
         @self.mcp.tool()
         def reject_proposal(proposal_id: str, reason: str) -> str:
