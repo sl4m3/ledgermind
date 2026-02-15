@@ -116,22 +116,33 @@ class SemanticStore:
 
         while True:
             try:
-                self._lock_handle = open(self.lock_file, 'w')
+                # Keep file handle open to maintain lock
+                h = open(self.lock_file, 'w')
                 try:
                     import fcntl
                     lock_type = fcntl.LOCK_SH if shared else fcntl.LOCK_EX
-                    fcntl.flock(self._lock_handle, lock_type | fcntl.LOCK_NB)
-                except (ImportError, AttributeError, OSError): pass 
+                    # This will raise BlockingIOError if lock is held by another process
+                    fcntl.flock(h, lock_type | fcntl.LOCK_NB)
+                except (ImportError, AttributeError):
+                    # Fallback for systems without fcntl support
+                    pass
+                except (OSError, IOError) as e:
+                    # Lock is held by someone else, retry
+                    h.close()
+                    if time.time() - start_time > timeout:
+                        mode = "shared" if shared else "exclusive"
+                        raise TimeoutError(f"Could not acquire {mode} lock after {timeout}s: {e}")
+                    time.sleep(0.1)
+                    continue
                 
+                self._lock_handle = h
                 self._lock_handle.write(str(os.getpid()))
                 self._lock_handle.flush()
                 return
             except (OSError, IOError) as e:
-                if self._lock_handle: self._lock_handle.close()
-                self._lock_handle = None
+                # Error opening the file, retry
                 if time.time() - start_time > timeout:
-                    mode = "shared" if shared else "exclusive"
-                    raise TimeoutError(f"Could not acquire {mode} lock after {timeout}s: {e}")
+                    raise TimeoutError(f"Lock file access error after {timeout}s: {e}")
                 time.sleep(0.1)
 
     def _release_lock(self):
