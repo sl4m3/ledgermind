@@ -7,7 +7,7 @@ A modular, secure, and auditable memory ecosystem for autonomous agents. Designe
 The system is split into three distinct layers to ensure a clean boundary between domain logic and infrastructure:
 
 1.  **[Core](./core)** (`agent-memory-core` v1.19.0): The domain heart. Handles storage (Hybrid Semantic Store: SQLite + Git, Episodic, Vector), Epistemic Reasoning (Reflection v5, Distillation), and Transactional Integrity.
-2.  **[MCP Server](./mcp_server)** (`agent-memory-server` v1.9.1): The enforcement layer and transport. Implements RBAC, Isolation Rules, and a **formal industrial-grade API specification**.
+2.  **[MCP Server](./mcp_server)** (`agent-memory-server` v1.11.0): The enforcement layer and transport. Implements RBAC, Isolation Rules, and a **formal industrial-grade API specification**.
 3.  **[Adapters](./adapters)** (`agent-memory-adapters` v1.1.0): LLM-specific clients (OpenAI, Anthropic, Gemini, etc.) that connect to the MCP Server.
 
 ## 🛡 Decoupled Architecture
@@ -21,7 +21,9 @@ As of v1.12.0, the system enforces a strict separation between transport and log
 
 Unlike traditional "store-all" memories, this system enforces strict rules:
 - **Process Invariants**: Protects against panic-decisions via Review Windows and Evidence Thresholds.
-- **Authority Model**: RBAC (viewer/agent/admin) ensures only authorized entities can promote hypotheses to truths. **AGENT_MEMORY_SECRET** token required for write access.
+- **Authority Model**: RBAC (viewer/agent/admin) or granular **Capabilities** (read/propose/supersede/accept/sync).
+  - **Legacy Mode**: Requires `AGENT_MEMORY_SECRET` for `agent`/`admin` roles.
+  - **Modern Capability Mode**: Explicitly define permissions without secrets for internal/trusted boundaries.
 - **Hardened Audit**: Every change is cryptographically linked to a Git commit hash in a dedicated `audit.log`.
 - **Hybrid Semantic Store**: High-performance metadata indexing in SQLite combined with Git-backed cold storage for immutable audit logs.
 - **Recursive Truth Resolution**: Hybrid search automatically follows the knowledge evolution graph to return the latest active version of any decision.

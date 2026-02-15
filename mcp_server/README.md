@@ -1,4 +1,4 @@
-# Agent Memory Server v1.9.1
+# Agent Memory Server v1.11.0
 
 Dedicated MCP (Model Context Protocol) Server for the Agent Memory System. Acts as the primary enforcement layer and provides a structured API contract for memory operations.
 
@@ -6,42 +6,40 @@ Dedicated MCP (Model Context Protocol) Server for the Agent Memory System. Acts 
 
 ## 🔐 Security & Hardened Audit
 
-The server implements mandatory token-based authentication and a **cryptographically-linked audit trail**. Every state-changing operation is recorded in `audit.log` alongside the resulting Git commit hash, ensuring absolute non-repudiation.
+The server implements mandatory token-based authentication (legacy) or **Capability-based access control (modern)**. Every state-changing operation is recorded in `audit.log`.
 
-### Mandatory Environment Variable
-To use `agent` or `admin` roles, you MUST set the following variable in your environment:
-- `AGENT_MEMORY_SECRET`: A secure string known to the authorized client.
+### Authentication Options
+- **Capability Mode (Recommended)**: Pass `--capabilities` JSON to explicitly define what the server can do. No secret required.
+- **Legacy Role Mode**: Requires `AGENT_MEMORY_SECRET` environment variable for `agent` or `admin` roles.
 
-If this variable is missing, the server will automatically downgrade the session to the `viewer` role (read-only) for safety.
+## 📜 Authority Model (Capabilities)
 
-## 📜 Authority Model (RBAC)
+| Capability | Tool Impact | Description |
+| :--- | :--- | :--- |
+| `read` | `search_decisions` | Allows semantic search and retrieval. |
+| `propose` | `record_decision` | Allows recording new decisions/hypotheses. |
+| `supersede` | `supersede_decision` | Allows replacing existing decisions. |
+| `accept` | `accept_proposal` | Allows promoting drafts to active decisions. |
+| `sync` | `sync_git_history` | Allows indexing external Git history. |
 
-| Role | Permissions | Description | Requirements |
-| :--- | :--- | :--- | :--- |
-| `viewer` | Read-only | Can search and list decisions. | None |
-| `agent` | Restricted Write | Can record decisions and create proposals. | `AGENT_MEMORY_SECRET` |
-| `admin` | Full Access | Complete control, including `accept_proposal`. | `AGENT_MEMORY_SECRET` |
-
-## 🛡 Hardening & Telemetry
-
-- **Audit Logging**: Every access attempt (Success/Denied) is recorded in `audit.log` within the storage directory.
-- **Isolation Rule**: Agents cannot supersede decisions created by humans.
-- **Rate Limiting**: Integrated cooldown mechanism (2s) between write operations.
-- **Contract-First Validation**: All data validated against strict Pydantic schemas.
-
-## 🛡 Security & Compliance
-
-This server is designed for high-trust environments and implements a formal security model.
-- **Threat Model**: Detailed analysis of attack vectors and mitigations in [THREAT_MODEL.md](./docs/THREAT_MODEL.md).
-- **Security Contract**: Formal guarantees and shared responsibilities in [SECURITY_CONTRACT.md](./docs/SECURITY_CONTRACT.md).
-- **Audit Logging**: All operations are recorded in `audit.log`. Git history provides cryptographically-signed-like non-repudiation.
+### Legacy Roles Mapping
+| Role | Permissions | Requirements |
+| :--- | :--- | :--- |
+| `viewer` | `read` | None |
+| `agent` | `read`, `propose`, `supersede`, `sync` | `AGENT_MEMORY_SECRET` |
+| `admin` | `read`, `propose`, `supersede`, `sync`, `accept` | `AGENT_MEMORY_SECRET` |
 
 ## 🏃 Running
 
-Start the server with a specific role:
+### Option A: Capability Mode (No secret required)
+```bash
+agent-memory-mcp run --capabilities '{"read": true, "propose": true}'
+```
+
+### Option B: Legacy Role Mode
 ```bash
 export AGENT_MEMORY_SECRET="your-secure-token"
-agent-memory-mcp run --path ./.agent_memory --role admin
+agent-memory-mcp run --role admin
 ```
 
 ## 🛠 API Specification
