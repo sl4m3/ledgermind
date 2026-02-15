@@ -44,7 +44,12 @@ class DecayEngine:
                 retained_count += 1
                 continue
             
-            ts = datetime.fromisoformat(ev['timestamp'])
+            try:
+                ts = datetime.fromisoformat(ev['timestamp'])
+            except (ValueError, TypeError):
+                # If timestamp is invalid, treat it as very old to trigger archive/prune
+                ts = datetime.min
+            
             age = now - ts
             
             if age > timedelta(days=self.ttl_days):
