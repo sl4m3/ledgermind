@@ -19,13 +19,11 @@ class SemanticStore:
     def __init__(self, repo_path: str, trust_boundary: TrustBoundary = TrustBoundary.AGENT_WITH_INTENT):
         """
         Initialize the semantic store.
-        
-        :param repo_path: Path to the Git repository.
-        :param trust_boundary: Security boundary for modifications.
         """
         self.repo_path = repo_path
         self.trust_boundary = trust_boundary
         self.lock_file = os.path.join(repo_path, ".lock")
+        self._lock_handle = None
         
         self._init_repo()
         self._recover_dirty_state()
@@ -52,48 +50,81 @@ class SemanticStore:
 
     def _recover_dirty_state(self):
         """
-        Checks for untracked or modified files (e.g. after a crash) and tries to recover.
+        Checks for untracked or modified files and tries to recover or quarantine them.
         """
-        status = subprocess.run(["git", "status", "--short"], cwd=self.repo_path, capture_output=True, text=True).stdout
+        status_res = subprocess.run(["git", "status", "--short"], cwd=self.repo_path, capture_output=True, text=True)
+        status = status_res.stdout
         if status:
             logger.warning(f"Dirty state detected in Semantic Store:\n{status}")
-            # Automatically try to stage and commit untracked .md files to maintain integrity
-            untracked = [line[3:].strip() for line in status.splitlines() if line.startswith("??") and line.endswith(".md")]
+            untracked = [line[3:].strip() for line in status.splitlines() if line.startswith("??")]
+            
+            quarantine_path = os.path.join(self.repo_path, ".quarantine")
+            
             for f in untracked:
-                logger.info(f"Recovering untracked file: {f}")
-                try:
+                full_f = os.path.join(self.repo_path, f)
+                # Validation check
+                is_valid = False
+                if f.endswith(".md"):
+                    try:
+                        with open(full_f, 'r', encoding='utf-8') as file:
+                            MemoryLoader.parse(file.read())
+                        is_valid = True
+                    except Exception:
+                        is_valid = False
+                
+                if is_valid:
+                    logger.info(f"Auto-recovering valid file: {f}")
                     subprocess.run(["git", "add", "--", f], cwd=self.repo_path, check=True)
-                    subprocess.run(["git", "commit", "-m", f"Recovery: auto-fix untracked file {f}", "--"], cwd=self.repo_path, check=True)
-                except subprocess.CalledProcessError as e:
-                    logger.error(f"Failed to recover {f}: {e}")
+                    subprocess.run(["git", "commit", "-m", f"Recovery: auto-fix valid untracked file {f}", "--"], cwd=self.repo_path, check=True)
+                else:
+                    logger.error(f"Quarantining invalid/corrupted file: {f}")
+                    os.makedirs(quarantine_path, exist_ok=True)
+                    os.rename(full_f, os.path.join(quarantine_path, os.path.basename(f)))
 
     def _acquire_lock(self):
         """
-        Acquire a simple file-based lock.
+        Acquire a robust file-based lock.
         """
         timeout = 5
         start_time = time.time()
+        
+        if not os.path.exists(self.lock_file):
+            open(self.lock_file, 'a').close()
+
         while True:
             try:
-                # Use exclusive creation to avoid race condition
-                fd = os.open(self.lock_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                with os.fdopen(fd, "w") as f:
-                    f.write(str(os.getpid()))
+                self._lock_handle = open(self.lock_file, 'w')
+                try:
+                    import fcntl
+                    fcntl.flock(self._lock_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except ImportError:
+                    # Fallback for systems without fcntl (Windows)
+                    pass 
+                
+                self._lock_handle.write(str(os.getpid()))
+                self._lock_handle.flush()
                 return
-            except FileExistsError:
+            except (OSError, IOError):
                 if time.time() - start_time > timeout:
+                    if self._lock_handle: self._lock_handle.close()
                     raise TimeoutError("Could not acquire lock on Semantic Store")
                 time.sleep(0.1)
 
     def _release_lock(self):
         """
-        Release the file-based lock.
+        Release the robust lock.
         """
-        if os.path.exists(self.lock_file):
+        if self._lock_handle:
             try:
-                os.remove(self.lock_file)
-            except OSError:
+                try:
+                    import fcntl
+                    fcntl.flock(self._lock_handle, fcntl.LOCK_UN)
+                except ImportError:
+                    pass
+                self._lock_handle.close()
+            except Exception:
                 pass
+            self._lock_handle = None
 
     def _enforce_trust(self, event: Optional[MemoryEvent] = None):
         """
@@ -103,16 +134,24 @@ class SemanticStore:
             if not event or (event.source == "agent" and event.kind == "decision"):
                 raise PermissionError("Trust Boundary Violation: Unauthorized modification attempt.")
 
-    def save(self, event: MemoryEvent) -> str:
+    def save(self, event: MemoryEvent, namespace: Optional[str] = None) -> str:
         """
-        Save a memory event to the semantic store.
+        Save a memory event to the semantic store with transactional integrity.
         """
         self._enforce_trust(event)
         self._acquire_lock()
-        try:
-            filename = f"{event.kind}_{event.timestamp.strftime('%Y%m%d_%H%M%S_%f')}.md"
-            file_path = os.path.join(self.repo_path, filename)
+        
+        # Determine path and filename
+        base_dir = self.repo_path
+        if namespace:
+            base_dir = os.path.join(self.repo_path, namespace)
+            os.makedirs(base_dir, exist_ok=True)
             
+        filename = f"{event.kind}_{event.timestamp.strftime('%Y%m%d_%H%M%S_%f')}.md"
+        relative_path = os.path.join(namespace, filename) if namespace else filename
+        full_path = os.path.join(self.repo_path, relative_path)
+        
+        try:
             data = event.model_dump(mode='json')
             title = event.content if len(event.content) < 100 else event.kind
             body = f"# {title}\n\nRecorded from source: {event.source}\n"
@@ -122,15 +161,24 @@ class SemanticStore:
                 body += f"\n## Rationale\n{ctx.get('rationale', '')}\n"
                 
             content = MemoryLoader.stringify(data, body)
-            with open(file_path, "w", encoding="utf-8") as f:
+            with open(full_path, "w", encoding="utf-8") as f:
                 f.write(content)
                 
-            logger.info(f"Saving semantic event to {filename}", extra={"kind": event.kind, "source": event.source})
+            logger.info(f"Staging semantic event to {relative_path}")
             
-            subprocess.run(["git", "add", "--", filename], cwd=self.repo_path, check=True, capture_output=True)
-            subprocess.run(["git", "commit", "-m", f"Add {event.kind}: {event.content[:50]}", "--"], 
-                           cwd=self.repo_path, check=True, capture_output=True)
-            return filename
+            # ATOMIC COMMIT GUARD
+            try:
+                subprocess.run(["git", "add", "--", relative_path], cwd=self.repo_path, check=True, capture_output=True)
+                subprocess.run(["git", "commit", "-m", f"Add {event.kind}: {event.content[:50]}", "--"], 
+                               cwd=self.repo_path, check=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                # TRANSACTION ROLLBACK: remove the file if git fails
+                if os.path.exists(full_path):
+                    os.remove(full_path)
+                logger.error(f"Git Transaction Failed for {relative_path}. Rolled back file creation. Error: {e.stderr.decode()}")
+                raise RuntimeError(f"Semantic Transaction Failed: {e.stderr.decode()}")
+
+            return relative_path
         finally:
             self._release_lock()
 
