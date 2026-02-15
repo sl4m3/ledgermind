@@ -20,15 +20,19 @@ class MCPRole(str, enum.Enum):
 class MCPServer:
     def __init__(self, memory: Memory, server_name: str = "AgentMemory", default_role: MCPRole = MCPRole.AGENT):
         self.memory = memory
-        # Добавляем версию API в название сервера для видимости клиентам
         self.mcp = FastMCP(f"{server_name} (v{MCP_API_VERSION})")
         self.env_context = EnvironmentContext(memory)
         self.default_role = default_role
+        self._last_write_time = 0
+        self._write_cooldown = 2.0 # 2 seconds between write operations
         self._register_tools()
 
-    def _check_auth(self, required_role: MCPRole) -> bool:
-        role_hierarchy = {MCPRole.VIEWER: 0, MCPRole.AGENT: 1, MCPRole.ADMIN: 2}
-        return role_hierarchy.get(self.default_role, 0) >= role_hierarchy.get(required_role, 0)
+    def _apply_cooldown(self):
+        import time
+        now = time.time()
+        if now - self._last_write_time < self._write_cooldown:
+            raise PermissionError(f"Rate limit exceeded: please wait {self._write_cooldown}s between operations.")
+        self._last_write_time = now
 
     # --- Tool Handlers with Contract Validation ---
 
@@ -37,6 +41,7 @@ class MCPServer:
             return DecisionResponse(status="error", message="Permission denied")
         
         try:
+            self._apply_cooldown()
             result = self.memory.record_decision(
                 title=request.title, 
                 target=request.target,
@@ -51,6 +56,22 @@ class MCPServer:
         if not self._check_auth(MCPRole.AGENT):
             return DecisionResponse(status="error", message="Permission denied")
         
+        # Isolation Rule Enforcement
+        if self.default_role == MCPRole.AGENT:
+            for old_id in request.old_decision_ids:
+                try:
+                    # Check if the decision being replaced is a "Human" decision
+                    # (Human decisions don't have [via MCP] in their rationale)
+                    # This is a heuristic for the prototype
+                    file_path = os.path.join(self.memory.semantic.repo_path, old_id)
+                    with open(file_path, 'r') as f:
+                        if "[via MCP]" not in f.read():
+                            return DecisionResponse(
+                                status="error", 
+                                message=f"Isolation Violation: Decision {old_id} was created by HUMAN and cannot be superseded by MCP AGENT."
+                            )
+                except Exception: continue
+
         try:
             result = self.memory.supersede_decision(
                 title=request.title, target=request.target,
