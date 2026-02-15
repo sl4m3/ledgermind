@@ -33,8 +33,8 @@ def test_isolation_rule_enforcement(mock_memory):
 
     req = SupersedeDecisionRequest(
         title="Agent Attempt",
-        target="T",
-        rationale="Trying to override",
+        target="TargetArea",
+        rationale="Trying to override with enough length",
         old_decision_ids=[human_decision_id]
     )
     
@@ -56,7 +56,7 @@ def test_agent_can_supersede_mcp_decision(mock_memory):
 
     req = SupersedeDecisionRequest(
         title="Agent Update",
-        target="T",
+        target="TargetArea",
         rationale="Updating my own decision with long enough rationale",
         old_decision_ids=[mcp_decision_id]
     )
@@ -73,7 +73,7 @@ def test_rate_limiting_cooldown(mock_memory):
     server = MCPServer(memory=mock_memory, default_role=MCPRole.AGENT)
     server._write_cooldown = 0.5 # Small cooldown for test
     
-    req = RecordDecisionRequest(title="T1", target="T1", rationale="Rationale must be long enough")
+    req = RecordDecisionRequest(title="TitleOne", target="TargetArea", rationale="Rationale must be long enough for validation")
     
     # First call - OK
     mock_memory.record_decision.return_value = MagicMock(metadata={"file_id": "new_1.md"})

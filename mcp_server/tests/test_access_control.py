@@ -23,12 +23,23 @@ def set_auth_token():
 
 def test_viewer_write_denied(mock_memory):
     server = MCPServer(memory=mock_memory, default_role=MCPRole.VIEWER)
-    req = RecordDecisionRequest(title="Test Decision", target="T", rationale="Reason must be at least 10 chars", consequences=[])
+    req = RecordDecisionRequest(title="Test Decision", target="TargetArea", rationale="Reason must be at least 10 chars", consequences=[])
     
     response = server.handle_record_decision(req)
     assert response.status == "error"
     assert "Permission denied" in response.message
     mock_memory.record_decision.assert_not_called()
+
+def test_capability_mode_bypass_secret(mock_memory):
+    """Verify that explicit capabilities bypass the mandatory secret check."""
+    os.environ.pop("AGENT_MEMORY_SECRET", None)
+    # Start server with explicit capabilities - should NOT downgrade to viewer even without secret
+    server = MCPServer(memory=mock_memory, capabilities={"propose": True})
+    
+    req = RecordDecisionRequest(title="Test", target="TargetArea", rationale="Long enough rationale string", consequences=[])
+    server.handle_record_decision(req)
+    # If we got here and record_decision was called, it means auth check passed
+    mock_memory.record_decision.assert_called_once()
 
 def test_admin_accept_allowed(mock_memory):
     server = MCPServer(memory=mock_memory, default_role=MCPRole.ADMIN)
