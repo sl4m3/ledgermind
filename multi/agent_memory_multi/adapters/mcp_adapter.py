@@ -143,3 +143,27 @@ class MCPMemoryAdapter:
     def run(self):
         """Запускает MCP сервер."""
         self.mcp.run()
+
+    @classmethod
+    def serve(cls, storage_path: str = ".agent_memory", server_name: str = "AgentMemory"):
+        """
+        Упрощенный запуск MCP сервера 'из коробки'.
+        Автоматически инициализирует все компоненты.
+        """
+        import os
+        from agent_memory_core.api.memory import Memory
+        from agent_memory_multi.manager import MemoryMultiManager
+        from agent_memory_multi.embeddings import MockEmbeddingProvider
+
+        if not os.path.exists(storage_path):
+            os.makedirs(storage_path, exist_ok=True)
+
+        core = Memory(
+            storage_path=storage_path,
+            embedding_provider=MockEmbeddingProvider()
+        )
+        manager = MemoryMultiManager(core)
+        adapter = cls(manager, server_name=server_name)
+        
+        print(f"Starting MCP Server '{server_name}' with storage at {os.path.abspath(storage_path)}...")
+        adapter.run()
