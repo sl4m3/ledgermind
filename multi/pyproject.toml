@@ -12,6 +12,6 @@ dependencies = [
     "agent-memory-core @ file://localhost/data/data/com.termux/files/home/projects/agent-memory/core"
 ]
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["adapters*", "frameworks*", "prompts*", "manager.py", "schema.py"]
+[tool.setuptools]
+packages = ["adapters", "frameworks", "prompts"]
+py-modules = ["manager", "schema"]

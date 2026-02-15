@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 import logging
-from ..manager import MemoryMultiManager
+from manager import MemoryMultiManager
 
 logger = logging.getLogger(__name__)
 
