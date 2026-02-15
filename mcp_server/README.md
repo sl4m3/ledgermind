@@ -46,9 +46,10 @@ agent-memory-mcp run --path ./.agent_memory --role admin
 
 ## 🛠 API Specification
 
-The server follows a strict formal contract. 
-- **Specification**: See [MCP_SPECIFICATION.md](./docs/MCP_SPECIFICATION.md) for detailed tool schemas and data models.
-- **JSON Schemas**: You can export the latest machine-readable schemas using the CLI:
+The server follows a strict formal contract defined by `mcp_server/schema/mcp_api_v1.json`. 
+- **Formal Contract**: [mcp_api_v1.json](./schema/mcp_api_v1.json) is the single source of truth for all clients.
+- **Specification**: See [MCP_SPECIFICATION.md](./docs/MCP_SPECIFICATION.md) for detailed explanations.
+- **JSON Schemas**: You can also export the latest schema using the CLI:
   ```bash
   agent-memory-mcp export-schema > schema.json
   ```
