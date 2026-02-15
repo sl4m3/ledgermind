@@ -29,6 +29,13 @@ If this variable is missing, the server will automatically downgrade the session
 - **Rate Limiting**: Integrated cooldown mechanism (2s) between write operations.
 - **Contract-First Validation**: All data validated against strict Pydantic schemas.
 
+## 🛡 Security & Compliance
+
+This server is designed for high-trust environments and implements a formal security model.
+- **Threat Model**: Detailed analysis of attack vectors and mitigations in [THREAT_MODEL.md](./docs/THREAT_MODEL.md).
+- **Security Contract**: Formal guarantees and shared responsibilities in [SECURITY_CONTRACT.md](./docs/SECURITY_CONTRACT.md).
+- **Audit Logging**: All operations are recorded in `audit.log`. Git history provides cryptographically-signed-like non-repudiation.
+
 ## 🏃 Running
 
 Start the server with a specific role:
