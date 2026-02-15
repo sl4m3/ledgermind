@@ -2,13 +2,14 @@ from typing import Any, Dict, List, Optional
 import json
 import logging
 from agent_memory_adapters.base import BaseLLMAdapter
+from agent_memory_adapters.interfaces import MemoryProvider
 
 logger = logging.getLogger(__name__)
 
 class OpenAIAdapter(BaseLLMAdapter):
     """Adapter for interacting with OpenAI Tool Calling API."""
 
-    def __init__(self, memory_provider: Any):
+    def __init__(self, memory_provider: MemoryProvider):
         """
         Args:
             memory_provider: An object implementing memory methods (Memory instance or MCP Client).

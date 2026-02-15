@@ -27,6 +27,10 @@ class MCPMemoryProxy:
     async def sync_git_history(self, **kwargs) -> Dict[str, Any]:
         return await self._call_tool("sync_git_history", kwargs)
 
+    async def sync_git(self, **kwargs) -> Dict[str, Any]:
+        """Alias for sync_git_history to match MemoryProvider interface."""
+        return await self.sync_git_history(**kwargs)
+
     async def _call_tool(self, name: str, arguments: Dict[str, Any]) -> Any:
         """Helper to invoke a tool via the MCP session and parse the response."""
         result = await self.session.call_tool(name, arguments)
@@ -54,6 +58,15 @@ class SyncMCPMemoryProxy:
 
     def search_decisions(self, **kwargs):
         return self._run(self.proxy.search_decisions(**kwargs))
+
+    def accept_proposal(self, **kwargs):
+        return self._run(self.proxy.accept_proposal(**kwargs))
+
+    def sync_git_history(self, **kwargs):
+        return self._run(self.proxy.sync_git_history(**kwargs))
+
+    def sync_git(self, **kwargs):
+        return self._run(self.proxy.sync_git(**kwargs))
 
     def _run(self, coro):
         if self.loop.is_running():

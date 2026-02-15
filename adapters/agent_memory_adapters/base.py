@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
 from agent_memory_adapters.schema import ToolSchemaGenerator
+from agent_memory_adapters.interfaces import MemoryProvider
 
 class BaseLLMAdapter:
     """Base class for LLM adapters that convert memory tools to provider-specific formats."""
