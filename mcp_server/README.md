@@ -42,6 +42,29 @@ export AGENT_MEMORY_SECRET="your-secure-token"
 agent-memory-mcp run --role admin
 ```
 
+## 🛠 Configuration (IDE / Claude Desktop)
+
+To use this server with an MCP-compatible client (like Claude Desktop or VS Code), add the following to your configuration file (e.g., `claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "agent-memory": {
+      "command": "agent-memory-mcp",
+      "args": [
+        "run",
+        "--path",
+        ".agent_memory",
+        "--name",
+        "AgentMemory",
+        "--capabilities",
+        "{\"read\": true, \"propose\": true, \"supersede\": true, \"accept\": true, \"sync\": true}"
+      ]
+    }
+  }
+}
+```
+
 ## 🛠 API Specification
 
 The server follows a strict formal contract defined by `mcp_server/schema/mcp_api_v1.json`. 
