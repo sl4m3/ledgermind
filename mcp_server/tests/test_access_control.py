@@ -10,8 +10,16 @@ from agent_memory_server.contracts import RecordDecisionRequest, AcceptProposalR
 def mock_memory(tmp_path):
     m = MagicMock(spec=Memory)
     m.storage_path = str(tmp_path)
-    # Ensure audit log can be written
+    # Mock semantic store for commit hash retrieval
+    m.semantic = MagicMock()
+    m.semantic.get_head_hash.return_value = "mock_hash_123"
     return m
+
+@pytest.fixture(autouse=True)
+def set_auth_token():
+    os.environ["AGENT_MEMORY_SECRET"] = "access-test-secret"
+    yield
+    os.environ.pop("AGENT_MEMORY_SECRET", None)
 
 def test_viewer_write_denied(mock_memory):
     server = MCPServer(memory=mock_memory, default_role=MCPRole.VIEWER)

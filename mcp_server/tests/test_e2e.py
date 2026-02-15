@@ -15,6 +15,12 @@ def real_memory(tmp_path):
     storage = str(tmp_path / "e2e_storage")
     return Memory(storage_path=storage, embedding_provider=SimpleMockProvider())
 
+@pytest.fixture(autouse=True)
+def set_auth_token():
+    os.environ["AGENT_MEMORY_SECRET"] = "e2e-test-secret"
+    yield
+    os.environ.pop("AGENT_MEMORY_SECRET", None)
+
 def test_e2e_record_and_search(real_memory):
     """E2E: Запись через сервер и поиск результата."""
     server = MCPServer(memory=real_memory, default_role=MCPRole.ADMIN)

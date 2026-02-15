@@ -246,6 +246,15 @@ class SemanticStore:
                 raise e
         raise RuntimeError(f"Git failed after {max_retries} retries: {last_error}")
 
+    def get_head_hash(self) -> Optional[str]:
+        """Returns the current Git HEAD hash."""
+        try:
+            res = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.repo_path, capture_output=True, text=True)
+            if res.returncode == 0:
+                return res.stdout.strip()
+        except Exception: pass
+        return None
+
     def save(self, event: MemoryEvent, namespace: Optional[str] = None) -> str:
         self._enforce_trust(event)
         if not self._in_transaction: self._acquire_lock(shared=False)

@@ -1,12 +1,12 @@
-# Agent Memory Server v1.8.0
+# Agent Memory Server v1.9.0
 
 Dedicated MCP (Model Context Protocol) Server for the Agent Memory System. Acts as the primary enforcement layer and provides a structured API contract for memory operations.
 
 **API Version:** 1.0.0
 
-## 🔐 Security & Authentication
+## 🔐 Security & Hardened Audit
 
-The server implements mandatory token-based authentication for privileged operations.
+The server implements mandatory token-based authentication and a **cryptographically-linked audit trail**. Every state-changing operation is recorded in `audit.log` alongside the resulting Git commit hash, ensuring absolute non-repudiation.
 
 ### Mandatory Environment Variable
 To use `agent` or `admin` roles, you MUST set the following variable in your environment:

@@ -18,13 +18,15 @@ class AuditLogger:
             fh.setFormatter(formatter)
             self.logger.addHandler(fh)
 
-    def log_access(self, role: str, tool: str, params: dict, success: bool, error: str = None):
+    def log_access(self, role: str, tool: str, params: dict, success: bool, error: str = None, commit_hash: str = None):
         status = "ALLOWED" if success else "DENIED"
         pid = os.getpid()
         # Mask sensitive params or large payloads
         sanitized_params = {k: v for k, v in params.items() if k not in ["old_decision_ids", "embedding"]} 
         
         msg = f"PID: {pid} | Role: {role} | Tool: {tool} | Status: {status} | Params: {sanitized_params}"
+        if commit_hash:
+            msg += f" | Commit: {commit_hash}"
         if error:
             msg += f" | Error: {error}"
             
