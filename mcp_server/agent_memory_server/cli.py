@@ -1,6 +1,6 @@
 import argparse
 import os
-from agent_memory_multi.adapters.mcp_adapter import MCPMemoryAdapter
+from agent_memory_server.server import MCPServer
 
 def main():
     parser = argparse.ArgumentParser(description="Agent Memory MCP Server Launcher")
@@ -9,8 +9,8 @@ def main():
     
     args = parser.parse_args()
     
-    # Запуск через наш новый упрощенный метод
-    MCPMemoryAdapter.serve(
+    # Запуск через наш упрощенный метод
+    MCPServer.serve(
         storage_path=args.path,
         server_name=args.name
     )

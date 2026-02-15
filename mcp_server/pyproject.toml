@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-memory-server"
+version = "1.0.0"
+description = "Dedicated MCP Server for agent-memory-core"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "agent-memory-core",
+    "mcp>=0.1.0",
+    "fastmcp>=0.1.0"
+]
+
+[project.scripts]
+agent-memory-mcp = "agent_memory_server.cli:main"
+
+[tool.setuptools]
+packages = ["agent_memory_server", "agent_memory_server.tools"]
