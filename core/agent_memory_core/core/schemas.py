@@ -75,7 +75,7 @@ class DecisionContent(BaseModel):
 class MemoryEvent(BaseModel):
     schema_version: int = Field(default=1)
     source: Literal["user", "agent", "system", "reflection_engine"]
-    kind: Literal["decision", "error", "config_change", "assumption", "constraint", "result", "proposal", "context_snapshot", "task", "call"]
+    kind: Literal["decision", "error", "config_change", "assumption", "constraint", "result", "proposal", "context_snapshot", "task", "call", "commit_change"]
     content: StrictStr
     context: Union[DecisionContent, ProposalContent, Dict[str, Any]] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.now)

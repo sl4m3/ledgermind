@@ -48,11 +48,11 @@ class DistillationEngine:
         evidence_ids = []
         
         for ev in trajectory:
-            # Нас интересуют действия и задачи
-            if ev.get('kind') in ['task', 'call', 'decision']:
+            # Нас интересуют действия, задачи и изменения кода
+            if ev.get('kind') in ['task', 'call', 'decision', 'commit_change']:
                 steps.append(ProceduralStep(
                     action=ev.get('content', 'Action'),
-                    rationale=ev.get('context', {}).get('rationale')
+                    rationale=ev.get('context', {}).get('rationale') or ev.get('context', {}).get('full_message')
                 ))
                 evidence_ids.append(ev.get('id', 0))
 

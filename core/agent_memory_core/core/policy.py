@@ -14,6 +14,9 @@ class MemoryPolicy:
         if event.kind == "context_snapshot":
             return True
 
+        if event.kind == "commit_change":
+            return True
+
         if event.kind == "result":
             return True
 
