@@ -1,8 +1,16 @@
-# Agent Memory Server v1.3.0
+# Agent Memory Server v1.4.0
 
 Dedicated MCP (Model Context Protocol) Server for the Agent Memory System. Acts as the primary enforcement layer and provides a structured API contract for memory operations.
 
 **API Version:** 1.0.0
+
+## 🔍 Hybrid Search Modes
+
+The server supports three search modes to balance between discovery and reliability:
+
+- `strict`: Only returns **active** decisions. Safest mode for real-time agent operation.
+- `balanced` (default): Returns history but applies heavy penalties to superseded/deprecated records.
+- `audit`: Full historical search with no penalties.
 
 ## 🔐 Authority Model (RBAC)
 

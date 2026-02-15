@@ -85,7 +85,7 @@ class MCPServer:
 
     def handle_search(self, request: SearchDecisionsRequest) -> SearchResponse:
         try:
-            results = self.memory.search_decisions(request.query, limit=request.limit)
+            results = self.memory.search_decisions(request.query, limit=request.limit, mode=request.mode)
             return SearchResponse(status="success", results=results)
         except Exception as e:
             return SearchResponse(status="error", message=str(e))
@@ -117,9 +117,9 @@ class MCPServer:
             return self.handle_supersede_decision(req).model_dump_json()
 
         @self.mcp.tool()
-        def search_decisions(query: str, limit: int = 5) -> str:
-            """Semantic search for active decisions and rules."""
-            req = SearchDecisionsRequest(query=query, limit=limit)
+        def search_decisions(query: str, limit: int = 5, mode: str = "balanced") -> str:
+            """Semantic search for active decisions and rules. Mode can be 'strict', 'balanced', or 'audit'."""
+            req = SearchDecisionsRequest(query=query, limit=limit, mode=mode)
             return self.handle_search(req).model_dump_json()
 
         @self.mcp.tool()
