@@ -25,6 +25,7 @@ class ProposalStatus(str, Enum):
     DRAFT = "draft"
     ACCEPTED = "accepted"
     REJECTED = "rejected"
+    FALSIFIED = "falsified"
 
 class ProceduralStep(BaseModel):
     action: str
@@ -43,6 +44,9 @@ class ProposalContent(BaseModel):
     rationale: StrictStr
     confidence: float = Field(ge=0.0, le=1.0)
     evidence_event_ids: List[int] = Field(default_factory=list)
+    counter_evidence_event_ids: List[int] = Field(default_factory=list) # Events that contradict this hypothesis
+    competing_proposal_ids: List[str] = Field(default_factory=list) # Alternative hypotheses
+    
     suggested_consequences: List[str] = Field(default_factory=list)
     suggested_supersedes: List[str] = Field(default_factory=list) # Какие решения предлагается заменить
     

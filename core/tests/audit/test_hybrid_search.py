@@ -23,8 +23,8 @@ def test_hybrid_search_policy(tmp_path):
     # Superseding with second decision
     memory.supersede_decision("Version 2", "policy", "New rule", [old_id])
     
-    # Searching for 'rule'
-    results = memory.search_decisions("rule", limit=10)
+    # Searching for 'rule' in strict mode
+    results = memory.search_decisions("rule", limit=10, mode="strict")
     
     for r in results:
         assert r['status'] == "active", f"PI Violation: Inactive decision {r['id']} returned in search!"
