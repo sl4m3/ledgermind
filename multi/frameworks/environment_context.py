@@ -1,14 +1,16 @@
 import os
 import subprocess
-from typing import Dict, Any, List, Optional
-from manager import MemoryMultiManager
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from manager import MemoryMultiManager
 
 class EnvironmentContext:
     """
     Инструмент для сбора контекста окружения (файлы, переменные, состояние git).
     Результаты сохраняются в эпизодическую память.
     """
-    def __init__(self, manager: MemoryMultiManager):
+    def __init__(self, manager: 'MemoryMultiManager'):
         self.manager = manager
 
     def capture_context(self, label: str = "general_context") -> Dict[str, Any]:

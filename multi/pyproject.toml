@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-multi"
-version = "1.1.0"
+version = "1.1.1"
 description = "Universal bridge for agent-memory-core to various LLMs and frameworks"
 readme = "README.md"
 requires-python = ">=3.9"
