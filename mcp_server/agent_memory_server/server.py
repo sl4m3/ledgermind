@@ -154,7 +154,7 @@ class MCPServer:
 
     @classmethod
     def serve(cls, storage_path: str = ".agent_memory", server_name: str = "AgentMemory", role: str = "agent"):
-        from agent_memory_core.embeddings import MockEmbeddingProvider
+        from agent_memory_adapters.embeddings import MockEmbeddingProvider
         from agent_memory_core.core.schemas import TrustBoundary
         import sys
         
