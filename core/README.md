@@ -1,6 +1,13 @@
-# agent-memory-core v1.22.0
+# agent-memory-core v2.0.0
 
 A universal long-term memory module for AI agents featuring guaranteed integrity, epistemic modeling, and hybrid storage.
+
+## 🌟 New in v2.0.0
+
+- **Privacy Controls**: Built-in PIIMasker for PII protection and optional Encryption at Rest via Fernet.
+- **Auto-Migration Engine**: Automatically upgrades data structure and SQLite schema on startup.
+- **Vector Optimization**: Integrated Zstandard compression and embedding caching.
+- **Improved Recovery**: Automatic reconciliation of untracked files after system crashes.
 
 ## 🛡 Integrity & Reliability Guarantees
 

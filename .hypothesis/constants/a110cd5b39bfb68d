@@ -1,0 +1,4 @@
+# file: /data/data/com.termux/files/home/projects/agent-memory/mcp_server/agent_memory_server/tools/environment.py
+# hypothesis_version: 6.151.6
+
+['--short', '.', 'LANG', 'PWD', 'PYTHONPATH', 'SHELL', 'context_snapshot', 'cwd', 'env_vars', 'files', 'general_context', 'git', 'git_status', 'label', 'message', 'status', 'success', 'system']

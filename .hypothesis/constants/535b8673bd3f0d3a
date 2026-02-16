@@ -1,0 +1,4 @@
+# file: /data/data/com.termux/files/home/projects/agent-memory/core/agent_memory_core/stores/semantic.py
+# hypothesis_version: 6.151.6
+
+['--', '--error-unmatch', '--hard', '.lock', '.md', '.tx_backup', '.yaml', 'HEAD', 'active', 'add', 'agent', 'context', 'decision', 'default', 'fid', 'git', 'json', 'kind', 'ls-files', 'namespace', 'r', 'reset', 'semantic_meta.db', 'status', 'superseded_by', 'target', 'timestamp', 'unknown', 'utf-8', 'w']

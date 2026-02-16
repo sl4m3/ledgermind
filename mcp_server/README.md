@@ -1,8 +1,14 @@
-# Agent Memory Server v1.11.0
+# Agent Memory Server v2.0.0
 
 Dedicated MCP (Model Context Protocol) Server for the Agent Memory System. Acts as the primary enforcement layer and provides a structured API contract for memory operations.
 
-**API Version:** 1.0.0
+**API Version:** 2.0.0
+
+## 🚀 New in v2.0.0
+
+- **REST Gateway**: Parallel access to memory via standard HTTP POST/GET endpoints.
+- **SSE & WebSockets**: Real-time memory change notifications and bi-directional communication.
+- **Granular Purge**: GDPR-compliant data forgetting via the `purge` capability.
 
 ## 🔐 Security & Hardened Audit
 

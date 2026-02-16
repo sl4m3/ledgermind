@@ -1,7 +1,8 @@
 import os
 import yaml
 import logging
-from datetime import datetime
+import asyncio
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union, Tuple
 
 logger = logging.getLogger(__name__)
@@ -10,18 +11,23 @@ from agent_memory_core.core.router import MemoryRouter
 from agent_memory_core.core.policy import MemoryPolicy
 from agent_memory_core.core.schemas import (
     MemoryEvent, MemoryDecision, ResolutionIntent, TrustBoundary, 
-    DecisionContent, SEMANTIC_KINDS, KIND_DECISION, EmbeddingProvider
+    DecisionContent, SEMANTIC_KINDS, KIND_DECISION, KIND_PROPOSAL, EmbeddingProvider
 )
 from agent_memory_core.core.exceptions import InvariantViolation, ConflictError
 from agent_memory_core.stores.episodic import EpisodicStore
 from agent_memory_core.stores.semantic import SemanticStore
 from agent_memory_core.stores.vector import VectorStore
+from agent_memory_core.stores.interfaces import MetadataStore, VectorProvider, EpisodicProvider, AuditProvider
 from agent_memory_core.reasoning.conflict import ConflictEngine
 from agent_memory_core.reasoning.resolution import ResolutionEngine
 from agent_memory_core.reasoning.decay import DecayEngine, DecayReport
 from agent_memory_core.reasoning.reflection import ReflectionEngine
 from agent_memory_core.reasoning.git_indexer import GitIndexer
 from agent_memory_core.reasoning.ranking.policy import RankingPolicy
+from agent_memory_core.core.telemetry import trace_and_time, update_decision_metrics, SEARCH_QUALITY
+from agent_memory_core.core.compliance import PIIMasker, MemoryEncryptor
+from agent_memory_core.core.events import MemoryEventEmitter, RedisPubSubProvider
+from agent_memory_core.core.optimization import EmbeddingCache, CachingEmbeddingProvider, VectorCompressor
 
 class Memory:
     """
@@ -32,9 +38,16 @@ class Memory:
                  storage_path: str = "./memory", 
                  ttl_days: int = 30, 
                  trust_boundary: TrustBoundary = TrustBoundary.AGENT_WITH_INTENT,
-                 episodic_store: Optional[EpisodicStore] = None,
+                 episodic_store: Optional[Union[EpisodicStore, EpisodicProvider]] = None,
                  semantic_store: Optional[SemanticStore] = None,
-                 embedding_provider: Optional[EmbeddingProvider] = None):
+                 embedding_provider: Optional[EmbeddingProvider] = None,
+                 db_url: Optional[str] = None,
+                 namespace: Optional[str] = None,
+                 encryption_key: Optional[str] = None,
+                 mask_pii: bool = True,
+                 meta_store_provider: Optional[MetadataStore] = None,
+                 audit_store_provider: Optional[AuditProvider] = None,
+                 pubsub_url: Optional[str] = None):
         """
         Initialize the memory system.
         
@@ -42,9 +55,35 @@ class Memory:
         :param ttl_days: Number of days before episodic memory starts to decay.
         :param trust_boundary: Security policy for determining what can be persisted.
         :param embedding_provider: Provider for generating embeddings (optional).
+        :param pubsub_url: Redis URL for multi-instance synchronization.
         """
         self.storage_path = storage_path
         self.trust_boundary = trust_boundary
+        self.namespace = namespace or "default"
+        self.mask_pii = mask_pii
+        self.encryptor = MemoryEncryptor(encryption_key)
+        self.events = MemoryEventEmitter()
+        
+        # Optimization state
+        self.embedding_cache = None
+        self.compressor = VectorCompressor()
+        self.config_options = {
+            "embedding_cache": False,
+            "deduplication": True,
+            "compression": None
+        }
+
+        if pubsub_url:
+            self.pubsub = RedisPubSubProvider(pubsub_url)
+            # Sync internal events with Redis updates from other instances
+            try:
+                loop = asyncio.get_running_loop()
+                async def on_redis_update(data):
+                    await self.events.emit("remote_memory_changed", data)
+                loop.create_task(self.pubsub.subscribe("agent_memory_updates", on_redis_update))
+            except RuntimeError: pass # Loop not yet running
+        else:
+            self.pubsub = None
         
         try:
             if not os.path.exists(storage_path):
@@ -54,9 +93,33 @@ class Memory:
             
         self.policy = MemoryPolicy()
         
-        self.episodic = episodic_store or EpisodicStore(os.path.join(storage_path, "episodic.db"))
-        self.semantic = semantic_store or SemanticStore(os.path.join(storage_path, "semantic"), trust_boundary=trust_boundary)
-        self.vector = VectorStore(os.path.join(storage_path, "vector.db"))
+        # Pluggable Storage Logic
+        if semantic_store:
+            self.semantic = semantic_store
+            self.vector: VectorProvider = VectorStore(os.path.join(storage_path, "vector.db")) # Default vector
+            self.episodic: Union[EpisodicStore, EpisodicProvider] = episodic_store or EpisodicStore(os.path.join(storage_path, "episodic.db"))
+        elif db_url:
+            from agent_memory_core.stores.postgres import PostgresStore
+            pg_store = PostgresStore(db_url)
+            self.semantic = SemanticStore(
+                os.path.join(storage_path, "semantic"), 
+                trust_boundary=trust_boundary,
+                meta_store=pg_store,
+                audit_store=audit_store_provider
+            )
+            self.vector: VectorProvider = pg_store
+            self.episodic: Union[EpisodicStore, EpisodicProvider] = pg_store
+        else:
+            self.semantic = SemanticStore(
+                os.path.join(storage_path, "semantic"), 
+                trust_boundary=trust_boundary,
+                meta_store=meta_store_provider,
+                audit_store=audit_store_provider
+            )
+            # Pass compressor to SQLite VectorStore
+            self.vector: VectorProvider = VectorStore(os.path.join(storage_path, "vector.db"), compressor=self.compressor)
+            self.episodic: Union[EpisodicStore, EpisodicProvider] = episodic_store or EpisodicStore(os.path.join(storage_path, "episodic.db"))
+
         self.embedding_provider = embedding_provider
         
         self.conflict_engine = ConflictEngine(self.semantic.repo_path)
@@ -69,6 +132,24 @@ class Memory:
             self.conflict_engine, 
             self.resolution_engine
         )
+
+    def configure(self, embedding_cache: bool = True, deduplication: bool = True, compression: Optional[str] = "zstd"):
+        """
+        Dynamically configures memory optimization settings.
+        """
+        self.config_options.update({
+            "embedding_cache": embedding_cache,
+            "deduplication": deduplication,
+            "compression": compression
+        })
+        
+        if embedding_cache and not self.embedding_cache:
+            cache_path = os.path.join(self.storage_path, "embedding_cache.db")
+            self.embedding_cache = EmbeddingCache(cache_path)
+            if self.embedding_provider:
+                self.embedding_provider = CachingEmbeddingProvider(self.embedding_provider, self.embedding_cache)
+        
+        logger.info(f"Memory configured with optimization: {self.config_options}")
 
     def process_event(self, 
                       source: str, 
@@ -88,13 +169,26 @@ class Memory:
                 reason="Trust Boundary Violation"
             )
 
+        # Apply Privacy Controls
+        safe_content = content
+        if self.mask_pii:
+            safe_content = PIIMasker.mask(content)
+        
         # Build and Validate event
         event = MemoryEvent(
             source=source,
             kind=kind,
-            content=content,
+            content=safe_content,
             context=context or {}
         )
+        
+        # Apply Encryption at Rest
+        if self.encryptor.fernet:
+            # We encrypt the rationale and body content before it reaches SemanticStore
+            if hasattr(event.context, 'rationale'):
+                event.context.rationale = self.encryptor.encrypt(event.context.rationale)
+            elif isinstance(event.context, dict) and 'rationale' in event.context:
+                event.context['rationale'] = self.encryptor.encrypt(event.context['rationale'])
         
         decision = self.router.route(event, intent=intent)
         
@@ -108,8 +202,6 @@ class Memory:
                     # to satisfy SQLite UNIQUE constraint on active targets.
                     if intent and intent.resolution_type == "supersede":
                         for old_id in intent.target_decision_ids:
-                            # We can't know new_fid yet, so we do it in two steps 
-                            # or just update status to 'superseded' first.
                             self.semantic.update_decision(
                                 old_id, 
                                 {"status": "superseded"},
@@ -136,13 +228,23 @@ class Memory:
                     # 5. Update vector index if provider is available
                     if self.embedding_provider:
                         try:
-                            emb = self.embedding_provider.get_embedding(f"{event.content} {getattr(event.context, 'rationale', '')}")
+                            # Use trace_and_time for telemetry if needed
+                            emb = self.embedding_provider.get_embedding(f"{event.content} {getattr(event.context, 'rationale', '') if hasattr(event.context, 'rationale') else (event.context.get('rationale', '') if isinstance(event.context, dict) else '')}")
                             self.vector.update_index(new_fid, emb, event.content)
                         except Exception as e:
                             logger.error(f"Failed to update vector index for {new_fid}: {e}")
                 
                 # Immortal Link (after transaction success)
                 self.episodic.append(event, linked_id=new_fid)
+                
+                # Notify via PubSub if available
+                if self.pubsub:
+                    asyncio.create_task(self.pubsub.publish("agent_memory_updates", {
+                        "action": "saved",
+                        "id": new_fid,
+                        "kind": event.kind,
+                        "namespace": self.namespace
+                    }))
                 
         return decision
 
@@ -319,26 +421,17 @@ class Memory:
     def search_decisions(self, query: str, limit: int = 5, mode: str = "balanced") -> List[Dict[str, Any]]:
         """
         Hybrid Search with Recursive Truth Resolution and Target Deduplication.
-        
-        Guarantees:
-        1. Navigation via Vectors, Verification via Semantic Graph.
-        2. If a superseded decision is found, the system follows links to the latest active version.
-        3. 'strict' mode never returns non-active decisions.
         """
         if not self.embedding_provider:
             return []
         
         try:
             query_emb = self.embedding_provider.get_embedding(query)
-            # Fetch candidates (fetch more to allow for redirection and filtering)
             raw_results = self.vector.search(query_emb, limit=limit * 5)
-            
-            from agent_memory_core.stores.semantic_store.loader import MemoryLoader
             
             candidates = []
             for doc_id, vector_score, preview in raw_results:
                 try:
-                    # 1. Resolve to the latest version if needed (Follow the graph)
                     final_id, data = self._resolve_to_truth(doc_id, mode)
                     if not data: continue
                         
@@ -346,11 +439,9 @@ class Memory:
                     status = ctx.get("status", "unknown")
                     target = ctx.get("target", "unknown")
                     
-                    # 2. Apply Mode Filtering
                     if mode == "strict" and status != "active":
                         continue
                     
-                    # 3. Hybrid Scoring Policy (Delegated to RankingPolicy)
                     final_score = RankingPolicy.calculate_score(
                         vector_score=vector_score,
                         metadata=ctx,
@@ -368,7 +459,6 @@ class Memory:
                     })
                 except Exception: continue
             
-            # Phase 3: Final Selection & Deduplication
             if mode == "audit":
                 final_list = candidates
             else:
@@ -388,30 +478,64 @@ class Memory:
             return []
 
     def _resolve_to_truth(self, doc_id: str, mode: str) -> Tuple[str, Optional[Dict[str, Any]]]:
-        """Recursively follows 'superseded_by' links to find the latest version of a decision."""
+        """Recursively follows 'superseded_by' links to find the latest version."""
         from agent_memory_core.stores.semantic_store.loader import MemoryLoader
-        
         current_id = doc_id
         depth = 0
-        max_depth = 5 # Prevent infinite loops in corrupted graphs
-        
-        while depth < max_depth:
+        while depth < 5:
             file_path = os.path.join(self.semantic.repo_path, current_id)
             if not os.path.exists(file_path): return current_id, None
-            
             with open(file_path, 'r', encoding='utf-8') as f:
                 data, _ = MemoryLoader.parse(f.read())
-                
             status = data.get("context", {}).get("status")
             successor = data.get("context", {}).get("superseded_by")
-            
-            # If in audit mode or already active or no successor, stop here
             if mode == "audit" or status == "active" or not successor:
                 return current_id, data
-                
-            # Follow the knowledge evolution link
             current_id = successor
             depth += 1
-            
         return current_id, None
 
+    def generate_knowledge_graph(self, target: Optional[str] = None) -> str:
+        """Generates a Mermaid graph of knowledge evolution."""
+        from agent_memory_core.reasoning.ranking.graph import KnowledgeGraphGenerator
+        generator = KnowledgeGraphGenerator(self.semantic.repo_path, self.semantic.meta)
+        return generator.generate_mermaid(target_filter=target)
+
+    def run_maintenance(self) -> Dict[str, Any]:
+        """Runs periodic maintenance tasks: decay and merge analysis."""
+        decay_report = self.run_decay()
+        from agent_memory_core.reasoning.merging import MergeEngine
+        merger = MergeEngine(self)
+        merges = merger.scan_for_duplicates()
+        return {
+            "decay": decay_report.__dict__,
+            "merging": {"proposals_created": len(merges), "ids": merges}
+        }
+
+    def get_stats(self) -> Dict[str, Any]:
+        """Returns diagnostic statistics about memory system health."""
+        active_semantic = len(self.get_decisions())
+        return {
+            "semantic_decisions": active_semantic,
+            "namespace": self.namespace,
+            "storage_path": self.storage_path
+        }
+
+    def detect_drift(self, days: int = 30) -> List[Dict[str, Any]]:
+        """Identifies knowledge areas with high frequency of change."""
+        all_meta = self.semantic.meta.list_all()
+        target_counts = {}
+        for m in all_meta:
+            target = m.get('target', 'unknown')
+            target_counts[target] = target_counts.get(target, 0) + 1
+        drifts = []
+        for target, count in target_counts.items():
+            if count >= 3:
+                drifts.append({"target": target, "versions": count, "stability": "low"})
+        return drifts
+
+    def forget(self, decision_id: str):
+        """Hard-deletes a memory from filesystem, index, and metadata."""
+        self.semantic.purge_memory(decision_id)
+        self.vector.delete_from_index(decision_id)
+        logger.info(f"Memory {decision_id} forgotten across systems.")
