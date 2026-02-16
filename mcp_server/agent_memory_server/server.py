@@ -144,8 +144,10 @@ class MCPServer:
             for old_id in request.old_decision_ids:
                 try:
                     file_path = os.path.join(self.memory.semantic.repo_path, old_id)
-                    with open(file_path, 'r') as f:
-                        if "[via MCP]" not in f.read():
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                        # More robust check for MCP tag
+                        if "via MCP" not in content:
                             err = f"Isolation Violation: Decision {old_id} created by HUMAN."
                             self.audit.log_access(self.default_role.value, "supersede_decision", request.model_dump(), False, err)
                             return DecisionResponse(status="error", message=err)

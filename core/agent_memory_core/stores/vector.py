@@ -62,13 +62,29 @@ class VectorStore(VectorProvider):
             for row in cursor:
                 doc_id, emb_data, preview = row
                 
-                if self.compressor:
-                    doc_embedding = self.compressor.decompress(emb_data)
-                else:
-                    doc_embedding = json.loads(emb_data.decode())
-                    
-                score = self._cosine_similarity(query_embedding, doc_embedding)
-                results.append((doc_id, score, preview))
+                try:
+                    # Ensure emb_data is bytes for magic number check
+                    data_bytes = emb_data if isinstance(emb_data, bytes) else emb_data.encode()
+
+                    if self.compressor:
+                        # Try decompressing, fallback to JSON if it doesn't look like compressed data
+                        # Zstd magic number: 0xFD2FB528 (little endian) -> 28 B5 2F FD
+                        if data_bytes.startswith(b'\x28\xb5\x2f\xfd'):
+                            doc_embedding = self.compressor.decompress(data_bytes)
+                        else:
+                            doc_embedding = json.loads(data_bytes.decode())
+                    else:
+                        doc_embedding = json.loads(data_bytes.decode())
+                        
+                    # Handle potential dimension mismatch gracefully
+                    if len(doc_embedding) != len(query_embedding):
+                        continue
+
+                    score = self._cosine_similarity(query_embedding, doc_embedding)
+                    results.append((doc_id, score, preview))
+                except Exception as e:
+                    logger.warning(f"Failed to process vector for {doc_id}: {e}")
+                    continue
         
         # Сортируем по убыванию сходства
         results.sort(key=lambda x: x[1], reverse=True)
