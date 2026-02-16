@@ -22,7 +22,7 @@ jobs:
 
     - name: Run Benchmarks
       run: |
-        cd core && pytest tests/performance/bench_ops.py --benchmark-json output.json
+        cd core && pytest -p no:xdist tests/performance/bench_ops.py --benchmark-json output.json
 
     - name: Store Benchmark Results
       uses: benchmark-action/github-action-benchmark@v1

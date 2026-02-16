@@ -1,0 +1,88 @@
+security	Run Bandit (Sast)	﻿2026-02-16T18:36:07.0189303Z ##[group]Run bandit -r core adapters mcp_server -ll
+security	Run Bandit (Sast)	2026-02-16T18:36:07.0189710Z [36;1mbandit -r core adapters mcp_server -ll[0m
+security	Run Bandit (Sast)	2026-02-16T18:36:07.0239383Z shell: /usr/bin/bash -e {0}
+security	Run Bandit (Sast)	2026-02-16T18:36:07.0239608Z env:
+security	Run Bandit (Sast)	2026-02-16T18:36:07.0239850Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.12/x64
+security	Run Bandit (Sast)	2026-02-16T18:36:07.0240263Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib/pkgconfig
+security	Run Bandit (Sast)	2026-02-16T18:36:07.0240664Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+security	Run Bandit (Sast)	2026-02-16T18:36:07.0241007Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+security	Run Bandit (Sast)	2026-02-16T18:36:07.0241359Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+security	Run Bandit (Sast)	2026-02-16T18:36:07.0241730Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib
+security	Run Bandit (Sast)	2026-02-16T18:36:07.0242018Z ##[endgroup]
+security	Run Bandit (Sast)	2026-02-16T18:36:07.3735615Z [main]	INFO	profile include tests: None
+security	Run Bandit (Sast)	2026-02-16T18:36:07.3736421Z [main]	INFO	profile exclude tests: None
+security	Run Bandit (Sast)	2026-02-16T18:36:07.3737000Z [main]	INFO	cli include tests: None
+security	Run Bandit (Sast)	2026-02-16T18:36:07.3737528Z [main]	INFO	cli exclude tests: None
+security	Run Bandit (Sast)	2026-02-16T18:36:07.3740517Z [main]	INFO	running on Python 3.12.12
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9554253Z Working... ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 100% 0:00:00
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9563556Z Run started:2026-02-16 18:36:07.955819+00:00
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9563906Z 
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9564024Z Test results:
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9565043Z >> Issue: [B202:tarfile_unsafe_members] tarfile.extractall used without any validation. Please check and discard dangerous members.
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9565977Z    Severity: High   Confidence: High
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9566575Z    CWE: CWE-22 (https://cwe.mitre.org/data/definitions/22.html)
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9567684Z    More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b202_tarfile_unsafe_members.html
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9568435Z    Location: core/agent_memory_core/api/transfer.py:30:12
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9568959Z 29	        with tarfile.open(tar_path, "r:gz") as tar:
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9569485Z 30	            tar.extractall(path=os.path.dirname(restore_path))
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9570059Z 31	        logger.info(f"Memory restored to {restore_path}")
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9570398Z 
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9570539Z --------------------------------------------------
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9571306Z >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9572070Z    Severity: Medium   Confidence: Medium
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9572544Z    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9573288Z    More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b608_hardcoded_sql_expressions.html
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9574045Z    Location: core/agent_memory_core/stores/episodic.py:81:27
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9574739Z 80	        with sqlite3.connect(self.db_path) as conn:
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9575430Z 81	            conn.execute(f"UPDATE events SET status = 'archived' WHERE id IN ({placeholders})", event_ids)
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9576074Z 82	
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9576230Z 
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9576383Z --------------------------------------------------
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9577146Z >> Issue: [B608:hardcoded_sql_expressions] Possible SQL injection vector through string-based query construction.
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9577902Z    Severity: Medium   Confidence: Medium
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9578377Z    CWE: CWE-89 (https://cwe.mitre.org/data/definitions/89.html)
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9579112Z    More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b608_hardcoded_sql_expressions.html
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9579850Z    Location: core/agent_memory_core/stores/episodic.py:88:27
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9580356Z 87	        with sqlite3.connect(self.db_path) as conn:
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9581065Z 88	            conn.execute(f"DELETE FROM events WHERE id IN ({placeholders}) AND linked_id IS NULL", event_ids)
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9581625Z 
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9581770Z --------------------------------------------------
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9582340Z >> Issue: [B104:hardcoded_bind_all_interfaces] Possible binding to all interfaces.
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9583209Z    Severity: Medium   Confidence: Medium
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9583681Z    CWE: CWE-605 (https://cwe.mitre.org/data/definitions/605.html)
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9584612Z    More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b104_hardcoded_bind_all_interfaces.html
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9585373Z    Location: mcp_server/agent_memory_server/gateway.py:91:44
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9585796Z 90	
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9586185Z 91	def run_gateway(memory: Memory, host: str = "0.0.0.0", port: int = 8000):
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9586706Z 92	    global memory_instance
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9586922Z 
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9587065Z --------------------------------------------------
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9587624Z >> Issue: [B104:hardcoded_bind_all_interfaces] Possible binding to all interfaces.
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9588213Z    Severity: Medium   Confidence: Medium
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9588694Z    CWE: CWE-605 (https://cwe.mitre.org/data/definitions/605.html)
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9589458Z    More Info: https://bandit.readthedocs.io/en/1.9.3/plugins/b104_hardcoded_bind_all_interfaces.html
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9590234Z    Location: mcp_server/agent_memory_server/server.py:309:75
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9590785Z 308	            from agent_memory_server.gateway import run_gateway
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9591542Z 309	            gt_thread = threading.Thread(target=run_gateway, args=(memory, "0.0.0.0", rest_port), daemon=True)
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9592225Z 310	            gt_thread.start()
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9592443Z 
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9592581Z --------------------------------------------------
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9592853Z 
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9593164Z Code scanned:
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9593428Z 	Total lines of code: 5157
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9593744Z 	Total lines skipped (#nosec): 0
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9594556Z 	Total potential issues skipped due to specifically being disabled (e.g., #nosec BXXX): 0
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9595071Z 
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9595173Z Run metrics:
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9595438Z 	Total issues (by severity):
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9595732Z 		Undefined: 0
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9595976Z 		Low: 216
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9596199Z 		Medium: 4
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9596425Z 		High: 1
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9596671Z 	Total issues (by confidence):
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9596978Z 		Undefined: 0
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9597209Z 		Low: 0
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9597430Z 		Medium: 8
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9597651Z 		High: 213
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9597892Z Files skipped (0):
+security	Run Bandit (Sast)	2026-02-16T18:36:07.9966047Z ##[error]Process completed with exit code 1.

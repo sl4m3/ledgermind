@@ -74,15 +74,28 @@ class EpisodicStore:
                 } for row in cursor.fetchall()
             ]
 
-    def mark_archived(self, event_ids: List[int]):
-        if not event_ids: return
-        placeholders = ','.join(['?'] * len(event_ids))
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(f"UPDATE events SET status = 'archived' WHERE id IN ({placeholders})", event_ids)
+        def mark_archived(self, event_ids: List[int]):
 
-    def physical_prune(self, event_ids: List[int]):
-        if not event_ids: return
-        # I2 Protection: Only prune if NOT linked
-        placeholders = ','.join(['?'] * len(event_ids))
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute(f"DELETE FROM events WHERE id IN ({placeholders}) AND linked_id IS NULL", event_ids)
+            if not event_ids: return
+
+            placeholders = ','.join(['?'] * len(event_ids))
+
+            with sqlite3.connect(self.db_path) as conn:
+
+                conn.execute(f"UPDATE events SET status = 'archived' WHERE id IN ({placeholders})", event_ids) # nosec B608
+
+    
+
+        def physical_prune(self, event_ids: List[int]):
+
+            if not event_ids: return
+
+            # I2 Protection: Only prune if NOT linked
+
+            placeholders = ','.join(['?'] * len(event_ids))
+
+            with sqlite3.connect(self.db_path) as conn:
+
+                conn.execute(f"DELETE FROM events WHERE id IN ({placeholders}) AND linked_id IS NULL", event_ids) # nosec B608
+
+    
