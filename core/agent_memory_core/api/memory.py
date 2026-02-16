@@ -332,7 +332,7 @@ class Memory:
         active_files = self.semantic.list_active_conflicts(target)
         for oid in old_decision_ids:
             if oid not in active_files:
-                raise ValueError(f"Cannot supersede {oid}: it is not an active decision for target {target}")
+                raise ConflictError(f"Cannot supersede {oid}: it is no longer active for target {target}")
 
         intent = ResolutionIntent(
             resolution_type="supersede",
