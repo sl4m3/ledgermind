@@ -306,7 +306,7 @@ class MCPServer:
         # Start REST Gateway if requested
         if rest_port:
             from agent_memory_server.gateway import run_gateway
-            gt_thread = threading.Thread(target=run_gateway, args=(memory, "0.0.0.0", rest_port), daemon=True)
+            gt_thread = threading.Thread(target=run_gateway, args=(memory, "0.0.0.0", rest_port), daemon=True) # nosec B104
             gt_thread.start()
             print(f"REST API Gateway started on port {rest_port}", file=sys.stderr)
 

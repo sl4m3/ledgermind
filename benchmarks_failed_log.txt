@@ -1,0 +1,17 @@
+benchmark	Run Benchmarks	﻿2026-02-16T18:36:28.3966961Z ##[group]Run cd core && pytest tests/performance/bench_ops.py --benchmark-json output.json
+benchmark	Run Benchmarks	2026-02-16T18:36:28.3967622Z [36;1mcd core && pytest tests/performance/bench_ops.py --benchmark-json output.json[0m
+benchmark	Run Benchmarks	2026-02-16T18:36:28.4020411Z shell: /usr/bin/bash -e {0}
+benchmark	Run Benchmarks	2026-02-16T18:36:28.4020844Z env:
+benchmark	Run Benchmarks	2026-02-16T18:36:28.4021096Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.12/x64
+benchmark	Run Benchmarks	2026-02-16T18:36:28.4021516Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib/pkgconfig
+benchmark	Run Benchmarks	2026-02-16T18:36:28.4021921Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+benchmark	Run Benchmarks	2026-02-16T18:36:28.4022294Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+benchmark	Run Benchmarks	2026-02-16T18:36:28.4022666Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.12/x64
+benchmark	Run Benchmarks	2026-02-16T18:36:28.4023029Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.12/x64/lib
+benchmark	Run Benchmarks	2026-02-16T18:36:28.4023332Z ##[endgroup]
+benchmark	Run Benchmarks	2026-02-16T18:36:30.2283253Z ERROR: usage: pytest [options] [file_or_dir] [file_or_dir] [...]
+benchmark	Run Benchmarks	2026-02-16T18:36:30.2283966Z pytest: error: unrecognized arguments: -n --dist
+benchmark	Run Benchmarks	2026-02-16T18:36:30.2284719Z   inifile: /home/runner/work/agent-memory/agent-memory/core/pytest.ini
+benchmark	Run Benchmarks	2026-02-16T18:36:30.2285362Z   rootdir: /home/runner/work/agent-memory/agent-memory/core
+benchmark	Run Benchmarks	2026-02-16T18:36:30.2285721Z 
+benchmark	Run Benchmarks	2026-02-16T18:36:30.2914043Z ##[error]Process completed with exit code 4.

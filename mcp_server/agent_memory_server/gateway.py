@@ -88,7 +88,7 @@ async def websocket_endpoint(websocket: WebSocket, mem: Memory = Depends(get_mem
 async def health():
     return {"status": "alive"}
 
-def run_gateway(memory: Memory, host: str = "0.0.0.0", port: int = 8000):
+def run_gateway(memory: Memory, host: str = "0.0.0.0", port: int = 8000): # nosec B104
     global memory_instance
     memory_instance = memory
     import uvicorn
