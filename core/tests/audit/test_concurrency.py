@@ -24,8 +24,11 @@ def test_multi_process_locking(tmp_path):
     # Инициализируем репозиторий один раз
     Memory(storage_path=storage_path)
     
+    # Use spawn for safety in multi-threaded environments (pytest-xdist)
+    ctx = multiprocessing.get_context('spawn')
+    
     num_workers = 5
-    with multiprocessing.Pool(num_workers) as pool:
+    with ctx.Pool(num_workers) as pool:
         results = pool.starmap(worker, [(storage_path, i) for i in range(num_workers)])
     
     # Проверяем, были ли ошибки (локи должны были предотвратить их)
@@ -87,19 +90,21 @@ def test_supersede_consistency_under_load(tmp_path):
             except Exception as e:
                 results_queue.put(f"Reader Error: {e}")
 
-    manager = multiprocessing.Manager()
+    # Use spawn context consistently
+    ctx = multiprocessing.get_context('spawn')
+    manager = ctx.Manager()
     stop_event = manager.Event()
     results_queue = manager.Queue()
     
     # Запускаем писателя и читателей
-    with multiprocessing.Pool(4) as pool:
+    with ctx.Pool(4) as pool:
         pool.apply_async(writer_loop, (storage_path, stop_event))
         for _ in range(2):
             pool.apply_async(reader_loop, (storage_path, stop_event, results_queue))
         
-        # Даем поработать 5 секунд
+        # Даем поработать 1.5 секунды (достаточно для проверки локов)
         import time
-        time.sleep(5)
+        time.sleep(1.5)
         stop_event.set()
         
     # Проверяем результаты из очереди

@@ -9,3 +9,6 @@ build/
 .env
 .idea/
 .vscode/
+.gemini/
+.agent_memory/
+.benchmarks/

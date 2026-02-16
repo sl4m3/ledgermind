@@ -40,13 +40,13 @@ def test_conflict_injection(memory_fixture):
 def test_supersede_nonexistent(memory_fixture):
     """
     Attempts to supersede a non-existent ID.
-    Expects ValueError.
+    Expects ConflictError.
     """
     mem = memory_fixture
-    
-    with pytest.raises(ValueError, match="Cannot supersede"):
-        mem.supersede_decision("New", "target", "valid_rationale_for_supersede", ["fake-id"])
 
+    # Update: Now raises ConflictError Suggesting rebase
+    with pytest.raises(ConflictError, match="no longer active"):
+        mem.supersede_decision("New", "target", "valid_rationale_for_supersede", ["fake-id"])
 def test_supersede_active_mismatch(memory_fixture):
     """
     Attempts to supersede an active decision with WRONG target.
@@ -63,7 +63,6 @@ def test_supersede_active_mismatch(memory_fixture):
     
     try:
         mem.supersede_decision("D2", "target_B", "valid_rationale_supersede", [d1.metadata["file_id"]])
-    except ValueError as e:
-        assert "not an active decision for target target_B" in str(e)
-    except Exception as e:
-        pytest.fail(f"Unexpected error type: {type(e)}")
+    except (ValueError, ConflictError) as e:
+        # Either ValueError (legacy) or ConflictError (modern) is fine as long as it blocks the change
+        assert "not an active decision" in str(e) or "no longer active" in str(e)

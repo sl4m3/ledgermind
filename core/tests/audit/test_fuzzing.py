@@ -11,14 +11,16 @@ def test_random_supersede_chain(temp_storage):
     # Create initial
     memory.record_decision(title="v0", target=target, rationale="Start of the evolution chain")
     
-    for i in range(1, 6): # Reduced to 5 for speed, but with sleep
-        time.sleep(1.1)
+    for i in range(1, 6): # Reduced to 5 for speed
         files = memory.get_decisions()
         # Get the current active file (the only one with status active)
         # We find it by scanning files
         active_fid = None
         for f in files:
-            with open(os.path.join(temp_storage, "semantic", f), 'r') as stream:
+            file_path = os.path.join(temp_storage, "semantic", f)
+            # Ensure the path exists before reading
+            if not os.path.exists(file_path): continue
+            with open(file_path, 'r') as stream:
                 if "status: active" in stream.read():
                     active_fid = f
                     break

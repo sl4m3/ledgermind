@@ -1,6 +1,7 @@
-# Agent Memory Adapters (v1.2.0)
+# Agent Memory Adapters (v2.0.0)
 
-LLM-specific adapters for the Agent Memory System. These adapters connect to the Agent Memory Server exclusively via the Model Context Protocol (MCP), ensuring a clean separation between LLM logic and memory storage.
+LLM-specific adapters for the Agent Memory System.
+ These adapters connect to the Agent Memory Server exclusively via the Model Context Protocol (MCP), ensuring a clean separation between LLM logic and memory storage.
 
 ## Key Features
 - **Protocol-Driven Architecture**: Implements strict `MemoryProvider` protocol for reliable interactions.

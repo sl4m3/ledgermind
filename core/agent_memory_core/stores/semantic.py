@@ -1,13 +1,14 @@
 import os
-import subprocess
 import yaml
-import time
 import logging
 import sqlite3
 import uuid
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Any, Dict, Tuple
 from contextlib import contextmanager
 from agent_memory_core.core.schemas import MemoryEvent, TrustBoundary
+from agent_memory_core.stores.interfaces import MetadataStore, AuditProvider
+from agent_memory_core.stores.audit_git import GitAuditProvider
+from agent_memory_core.core.telemetry import update_decision_metrics, GIT_COMMIT_SIZE
 from agent_memory_core.stores.semantic_store.integrity import IntegrityChecker
 from agent_memory_core.stores.semantic_store.transitions import TransitionValidator
 from agent_memory_core.stores.semantic_store.loader import MemoryLoader
@@ -19,47 +20,68 @@ logger = logging.getLogger("agent-memory-core.semantic")
 
 class SemanticStore:
     """
-    Store for semantic memory (long-term decisions) using Git for versioning
-    and SQLite for transactional metadata indexing.
+    Store for semantic memory (long-term decisions) using a pluggable 
+    AuditProvider for versioning and a MetadataStore for indexing.
     """
-    def __init__(self, repo_path: str, trust_boundary: TrustBoundary = TrustBoundary.AGENT_WITH_INTENT):
-        """
-        Initialize the semantic store.
-        """
+    def __init__(self, repo_path: str, trust_boundary: TrustBoundary = TrustBoundary.AGENT_WITH_INTENT, 
+                 meta_store: Optional[MetadataStore] = None,
+                 audit_store: Optional[AuditProvider] = None):
         self.repo_path = repo_path
         self.trust_boundary = trust_boundary
         self.lock_file = os.path.join(repo_path, ".lock")
-        self.meta_db_path = os.path.join(repo_path, "semantic_meta.db")
         
-        # New Lock Mechanism
         self._fs_lock = FileSystemLock(self.lock_file)
         self._in_transaction = False
         
-        # Ensure directory exists before DB init
         if not os.path.exists(self.repo_path):
             os.makedirs(self.repo_path, exist_ok=True)
             
-        self.meta = SemanticMetaStore(self.meta_db_path)
-        self._init_repo()
-        self._recover_dirty_state()
+        self.meta = meta_store or SemanticMetaStore(os.path.join(repo_path, "semantic_meta.db"))
+        self.audit = audit_store or GitAuditProvider(repo_path)
         
-        # Sync SQLite index with Git on startup
+        self.audit.initialize()
+        
+        # Data Format Migration (Ensure backward compatibility)
+        from agent_memory_core.core.migration import MigrationEngine
+        migrator = MigrationEngine(self)
+        migrator.run_all()
+        
+        self.reconcile_untracked()
         self.sync_meta_index()
-        
-        # Final validation of the whole state
         IntegrityChecker.validate(self.repo_path)
 
+    def reconcile_untracked(self):
+        """Finds files that are on disk but not in audit (Git) and adds them."""
+        self._fs_lock.acquire(exclusive=True)
+        import subprocess
+        try:
+            files = [f for f in os.listdir(self.repo_path) if f.endswith(".md") or f.endswith(".yaml")]
+            for f in files:
+                # Check if file is tracked by git
+                if isinstance(self.audit, GitAuditProvider):
+                    res = subprocess.run(["git", "ls-files", "--error-unmatch", f], 
+                                         cwd=self.repo_path, capture_output=True)
+                    if res.returncode != 0:
+                        logger.info(f"Recovering untracked file: {f}")
+                        try:
+                            with open(os.path.join(self.repo_path, f), 'r', encoding='utf-8') as stream:
+                                content = stream.read()
+                            self.audit.add_artifact(f, content, f"Recovery: Auto-adding untracked file {f}")
+                        except Exception as e:
+                            logger.error(f"Failed to recover {f}: {e}")
+        finally:
+            self._fs_lock.release()
+
     def sync_meta_index(self):
-        """Ensures that the SQLite index reflects the actual Markdown files on disk."""
+        """Ensures that the metadata index reflects the actual Markdown files on disk."""
         self._fs_lock.acquire(exclusive=False)
         from datetime import datetime
         try:
             files = [f for f in os.listdir(self.repo_path) if f.endswith(".md") or f.endswith(".yaml")]
             try:
                 current_meta = self.meta.list_all()
-            except sqlite3.OperationalError:
-                # Table might not exist if DB was corrupted or init failed
-                self.meta._init_db()
+            except Exception:
+                # Fallback or initialization
                 current_meta = []
 
             if len(files) != len(current_meta):
@@ -79,134 +101,35 @@ class SemanticStore:
                                     status=ctx.get("status", "unknown"),
                                     kind=data.get("kind", "unknown"),
                                     timestamp=ts or datetime.now(),
-                                    superseded_by=ctx.get("superseded_by")
+                                    superseded_by=ctx.get("superseded_by"),
+                                    namespace=ctx.get("namespace", "default")
                                 )
                     except Exception as e:
                         logger.error(f"Failed to index {f}: {e}")
         finally:
             self._fs_lock.release()
 
-    def _init_repo(self):
-        """
-        Initialize the Git repository and configure user identity.
-        """
-        if not os.path.exists(self.repo_path):
-            os.makedirs(self.repo_path, exist_ok=True)
-        
-        if not os.path.exists(os.path.join(self.repo_path, ".git")):
-            logger.info(f"Initializing new Git repository at {self.repo_path}")
-            self._run_git(["init"], cwd=self.repo_path)
-            
-            user_name = os.environ.get("GIT_AUTHOR_NAME", "agent-memory-core")
-            user_email = os.environ.get("GIT_AUTHOR_EMAIL", "agent@memory.local")
-            
-            self._run_git(["config", "user.name", user_name], cwd=self.repo_path)
-            self._run_git(["config", "user.email", user_email], cwd=self.repo_path)
-            
-            # Ensure .lock is ignored by git
-            gitignore_path = os.path.join(self.repo_path, ".gitignore")
-            with open(gitignore_path, "a") as f:
-                f.write("\n.lock\n.quarantine/\n.tx_backup/\n")
-            self._run_git(["add", ".gitignore"], cwd=self.repo_path)
-            self._run_git(["commit", "-m", "Initial commit: ignore locks", "--"], cwd=self.repo_path)
-
-    def _recover_dirty_state(self):
-        """
-        Checks for untracked or modified files and tries to recover or quarantine them.
-        """
-        self._fs_lock.acquire(exclusive=True)
-        try:
-            try:
-                status_res = self._run_git(["status", "--short"], cwd=self.repo_path)
-                if isinstance(status_res, Exception): return
-                status = status_res.stdout.decode()
-            except Exception: return
-
-            if status:
-                logger.warning(f"Dirty state detected in Semantic Store:\n{status}")
-                untracked = [line[3:].strip() for line in status.splitlines() if line.startswith("??")]
-                
-                quarantine_path = os.path.join(self.repo_path, ".quarantine")
-                
-                for f in untracked:
-                    if f.startswith(".") or f == ".lock": continue
-                        
-                    full_f = os.path.join(self.repo_path, f)
-                    is_valid = False
-                    if f.endswith(".md"):
-                        try:
-                            with open(full_f, 'r', encoding='utf-8') as file:
-                                MemoryLoader.parse(file.read())
-                            is_valid = True
-                        except Exception: is_valid = False
-                    
-                    if is_valid:
-                        logger.info(f"Auto-recovering valid file: {f}")
-                        try:
-                            self._run_git(["add", "--", f], cwd=self.repo_path)
-                            self._run_git(["commit", "-m", f"Recovery: auto-fix valid untracked file {f}", "--"], cwd=self.repo_path)
-                        except Exception: pass
-                    else:
-                        logger.error(f"Quarantining invalid/corrupted file: {f}")
-                        os.makedirs(quarantine_path, exist_ok=True)
-                        os.rename(full_f, os.path.join(quarantine_path, os.path.basename(f)))
-        finally:
-            self._fs_lock.release()
-
     @contextmanager
     def transaction(self):
-        """
-        Groups multiple operations into a single ACID transactional unit using SQLite + Git.
-        Uses a Write-Ahead-Log (WAL) style backup mechanism for file rollback.
-        """
+        """Groups multiple operations into a single ACID transactional unit."""
         self._fs_lock.acquire(exclusive=True)
         self._in_transaction = True
         
-        # Prepare backup for rollback
         import shutil
         backup_dir = os.path.join(self.repo_path, ".tx_backup")
         if os.path.exists(backup_dir): shutil.rmtree(backup_dir)
         os.makedirs(backup_dir)
-        
-        staged_files = []
 
         try:
-            # We need to hook into 'save' and 'update' to backup files before modification
-            # For now, we rely on the fact that any modified file will be added to git index later.
-            # Ideally, we should wrap file ops.
-            
-            # Start SQLite Transaction
-            # The SemanticMetaStore doesn't expose raw connection, but we can assume its operations are atomic per call.
-            # To make it truly atomic across multiple calls, we'd need to expose begin/commit.
-            # For this version, we rely on Python-level rollback via backups.
-            
             yield
-            
-            # Validate final state
             IntegrityChecker.validate(self.repo_path, force=True)
-            
-            # Commit everything that was staged
-            self._run_git(["commit", "-m", "Atomic Transaction Commit", "--"], cwd=self.repo_path)
-            
+            self.audit.commit_transaction("Atomic Transaction Commit")
         except Exception as e:
             logger.error(f"Transaction Failed: {e}. Rolling back...")
-            
-            # Rollback Strategy:
-            # 1. Reset Git Index
-            self._run_git(["reset", "HEAD"], cwd=self.repo_path)
-            
-            # 2. Restore Files from Backup (Not fully implemented in this block without the wrapper, 
-            #    but assuming we had a list of modified files, we would restore them).
-            #    For now, standard git checkout . is risky if we have untracked files we want to keep.
-            #    A safer bet is `git clean -fd` for new files and `git checkout .` for modified ones IF we trust git index was clean before.
-            
-            # Since we don't have the full backup list here without refactoring `save` to use `TransactionManager`,
-            # we rely on `git reset --hard` which is the "nuclear option" for the repo state.
-            self._run_git(["reset", "--hard", "HEAD"], cwd=self.repo_path)
-            
-            # 3. Rollback SQLite (This requires the MetaStore to support rollback or we just resync from disk)
+            # Basic Git-level rollback for GitAuditProvider
+            if isinstance(self.audit, GitAuditProvider):
+                self.audit._run_git(["reset", "--hard", "HEAD"])
             self.sync_meta_index() 
-            
             raise
         finally:
             self._in_transaction = False
@@ -218,75 +141,55 @@ class SemanticStore:
             if not event or (event.source == "agent" and event.kind == "decision"):
                 raise PermissionError("Trust Boundary Violation")
 
-    def _run_git(self, args: List[str], cwd: str, max_retries: int = 15):
-        last_error = ""
-        for i in range(max_retries):
-            try:
-                return subprocess.run(["git"] + args, cwd=cwd, check=True, capture_output=True)
-            except subprocess.CalledProcessError as e:
-                last_error = e.stderr.decode()
-                combined = last_error + "\n" + e.stdout.decode()
-                if any(msg in combined for msg in ["nothing to commit", "working tree clean", "no changes added", "nothing added"]):
-                    return e
-                if any(msg in last_error for msg in ["index.lock", "File exists", "could not lock", "Another git process"]):
-                    time.sleep(0.3 * (1.4 ** i))
-                    continue
-                raise e
-        raise RuntimeError(f"Git failed after {max_retries} retries: {last_error}")
-
-    def get_head_hash(self) -> Optional[str]:
-        """Returns the current Git HEAD hash."""
-        try:
-            res = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.repo_path, capture_output=True, text=True)
-            if res.returncode == 0:
-                return res.stdout.strip()
-        except Exception: pass
-        return None
-
     def save(self, event: MemoryEvent, namespace: Optional[str] = None) -> str:
         self._enforce_trust(event)
         if not self._in_transaction: self._fs_lock.acquire(exclusive=True)
         
+        effective_namespace = namespace if namespace and namespace != "default" else None
+        
         try:
             suffix = uuid.uuid4().hex[:8]
             filename = f"{event.kind}_{event.timestamp.strftime('%Y%m%d_%H%M%S_%f')}_{suffix}.md"
-            relative_path = os.path.join(namespace, filename) if namespace else filename
+            relative_path = os.path.join(effective_namespace, filename) if effective_namespace else filename
             full_path = os.path.join(self.repo_path, relative_path)
             
-            if namespace: os.makedirs(os.path.join(self.repo_path, namespace), exist_ok=True)
+            if effective_namespace: os.makedirs(os.path.join(self.repo_path, effective_namespace), exist_ok=True)
             
             data = event.model_dump(mode='json')
             body = f"# {event.content}\n\nRecorded from source: {event.source}\n"
             content = MemoryLoader.stringify(data, body)
             
-            with open(full_path, "w", encoding="utf-8") as f: f.write(content)
+            with open(full_path, "w", encoding="utf-8") as f: 
+                f.write(content)
+                GIT_COMMIT_SIZE.observe(len(content))
             
-            # ATOMIC METADATA UPDATE: Prevents I4 violations via SQLite Unique Constraint
             try:
                 ctx = event.context
                 self.meta.upsert(
-                    fid=filename,
+                    fid=relative_path,
                     target=ctx.target if hasattr(ctx, 'target') else ctx.get('target'),
                     status=ctx.status if hasattr(ctx, 'status') else ctx.get('status', 'active'),
                     kind=event.kind,
-                    timestamp=event.timestamp
+                    timestamp=event.timestamp,
+                    namespace=namespace or "default"
                 )
-            except sqlite3.IntegrityError as e:
+                update_decision_metrics(self.meta)
+            except Exception as e:
                 if os.path.exists(full_path): os.remove(full_path)
-                if "idx_active_target" in str(e):
-                    raise RuntimeError(f"Conflict: Target already has an active decision. Use 'supersede'.")
-                raise
-
-            self._run_git(["add", "--", relative_path], cwd=self.repo_path)
+                raise RuntimeError(f"Metadata Update Failed: {e}")
 
             if not self._in_transaction:
                 try:
                     IntegrityChecker.validate(self.repo_path, force=True)
-                    self._run_git(["commit", "-m", f"Add {event.kind}: {event.content[:50]}", "--", relative_path], cwd=self.repo_path)
+                    self.audit.add_artifact(relative_path, content, f"Add {event.kind}: {event.content[:50]}")
                 except Exception as e:
                     if os.path.exists(full_path): os.remove(full_path)
-                    self.meta.delete(filename)
+                    self.meta.delete(relative_path)
                     raise RuntimeError(f"Integrity Violation: {e}")
+            else:
+                if isinstance(self.audit, GitAuditProvider):
+                    self.audit._run_git(["add", "--", relative_path])
+            
             return relative_path
         finally:
             if not self._in_transaction: self._fs_lock.release()
@@ -306,9 +209,8 @@ class SemanticStore:
             new_content = MemoryLoader.stringify(new_data, body)
             with open(file_path, "w", encoding="utf-8") as f: f.write(new_content)
             
-            # Sync metadata to SQLite
-            from datetime import datetime
             ctx = new_data.get("context", {})
+            from datetime import datetime
             ts = new_data.get("timestamp")
             if isinstance(ts, str): ts = datetime.fromisoformat(ts)
             self.meta.upsert(
@@ -317,53 +219,47 @@ class SemanticStore:
                 status=ctx.get("status"),
                 kind=new_data.get("kind"),
                 timestamp=ts or datetime.now(),
-                superseded_by=ctx.get("superseded_by")
+                superseded_by=ctx.get("superseded_by"),
+                namespace=ctx.get("namespace", "default")
             )
-
-            self._run_git(["add", "--", filename], cwd=self.repo_path)
 
             if not self._in_transaction:
                 try:
                     IntegrityChecker.validate(self.repo_path, force=True)
-                    self._run_git(["commit", "-m", commit_msg, "--", filename], cwd=self.repo_path)
+                    self.audit.update_artifact(filename, new_content, commit_msg)
                 except Exception as e:
                     with open(file_path, "w", encoding="utf-8") as f: f.write(content)
                     self.sync_meta_index()
                     raise RuntimeError(f"Integrity Violation: {e}")
+            else:
+                if isinstance(self.audit, GitAuditProvider):
+                    self.audit._run_git(["add", "--", filename])
         finally:
             if not self._in_transaction: self._fs_lock.release()
 
     def list_decisions(self) -> List[str]:
         self._fs_lock.acquire(exclusive=False)
         try:
-            return [f for f in os.listdir(self.repo_path) if f.endswith(".md") or f.endswith(".yaml")]
+            all_meta = self.meta.list_all()
+            return [m['fid'] for m in all_meta]
         finally: self._fs_lock.release()
-    
-    def list_active_conflicts(self, target: str) -> List[str]:
+
+    def purge_memory(self, fid: str):
+        """Hard delete for GDPR compliance."""
+        self._fs_lock.acquire(exclusive=True)
+        try:
+            full_path = os.path.join(self.repo_path, fid)
+            if os.path.exists(full_path): os.remove(full_path)
+            self.audit.purge_artifact(fid)
+            self.meta.delete(fid)
+        finally: self._fs_lock.release()
+
+    def get_head_hash(self) -> Optional[str]:
+        return self.audit.get_head_hash()
+
+    def list_active_conflicts(self, target: str, namespace: str = "default") -> List[str]:
         self._fs_lock.acquire(exclusive=False)
         try:
-            conflicts = []
-            for filename in self.list_decisions():
-                try:
-                    with open(os.path.join(self.repo_path, filename), 'r', encoding='utf-8') as f:
-                        data, _ = MemoryLoader.parse(f.read())
-                        ctx = data.get("context", {})
-                        if (data.get("kind") == "decision" and ctx.get("target") == target and ctx.get("status") == "active"):
-                            conflicts.append(filename)
-                except Exception: continue
-            return conflicts
-        finally: self._fs_lock.release()
-    
-    def find_proposal(self, target: str) -> Optional[str]:
-        self._fs_lock.acquire(exclusive=False)
-        try:
-            for filename in self.list_decisions():
-                try:
-                    with open(os.path.join(self.repo_path, filename), 'r', encoding='utf-8') as f:
-                        data, _ = MemoryLoader.parse(f.read())
-                        ctx = data.get("context", {})
-                        if (data.get("kind") == "proposal" and ctx.get("target") == target and ctx.get("status") == "draft"):
-                            return filename
-                except Exception: continue
-            return None
+            all_meta = self.meta.list_all()
+            return [m['fid'] for m in all_meta if m.get('target') == target and m.get('status') == 'active' and m.get('kind') == 'decision' and m.get('namespace', 'default') == namespace]
         finally: self._fs_lock.release()

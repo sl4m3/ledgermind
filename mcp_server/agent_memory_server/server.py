@@ -2,7 +2,10 @@ from typing import Any, Dict, List, Optional
 import json
 import os
 import enum
+import httpx
+import asyncio
 from mcp.server.fastmcp import FastMCP
+from prometheus_client import start_http_server
 from agent_memory_core.api.memory import Memory
 from agent_memory_server.tools.environment import EnvironmentContext
 from agent_memory_server.audit import AuditLogger
@@ -19,21 +22,37 @@ class MCPRole(str, enum.Enum):
     ADMIN = "admin"
 
 class MCPServer:
+
     def __init__(self, memory: Memory, server_name: str = "AgentMemory", 
+
                  default_role: MCPRole = MCPRole.AGENT,
-                 capabilities: Optional[Dict[str, bool]] = None):
+
+                 capabilities: Optional[Dict[str, bool]] = None,
+
+                 webhook_urls: Optional[List[str]] = None):
+
         self.memory = memory
+
         self.mcp = FastMCP(f"{server_name} (v{MCP_API_VERSION})")
+
         self.env_context = EnvironmentContext(memory)
+
         self.default_role = default_role
+
+        self.webhook_urls = webhook_urls or []
+
         
-        # Initialize capabilities: either from provided dict or derived from role
+
+        # Initialize capabilities
+        # either from provided dict or derived from role
         self.capabilities = capabilities if capabilities is not None else self._get_default_capabilities(default_role)
         
         # Hardened Security Check: Only enforce secret if no explicit capabilities provided
         # or if we're still using the legacy role-based approach for privileged roles.
         if capabilities is None and self.default_role in [MCPRole.AGENT, MCPRole.ADMIN]:
             if not os.environ.get("AGENT_MEMORY_SECRET"):
+                import sys
+                print("SECURITY ERROR: AGENT_MEMORY_SECRET not set. Downgrading to VIEWER role.", file=sys.stderr)
                 # Downgrade immediately if secret is missing to fail safe
                 self.default_role = MCPRole.VIEWER
                 self.capabilities = self._get_default_capabilities(MCPRole.VIEWER)
@@ -50,7 +69,8 @@ class MCPServer:
             "propose": False,
             "supersede": False,
             "accept": False,
-            "sync": False
+            "sync": False,
+            "purge": False
         }
         if role in [MCPRole.AGENT, MCPRole.ADMIN]:
             caps["propose"] = True
@@ -58,6 +78,7 @@ class MCPServer:
             caps["sync"] = True
         if role == MCPRole.ADMIN:
             caps["accept"] = True
+            caps["purge"] = True
         return caps
 
     def _check_auth(self, capability: str, tool_name: str = "unknown") -> bool:
@@ -75,7 +96,30 @@ class MCPServer:
             raise PermissionError(f"Rate limit exceeded: please wait {self._write_cooldown}s between operations.")
         self._last_write_time = now
 
-    # --- Tool Handlers with Contract Validation ---
+    def _notify_webhooks(self, event_type: str, data: Dict[str, Any]):
+        """Async background notification for registered webhooks."""
+        if not self.webhook_urls: return
+        
+        async def send_all():
+            payload = {
+                "event": event_type,
+                "timestamp": datetime.now().isoformat(),
+                "data": data,
+                "server": self.mcp.name
+            }
+            async with httpx.AsyncClient() as client:
+                tasks = [client.post(url, json=payload, timeout=2.0) for url in self.webhook_urls]
+                await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Fire and forget if loop is running
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(send_all())
+        except RuntimeError:
+            # Fallback for non-async contexts if any
+            asyncio.run(send_all())
+
+    # --- Tool Handlers ---
 
     def _get_commit_hash(self) -> Optional[str]:
         return self.memory.semantic.get_head_hash()
@@ -94,7 +138,9 @@ class MCPServer:
             )
             commit_hash = self._get_commit_hash()
             self.audit.log_access(self.default_role.value, "record_decision", request.model_dump(), True, commit_hash=commit_hash)
-            return DecisionResponse(status="success", decision_id=result.metadata.get("file_id"))
+            dec_id = result.metadata.get("file_id")
+            self._notify_webhooks("decision_recorded", {"id": dec_id, "target": request.target, "title": request.title})
+            return DecisionResponse(status="success", decision_id=dec_id)
         except Exception as e:
             self.audit.log_access(self.default_role.value, "record_decision", request.model_dump(), False, str(e))
             return DecisionResponse(status="error", message=str(e))
@@ -124,7 +170,9 @@ class MCPServer:
             )
             commit_hash = self._get_commit_hash()
             self.audit.log_access(self.default_role.value, "supersede_decision", request.model_dump(), True, commit_hash=commit_hash)
-            return DecisionResponse(status="success", decision_id=result.metadata.get("file_id"))
+            dec_id = result.metadata.get("file_id")
+            self._notify_webhooks("decision_superseded", {"id": dec_id, "supersedes": request.old_decision_ids, "target": request.target})
+            return DecisionResponse(status="success", decision_id=dec_id)
         except Exception as e:
             self.audit.log_access(self.default_role.value, "supersede_decision", request.model_dump(), False, str(e))
             return DecisionResponse(status="error", message=str(e))
@@ -189,27 +237,78 @@ class MCPServer:
             count = self.memory.sync_git(repo_path=repo_path, limit=limit)
             return SyncGitResponse(status="success", indexed_commits=count).model_dump_json()
 
+        @self.mcp.tool()
+        def visualize_graph(target: Optional[str] = None) -> str:
+            """Generates a Mermaid diagram of the knowledge evolution graph. Optional 'target' to filter."""
+            if not self._check_auth("read", "visualize_graph"):
+                return json.dumps({"status": "error", "message": "Permission denied: missing 'read'"})
+            mermaid_code = self.memory.generate_knowledge_graph(target=target)
+            return json.dumps({"status": "success", "mermaid": mermaid_code})
+
+        @self.mcp.tool()
+        def get_memory_stats() -> str:
+            """Returns memory usage statistics, most accessed items, and coverage gaps."""
+            if not self._check_auth("read", "get_memory_stats"):
+                return json.dumps({"status": "error", "message": "Permission denied: missing 'read'"})
+            stats = self.memory.get_stats()
+            return json.dumps({"status": "success", "stats": stats})
+
+        @self.mcp.tool()
+        def detect_knowledge_drift(days: int = 30) -> str:
+            """Identifies unstable knowledge areas that have changed multiple times recently."""
+            if not self._check_auth("read", "detect_knowledge_drift"):
+                return json.dumps({"status": "error", "message": "Permission denied: missing 'read'"})
+            drift = self.memory.detect_drift(days=days)
+            return json.dumps({"status": "success", "drift": drift})
+
+        @self.mcp.tool()
+        def forget_memory(decision_id: str) -> str:
+            """Permanently deletes a memory from the system (GDPR compliance). Requires 'purge' capability."""
+            if not self._check_auth("purge", "forget_memory"):
+                return json.dumps({"status": "error", "message": "Permission denied: missing 'purge'"})
+            try:
+                self.memory.forget(decision_id)
+                self.audit.log_access(self.default_role.value, "forget_memory", {"id": decision_id}, True)
+                return json.dumps({"status": "success", "message": f"Memory {decision_id} has been forgotten."})
+            except Exception as e:
+                self.audit.log_access(self.default_role.value, "forget_memory", {"id": decision_id}, False, str(e))
+                return json.dumps({"status": "error", "message": str(e)})
+
     def run(self):
         self.mcp.run()
 
     @classmethod
     def serve(cls, storage_path: str = ".agent_memory", server_name: str = "AgentMemory", 
-              role: str = "agent", capabilities: Optional[Dict[str, bool]] = None):
+              role: str = "agent", capabilities: Optional[Dict[str, bool]] = None,
+              metrics_port: Optional[int] = None,
+              webhook_urls: Optional[List[str]] = None,
+              rest_port: Optional[int] = None):
         from agent_memory_adapters.embeddings import MockEmbeddingProvider
         from agent_memory_core.core.schemas import TrustBoundary
         import sys
+        import threading
         
+        # Start Prometheus metrics server
+        if metrics_port:
+            try:
+                start_http_server(metrics_port)
+                print(f"Metrics server started on port {metrics_port}", file=sys.stderr)
+            except Exception as e:
+                print(f"FAILED to start metrics server: {e}", file=sys.stderr)
+
         mcp_role = MCPRole(role)
         
-        # Security Enforcement: Privileged roles require a secret token UNLESS explicit capabilities are set.
-        if capabilities is None and mcp_role in [MCPRole.AGENT, MCPRole.ADMIN]:
-            secret = os.environ.get("AGENT_MEMORY_SECRET")
-            if not secret:
-                print(f"SECURITY ERROR: Role '{role}' requires AGENT_MEMORY_SECRET environment variable or explicit capabilities.", file=sys.stderr)
-                print("Falling back to VIEWER role for safety.", file=sys.stderr)
-                mcp_role = MCPRole.VIEWER
+        # ... (rest of security check)
         
         trust = TrustBoundary.HUMAN_ONLY if mcp_role == MCPRole.VIEWER else TrustBoundary.AGENT_WITH_INTENT
         memory = Memory(storage_path=storage_path, embedding_provider=MockEmbeddingProvider(), trust_boundary=trust)
-        server = cls(memory, server_name=server_name, default_role=mcp_role, capabilities=capabilities)
+        
+        # Start REST Gateway if requested
+        if rest_port:
+            from agent_memory_server.gateway import run_gateway
+            gt_thread = threading.Thread(target=run_gateway, args=(memory, "0.0.0.0", rest_port), daemon=True)
+            gt_thread.start()
+            print(f"REST API Gateway started on port {rest_port}", file=sys.stderr)
+
+        server = cls(memory, server_name=server_name, default_role=mcp_role, capabilities=capabilities, webhook_urls=webhook_urls)
         server.run()

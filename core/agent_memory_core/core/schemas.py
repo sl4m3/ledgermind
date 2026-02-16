@@ -76,6 +76,7 @@ class DecisionContent(BaseModel):
     consequences: List[str] = Field(default_factory=list)
     supersedes: List[str] = Field(default_factory=list)
     superseded_by: Optional[str] = None
+    attachments: List[Dict[str, str]] = Field(default_factory=list) # List of {type: "image", path: "blobs/..."}
 
     @field_validator('title', 'target', 'rationale')
     @classmethod
