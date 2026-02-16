@@ -421,9 +421,26 @@ class Memory:
     def search_decisions(self, query: str, limit: int = 5, mode: str = "balanced") -> List[Dict[str, Any]]:
         """
         Hybrid Search with Recursive Truth Resolution and Target Deduplication.
+        Falls back to keyword search if embeddings are unavailable.
         """
         if not self.embedding_provider:
-            return []
+            # Fallback to metadata-only keyword search
+            raw_results = self.semantic.meta.keyword_search(query, limit=limit * 2)
+            candidates = []
+            for item in raw_results:
+                fid = item['fid']
+                final_id, data = self._resolve_to_truth(fid, mode)
+                if not data: continue
+                candidates.append({
+                    "id": final_id,
+                    "score": 0.5, # Static score for keyword match
+                    "status": item['status'],
+                    "target": item['target'],
+                    "preview": data.get("content", fid)[:200],
+                    "kind": item['kind'],
+                    "is_active": (item['status'] == "active")
+                })
+            return candidates[:limit]
         
         try:
             query_emb = self.embedding_provider.get_embedding(query)

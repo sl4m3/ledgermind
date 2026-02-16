@@ -1,56 +1,53 @@
-# Agent Memory Server v2.0.0
+# Agent Memory Server v2.0.2
 
 Dedicated MCP (Model Context Protocol) Server for the Agent Memory System. Acts as the primary enforcement layer and provides a structured API contract for memory operations.
 
-**API Version:** 2.0.0
+**API Version:** 2.0.2
 
-## 🚀 New in v2.0.0
+## 🚀 Key Features
 
-- **REST Gateway**: Parallel access to memory via standard HTTP POST/GET endpoints.
+- **Dynamic Embedding Providers**: Automatically detects and uses Google (Gemini) or OpenAI embeddings for semantic search based on available API keys.
+- **REST Gateway**: Parallel access to memory via standard HTTP POST/GET endpoints (Port 8000 by default).
+- **Observability**: Exposes Prometheus metrics (Port 9090) for monitoring system health and memory usage.
 - **SSE & WebSockets**: Real-time memory change notifications and bi-directional communication.
 - **Granular Purge**: GDPR-compliant data forgetting via the `purge` capability.
 
 ## 🔐 Security & Hardened Audit
 
-The server implements mandatory token-based authentication (legacy) or **Capability-based access control (modern)**. Every state-changing operation is recorded in `audit.log`.
+The server implements **Capability-based access control**. This ensures that the agent has only the specific permissions it needs (Principle of Least Privilege). Every state-changing operation is recorded in `audit.log`.
 
-### Authentication Options
-- **Capability Mode (Recommended)**: Pass `--capabilities` JSON to explicitly define what the server can do. No secret required.
-- **Legacy Role Mode**: Requires `AGENT_MEMORY_SECRET` environment variable for `agent` or `admin` roles.
-
-## 📜 Authority Model (Capabilities)
+### 📜 Authority Model (Capabilities)
 
 | Capability | Tool Impact | Description |
 | :--- | :--- | :--- |
-| `read` | `search_decisions` | Allows semantic search and retrieval. |
+| `read` | `search_decisions`, `visualize_graph` | Allows semantic search, retrieval, and visualization. |
 | `propose` | `record_decision` | Allows recording new decisions/hypotheses. |
 | `supersede` | `supersede_decision` | Allows replacing existing decisions. |
 | `accept` | `accept_proposal` | Allows promoting drafts to active decisions. |
 | `sync` | `sync_git_history` | Allows indexing external Git history. |
+| `purge` | `forget_memory` | Allows permanent deletion for GDPR compliance. |
 
-### Legacy Roles Mapping
-| Role | Permissions | Requirements |
-| :--- | :--- | :--- |
-| `viewer` | `read` | None |
-| `agent` | `read`, `propose`, `supersede`, `sync` | `AGENT_MEMORY_SECRET` |
-| `admin` | `read`, `propose`, `supersede`, `sync`, `accept` | `AGENT_MEMORY_SECRET` |
+## 🏃 Running the Server
 
-## 🏃 Running
-
-### Option A: Capability Mode (No secret required)
+### For Semantic Search
+Make sure to provide an API key for embeddings:
 ```bash
-agent-memory-mcp run --capabilities '{"read": true, "propose": true}'
+export GOOGLE_API_KEY="your-gemini-api-key"
+agent-memory-mcp run --path ./.agent_memory --capabilities '{"read": true, "propose": true}'
 ```
 
-### Option B: Legacy Role Mode
+### Full Configuration Example
 ```bash
-export AGENT_MEMORY_SECRET="your-secure-token"
-agent-memory-mcp run --role admin
+agent-memory-mcp run \
+  --path ./.agent_memory \
+  --metrics-port 9090 \
+  --rest-port 8000 \
+  --capabilities '{"read": true, "propose": true, "sync": true}'
 ```
 
 ## 🛠 Configuration (IDE / Claude Desktop)
 
-To use this server with an MCP-compatible client (like Claude Desktop or VS Code), add the following to your configuration file (e.g., `claude_desktop_config.json`):
+Add the following to your `claude_desktop_config.json`:
 
 ```json
 {
@@ -65,21 +62,14 @@ To use this server with an MCP-compatible client (like Claude Desktop or VS Code
         "AgentMemory",
         "--capabilities",
         "{\"read\": true, \"propose\": true, \"supersede\": true, \"accept\": true, \"sync\": true}"
-      ]
+      ],
+      "env": {
+        "GOOGLE_API_KEY": "your-key-here"
+      }
     }
   }
 }
 ```
-
-## 🛠 API Specification
-
-The server follows a strict formal contract defined by `mcp_server/schema/mcp_api_v1.json`. 
-- **Formal Contract**: [mcp_api_v1.json](./schema/mcp_api_v1.json) is the single source of truth for all clients.
-- **Specification**: See [MCP_SPECIFICATION.md](./docs/MCP_SPECIFICATION.md) for detailed explanations.
-- **JSON Schemas**: You can also export the latest schema using the CLI:
-  ```bash
-  agent-memory-mcp export-schema > schema.json
-  ```
 
 ## 🛠 Installation
 ```bash

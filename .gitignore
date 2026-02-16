@@ -12,3 +12,4 @@ build/
 .gemini/
 .agent_memory/
 .benchmarks/
+.hypothesis/

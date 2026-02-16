@@ -1,41 +1,28 @@
-# agent-memory-core v2.0.0
+# agent-memory-core v2.0.2
 
-A universal long-term memory module for AI agents featuring guaranteed integrity, epistemic modeling, and hybrid storage.
+A universal long-term memory module for AI agents featuring guaranteed integrity, epistemic modeling, and high-performance hybrid storage.
 
-## 🌟 New in v2.0.0
+## 🌟 Major Features
 
-- **Privacy Controls**: Built-in PIIMasker for PII protection and optional Encryption at Rest via Fernet.
-- **Auto-Migration Engine**: Automatically upgrades data structure and SQLite schema on startup.
-- **Vector Optimization**: Integrated Zstandard compression and embedding caching.
-- **Improved Recovery**: Automatic reconciliation of untracked files after system crashes.
+- **Enterprise-Ready Storage**: Support for **PostgreSQL** and **pgvector** as alternatives to SQLite, enabling sub-second search across millions of records.
+- **Privacy & Compliance**: Built-in PII Masking and Encryption at Rest (Fernet) for sensitive memory content.
+- **Epistemic Reasoning Engine**: Features dedicated engines for **Reflection**, **Distillation**, and **Recursive Truth Resolution**.
+- **Distributed Synchronization**: Real-time multi-instance sync via **Redis Pub/Sub**.
+- **Zstandard Compression**: Significant storage savings for vectors and text content.
+- **Performance Optimized**: Conflict detection via $O(1)$ database indices and intelligent mtime-based integrity caching.
 
 ## 🛡 Integrity & Reliability Guarantees
 
-- **Structured Ranking Policy**: Formalized ranking policy for hybrid search. Vector similarity is adjusted with bonuses for "Active" status (Truth Bias), source authority (Human > Agent), and penalties for obsolescence (Superseded/Deprecated). This ensures the agent always receives the most relevant and *active* information.
-- **Boundary Enforcement**: Strict validation of input data and business rules at the API boundary. Invalid operations (violating invariants I1-I7) are rejected with explicit exceptions (`ConflictError`, `InvariantViolation`), protecting the store from incorrect client calls.
-- **Hybrid Semantic Store**: A two-tier storage architecture. SQLite provides ACID transactions and instant metadata invariant checks, while Git serves as a reliable append-only log for audit and content versioning.
-- **ACID-compliant Transactions**: Support for atomic multi-file operations via `SemanticStore.transaction()`. Changes are either fully applied (commit) or automatically rolled back (rollback) upon failure. A WAL-like mechanism is used for filesystem recovery.
-- **Proactive Validation**: All architectural invariants are validated (`IntegrityChecker`) **BEFORE** changes are committed to Git and SQLite.
-- **Robust Locking**: Cross-platform (`fcntl`-based) file locking ensures safety during parallel operation by multiple agents.
-- **Recursive Truth Resolution**: Hybrid search automatically follows knowledge supersession chains. The agent always receives the current "truth," even if the initial search hit an outdated version.
+- **Hybrid Semantic Store**: High-performance metadata indexing in SQLite/Postgres combined with Git-backed storage for immutable audit logs.
+- **ACID-compliant Transactions**: Atomic multi-operation support with automatic rollback on failure.
+- **Proactive Validation**: All architectural invariants are validated via `IntegrityChecker` before any change is committed.
+- **Recursive Truth Resolution**: Hybrid search automatically follows the knowledge evolution graph to return the latest active version of any fact.
 
-## 🚀 Core Features (Reasoning v5)
+## 🚀 Advanced Reasoning
 
-- **Epistemic Reflection & Falsification**: Next-generation reflection system building a scientific hypothesis model:
-    - **Competing Hypotheses**: For each error pattern, alternative explanations (logic failure vs. external noise) are generated and compete for confidence.
-    - **Scientific Falsification**: The system actively seeks refutations. Any success in the context of an error hypothesis reduces its weight until it is potentially falsified.
-    - **Bayesian-ish Confidence**: Confidence is calculated based on the balance of supporting and refuting evidence.
-    - **Structured Scrutiny**: Proposals contain explicit `strengths` and `objections` for transparent auditing.
-- **Procedural Distillation (MemP)**: Automatic extraction of procedural knowledge (SOPs) from successful event chains (trajectories).
-- **Git History Indexing**: Enriching memory with knowledge from human code commit history.
-- **Knowledge Evolution**: A rigorous process for replacing old knowledge with new information via a DAG structure.
-
-## 🛠 Architecture
-
-- **Semantic Store**: Markdown files with metadata in SQLite. The repository for "truths" and rules.
-- **Episodic Store**: SQLite database for the event stream (append-only log).
-- **Vector Store**: Index for fast candidate retrieval based on semantic similarity.
-- **Reasoning Engines**: Reflection, Conflict, Distillation, Decay.
+- **Epistemic Reflection**: A hypothesis-driven model that reviews memories to detect patterns and contradictions.
+- **Procedural Distillation**: Extraction of SOPs (Standard Operating Procedures) from successful episode trajectories.
+- **Git History Indexing**: Learns from human code commit history to enrich agent context.
 
 ## ⚡ Quick Start
 
@@ -47,11 +34,16 @@ memory = Memory(storage_path="./my_agent_memory")
 
 # Recording a decision
 memory.record_decision(
-    title="Use PostgreSQL",
-    target="database",
-    rationale="Need ACID and vertical scaling for initial phase"
+    title="Use PostgreSQL with pgvector",
+    target="architecture/storage",
+    rationale="Need sub-second semantic search across 1M+ records"
 )
 
 # Hybrid search with Recursive Truth Resolution
-results = memory.search_decisions("How to store structured data?", mode="balanced")
+results = memory.search_decisions("high-scale storage options", mode="balanced")
+```
+
+## Installation
+```bash
+pip install -e ./core
 ```

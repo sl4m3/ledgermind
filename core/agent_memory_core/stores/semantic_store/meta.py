@@ -72,6 +72,18 @@ class SemanticMetaStore:
             ).fetchone()
             return row[0] if row else None
 
+    def keyword_search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Fallback search using SQL LIKE when embeddings are unavailable."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            pattern = f"%{query}%"
+            cursor = conn.execute("""
+                SELECT * FROM semantic_meta 
+                WHERE (target LIKE ? OR fid LIKE ?)
+                ORDER BY timestamp DESC LIMIT ?
+            """, (pattern, pattern, limit))
+            return [dict(row) for row in cursor.fetchall()]
+
     def list_all(self) -> List[Dict[str, Any]]:
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
