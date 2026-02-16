@@ -41,9 +41,6 @@ pip install -e ./core -e ./mcp_server -e ./adapters
 
 ### Starting the Secure Memory Server
 ```bash
-# Set your API key for semantic search
-export GOOGLE_API_KEY="your-key-here"
-
 # Start the MCP server
 agent-memory-mcp --path ./.agent_memory --role agent
 ```
