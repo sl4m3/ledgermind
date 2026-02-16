@@ -1,0 +1,4 @@
+# file: /data/data/com.termux/files/home/projects/agent-memory/mcp_server/agent_memory_server/server.py
+# hypothesis_version: 6.151.6
+
+[2.0, '.', '.agent_memory', '0.0.0.0', 'AGENT_MEMORY_SECRET', 'Accepted', 'AgentMemory', '[via MCP]', 'accept', 'accept_proposal', 'admin', 'agent', 'balanced', 'data', 'decision_recorded', 'decision_superseded', 'drift', 'error', 'event', 'file_id', 'forget_memory', 'get_memory_stats', 'id', 'mermaid', 'message', 'mode', 'propose', 'purge', 'query', 'r', 'read', 'record_decision', 'search_decisions', 'server', 'stats', 'status', 'success', 'supersede', 'supersede_decision', 'supersedes', 'sync', 'sync_git_history', 'target', 'timestamp', 'title', 'unknown', 'viewer', 'visualize_graph']

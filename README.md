@@ -6,9 +6,17 @@ A modular, secure, and auditable memory ecosystem for autonomous agents. Designe
 
 The system is split into three distinct layers to ensure a clean boundary between domain logic and infrastructure:
 
-1.  **[Core](./core)** (`agent-memory-core` v1.22.0): The domain heart. Handles storage (Hybrid Semantic Store: SQLite + Git, Episodic, Vector), Epistemic Reasoning (Reflection v5, Distillation), and Transactional Integrity.
-2.  **[MCP Server](./mcp_server)** (`agent-memory-server` v1.11.0): The enforcement layer and transport. Implements RBAC, Isolation Rules, and a **formal industrial-grade API specification**.
-3.  **[Adapters](./adapters)** (`agent-memory-adapters` v1.1.0): LLM-specific clients (OpenAI, Anthropic, Gemini, etc.) that connect to the MCP Server.
+1.  **[Core](./core)** (`agent-memory-core` v2.0.0): The domain heart. Handles storage (Hybrid Semantic Store: SQLite + Git, Episodic, Vector), Epistemic Reasoning, and Transactional Integrity. **Now with Auto-Migration and Privacy Controls.**
+2.  **[MCP Server](./mcp_server)** (`agent-memory-server` v2.0.0): The enforcement layer and transport. Implements RBAC, Capabilities, and REST/WebSocket Gateway.
+3.  **[Adapters](./adapters)** (`agent-memory-adapters` v2.0.0): LLM-specific clients (OpenAI, Anthropic, Gemini, etc.) that connect to the MCP Server.
+
+## 🌟 New in v2.0.0
+
+- **Privacy & Compliance**: Automated PII masking and Encryption at Rest (Fernet) for sensitive memory content.
+- **Auto-Migration Engine**: Seamlessly upgrades legacy data formats to modern standards on startup.
+- **REST & Real-time Gateway**: Parallel access via REST API, SSE events, and WebSockets.
+- **Vector Optimization**: Integrated Zstandard compression for high-dimensional vectors and embedding caching.
+- **Scaling**: Multi-instance synchronization via Redis Pub/Sub.
 
 ## 🛡 Decoupled Architecture
 
@@ -44,6 +52,11 @@ The system is built with professional-grade reliability in mind:
 ```bash
 pip install -e ./core -e ./mcp_server -e ./adapters
 ```
+
+### Learning Resources
+- **[Quickstart Tutorial](./docs/tutorials/QUICKSTART.md)**: Build a Code Analysis Agent with memory in 5 minutes.
+- **[Comparison Guide](./docs/COMPARISON.md)**: How we differ from LangChain, Mem0, and Zep.
+- **[Interactive Notebooks](./notebooks/01_introduction.ipynb)**: Explore features in Jupyter.
 
 ### Starting the Secure Memory Server
 ```bash

@@ -1,0 +1,4 @@
+# file: /data/data/com.termux/files/home/projects/agent-memory/core/agent_memory_core/stores/audit_git.py
+# hypothesis_version: 6.151.6
+
+[0.3, 1.4, '--', '--cached', '-m', '.git', '.gitignore', 'Another git process', 'File exists', 'GIT_AUTHOR_EMAIL', 'GIT_AUTHOR_NAME', 'HEAD', 'Initial commit', 'a', 'add', 'agent-memory-core', 'agent@memory.local', 'commit', 'config', 'could not lock', 'git', 'index.lock', 'init', 'no changes added', 'nothing added', 'nothing to commit', 'rev-parse', 'rm', 'user.email', 'user.name', 'working tree clean']

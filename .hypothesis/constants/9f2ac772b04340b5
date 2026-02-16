@@ -1,0 +1,4 @@
+# file: /data/data/com.termux/files/home/projects/agent-memory/core/agent_memory_core/api/memory.py
+# hypothesis_version: 6.151.6
+
+[200, 10000, '.', './memory', 'CONFLICT', 'accepted', 'action', 'active', 'agent', 'agent_memory_updates', 'archived', 'audit', 'balanced', 'compression', 'consequences', 'content', 'context', 'converted_to', 'decay', 'deduplication', 'default', 'draft', 'embedding_cache', 'embedding_cache.db', 'episodic', 'episodic.db', 'file_id', 'first_observed_at', 'id', 'ids', 'is_active', 'kind', 'low', 'merging', 'namespace', 'none', 'preview', 'proposal', 'proposals_created', 'r', 'rationale', 'reflection_engine', 'rejected', 'rejection_reason', 'saved', 'score', 'semantic', 'semantic_decisions', 'source', 'stability', 'status', 'storage_path', 'strict', 'supersede', 'superseded', 'superseded_by', 'target', 'timestamp', 'title', 'unknown', 'utf-8', 'vector.db', 'versions', 'zstd']
