@@ -28,7 +28,7 @@ class AgentMemoryVectorStore(VectorStore):
     """
     def __init__(self, memory_provider: Any, embeddings: Optional[Embeddings] = None):
         self.memory = memory_provider
-        self.embeddings = embeddings
+        self._embeddings = embeddings
 
     def add_texts(self, texts: List[str], metadatas: Optional[List[dict]] = None, **kwargs: Any) -> List[str]:
         ids = []
