@@ -7,7 +7,7 @@ name = "agent-memory-server"
 version = "2.0.0"
 description = "Dedicated MCP Server for agent-memory-core"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "agent-memory-core",
     "mcp>=0.1.0",
