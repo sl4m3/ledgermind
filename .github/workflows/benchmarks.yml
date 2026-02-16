@@ -33,3 +33,4 @@ jobs:
         fail-on-alert: true
         github-token: ${{ secrets.GITHUB_TOKEN }}
         auto-push: false
+        skip-fetch-gh-pages: true

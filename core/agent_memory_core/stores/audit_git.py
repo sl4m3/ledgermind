@@ -21,7 +21,7 @@ class GitAuditProvider(AuditProvider):
                 combined = last_error + "\n" + e.stdout.decode()
                 if any(msg in combined for msg in ["nothing to commit", "working tree clean", "no changes added", "nothing added"]):
                     return e
-                if any(msg in last_error for msg in ["index.lock", "File exists", "could not lock", "Another git process"]):
+                if any(msg in last_error for msg in ["index.lock", "File exists", "could not lock", "cannot lock", "Another git process"]):
                     time.sleep(0.3 * (1.4 ** i))
                     continue
                 raise e

@@ -17,8 +17,15 @@ class MigrationEngine:
 
     def run_all(self):
         """Executes all necessary migrations for the current version."""
-        logger.info("Checking memory format compatibility...")
-        self.migrate_to_v1_22()
+        # Ensure we have exclusive access during migration
+        if hasattr(self.semantic, "_fs_lock"):
+            self.semantic._fs_lock.acquire(exclusive=True)
+        try:
+            logger.info("Checking memory format compatibility...")
+            self.migrate_to_v1_22()
+        finally:
+            if hasattr(self.semantic, "_fs_lock"):
+                self.semantic._fs_lock.release()
 
     def migrate_to_v1_22(self):
         """
