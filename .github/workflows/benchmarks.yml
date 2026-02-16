@@ -32,4 +32,4 @@ jobs:
         output-file-path: core/output.json
         fail-on-alert: true
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        comment-on-commit: true
+        auto-push: false
