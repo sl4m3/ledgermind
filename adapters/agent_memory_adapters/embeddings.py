@@ -7,31 +7,36 @@ logger = logging.getLogger("agent-memory-multi.embeddings")
 
 class OpenAIEmbeddingProvider(EmbeddingProvider):
     """Реализация EmbeddingProvider через OpenAI API."""
-    def __init__(self, api_key: str = None, model: str = "text-embedding-3-small"):
-        import openai
-        self.client = openai.OpenAI(api_key=api_key or os.environ.get("OPENAI_API_KEY"))
+    def __init__(self, model: str = "text-embedding-3-small"):
         self.model = model
+        self._client = None
+
+    def _get_client(self):
+        if self._client is None:
+            import openai
+            self._client = openai.OpenAI()
+        return self._client
 
     def get_embedding(self, text: str) -> List[float]:
+        client = self._get_client()
         text = text.replace("\n", " ")
-        return self.client.embeddings.create(input=[text], model=self.model).data[0].embedding
+        return client.embeddings.create(input=[text], model=self.model).data[0].embedding
 
 class GoogleEmbeddingProvider(EmbeddingProvider):
     """Реализация EmbeddingProvider через Google Generative AI API."""
-    def __init__(self, api_key: str = None, model: str = "models/text-embedding-004"):
-        import google.generativeai as genai
-        api_key = api_key or os.environ.get("GOOGLE_API_KEY")
-        if api_key:
-            genai.configure(api_key=api_key)
-            self._genai = genai
-        else:
-            self._genai = None
+    def __init__(self, model: str = "models/text-embedding-004"):
         self.model = model
+        self._genai_module = None
+
+    def _get_genai(self):
+        if self._genai_module is None:
+            import google.generativeai as genai
+            self._genai_module = genai
+        return self._genai_module
 
     def get_embedding(self, text: str) -> List[float]:
-        if not self._genai:
-            raise ValueError("GOOGLE_API_KEY not set. Embedding generation impossible.")
-        result = self._genai.embed_content(
+        genai = self._get_genai()
+        result = genai.embed_content(
             model=self.model,
             content=text,
             task_type="retrieval_document"
