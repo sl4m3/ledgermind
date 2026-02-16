@@ -6,7 +6,7 @@ Dedicated MCP (Model Context Protocol) Server for the Agent Memory System. Acts 
 
 ## 🚀 Key Features
 
-- **Dynamic Embedding Providers**: Automatically detects and uses Google (Gemini) or OpenAI embeddings for semantic search based on available API keys.
+- **Zero-Config Embeddings**: Automatically detects and uses Google (Gemini) or OpenAI embeddings if keys are present, with a built-in fallback for local semantic search without API keys.
 - **REST Gateway**: Parallel access to memory via standard HTTP POST/GET endpoints (Port 8000 by default).
 - **Observability**: Exposes Prometheus metrics (Port 9090) for monitoring system health and memory usage.
 - **SSE & WebSockets**: Real-time memory change notifications and bi-directional communication.
@@ -29,10 +29,8 @@ The server implements **Capability-based access control**. This ensures that the
 
 ## 🏃 Running the Server
 
-### For Semantic Search
-Make sure to provide an API key for embeddings:
+### Standard Execution
 ```bash
-export GOOGLE_API_KEY="your-gemini-api-key"
 agent-memory-mcp run --path ./.agent_memory --capabilities '{"read": true, "propose": true}'
 ```
 
@@ -62,10 +60,7 @@ Add the following to your `claude_desktop_config.json`:
         "AgentMemory",
         "--capabilities",
         "{\"read\": true, \"propose\": true, \"supersede\": true, \"accept\": true, \"sync\": true}"
-      ],
-      "env": {
-        "GOOGLE_API_KEY": "your-key-here"
-      }
+      ]
     }
   }
 }
