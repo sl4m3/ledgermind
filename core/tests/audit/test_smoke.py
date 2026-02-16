@@ -2,7 +2,7 @@ import pytest
 import os
 from agent_memory_core.api.memory import Memory
 
-def test_system_wide_smoke_check(temp_storage):
+def test_system_wide_smoke_check(temp_storage, mock_embedding_provider):
     """
     Comprehensive smoke test covering:
     1. Initialization
@@ -11,10 +11,9 @@ def test_system_wide_smoke_check(temp_storage):
     4. Graph Generation
     5. Maintenance (Merge/Decay)
     """
-    from .conftest import MockEmbeddingProvider
     
     # 1. Initialization
-    memory = Memory(storage_path=temp_storage, embedding_provider=MockEmbeddingProvider())
+    memory = Memory(storage_path=temp_storage, embedding_provider=mock_embedding_provider)
     
     # 2. Record & Semantic Search
     res = memory.record_decision("Smoke Test Decision", "smoke_target", "Initial rationale for testing")
