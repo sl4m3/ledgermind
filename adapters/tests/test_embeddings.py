@@ -40,7 +40,7 @@ def test_openai_embedding_provider(mock_openai):
     mock_resp.data = [MagicMock(embedding=[0.5, 0.6])]
     mock_client.embeddings.create.return_value = mock_resp
     
-    provider = OpenAIEmbeddingProvider(api_key="sk-test")
+    provider = OpenAIEmbeddingProvider()
     res = provider.get_embedding("hello")
     
     assert res == [0.5, 0.6]
