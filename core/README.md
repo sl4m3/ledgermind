@@ -1,4 +1,4 @@
-# agent-memory-core v2.0.2
+# agent-memory-core v2.0.1
 
 A universal long-term memory module for AI agents featuring guaranteed integrity, epistemic modeling, and high-performance hybrid storage.
 
