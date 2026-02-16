@@ -25,12 +25,18 @@ jobs:
         rm -f core/pytest.ini
         cd core && pytest tests/performance/bench_ops.py --benchmark-json output.json
 
-    - name: Store Benchmark Results
-      uses: benchmark-action/github-action-benchmark@v1
+    - name: Upload Benchmark Results
+      uses: actions/upload-artifact@v4
       with:
-        tool: 'pytest'
-        output-file-path: core/output.json
-        fail-on-alert: true
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        auto-push: false
-        skip-fetch-gh-pages: true
+        name: benchmark-results
+        path: core/output.json
+
+    # - name: Store Benchmark Results
+    #   uses: benchmark-action/github-action-benchmark@v1
+    #   with:
+    #     tool: 'pytest'
+    #     output-file-path: core/output.json
+    #     fail-on-alert: true
+    #     github-token: ${{ secrets.GITHUB_TOKEN }}
+    #     auto-push: false
+    #     skip-fetch-gh-pages: true

@@ -122,7 +122,7 @@ class SemanticStore:
 
         try:
             yield
-            IntegrityChecker.validate(self.repo_path, force=True)
+            IntegrityChecker.validate(self.repo_path)
             self.audit.commit_transaction("Atomic Transaction Commit")
         except Exception as e:
             logger.error(f"Transaction Failed: {e}. Rolling back...")
@@ -180,7 +180,7 @@ class SemanticStore:
 
             if not self._in_transaction:
                 try:
-                    IntegrityChecker.validate(self.repo_path, force=True)
+                    IntegrityChecker.validate(self.repo_path)
                     self.audit.add_artifact(relative_path, content, f"Add {event.kind}: {event.content[:50]}")
                 except Exception as e:
                     if os.path.exists(full_path): os.remove(full_path)
@@ -225,7 +225,7 @@ class SemanticStore:
 
             if not self._in_transaction:
                 try:
-                    IntegrityChecker.validate(self.repo_path, force=True)
+                    IntegrityChecker.validate(self.repo_path)
                     self.audit.update_artifact(filename, new_content, commit_msg)
                 except Exception as e:
                     with open(file_path, "w", encoding="utf-8") as f: f.write(content)
