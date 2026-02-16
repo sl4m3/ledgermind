@@ -6,8 +6,8 @@ A modular, secure, and auditable memory ecosystem for autonomous agents. Designe
 
 The system is split into three distinct layers to ensure a clean boundary between domain logic and infrastructure:
 
-1.  **[Core](./core)** (`agent-memory-core` v2.0.0): The domain heart. Handles storage (Hybrid Semantic Store: SQLite/PostgreSQL + Git, Episodic, Vector), Epistemic Reasoning, and Transactional Integrity. **Features high-performance indexing and Zstandard compression.**
-2.  **[MCP Server](./mcp_server)** (`agent-memory-server` v2.0.3): The enforcement layer and transport. Implements RBAC, Capabilities, and REST/WebSocket Gateway. **Now with dynamic embedding provider selection.**
+1.  **[Core](./core)** (`agent-memory-core` v2.0.1): The domain heart. Handles storage (Hybrid Semantic Store: SQLite/PostgreSQL + Git, Episodic, Vector), Epistemic Reasoning, and Transactional Integrity. **Features high-performance indexing and Zstandard compression.**
+2.  **[MCP Server](./mcp_server)** (`agent-memory-server` v2.0.4): The enforcement layer and transport. Implements RBAC, Capabilities, and REST/WebSocket Gateway. **Now with dynamic embedding provider selection.**
 3.  **[Adapters](./adapters)** (`agent-memory-adapters` v2.0.3): LLM-specific clients (OpenAI, Anthropic, Gemini, LangChain, etc.) that connect to the MCP Server.
 
 ## 🌟 Major Features (v2.0+)
