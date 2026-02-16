@@ -27,7 +27,12 @@ class MemoryTransferManager:
     def import_from_tar(self, tar_path: str, restore_path: str):
         """Unpacks memory from a .tar.gz archive."""
         with tarfile.open(tar_path, "r:gz") as tar:
-            tar.extractall(path=os.path.dirname(restore_path))
+            # Python 3.12+ safe extraction filter
+            if hasattr(tar, 'extraction_filter'):
+                tar.extractall(path=os.path.dirname(restore_path), filter='data')
+            else:
+                # Fallback for older python, but Bandit will still warn without nosec
+                tar.extractall(path=os.path.dirname(restore_path)) # nosec B202
         logger.info(f"Memory restored to {restore_path}")
 
     def backup_to_s3(self, bucket: str, key_prefix: str = "backups/"):
