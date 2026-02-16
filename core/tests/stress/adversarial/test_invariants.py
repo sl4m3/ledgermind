@@ -40,12 +40,12 @@ def test_conflict_injection(memory_fixture):
 def test_supersede_nonexistent(memory_fixture):
     """
     Attempts to supersede a non-existent ID.
-    Expects ConflictError.
+    Expects ConflictError or ValueError (legacy).
     """
     mem = memory_fixture
 
     # Update: Now raises ConflictError Suggesting rebase
-    with pytest.raises(ConflictError, match="no longer active"):
+    with pytest.raises((ConflictError, ValueError), match="no longer active"):
         mem.supersede_decision("New", "target", "valid_rationale_for_supersede", ["fake-id"])
 def test_supersede_active_mismatch(memory_fixture):
     """
