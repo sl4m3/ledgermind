@@ -1,4 +1,0 @@
-# file: /data/data/com.termux/files/home/projects/agent-memory/core/agent_memory_core/reasoning/git_indexer.py
-# hypothesis_version: 6.151.6
-
-['\x00', '%H|%an|%ai|%s|%b%x00', '.', 'author', 'body', 'commit_change', 'context', 'date', 'full_message', 'git', 'git_history', 'hash', 'kind', 'log', 'subject', 'system', 'type', '|']

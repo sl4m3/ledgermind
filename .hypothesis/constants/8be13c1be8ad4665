@@ -1,4 +1,0 @@
-# file: /data/data/com.termux/files/home/projects/agent-memory/core/agent_memory_core/core/schemas.py
-# hypothesis_version: 6.151.6
-
-[0.0, 1.0, 'MemoryEvent', 'abort', 'accepted', 'active', 'after', 'agent', 'assumption', 'call', 'commit_change', 'config_change', 'constraint', 'content', 'context_snapshot', 'decision', 'deprecate', 'deprecated', 'draft', 'episodic', 'error', 'falsified', 'human', 'none', 'proposal', 'rationale', 'reflection_engine', 'rejected', 'result', 'semantic', 'supersede', 'superseded', 'system', 'target', 'task', 'title', 'user', 'vector']

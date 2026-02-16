@@ -1,4 +1,0 @@
-# file: /data/data/com.termux/files/home/projects/agent-memory/core/agent_memory_core/api/transfer.py
-# hypothesis_version: 6.151.6
-
-['%Y%m%d_%H%M%S', '.tar.gz', 'backups/', 'r:gz', 's3', 'w:gz']
