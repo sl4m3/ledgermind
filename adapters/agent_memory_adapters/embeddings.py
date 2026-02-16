@@ -16,6 +16,28 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         text = text.replace("\n", " ")
         return self.client.embeddings.create(input=[text], model=self.model).data[0].embedding
 
+class GoogleEmbeddingProvider(EmbeddingProvider):
+    """Реализация EmbeddingProvider через Google Generative AI API."""
+    def __init__(self, api_key: str = None, model: str = "models/text-embedding-004"):
+        import google.generativeai as genai
+        api_key = api_key or os.environ.get("GOOGLE_API_KEY")
+        if api_key:
+            genai.configure(api_key=api_key)
+            self._genai = genai
+        else:
+            self._genai = None
+        self.model = model
+
+    def get_embedding(self, text: str) -> List[float]:
+        if not self._genai:
+            raise ValueError("GOOGLE_API_KEY not set. Embedding generation impossible.")
+        result = self._genai.embed_content(
+            model=self.model,
+            content=text,
+            task_type="retrieval_document"
+        )
+        return result['embedding']
+
 class OllamaEmbeddingProvider(EmbeddingProvider):
     """Реализация EmbeddingProvider через локальный Ollama API."""
     def __init__(self, base_url: str = "http://localhost:11434", model: str = "nomic-embed-text"):
