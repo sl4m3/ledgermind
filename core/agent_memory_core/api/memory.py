@@ -122,7 +122,7 @@ class Memory:
 
         self.embedding_provider = embedding_provider
         
-        self.conflict_engine = ConflictEngine(self.semantic.repo_path)
+        self.conflict_engine = ConflictEngine(self.semantic.repo_path, meta_store=self.semantic.meta)
         self.resolution_engine = ResolutionEngine(self.semantic.repo_path)
         self.decay_engine = DecayEngine(ttl_days=ttl_days)
         self.reflection_engine = ReflectionEngine(self.episodic, self.semantic)

@@ -17,7 +17,8 @@ class IntegrityChecker:
     """
     Validator for maintaining architectural invariants across the semantic store.
     """
-    _cache: Dict[str, int] = {} # repo_path -> state_hash
+    _state_cache: Dict[str, int] = {} # repo_path -> state_hash
+    _file_data_cache: Dict[str, Any] = {} # full_path -> (mtime, data)
 
     @staticmethod
     def _get_state_hash(repo_path: str) -> int:
@@ -47,7 +48,7 @@ class IntegrityChecker:
         Raises IntegrityViolation if any invariant is broken.
         """
         current_hash = IntegrityChecker._get_state_hash(repo_path)
-        if not force and IntegrityChecker._cache.get(repo_path) == current_hash:
+        if not force and IntegrityChecker._state_cache.get(repo_path) == current_hash:
             return
 
         files = [f for f in os.listdir(repo_path) if f.endswith(".md") or f.endswith(".yaml")]
@@ -57,12 +58,24 @@ class IntegrityChecker:
         
         for f in files:
             file_path = os.path.join(repo_path, f)
-            with open(file_path, 'r', encoding='utf-8') as stream:
-                content = stream.read()
-                data, _ = MemoryLoader.parse(content)
-                if not data:
-                    raise IntegrityViolation(f"Corrupted or empty frontmatter", fid=f)
+            try:
+                mtime = os.path.getmtime(file_path)
+                cached_mtime, cached_data = IntegrityChecker._file_data_cache.get(file_path, (0, None))
+                
+                if cached_data and cached_mtime == mtime:
+                    data = cached_data
+                else:
+                    with open(file_path, 'r', encoding='utf-8') as stream:
+                        content = stream.read()
+                        data, _ = MemoryLoader.parse(content)
+                        if not data:
+                            raise IntegrityViolation(f"Corrupted or empty frontmatter", fid=f)
+                        IntegrityChecker._file_data_cache[file_path] = (mtime, data)
+                
                 decisions[f] = data
+            except (OSError, IntegrityViolation) as e:
+                if isinstance(e, IntegrityViolation): raise
+                continue
 
         # I4: Single active decision per target
         active_targets: Dict[str, str] = {}
@@ -119,7 +132,7 @@ class IntegrityChecker:
         IntegrityChecker._check_cycles(decisions)
         
         # Update cache on success
-        IntegrityChecker._cache[repo_path] = current_hash
+        IntegrityChecker._state_cache[repo_path] = current_hash
 
     @staticmethod
     def _check_cycles(decisions: Dict[str, Any]):

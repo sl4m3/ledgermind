@@ -1,4 +1,0 @@
-# file: /data/data/com.termux/files/home/projects/agent-memory/core/agent_memory_core/reasoning/reflection.py
-# hypothesis_version: 6.151.6
-
-[0.0, 0.05, 0.3, 0.4, 0.5, 0.7, 0.8, 1000, 'Harder to prove', 'More conservative', 'active', 'alternative_ids', 'confidence', 'context', 'error_events', 'errors', 'first_observed_at', 'general', 'hit_count', 'id', 'kind', 'last_seen', 'miss_count', 'objections', 'r', 'ready_for_review', 'reflection_engine', 'status', 'success_events', 'successes', 'target', 'timestamp']

@@ -1,4 +1,0 @@
-# file: /data/data/com.termux/files/home/projects/agent-memory/mcp_server/agent_memory_server/audit.py
-# hypothesis_version: 6.151.6
-
-['ALLOWED', 'DENIED', 'agent_memory_audit', 'audit.log', 'embedding', 'old_decision_ids']
