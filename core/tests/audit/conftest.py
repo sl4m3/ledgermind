@@ -14,5 +14,9 @@ def temp_storage(tmp_path):
     return str(storage)
 
 @pytest.fixture
-def memory(temp_storage):
-    return Memory(storage_path=temp_storage, embedding_provider=MockEmbeddingProvider())
+def mock_embedding_provider():
+    return MockEmbeddingProvider()
+
+@pytest.fixture
+def memory(temp_storage, mock_embedding_provider):
+    return Memory(storage_path=temp_storage, embedding_provider=mock_embedding_provider)
