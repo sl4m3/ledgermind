@@ -31,7 +31,7 @@ def test_governance_transform_input(mock_memory):
 
 def test_governance_cooldown(mock_memory):
     """Verify that knowledge is not injected if it is on cooldown."""
-    engine = GovernanceEngine("./tmp_mem", cooldown_limit=5)
+    engine = GovernanceEngine("./tmp_mem", cooldown_limit=15)
     
     mock_item = {'id': 'dec_1', 'preview': 'Content', 'score': 0.95}
     mock_memory.search_decisions.return_value = [mock_item]
@@ -61,7 +61,7 @@ def test_governance_no_nudge_on_empty(mock_memory):
 
 def test_governance_no_duplicate_spam(mock_memory):
     """Regression test: verify that the same query does not trigger spam twice."""
-    engine = GovernanceEngine("./tmp_mem", cooldown_limit=5)
+    engine = GovernanceEngine("./tmp_mem", cooldown_limit=15)
     
     fid = "decision_123.md"
     mock_item = {'id': fid, 'score': 0.99}
