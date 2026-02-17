@@ -23,6 +23,7 @@ class PTYDriver:
     def run(self, 
             on_output: Callable[[bytes], None],
             on_exit: Callable[[], None],
+            on_input: Optional[Callable[[bytes], bytes]] = None,
             initial_input: Optional[bytes] = None):
         
         self._on_exit_callback = on_exit
@@ -50,8 +51,8 @@ class PTYDriver:
                 if initial_input:
                     os.write(self.master_fd, initial_input)
 
-                # Используем дескрипторы для select
                 fds = [sys.stdin.fileno(), self.master_fd]
+                user_input_buffer = b""
 
                 while True:
                     r, _, _ = select.select(fds, [], [], 0.1)
@@ -60,9 +61,7 @@ class PTYDriver:
                         try:
                             data = os.read(self.master_fd, 10240)
                             if not data: break
-                            # ВЫЗОВ НАБЛЮДАТЕЛЯ
                             on_output(data)
-                            # ВЫВОД ПОЛЬЗОВАТЕЛЮ
                             os.write(sys.stdout.fileno(), data)
                         except OSError as e:
                             if e.errno == errno.EIO: break
@@ -72,12 +71,32 @@ class PTYDriver:
                         try:
                             data = os.read(sys.stdin.fileno(), 10240)
                             if not data: break
-                            os.write(self.master_fd, data)
+                            
+                            if on_input:
+                                # Накапливаем буфер до нажатия Enter
+                                user_input_buffer += data
+                                if b'\r' in data or b'\n' in data:
+                                    # Трансформируем ввод через хук (инъекция памяти)
+                                    processed_input = on_input(user_input_buffer)
+                                    os.write(self.master_fd, processed_input)
+                                    user_input_buffer = b""
+                                else:
+                                    # Пока просто копируем в stdout пользователя (echo), 
+                                    # чтобы он видел, что печатает (в raw mode это нужно)
+                                    os.write(sys.stdout.fileno(), data)
+                            else:
+                                os.write(self.master_fd, data)
                         except: break
 
             except Exception:
                 pass
             finally:
+                # Финальный захват остатков
+                try:
+                    time.sleep(0.2)
+                    final_data = os.read(self.master_fd, 10240)
+                    if final_data: on_output(final_data)
+                except: pass
                 self._cleanup()
 
     def _cleanup(self):
