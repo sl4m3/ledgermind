@@ -8,54 +8,41 @@ import signal
 import select
 import sys
 import errno
+import atexit
 import time
 from typing import List, Optional, Callable
 
 class PTYDriver:
-    def __init__(self, cmd: List[str], env: Optional[dict] = None):
+    def __init__(self, cmd: List[str]):
         self.cmd = cmd
-        self.env = env if env else os.environ.copy()
         self.master_fd = None
         self.pid = None
         self.old_tty_attrs = None
-
-    def _set_winsize(self, fd, row, col, xpix=0, ypix=0):
-        winsize = struct.pack("HHHH", row, col, xpix, ypix)
-        fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
-
-    def _resize_handler(self, signum, frame):
-        """Propagate window size changes from parent to child PTY."""
-        try:
-            rows, cols, xpix, ypix = struct.unpack(
-                "HHHH", 
-                fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, struct.pack("HHHH", 0, 0, 0, 0))
-            )
-            if self.master_fd is not None:
-                self._set_winsize(self.master_fd, rows, cols, xpix, ypix)
-        except Exception:
-            pass
+        self._on_exit_callback = None
 
     def run(self, 
-            on_output: Optional[Callable[[bytes], None]] = None,
+            on_output: Callable[[bytes], None],
+            on_exit: Callable[[], None],
             initial_input: Optional[bytes] = None):
+        
+        self._on_exit_callback = on_exit
+        atexit.register(self._cleanup)
         
         try:
             self.old_tty_attrs = termios.tcgetattr(sys.stdin.fileno())
-        except Exception:
-            pass
+        except: pass
 
         self.pid, self.master_fd = pty.fork()
 
         if self.pid == 0:
             try:
-                os.execvpe(self.cmd[0], self.cmd, self.env)
+                os.execvp(self.cmd[0], self.cmd)
             except Exception as e:
-                sys.stderr.write(f"Error: {e}\n")
+                sys.stderr.write(f"Fatal: {e}\n")
                 sys.exit(1)
         else:
-            signal.signal(signal.SIGWINCH, self._resize_handler)
-            self._resize_handler(None, None)
-
+            signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
+            
             try:
                 if self.old_tty_attrs:
                     tty.setraw(sys.stdin.fileno())
@@ -63,40 +50,47 @@ class PTYDriver:
                 if initial_input:
                     os.write(self.master_fd, initial_input)
 
+                # Используем дескрипторы для select
+                fds = [sys.stdin.fileno(), self.master_fd]
+
                 while True:
-                    r, w, x = select.select([sys.stdin, self.master_fd], [], [])
+                    r, _, _ = select.select(fds, [], [], 0.1)
                     
                     if self.master_fd in r:
                         try:
                             data = os.read(self.master_fd, 10240)
-                        except OSError as e:
-                            if e.errno == errno.EIO:
-                                break
-                            raise
-                        
-                        if not data:
-                            break
-                        
-                        if on_output:
+                            if not data: break
+                            # ВЫЗОВ НАБЛЮДАТЕЛЯ
                             on_output(data)
-                        
-                        os.write(sys.stdout.fileno(), data)
+                            # ВЫВОД ПОЛЬЗОВАТЕЛЮ
+                            os.write(sys.stdout.fileno(), data)
+                        except OSError as e:
+                            if e.errno == errno.EIO: break
+                            raise
 
-                    if sys.stdin in r:
-                        data = os.read(sys.stdin.fileno(), 10240)
-                        if not data:
-                            break
-                        os.write(self.master_fd, data)
+                    if sys.stdin.fileno() in r:
+                        try:
+                            data = os.read(sys.stdin.fileno(), 10240)
+                            if not data: break
+                            os.write(self.master_fd, data)
+                        except: break
 
-            except OSError as e:
-                if e.errno == errno.EIO:
-                    pass
+            except Exception:
+                pass
             finally:
-                if self.old_tty_attrs:
-                    termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, self.old_tty_attrs)
-                
-                try:
-                    os.close(self.master_fd)
-                except:
-                    pass
-                os.waitpid(self.pid, 0)
+                self._cleanup()
+
+    def _cleanup(self):
+        if self.old_tty_attrs:
+            try:
+                termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, self.old_tty_attrs)
+            except: pass
+        
+        if self._on_exit_callback:
+            try: self._on_exit_callback()
+            except: pass
+            self._on_exit_callback = None
+            
+        try:
+            if self.master_fd: os.close(self.master_fd)
+        except: pass
