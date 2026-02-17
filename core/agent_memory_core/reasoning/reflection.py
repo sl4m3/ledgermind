@@ -14,12 +14,12 @@ logger = logging.getLogger(__name__)
 
 class ReflectionPolicy:
     def __init__(self, 
-                 error_threshold: int = 2, 
-                 success_threshold: int = 5,
+                 error_threshold: int = 1, # Was 2. Any error is worth analyzing now.
+                 success_threshold: int = 2, # Was 5. Architectural patterns emerge faster.
                  min_confidence: float = 0.3,
-                 observation_window_hours: int = 6,
+                 observation_window_hours: int = 1, # Was 6. Faster feedback loop.
                  decay_rate: float = 0.05,
-                 ready_threshold: float = 0.7):
+                 ready_threshold: float = 0.6): # Was 0.7. Slightly lower bar for readiness.
         self.error_threshold = error_threshold
         self.success_threshold = success_threshold
         self.min_confidence = min_confidence
@@ -29,9 +29,8 @@ class ReflectionPolicy:
 
 class ReflectionEngine:
     """
-    Reflection Engine v4.1: Proactive Knowledge Discovery.
-    Suggests proposals for both recurring errors (fixes) and 
-    recurring successes (best practices).
+    Reflection Engine v4.2: Proactive Knowledge Discovery with Git Integration.
+    Suggests proposals for recurring errors, successes, and code evolution patterns.
     """
     def __init__(self, episodic_store: EpisodicStore, semantic_store: SemanticStore, policy: Optional[ReflectionPolicy] = None):
         self.episodic = episodic_store
@@ -39,7 +38,7 @@ class ReflectionEngine:
         self.policy = policy or ReflectionPolicy()
 
     def run_cycle(self) -> List[str]:
-        logger.info("Starting proactive reflection cycle (v4.1)...")
+        logger.info("Starting proactive reflection cycle (v4.2)...")
         
         # 0. Distillation (MemP Ground Truth)
         distiller = DistillationEngine(self.episodic)
@@ -80,6 +79,12 @@ class ReflectionEngine:
                     new_fid = self._generate_success_proposal(target, stats)
                     result_ids.append(new_fid)
 
+            # Case C: Active Development (Code Evolution)
+            elif stats['commits'] >= 2 and target not in active_decisions: # 2 commits to same target = pattern
+                 if not relevant_proposals:
+                    new_fid = self._generate_evolution_proposal(target, stats)
+                    result_ids.append(new_fid)
+
         # 4. Global Competition & Decay
         for fid, data in all_drafts.items():
             if fid not in processed_fids:
@@ -113,16 +118,47 @@ class ReflectionEngine:
         event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
         return self.semantic.save(event)
 
+    def _generate_evolution_proposal(self, target: str, stats: Dict[str, Any]) -> str:
+        """Generates a proposal based on recent code changes."""
+        # Summarize commit messages
+        messages = [e.get('context', {}).get('full_message', '').split('\n')[0] for e in stats['commit_events']]
+        summary = "; ".join(messages[:3])
+        
+        h = ProposalContent(
+            title=f"Evolving Pattern in {target}",
+            target=target,
+            rationale=f"Active development detected ({stats['commits']} commits). Recent changes: {summary}.",
+            confidence=0.5,
+            strengths=["Reflects actual code changes", "Keeps memory in sync with codebase"],
+            evidence_event_ids=[e['id'] for e in stats['commit_events']],
+            first_observed_at=datetime.now()
+        )
+        event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
+        return self.semantic.save(event)
+
     def _cluster_evidence(self, events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         clusters = {}
         for ev in events:
             ctx = ev.get('context', {})
-            target = ctx.get('target') or "general"
+            # Try to infer target from commit message if available
+            target = ctx.get('target')
+            
+            if ev['kind'] == 'commit_change':
+                msg = ev.get('content', '')
+                # Simple heuristic: extract module name from "fix(module):" or "feat(module):"
+                import re
+                match = re.search(r'\(([^)]+)\):', msg)
+                if match:
+                    target = match.group(1)
+                else:
+                    target = "general_development"
+
+            target = target or "general"
             
             if target not in clusters:
                 clusters[target] = {
-                    'errors': 0, 'successes': 0, 
-                    'error_events': [], 'success_events': [],
+                    'errors': 0, 'successes': 0, 'commits': 0,
+                    'error_events': [], 'success_events': [], 'commit_events': [],
                     'last_seen': ev['timestamp']
                 }
             
@@ -132,6 +168,9 @@ class ReflectionEngine:
             elif ev['kind'] == KIND_RESULT:
                 clusters[target]['successes'] += 1
                 clusters[target]['success_events'].append(ev)
+            elif ev['kind'] == 'commit_change':
+                clusters[target]['commits'] += 1
+                clusters[target]['commit_events'].append(ev)
                 
             try:
                 clusters[target]['last_seen'] = max(clusters[target]['last_seen'], ev['timestamp'])
