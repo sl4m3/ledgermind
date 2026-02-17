@@ -16,6 +16,7 @@ KIND_CONSTRAINT = "constraint"
 KIND_RESULT = "result"
 KIND_PROPOSAL = "proposal"
 KIND_SNAPSHOT = "context_snapshot"
+KIND_INJECTION = "context_injection"
 
 SEMANTIC_KINDS = [KIND_DECISION, KIND_CONSTRAINT, KIND_ASSUMPTION, KIND_PROPOSAL]
 
@@ -87,8 +88,8 @@ class DecisionContent(BaseModel):
 
 class MemoryEvent(BaseModel):
     schema_version: int = Field(default=1)
-    source: Literal["user", "agent", "system", "reflection_engine"]
-    kind: Literal["decision", "error", "config_change", "assumption", "constraint", "result", "proposal", "context_snapshot", "task", "call", "commit_change"]
+    source: Literal["user", "agent", "system", "reflection_engine", "runner"]
+    kind: Literal["decision", "error", "config_change", "assumption", "constraint", "result", "proposal", "context_snapshot", "context_injection", "task", "call", "commit_change"]
     content: StrictStr
     context: Union[DecisionContent, ProposalContent, Dict[str, Any]] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.now)

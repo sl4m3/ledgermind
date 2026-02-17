@@ -14,9 +14,10 @@ Rule 3: Do not repeat information already present in the [VERIFIED KNOWLEDGE BAS
 -------------------------------------------------
 """
 
-    def __init__(self, memory_path: str, cooldown_limit: int = 15):
+    def __init__(self, memory_path: str, cooldown_limit: int = 100):
         self.memory_path = os.path.abspath(memory_path)
         self._memory_instance = None
+        # Increase to 100 events to ensure cooldown lasts across several multi-line turns.
         self.cooldown_limit = cooldown_limit
 
     @property
