@@ -44,11 +44,17 @@ class MemoryExtractor:
         h = hash(text)
         if h in self.recorded_hashes: return
         try:
+            # Simple heuristic for success/failure
+            is_error = any(kw in text.lower() for kw in ["error", "failed", "exception", "traceback", "fatal"])
+            
             self.memory.process_event(
                 source="system", 
-                kind="task",     
+                kind="result",     
                 content=text,
-                context={"layer": "pty_observation"}
+                context={
+                    "layer": "pty_observation",
+                    "success": not is_error
+                }
             )
             self.recorded_hashes.add(h)
         except Exception:
