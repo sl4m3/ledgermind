@@ -1,4 +1,4 @@
-# Agent Memory Adapters (v2.4.2)
+# Agent Memory Adapters (v2.4.3)
 
 LLM-specific adapters for the Agent Memory System. These adapters connect to the Agent Memory Server exclusively via the Model Context Protocol (MCP), ensuring a clean separation between LLM logic and memory storage.
 
