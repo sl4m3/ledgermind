@@ -1,23 +1,19 @@
 import pytest
 import time
+import uuid
 from agent_memory_core.api.memory import Memory
-from agent_memory_core.core.schemas import EmbeddingProvider
-
-class MockEmbeddingProvider(EmbeddingProvider):
-    def get_embedding(self, text: str):
-        return [0.1] * 1536
 
 @pytest.fixture
 def memory_instance(tmp_path):
     storage_path = str(tmp_path / "bench_mem")
-    return Memory(storage_path=storage_path, embedding_provider=MockEmbeddingProvider())
+    return Memory(storage_path=storage_path)
 
 def test_benchmark_record_decision(memory_instance, benchmark):
-    import uuid
     def record():
+        u = uuid.uuid4().hex
         memory_instance.record_decision(
-            title="Performance Test",
-            target=f"perf_target_{uuid.uuid4().hex}",
+            title=f"Performance Test {u}",
+            target=f"perf_target_{u}",
             rationale="Benchmarking the overhead of a single decision recording including git and sqlite."
         )
     
@@ -26,9 +22,9 @@ def test_benchmark_record_decision(memory_instance, benchmark):
 def test_benchmark_search_decisions(memory_instance, benchmark):
     # Seed some data
     for i in range(10):
-        memory_instance.record_decision(f"Decision {i}", f"target_{i}", f"Rationale for decision {i}")
+        memory_instance.record_decision(f"Decision {i}", f"target_{i}", f"Rationale for decision {i} with sufficient length for validation")
     
     def search():
-        memory_instance.search_decisions("finding something", limit=5)
+        memory_instance.search_decisions("finding", limit=5)
     
     benchmark(search)

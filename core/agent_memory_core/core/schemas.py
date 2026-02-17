@@ -64,7 +64,7 @@ class ProposalContent(BaseModel):
     first_observed_at: datetime = Field(default_factory=datetime.now)
     last_observed_at: datetime = Field(default_factory=datetime.now)
     hit_count: int = 0
-    miss_count: int = 0 # Количество успешных операций в этой области
+    miss_count: int = 0 # Количество неудачных операций в этой области
     
     ready_for_review: bool = False
 
@@ -114,7 +114,7 @@ class MemoryEvent(BaseModel):
 
 class MemoryDecision(BaseModel):
     should_persist: bool
-    store_type: Literal["episodic", "semantic", "vector", "none"]
+    store_type: Literal["episodic", "semantic", "none"]
     reason: str
     priority: int = Field(default=0, ge=0, le=10)
     metadata: Dict[str, Any] = Field(default_factory=dict)
@@ -124,10 +124,3 @@ class ResolutionIntent(BaseModel):
     rationale: Annotated[str, StringConstraints(min_length=15, strip_whitespace=True)]
     target_decision_ids: List[str]
 
-class EmbeddingProvider:
-    """Interface for generating text embeddings."""
-    def get_embedding(self, text: str) -> List[float]:
-        raise NotImplementedError
-
-    def get_embeddings(self, texts: List[str]) -> List[List[float]]:
-        return [self.get_embedding(t) for t in texts]

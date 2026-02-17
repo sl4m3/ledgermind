@@ -86,16 +86,18 @@ class MigrationEngine:
                     self.semantic.meta.upsert(
                         fid=f,
                         target=ctx["target"],
+                        title=ctx.get("title", ""),
                         status=ctx.get("status", "active"),
                         kind=data["kind"],
                         timestamp=ts or datetime.now(),
                         namespace=ctx["namespace"],
                         superseded_by=ctx.get("superseded_by")
                     )
+
                     
                     # Add to git staging
-                    if hasattr(self.semantic.audit, "_run_git"):
-                        self.semantic.audit._run_git(["add", "--", f])
+                    if hasattr(self.semantic.audit, "run"):
+                        self.semantic.audit.run(["add", "--", f])
                     
                     modified_count += 1
                     
@@ -104,7 +106,7 @@ class MigrationEngine:
 
         if modified_count > 0:
             logger.info(f"Migration completed: {modified_count} files normalized to v1.22.0")
-            if hasattr(self.semantic.audit, "_run_git"):
+            if hasattr(self.semantic.audit, "run"):
                 self.semantic.audit.commit_transaction(f"System Migration: Normalized {modified_count} files to v1.22.0")
         else:
             logger.debug("Memory format is already up to date.")

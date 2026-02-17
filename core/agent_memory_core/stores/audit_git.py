@@ -11,7 +11,7 @@ class GitAuditProvider(AuditProvider):
     def __init__(self, repo_path: str):
         self.repo_path = repo_path
 
-    def _run_git(self, args: List[str], max_retries: int = 15):
+    def run(self, args: List[str], max_retries: int = 15):
         last_error = ""
         for i in range(max_retries):
             try:
@@ -28,29 +28,41 @@ class GitAuditProvider(AuditProvider):
         raise RuntimeError(f"Git failed after {max_retries} retries: {last_error}")
 
     def initialize(self):
+        if not os.path.exists(self.repo_path):
+            os.makedirs(self.repo_path, exist_ok=True)
+            
         if not os.path.exists(os.path.join(self.repo_path, ".git")):
             logger.info(f"Initializing new Git repository at {self.repo_path}")
-            self._run_git(["init"])
-            
-            user_name = os.environ.get("GIT_AUTHOR_NAME", "agent-memory-core")
-            user_email = os.environ.get("GIT_AUTHOR_EMAIL", "agent@memory.local")
-            
-            self._run_git(["config", "user.name", user_name])
-            self._run_git(["config", "user.email", user_email])
-            
-            gitignore_path = os.path.join(self.repo_path, ".gitignore")
-            with open(gitignore_path, "a") as f:
-                f.write("\n.lock\n.quarantine/\n.tx_backup/\n")
-            self._run_git(["add", ".gitignore"])
-            self._run_git(["commit", "-m", "Initial commit", "--"])
+            try:
+                self.run(["init"])
+                
+                user_name = os.environ.get("GIT_AUTHOR_NAME", "agent-memory-core")
+                user_email = os.environ.get("GIT_AUTHOR_EMAIL", "agent@memory.local")
+                
+                self.run(["config", "user.name", user_name])
+                self.run(["config", "user.email", user_email])
+                
+                gitignore_path = os.path.join(self.repo_path, ".gitignore")
+                if not os.path.exists(gitignore_path):
+                    with open(gitignore_path, "w", encoding="utf-8") as f:
+                        f.write("\n.lock\n.quarantine/\n.tx_backup/\n")
+                
+                self.run(["add", ".gitignore"])
+                # Use --allow-empty for initial commit to handle cases where 
+                # .gitignore was already added by another thread
+                self.run(["commit", "--allow-empty", "-m", "Initial commit"])
+            except Exception as e:
+                # If initialization failed, check if it's because another thread succeeded
+                if not os.path.exists(os.path.join(self.repo_path, ".git")):
+                    raise e
 
     def add_artifact(self, relative_path: str, content: str, commit_msg: str):
-        self._run_git(["add", "--", relative_path])
-        self._run_git(["commit", "-m", commit_msg, "--", relative_path])
+        self.run(["add", "--", relative_path])
+        self.run(["commit", "-m", commit_msg, "--", relative_path])
 
     def update_artifact(self, relative_path: str, content: str, commit_msg: str):
-        self._run_git(["add", "--", relative_path])
-        self._run_git(["commit", "-m", commit_msg, "--", relative_path])
+        self.run(["add", "--", relative_path])
+        self.run(["commit", "-m", commit_msg, "--", relative_path])
 
     def get_head_hash(self) -> Optional[str]:
         try:
@@ -62,10 +74,10 @@ class GitAuditProvider(AuditProvider):
 
     def purge_artifact(self, relative_path: str):
         try:
-            self._run_git(["rm", "--cached", relative_path])
-            self._run_git(["commit", "-m", f"Purge: {relative_path}", "--"])
+            self.run(["rm", "--cached", "--", relative_path])
+            self.run(["commit", "-m", f"Purge: {relative_path}"])
         except Exception as e:
             logger.warning(f"Failed to purge {relative_path} from git: {e}")
 
     def commit_transaction(self, message: str):
-        self._run_git(["commit", "-m", message, "--"])
+        self.run(["commit", "--allow-empty", "-m", message])

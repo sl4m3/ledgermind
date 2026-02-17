@@ -8,8 +8,8 @@ from contextlib import contextmanager
 from agent_memory_core.core.schemas import MemoryEvent, TrustBoundary
 from agent_memory_core.stores.interfaces import MetadataStore, AuditProvider
 from agent_memory_core.stores.audit_git import GitAuditProvider
-from agent_memory_core.core.telemetry import update_decision_metrics, GIT_COMMIT_SIZE
 from agent_memory_core.stores.semantic_store.integrity import IntegrityChecker
+
 from agent_memory_core.stores.semantic_store.transitions import TransitionValidator
 from agent_memory_core.stores.semantic_store.loader import MemoryLoader
 from agent_memory_core.stores.semantic_store.meta import SemanticMetaStore
@@ -42,13 +42,15 @@ class SemanticStore:
         self.audit.initialize()
         
         # Data Format Migration (Ensure backward compatibility)
-        from agent_memory_core.core.migration import MigrationEngine
-        migrator = MigrationEngine(self)
-        migrator.run_all()
+        if self.meta.get_version() != "1.22.0":
+            from agent_memory_core.core.migration import MigrationEngine
+            migrator = MigrationEngine(self)
+            migrator.run_all()
+            self.meta.set_version("1.22.0")
         
         self.reconcile_untracked()
-        self.sync_meta_index()
         IntegrityChecker.validate(self.repo_path)
+        self.sync_meta_index()
 
     def reconcile_untracked(self):
         """Finds files that are on disk but not in audit (Git) and adds them."""
@@ -98,12 +100,14 @@ class SemanticStore:
                                 self.meta.upsert(
                                     fid=f, 
                                     target=ctx.get("target", "unknown"),
+                                    title=ctx.get("title", ""),
                                     status=ctx.get("status", "unknown"),
                                     kind=data.get("kind", "unknown"),
                                     timestamp=ts or datetime.now(),
                                     superseded_by=ctx.get("superseded_by"),
                                     namespace=ctx.get("namespace", "default")
                                 )
+
                     except Exception as e:
                         logger.error(f"Failed to index {f}: {e}")
         finally:
@@ -128,7 +132,7 @@ class SemanticStore:
             logger.error(f"Transaction Failed: {e}. Rolling back...")
             # Basic Git-level rollback for GitAuditProvider
             if isinstance(self.audit, GitAuditProvider):
-                self.audit._run_git(["reset", "--hard", "HEAD"])
+                self.audit.run(["reset", "--hard", "HEAD"])
             self.sync_meta_index() 
             raise
         finally:
@@ -161,20 +165,21 @@ class SemanticStore:
             
             with open(full_path, "w", encoding="utf-8") as f: 
                 f.write(content)
-                GIT_COMMIT_SIZE.observe(len(content))
             
             try:
                 ctx = event.context
                 self.meta.upsert(
                     fid=relative_path,
                     target=ctx.target if hasattr(ctx, 'target') else ctx.get('target'),
+                    title=ctx.title if hasattr(ctx, 'title') else ctx.get('title', ''),
                     status=ctx.status if hasattr(ctx, 'status') else ctx.get('status', 'active'),
                     kind=event.kind,
                     timestamp=event.timestamp,
                     namespace=namespace or "default"
                 )
-                update_decision_metrics(self.meta)
             except Exception as e:
+
+
                 if os.path.exists(full_path): os.remove(full_path)
                 raise RuntimeError(f"Metadata Update Failed: {e}")
 
@@ -188,13 +193,19 @@ class SemanticStore:
                     raise RuntimeError(f"Integrity Violation: {e}")
             else:
                 if isinstance(self.audit, GitAuditProvider):
-                    self.audit._run_git(["add", "--", relative_path])
+                    self.audit.run(["add", "--", relative_path])
             
             return relative_path
         finally:
             if not self._in_transaction: self._fs_lock.release()
 
+    def _validate_fid(self, fid: str):
+        """Prevents Path Traversal attacks."""
+        if ".." in fid or fid.startswith("/") or fid.startswith("~"):
+            raise ValueError(f"Invalid file identifier: {fid}")
+
     def update_decision(self, filename: str, updates: dict, commit_msg: str):
+        self._validate_fid(filename)
         self._enforce_trust()
         if not self._in_transaction: self._fs_lock.acquire(exclusive=True)
         try:
@@ -216,12 +227,14 @@ class SemanticStore:
             self.meta.upsert(
                 fid=filename,
                 target=ctx.get("target"),
+                title=ctx.get("title", ""),
                 status=ctx.get("status"),
                 kind=new_data.get("kind"),
                 timestamp=ts or datetime.now(),
                 superseded_by=ctx.get("superseded_by"),
                 namespace=ctx.get("namespace", "default")
             )
+
 
             if not self._in_transaction:
                 try:
@@ -233,7 +246,7 @@ class SemanticStore:
                     raise RuntimeError(f"Integrity Violation: {e}")
             else:
                 if isinstance(self.audit, GitAuditProvider):
-                    self.audit._run_git(["add", "--", filename])
+                    self.audit.run(["add", "--", filename])
         finally:
             if not self._in_transaction: self._fs_lock.release()
 

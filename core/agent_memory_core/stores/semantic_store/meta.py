@@ -20,16 +20,21 @@ class SemanticMetaStore:
                 CREATE TABLE IF NOT EXISTS semantic_meta (
                     fid TEXT PRIMARY KEY,
                     target TEXT NOT NULL,
+                    title TEXT DEFAULT '',
                     status TEXT NOT NULL,
                     kind TEXT NOT NULL,
                     timestamp DATETIME NOT NULL,
                     superseded_by TEXT,
                     content_hash TEXT,
-                    hit_count INTEGER DEFAULT 0
+                    hit_count INTEGER DEFAULT 0,
+                    namespace TEXT DEFAULT 'default'
                 )
             """)
             
-            # Migration: Add namespace and hit_count columns if they don't exist
+            # Migration: Add title and namespace and hit_count columns if they don't exist
+            try:
+                conn.execute("ALTER TABLE semantic_meta ADD COLUMN title TEXT DEFAULT ''")
+            except sqlite3.OperationalError: pass
             try:
                 conn.execute("ALTER TABLE semantic_meta ADD COLUMN namespace TEXT DEFAULT 'default'")
             except sqlite3.OperationalError: pass
@@ -52,17 +57,19 @@ class SemanticMetaStore:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_namespace ON semantic_meta(namespace)")
             conn.commit()
 
-    def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, superseded_by: Optional[str] = None, namespace: str = "default"):
+    def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, title: str = "", superseded_by: Optional[str] = None, namespace: str = "default"):
         """Atomic upsert of decision metadata."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
-                INSERT INTO semantic_meta (fid, target, status, kind, timestamp, superseded_by, namespace)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(fid) DO UPDATE SET
+                    title=excluded.title,
                     status=excluded.status,
                     superseded_by=excluded.superseded_by,
                     namespace=excluded.namespace
-            """, (fid, target, status, kind, timestamp.isoformat(), superseded_by, namespace))
+            """, (fid, target, title, status, kind, timestamp.isoformat(), superseded_by, namespace))
+
 
     def get_active_fid(self, target: str, namespace: str = "default") -> Optional[str]:
         with sqlite3.connect(self.db_path) as conn:
@@ -74,15 +81,32 @@ class SemanticMetaStore:
 
     def keyword_search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Fallback search using SQL LIKE when embeddings are unavailable."""
+        words = query.lower().split()
+        if not words: return []
+        
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            pattern = f"%{query}%"
-            cursor = conn.execute("""
+            
+            # Build dynamic WHERE clause for multiple words
+            conditions = []
+            params = []
+            for word in words:
+                pattern = f"%{word}%"
+                conditions.append("(target LIKE ? OR fid LIKE ? OR title LIKE ?)")
+                params.extend([pattern, pattern, pattern])
+            
+            where_clause = " OR ".join(conditions)
+
+            params.append(limit)
+            
+            query_sql = f"""
                 SELECT * FROM semantic_meta 
-                WHERE (target LIKE ? OR fid LIKE ?)
+                WHERE {where_clause}
                 ORDER BY timestamp DESC LIMIT ?
-            """, (pattern, pattern, limit))
+            """
+            cursor = conn.execute(query_sql, params)
             return [dict(row) for row in cursor.fetchall()]
+
 
     def list_all(self) -> List[Dict[str, Any]]:
         with sqlite3.connect(self.db_path) as conn:
@@ -101,3 +125,16 @@ class SemanticMetaStore:
     def clear(self):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("DELETE FROM semantic_meta")
+
+    def get_version(self) -> str:
+        """Retrieves the current schema version."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS sys_config (key TEXT PRIMARY KEY, value TEXT)")
+            row = conn.execute("SELECT value FROM sys_config WHERE key = 'version'").fetchone()
+            return row[0] if row else "1.0.0"
+
+    def set_version(self, version: str):
+        """Updates the schema version."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS sys_config (key TEXT PRIMARY KEY, value TEXT)")
+            conn.execute("INSERT OR REPLACE INTO sys_config (key, value) VALUES ('version', ?)", (version,))

@@ -2,7 +2,7 @@ import pytest
 import os
 from agent_memory_core.api.memory import Memory
 
-def test_system_wide_smoke_check(temp_storage, mock_embedding_provider):
+def test_system_wide_smoke_check(temp_storage):
     """
     Comprehensive smoke test covering:
     1. Initialization
@@ -13,9 +13,9 @@ def test_system_wide_smoke_check(temp_storage, mock_embedding_provider):
     """
     
     # 1. Initialization
-    memory = Memory(storage_path=temp_storage, embedding_provider=mock_embedding_provider)
+    memory = Memory(storage_path=temp_storage)
     
-    # 2. Record & Semantic Search
+    # 2. Record & Search
     res = memory.record_decision("Smoke Test Decision", "smoke_target", "Initial rationale for testing")
     doc_id = res.metadata.get("file_id")
     assert doc_id is not None
@@ -42,9 +42,3 @@ def test_system_wide_smoke_check(temp_storage, mock_embedding_provider):
     assert "merging" in report
     assert "decay" in report
 
-def test_enterprise_dependency_check():
-    """Verify that core enterprise libraries are importable."""
-    import sqlalchemy
-    import pgvector
-    assert sqlalchemy.__version__ is not None
-    # pgvector doesn't have __version__, just checking import is enough
