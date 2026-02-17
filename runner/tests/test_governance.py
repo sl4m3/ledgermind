@@ -30,15 +30,17 @@ def test_governance_transform_input(mock_memory):
         assert "Rationale: Use Postgres" in transformed
 
 def test_governance_cooldown(mock_memory):
-    """Verify that knowledge is not injected if it is on cooldown."""
-    engine = GovernanceEngine("./tmp_mem", cooldown_limit=15)
+    """Verify that knowledge is not injected if it is on cooldown (6h window)."""
+    engine = GovernanceEngine("./tmp_mem")
     
     mock_item = {'id': 'dec_1', 'preview': 'Content', 'score': 0.95}
     mock_memory.search_decisions.return_value = [mock_item]
     
-    # Simulate dec_1 being in recent episodic events (on cooldown)
+    # Simulate dec_1 being in recent episodic events (on cooldown - 1h ago)
+    from datetime import datetime, timedelta
+    ts = (datetime.now() - timedelta(hours=1)).isoformat()
     mock_memory.get_recent_events.return_value = [
-        {'kind': 'context_injection', 'content': 'dec_1'}
+        {'kind': 'context_injection', 'content': f'dec_1 @ {ts}', 'context': {'fid': 'dec_1'}}
     ]
     
     with patch.object(GovernanceEngine, "_get_file_content", return_value="Some Content"):
@@ -49,6 +51,18 @@ def test_governance_cooldown(mock_memory):
         
         # Verify it checks episodic memory
         assert mock_memory.get_recent_events.called
+
+def test_governance_relevance_threshold(mock_memory):
+    """Verify that low relevance items are filtered out."""
+    engine = GovernanceEngine("./tmp_mem")
+    
+    # Score below threshold (0.55)
+    mock_item = {'id': 'dec_low', 'score': 0.4}
+    mock_memory.search_decisions.return_value = [mock_item]
+    mock_memory.get_recent_events.return_value = []
+    
+    transformed = engine.transform_input(b"This is a long test query for relevance.")
+    assert transformed == b""
 
 def test_governance_no_nudge_on_empty(mock_memory):
     """Verify that no nudge is provided when no context is found (nudge removed in v2.4.3)."""
@@ -81,8 +95,10 @@ def test_governance_no_duplicate_spam(mock_memory):
         
         # State: Second call, knowledge is now on cooldown
         # In reality, Memory would now return this in get_recent_events
+        from datetime import datetime
+        ts = datetime.now().isoformat()
         mock_memory.get_recent_events.return_value = [
-            {'kind': 'context_injection', 'content': f"{fid} @ 2026-02-17...", 'context': {'fid': fid}}
+            {'kind': 'context_injection', 'content': f"{fid} @ {ts}", 'context': {'fid': fid}}
         ]
         
         # Second call should be empty
