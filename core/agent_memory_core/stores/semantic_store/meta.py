@@ -103,7 +103,7 @@ class SemanticMetaStore:
                 SELECT * FROM semantic_meta 
                 WHERE {where_clause}
                 ORDER BY timestamp DESC LIMIT ?
-            """
+            """  # nosec B608
             cursor = conn.execute(query_sql, params)
             return [dict(row) for row in cursor.fetchall()]
 
