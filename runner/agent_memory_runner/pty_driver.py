@@ -88,6 +88,22 @@ class PTYDriver:
                             data = os.read(sys.stdin.fileno(), 10240)
                             if not data: break
                             
+                            # PASTE HANDLING: For moderate pastes, buffer and trigger memory if newline present.
+                            # Large blocks (>4KB) still bypass to avoid corrupting code/files.
+                            if len(data) > 5:
+                                os.write(self.master_fd, data)
+                                # PASTE HANDLING: Buffer but DO NOT inject memory on fast input/paste.
+                                # This prevents corruption of pasted code/text.
+                                if len(data) < 4096:
+                                    user_input_buffer += data
+                                    # If the paste contains a newline, the shell executes it.
+                                    # We must clear the buffer to stay in sync, but we skip injection.
+                                    if b'\r' in data or b'\n' in data:
+                                        user_input_buffer = b""
+                                else:
+                                    user_input_buffer = b""
+                                continue
+
                             if on_input:
                                 for char in data:
                                     c = bytes([char])
