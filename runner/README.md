@@ -1,4 +1,4 @@
-# Agent Memory Runner (v2.1.0)
+# Agent Memory Runner (v2.1.1)
 
 A zero-overhead PTY (Pseudo-Terminal) wrapper that injects long-term memory into ANY terminal-based AI agent.
 
