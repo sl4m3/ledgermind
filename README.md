@@ -1,8 +1,14 @@
-# Agent Memory System (v2.4.3)
+# Agent Memory System (v2.4.4)
 
 > **OSS = Standard + Correctness + Autonomy**
 
 A modular, autonomous, and auditable memory ecosystem for AI agents.
+
+## 🌟 New in v2.4.4 (Injection Optimization & Maintenance)
+- **Knowledge Cooldown:** Refined the injection cooldown to a strict 6-hour window (tracked via episodic memory) and added session-level tracking to prevent redundant context within a single interaction.
+- **Relevance Threshold:** Introduced a `relevance_threshold` (0.55) in the Governance Engine to filter out low-confidence semantic matches, reducing context noise.
+- **Version Sync:** Synchronized version `2.4.4` across `core`, `adapters`, `server`, and `runner`.
+- **API Consistency:** Updated `MCP_API_VERSION` to match the project version.
 
 ## 🌟 New in v2.4.3 (UTF-8 & Schema Evolution)
 - **UTF-8 Input Support:** The PTY driver now correctly handles non-ASCII characters (e.g., Russian text) in the input buffer, ensuring reliable context injection for multilingual users.
