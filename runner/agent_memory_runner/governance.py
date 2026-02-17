@@ -17,8 +17,10 @@ Rule 3: Do not repeat information already present in the [VERIFIED KNOWLEDGE BAS
     def __init__(self, memory_path: str, cooldown_limit: int = 100):
         self.memory_path = os.path.abspath(memory_path)
         self._memory_instance = None
-        # Increase to 100 events to ensure cooldown lasts across several multi-line turns.
-        self.cooldown_limit = cooldown_limit
+        # Cooldown period in seconds (6 hours)
+        self.cooldown_seconds = 6 * 3600
+        self.relevance_threshold = 0.55  # Filter out low-relevance results
+        self._session_injected = set() # Track what we injected this session
 
     @property
     def memory(self):
@@ -41,15 +43,29 @@ Rule 3: Do not repeat information already present in the [VERIFIED KNOWLEDGE BAS
             return ""
 
     def _is_on_cooldown(self, fid: str) -> bool:
-        """Checks if this knowledge was recently injected using episodic memory."""
+        """Checks if this knowledge was recently injected (6h window)."""
+        # Session reset: if we haven't injected it THIS session, we might allow it
+        # even if it's in episodic memory (if user restarted the client).
+        if fid in self._session_injected:
+            return True
+
         try:
-            recent = self.memory.get_recent_events(limit=self.cooldown_limit)
+            from datetime import datetime
+            # We check recent events to see if it was injected in the last 6 hours
+            recent = self.memory.get_recent_events(limit=50) # Look back far enough
+            now = datetime.now()
+            
             for ev in recent:
                 if ev.get('kind') == "context_injection":
                     ctx = ev.get('context', {})
-                    # Match by fid in context or exact content (legacy)
-                    if ctx.get('fid') == fid or ev.get('content') == fid:
-                        return True
+                    if ctx.get('fid') == fid:
+                        # Extract timestamp from content: "fid @ ISO_TIMESTAMP"
+                        content = ev.get('content', "")
+                        if "@" in content:
+                            ts_str = content.split("@")[1].strip()
+                            ts = datetime.fromisoformat(ts_str)
+                            if (now - ts).total_seconds() < self.cooldown_seconds:
+                                return True
         except Exception: pass
         return False
 
@@ -57,8 +73,7 @@ Rule 3: Do not repeat information already present in the [VERIFIED KNOWLEDGE BAS
         """Records the injection event to manage cooldown."""
         try:
             from datetime import datetime
-            # Add timestamp to content to bypass duplicate detection in episodic store,
-            # allowing the same knowledge to be 'refreshed' in recent events history.
+            self._session_injected.add(fid)
             self.memory.process_event(
                 source="runner",
                 kind="context_injection",
@@ -78,6 +93,12 @@ Rule 3: Do not repeat information already present in the [VERIFIED KNOWLEDGE BAS
             
             for item in results:
                 fid = item.get('id')
+                score = item.get('score', 0)
+                
+                # Relevance threshold check
+                if score < self.relevance_threshold:
+                    continue
+
                 if self._is_on_cooldown(fid):
                     continue
                 
