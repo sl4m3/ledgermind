@@ -25,7 +25,7 @@ def test_governance_transform_input(mock_memory):
         user_input = b"How should we store data?"
         transformed = engine.transform_input(user_input).decode()
 
-        # Check for presence of key sections in v2.4.2
+        # Check for presence of key sections in v2.4.3
         assert "VERIFIED KNOWLEDGE BASE" in transformed
         assert "Rationale: Use Postgres" in transformed
 
@@ -51,7 +51,7 @@ def test_governance_cooldown(mock_memory):
         assert mock_memory.get_recent_events.called
 
 def test_governance_no_nudge_on_empty(mock_memory):
-    """Verify that no nudge is provided when no context is found (nudge removed in v2.4.2)."""
+    """Verify that no nudge is provided when no context is found (nudge removed in v2.4.3)."""
     engine = GovernanceEngine("./tmp_mem")
     mock_memory.search_decisions.return_value = []
     

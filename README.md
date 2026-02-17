@@ -1,8 +1,13 @@
-# Agent Memory System (v2.4.2)
+# Agent Memory System (v2.4.3)
 
 > **OSS = Standard + Correctness + Autonomy**
 
 A modular, autonomous, and auditable memory ecosystem for AI agents.
+
+## 🌟 New in v2.4.3 (UTF-8 & Schema Evolution)
+- **UTF-8 Input Support:** The PTY driver now correctly handles non-ASCII characters (e.g., Russian text) in the input buffer, ensuring reliable context injection for multilingual users.
+- **Schema Update:** Added `context_injection` event kind and `runner` source to the core memory schemas for better auditability of automated injections.
+- **Stability:** Increased default cooldown and refined safety thresholds for context injection.
 
 ## 🌟 New in v2.4.2 (Input Safety & Interaction Stability)
 - **Interactive Safety:** Increased input threshold to 20 characters and added space requirement to prevent context injection from interfering with interactive shell prompts and selections.

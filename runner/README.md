@@ -1,9 +1,9 @@
-# Agent Memory Runner (v2.4.2)
+# Agent Memory Runner (v2.4.3)
 
 A zero-overhead PTY (Pseudo-Terminal) wrapper that injects long-term memory into ANY terminal-based AI agent.
 
 ## How it works
-`am-run` creates a transparent layer between your terminal and the agent. It captures the agent's output to record new facts and injects previous knowledge into the agent's input stream at startup. In v2.4.2, it also dynamically updates the agent's context during input using a local vector store with improved stability for interactive prompts.
+`am-run` creates a transparent layer between your terminal and the agent. It captures the agent's output to record new facts and injects previous knowledge into the agent's input stream at startup. In v2.4.3, it also dynamically updates the agent's context during input with full UTF-8 support for multilingual commands.
 
 ## Universal Support
 Since it works at the terminal level (PTY), it doesn't matter what language the agent is written in or what model it uses.
@@ -16,13 +16,18 @@ Since it works at the terminal level (PTY), it doesn't matter what language the 
 - **Mods (Charm)**: `am-run mods "Analyze this code"`
 - **Shell**: `am-run bash` (useful for manual auditing)
 
-## Key Features in v2.4.2
-- **Interaction Stability**: High-threshold input filtering (20+ chars and space check) ensures that context injection doesn't break interactive menu selections or short answers.
-- **Knowledge Cooldown**: Prevents context spamming by tracking recently injected knowledge in episodic memory.
+## Key Features in v2.4.3
+- **UTF-8 Multilingual Support**: Re-engineered input buffer handling to support non-ASCII characters (e.g., Russian), ensuring context injection works for localized prompts.
+- **Enhanced Audit Trails**: Injections are now recorded with a specific `context_injection` event kind in the core memory.
+- **Improved Interaction Stability**: High-threshold input filtering (20+ chars and space check) ensures that context injection doesn't break interactive menu selections or short answers.
+- **Knowledge Cooldown (v2.4.3: 100 events)**: Prevents context spamming by tracking recently injected knowledge in episodic memory.
 - **Seamless Injection**: The driver automatically submits the user's query after appending context. Zero friction.
 - **Verified Context**: Injected blocks are marked as `[VERIFIED KNOWLEDGE BASE]`, reducing agent hallucinations.
 - **100% UX Preservation**: Re-engineered PTY driver ensures that colors, TUI, and hotkeys (Gemini, aichat) work exactly as native.
 - **Dynamic Retrieval Layer (Level 3)**: Powered by a local Vector Search engine (NumPy) for sub-millisecond context lookups.
+
+## Key Features in v2.4.2
+- **Interaction Stability**: High-threshold input filtering (20+ chars and space check) ensures that context injection doesn't break interactive menu selections or short answers.
 - **Smart Caching**: Built-in LRU cache reduces disk I/O and speeds up repetitive user queries.
 - **Hybrid Search**: Seamlessly falls back to keyword-based search if vector dependencies are missing.
 - **Environment Protocol**: Automatically instructs the agent on how to use the memory.
