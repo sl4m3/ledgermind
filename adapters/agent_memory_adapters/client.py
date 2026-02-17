@@ -18,8 +18,6 @@ class Memory:
     @asynccontextmanager
     async def connect(
         path_or_url: str, 
-        role: str = "agent", 
-        capabilities: Optional[Dict[str, bool]] = None,
         name: str = "AgentMemory"
     ):
         """
@@ -27,19 +25,12 @@ class Memory:
         
         Args:
             path_or_url: Path to local memory directory or an MCP server URL.
-            role: The role to assume (viewer, agent, admin).
-            capabilities: Granular permissions (overrides role).
             name: Human-readable name for the server.
         """
         # If it's a local path, we assume we need to start the agent-memory-mcp server
         if os.path.isdir(path_or_url) or not path_or_url.startswith(("http://", "https://", "ws://")):
             # Local stdio connection
             args = ["run", "--path", path_or_url, "--name", name]
-            if capabilities:
-                import json
-                args.extend(["--capabilities", json.dumps(capabilities)])
-            else:
-                args.extend(["--role", role])
             
             server_params = StdioServerParameters(command="agent-memory-mcp", args=args)
             
@@ -62,10 +53,9 @@ class Memory:
         memory_config = config.get("memory", {})
         return cls.connect(
             path_or_url=memory_config.get("path", "./.agent_memory"),
-            role=memory_config.get("role", "agent"),
-            capabilities=memory_config.get("capabilities"),
             name=memory_config.get("name", "AgentMemory")
         )
+
 
 class SyncMemory:
     """Synchronous version of the Memory connector."""

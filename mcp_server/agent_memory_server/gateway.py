@@ -1,12 +1,14 @@
+import logging
+import asyncio
+import os
+import json
 from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
 from agent_memory_core.api.memory import Memory
 from sse_starlette.sse import EventSourceResponse
-import asyncio
-import os
-import json
 
+logger = logging.getLogger("agent_memory_gateway")
 app = FastAPI(title="Agent Memory REST & Real-time Gateway")
 
 memory_instance: Optional[Memory] = None
