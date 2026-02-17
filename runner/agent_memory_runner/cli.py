@@ -34,57 +34,31 @@ def fetch_memory_context(path: str) -> str:
         return "Memory system not initialized."
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Agent Memory Runner (Universal PTY Wrapper)",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  am-run gemini chat
-  am-run aichat
-  am-run open-interpreter
-  am-run python3 agent.py
-  am-run --path ./custom_mem bash
-        """
-    )
+    parser = argparse.ArgumentParser(description="Agent Memory Runner")
     parser.add_argument("--path", default=".agent_memory", help="Path to memory storage")
-    parser.add_argument("--no-protocol", action="store_true", help="Only inject context without system rules")
-    parser.add_argument("command", nargs=argparse.REMAINDER, help="Agent command to execute")
+    parser.add_argument("command", nargs=argparse.REMAINDER, help="Agent command")
     
     args = parser.parse_args()
-    
     cmd = args.command
     if not cmd:
-        shell = os.environ.get("SHELL", "sh")
-        cmd = [shell]
+        cmd = [os.environ.get("SHELL", "sh")]
 
-    # 1. Prepare Memory & Protocol
+    # 1. Setup
     extractor = MemoryExtractor(args.path)
     context = fetch_memory_context(args.path)
-    
-    if args.no_protocol:
-        injection = f"\n[PERSISTENT CONTEXT]\n{context}\n"
-    else:
-        injection = SYSTEM_PROTOCOL.format(context=context)
-
+    injection = SYSTEM_PROTOCOL.format(context=context)
     injection_bytes = injection.encode('utf-8')
 
-    # 2. Setup Driver
+    # 2. Driver
     driver = PTYDriver(cmd)
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
     def output_observer(data: bytes):
-        try:
-            chunk = data.decode('utf-8', errors='ignore')
-            clean_text = ansi_escape.sub('', chunk)
-            extractor.process_chunk(clean_text)
-        except Exception:
-            pass
+        # Passing raw bytes to extractor as it expects
+        extractor.process_chunk(data)
 
     try:
         print(f"🔌 [Agent Memory] Attaching to: {' '.join(cmd)}")
-        # Small sleep before injection to let the child app settle
-        time.sleep(0.1) 
-        driver.run(on_output=output_observer, initial_input=injection_bytes)
+        driver.run(on_output=output_observer, on_exit=extractor.flush, initial_input=injection_bytes)
     except Exception as e:
         print(f"Runner Error: {e}")
         sys.exit(1)
