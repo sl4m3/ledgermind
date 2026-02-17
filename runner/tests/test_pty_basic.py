@@ -11,11 +11,8 @@ def test_pty_output_capture():
     def on_output(data):
         output_chunks.append(data)
 
-    def on_exit():
-        pass
-
-    driver = PTYDriver(["echo", "hello_pty"])
-    driver.run(on_output=on_output, on_exit=on_exit)
+    driver = PTYDriver(["echo", "-n", "hello_pty"])
+    driver.run(on_output=on_output, on_exit=lambda: None)
     
     combined_output = b"".join(output_chunks).decode()
     assert "hello_pty" in combined_output
@@ -26,7 +23,11 @@ def test_pty_initial_input():
     def on_output(data):
         output_chunks.append(data)
 
-    # Use a command that reads one line and exits
+    # Use 'cat' to echo initial input and exit
+    # In PTY, we might need a newline to trigger some commands, or just use a command that reads till EOF
+    driver = PTYDriver(["cat"])
+    # We send input and then we'd need to close stdin, but in PTY we just wait for process to finish.
+    # For a simple test, 'head -n 1' is better.
     driver = PTYDriver(["head", "-n", "1"])
     driver.run(on_output=on_output, on_exit=lambda: None, initial_input=b"input_test\n")
     

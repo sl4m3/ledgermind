@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-runner"
-version = "2.2.1"
+version = "2.4.0"
 description = "PTY-based interceptor for enforcing Agent Memory context"
 requires-python = ">=3.10"
 dependencies = [
