@@ -1,4 +1,4 @@
-# Agent Memory Core (v2.1.0)
+# Agent Memory Core (v2.1.1)
 
 A universal long-term memory module for AI agents featuring guaranteed integrity, epistemic modeling, and high-performance hybrid storage (SQLite + Git).
 
