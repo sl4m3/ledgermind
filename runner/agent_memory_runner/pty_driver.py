@@ -93,7 +93,7 @@ class PTYDriver:
                                     c = bytes([char])
                                     if c in (b'\r', b'\n'):
                                         clean_query = "".join(chr(b) for b in user_input_buffer if 31 < b < 127).strip()
-                                        if len(clean_query) >= 4:
+                                        if len(clean_query) >= 20:
                                             processed_payload = on_input(user_input_buffer)
                                             if processed_payload:
                                                 os.write(self.master_fd, processed_payload)

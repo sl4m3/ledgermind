@@ -1,9 +1,9 @@
-# Agent Memory Runner (v2.4.1)
+# Agent Memory Runner (v2.4.2)
 
 A zero-overhead PTY (Pseudo-Terminal) wrapper that injects long-term memory into ANY terminal-based AI agent.
 
 ## How it works
-`am-run` creates a transparent layer between your terminal and the agent. It captures the agent's output to record new facts and injects previous knowledge into the agent's input stream at startup. In v2.4.1, it also dynamically updates the agent's context during input using a local vector store.
+`am-run` creates a transparent layer between your terminal and the agent. It captures the agent's output to record new facts and injects previous knowledge into the agent's input stream at startup. In v2.4.2, it also dynamically updates the agent's context during input using a local vector store with improved stability for interactive prompts.
 
 ## Universal Support
 Since it works at the terminal level (PTY), it doesn't matter what language the agent is written in or what model it uses.
@@ -16,9 +16,9 @@ Since it works at the terminal level (PTY), it doesn't matter what language the 
 - **Mods (Charm)**: `am-run mods "Analyze this code"`
 - **Shell**: `am-run bash` (useful for manual auditing)
 
-## Key Features in v2.4.1
+## Key Features in v2.4.2
+- **Interaction Stability**: High-threshold input filtering (20+ chars and space check) ensures that context injection doesn't break interactive menu selections or short answers.
 - **Knowledge Cooldown**: Prevents context spamming by tracking recently injected knowledge in episodic memory.
-- **Nudge Mechanism**: Occasionally (10% chance) prompts the agent to record new decisions when no relevant context is found.
 - **Seamless Injection**: The driver automatically submits the user's query after appending context. Zero friction.
 - **Verified Context**: Injected blocks are marked as `[VERIFIED KNOWLEDGE BASE]`, reducing agent hallucinations.
 - **100% UX Preservation**: Re-engineered PTY driver ensures that colors, TUI, and hotkeys (Gemini, aichat) work exactly as native.
