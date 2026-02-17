@@ -58,3 +58,33 @@ def test_governance_no_nudge_on_empty(mock_memory):
     # Even with random triggered, it should be empty
     transformed = engine.transform_input(b"New Topic Query that is long enough.")
     assert transformed == b""
+
+def test_governance_no_duplicate_spam(mock_memory):
+    """Regression test: verify that the same query does not trigger spam twice."""
+    engine = GovernanceEngine("./tmp_mem", cooldown_limit=5)
+    
+    fid = "decision_123.md"
+    mock_item = {'id': fid, 'score': 0.99}
+    mock_memory.search_decisions.return_value = [mock_item]
+    
+    # State: First call, nothing on cooldown
+    mock_memory.get_recent_events.return_value = []
+    
+    with patch.object(GovernanceEngine, "_get_file_content", return_value="Knowledge content"):
+        # First call should succeed
+        query = b"How to scale git repositories?"
+        res1 = engine.transform_input(query)
+        assert b"Knowledge content" in res1
+        
+        # Verify it recorded the injection
+        assert mock_memory.process_event.called
+        
+        # State: Second call, knowledge is now on cooldown
+        # In reality, Memory would now return this in get_recent_events
+        mock_memory.get_recent_events.return_value = [
+            {'kind': 'context_injection', 'content': f"{fid} @ 2026-02-17...", 'context': {'fid': fid}}
+        ]
+        
+        # Second call should be empty
+        res2 = engine.transform_input(query)
+        assert res2 == b""
