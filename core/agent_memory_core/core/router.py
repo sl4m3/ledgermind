@@ -8,13 +8,11 @@ class MemoryRouter:
     Router that determines where a memory event should be stored and enforces conflict policies.
     """
     def __init__(self, 
-                 policy, 
                  conflict_engine: Optional[ConflictEngine] = None,
                  resolution_engine: Optional[ResolutionEngine] = None):
         """
-        Initialize the router with policy and optional reasoning engines.
+        Initialize the router with optional reasoning engines.
         """
-        self.policy = policy
         self.conflict_engine = conflict_engine
         self.resolution_engine = resolution_engine
 
@@ -34,13 +32,6 @@ class MemoryRouter:
         
         If a conflict is detected for a decision, it requires a valid ResolutionIntent.
         """
-
-        if not self.policy.should_persist(event):
-            return MemoryDecision(
-                should_persist=False,
-                store_type="none",
-                reason="Policy rejected persistence"
-            )
 
         if self.conflict_engine and event.kind == KIND_DECISION:
             conflicts = self.conflict_engine.get_conflict_files(event)
@@ -68,5 +59,6 @@ class MemoryRouter:
         return MemoryDecision(
             should_persist=True,
             store_type=store_type,
-            reason=f"Policy accepted {event.kind} for {store_type} storage"
+            reason=f"Accepted {event.kind} for {store_type} storage"
         )
+

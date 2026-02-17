@@ -97,7 +97,7 @@ class ReflectionEngine:
                 
             try:
                 clusters[target]['last_seen'] = max(clusters[target]['last_seen'], ev['timestamp'])
-            except: pass
+            except (KeyError, TypeError): pass
         return clusters
 
     def _evaluate_hypothesis(self, fid: str, data: Dict[str, Any], stats: Dict[str, Any]):
@@ -197,11 +197,11 @@ class ReflectionEngine:
         from agent_memory_core.stores.semantic_store.loader import MemoryLoader
         for fid in self.semantic.list_decisions():
             try:
-                with open(os.path.join(self.semantic.repo_path, fid), 'r') as f:
+                with open(os.path.join(self.semantic.repo_path, fid), 'r', encoding='utf-8') as f:
                     data, _ = MemoryLoader.parse(f.read())
                     if data.get('kind') == KIND_PROPOSAL and data.get('context', {}).get('status') in [ProposalStatus.DRAFT]:
                         drafts[fid] = data
-            except: continue
+            except Exception: continue
         return drafts
 
     def _find_proposals_by_target(self, drafts: Dict[str, Dict[str, Any]], target: str) -> List[Tuple[str, Dict[str, Any]]]:

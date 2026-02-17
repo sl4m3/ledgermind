@@ -1,29 +1,18 @@
 import pytest
 import os
 import json
-from agent_memory_server.server import MCPServer, MCPRole
+from agent_memory_server.server import MCPServer
 from agent_memory_core.api.memory import Memory
-from agent_memory_core.core.schemas import EmbeddingProvider
 from agent_memory_server.contracts import RecordDecisionRequest, SearchDecisionsRequest
-
-class SimpleMockProvider(EmbeddingProvider):
-    def get_embedding(self, text: str):
-        return [0.1] * 1536
 
 @pytest.fixture
 def real_memory(tmp_path):
     storage = str(tmp_path / "e2e_storage")
-    return Memory(storage_path=storage, embedding_provider=SimpleMockProvider())
-
-@pytest.fixture(autouse=True)
-def set_auth_token():
-    os.environ["AGENT_MEMORY_SECRET"] = "e2e-test-secret"
-    yield
-    os.environ.pop("AGENT_MEMORY_SECRET", None)
+    return Memory(storage_path=storage)
 
 def test_e2e_record_and_search(real_memory):
     """E2E: Запись через сервер и поиск результата."""
-    server = MCPServer(memory=real_memory, default_role=MCPRole.ADMIN)
+    server = MCPServer(memory=real_memory)
     
     # 1. Записываем решение
     req = RecordDecisionRequest(
@@ -37,7 +26,7 @@ def test_e2e_record_and_search(real_memory):
     assert doc_id.endswith(".md")
     
     # 2. Ищем его
-    search_req = SearchDecisionsRequest(query="integration")
+    search_req = SearchDecisionsRequest(query="Strategy")
     search_resp = server.handle_search(search_req)
     
     assert search_resp.status == "success"
@@ -47,18 +36,18 @@ def test_e2e_record_and_search(real_memory):
 
 def test_e2e_supersede_workflow(real_memory):
     """E2E: Полный цикл вытеснения знаний через сервер."""
-    server = MCPServer(memory=real_memory, default_role=MCPRole.ADMIN)
+    server = MCPServer(memory=real_memory)
     
     # Записываем v1
     r1 = server.handle_record_decision(RecordDecisionRequest(
-        title="v1", target="target_area", rationale="Initial version of knowledge base"
+        title="Knowledge Base v1", target="target_area", rationale="Initial version"
     ))
     id1 = r1.decision_id
     
-    # Вытесняем v2 (через MCP инструменты используют [via MCP] метку автоматически)
+    # Вытесняем v2
     from agent_memory_server.contracts import SupersedeDecisionRequest
     r2 = server.handle_supersede_decision(SupersedeDecisionRequest(
-        title="v2", target="target_area", rationale="Improved version of knowledge base information",
+        title="Knowledge Base v2", target="target_area", rationale="Improved version",
         old_decision_ids=[id1]
     ))
     assert r2.status == "success"
@@ -69,3 +58,5 @@ def test_e2e_supersede_workflow(real_memory):
     assert len(search_resp.results) == 1
     assert search_resp.results[0].id == id2
     assert search_resp.results[0].status == "active"
+
+

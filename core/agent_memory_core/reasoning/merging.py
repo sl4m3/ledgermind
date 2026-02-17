@@ -39,7 +39,7 @@ class MergeEngine:
                 from agent_memory_core.stores.semantic_store.loader import MemoryLoader
                 
                 path = os.path.join(self.memory.semantic.repo_path, fid)
-                with open(path, 'r') as f:
+                with open(path, 'r', encoding='utf-8') as f:
                     data, _ = MemoryLoader.parse(f.read())
                 
                 content = data.get("content") or data.get("context", {}).get("title")

@@ -80,6 +80,16 @@ class EpisodicStore:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(f"UPDATE events SET status = 'archived' WHERE id IN ({placeholders})", event_ids) # nosec B608
 
+    def find_duplicate(self, event: MemoryEvent) -> Optional[int]:
+        """Checks if an identical event (source, kind, content) already exists."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? LIMIT 1",
+                (event.source, event.kind, event.content)
+            )
+            row = cursor.fetchone()
+            return row[0] if row else None
+
     def physical_prune(self, event_ids: List[int]):
         if not event_ids: return
         # I2 Protection: Only prune if NOT linked

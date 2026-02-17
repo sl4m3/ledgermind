@@ -19,7 +19,7 @@ class MemoryLoader:
                 data = yaml.safe_load(content)
                 if isinstance(data, dict):
                     return data, ""
-            except:
+            except yaml.YAMLError:
                 pass
             return {}, content
         
@@ -29,7 +29,7 @@ class MemoryLoader:
         try:
             data = yaml.safe_load(front_yaml)
             return data if isinstance(data, dict) else {}, body
-        except:
+        except yaml.YAMLError:
             return {}, body
 
     @staticmethod
@@ -41,7 +41,7 @@ class MemoryLoader:
         if 'timestamp' in data and not isinstance(data['timestamp'], str):
             try:
                 data['timestamp'] = data['timestamp'].isoformat()
-            except:
+            except AttributeError:
                 pass
                 
         yaml_str = yaml.dump(data, allow_unicode=True, sort_keys=False).strip()

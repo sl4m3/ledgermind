@@ -75,17 +75,3 @@ class MetadataStore(ABC):
     def clear(self):
         pass
 
-class VectorProvider(ABC):
-    @abstractmethod
-    def update_index(self, decision_id: str, embedding: List[float], text_preview: str, metadata: dict = None):
-        pass
-
-    @abstractmethod
-    def delete_from_index(self, decision_id: str):
-        pass
-
-    @abstractmethod
-    def search(self, query_embedding: List[float], limit: int = 5, 
-               start_time: Optional[datetime] = None, 
-               end_time: Optional[datetime] = None) -> List[Tuple[str, float, str]]:
-        pass

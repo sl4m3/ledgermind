@@ -28,20 +28,3 @@ def test_export_import_tar(tmp_path):
     assert restored_file.exists()
     assert restored_file.read_text() == "hello world"
 
-@patch("boto3.client")
-def test_backup_to_s3(mock_boto, tmp_path):
-    source_dir = tmp_path / "source"
-    source_dir.mkdir()
-    (source_dir / "test.md").write_text("content")
-    
-    mock_s3 = MagicMock()
-    mock_boto.return_value = mock_s3
-    
-    manager = MemoryTransferManager(str(source_dir))
-    
-    with patch("os.remove") as mock_remove:
-        s_key = manager.backup_to_s3("my-bucket")
-        
-        assert "backups/memory_backup_" in s_key
-        assert mock_s3.upload_file.called
-        assert mock_remove.called

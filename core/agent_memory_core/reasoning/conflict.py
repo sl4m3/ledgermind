@@ -52,23 +52,7 @@ class ConflictEngine:
             fid = self.meta.get_active_fid(new_target, namespace=ns)
             return [fid] if fid else []
 
-        # Fallback to slow filesystem scan
-        conflicts = []
-        
-        for filename in files:
-            try:
-                with open(os.path.join(self.path, filename), 'r', encoding='utf-8') as f:
-                    data, _ = MemoryLoader.parse(f.read())
-                    
-                ctx = data.get("context", {})
-                if (data.get("kind") == KIND_DECISION and 
-                    ctx.get("target") == new_target and 
-                    ctx.get("status") == "active"):
-                    conflicts.append(filename)
-            except (IOError, ValueError, KeyError):
-                # ValueError might be raised by MemoryLoader.parse if content is invalid
-                continue
-        return conflicts
+        raise RuntimeError("Metadata store required for performance")
 
     def check_for_conflicts(self, event: MemoryEvent) -> Optional[str]:
         """

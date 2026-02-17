@@ -6,6 +6,7 @@ from agent_memory_server.contracts import BaseResponse
 class AuditLogger:
     def __init__(self, storage_path: str):
         self.log_path = os.path.join(storage_path, "audit.log")
+        self.storage_path = storage_path
         self._setup_logger()
 
     def _setup_logger(self):
@@ -13,6 +14,8 @@ class AuditLogger:
         self.logger.setLevel(logging.INFO)
         # Ensure we don't add multiple handlers
         if not self.logger.handlers:
+            if not os.path.exists(self.storage_path):
+                os.makedirs(self.storage_path, exist_ok=True)
             fh = logging.FileHandler(self.log_path)
             formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
             fh.setFormatter(formatter)
