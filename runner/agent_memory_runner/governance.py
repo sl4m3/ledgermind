@@ -44,26 +44,28 @@ Rule 3: Do not repeat information already present in the [VERIFIED KNOWLEDGE BAS
         try:
             recent = self.memory.get_recent_events(limit=self.cooldown_limit)
             for ev in recent:
-                if ev.get('kind') == "context_injection" and ev.get('content') == fid:
-                    return True
+                if ev.get('kind') == "context_injection":
+                    ctx = ev.get('context', {})
+                    # Match by fid in context or exact content (legacy)
+                    if ctx.get('fid') == fid or ev.get('content') == fid:
+                        return True
         except Exception: pass
         return False
 
     def _record_injection(self, fid: str):
         """Records the injection event to manage cooldown."""
         try:
-            # We add a timestamp to content to bypass the duplicate check if needed,
-            # though for cooldown the duplicate check actually helps us 
-            # (if it's a duplicate, it's definitely on cooldown).
+            from datetime import datetime
+            # Add timestamp to content to bypass duplicate detection in episodic store,
+            # allowing the same knowledge to be 'refreshed' in recent events history.
             self.memory.process_event(
                 source="runner",
                 kind="context_injection",
-                content=fid,
-                context={"layer": "governance"}
+                content=f"{fid} @ {datetime.now().isoformat()}",
+                context={"layer": "governance", "fid": fid}
             )
         except Exception: pass
 
-    @lru_cache(maxsize=128)
     def fetch_relevant_context(self, query: str) -> str:
         try:
             results = self.memory.search_decisions(query, limit=5, mode="balanced")
