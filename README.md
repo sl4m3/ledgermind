@@ -1,8 +1,17 @@
-# Agent Memory System (OSS Edition)
+# Agent Memory System (v2.4.0)
 
 > **OSS = Standard + Correctness + Autonomy**
 
-A modular, autonomous, and auditable memory ecosystem for AI agents. Focused on engineering correctness, epistemic reasoning, and local-first persistence.
+A modular, autonomous, and auditable memory ecosystem for AI agents.
+
+## 🌟 New in v2.4.0 (The UX & Trust Update)
+- **Auto-Enter Injection:** The PTY driver now automatically submits the query after injecting context, eliminating the need for a second "Enter" press.
+- **Verified Knowledge Base:** Memory blocks are now marked as "Verified" to encourage agents to trust the injected context without unnecessary file lookups.
+- **Full Content Injection:** Instead of just paths, the runner injects the full content of relevant decisions (Rationale + Consequences) directly into the prompt.
+- **Visual Cleanup:** Complete removal of "black square" artifacts and flickering during memory injection.
+
+## 🌟 New in v2.3.0
+- **Local Vector Search:** Instant semantic retrieval using NumPy and Sentence-Transformers (all-MiniLM-L6-v2).
 
 ## 🏗 Reference Architecture
 
