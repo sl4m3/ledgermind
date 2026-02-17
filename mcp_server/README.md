@@ -1,8 +1,8 @@
-# Agent Memory Server (v2.4.2)
+# Agent Memory Server (v2.4.3)
 
 Dedicated MCP (Model Context Protocol) Server for the Agent Memory System. Acts as the primary enforcement layer and provides a structured API contract for memory operations.
 
-**System Version:** 2.4.2
+**System Version:** 2.4.3
 
 ## 🚀 Key Features
 
