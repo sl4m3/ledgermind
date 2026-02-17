@@ -25,14 +25,38 @@ def test_governance_transform_input(mock_memory):
         user_input = b"How should we store data?"
         transformed = engine.transform_input(user_input).decode()
 
-        # Check for presence of key sections in v2.4.0
+        # Check for presence of key sections in v2.4.1
         assert "VERIFIED KNOWLEDGE BASE" in transformed
         assert "Rationale: Use Postgres" in transformed
 
-def test_governance_short_input_no_transform():
-    """Verify that very short inputs (like 'ls') return empty bytes to skip injection."""
+def test_governance_cooldown(mock_memory):
+    """Verify that knowledge is not injected if it is on cooldown."""
+    engine = GovernanceEngine("./tmp_mem", cooldown_limit=5)
+    
+    mock_item = {'id': 'dec_1', 'preview': 'Content', 'score': 0.95}
+    mock_memory.search_decisions.return_value = [mock_item]
+    
+    # Simulate dec_1 being in recent episodic events (on cooldown)
+    mock_memory.get_recent_events.return_value = [
+        {'kind': 'context_injection', 'content': 'dec_1'}
+    ]
+    
+    with patch.object(GovernanceEngine, "_get_file_content", return_value="Some Content"), \
+         patch("random.random", return_value=0.5): # Avoid nudge
+        transformed = engine.transform_input(b"Test Query")
+        # Should be empty because the only relevant item is on cooldown
+        assert transformed == b""
+        
+        # Verify it checks episodic memory
+        assert mock_memory.get_recent_events.called
+
+def test_governance_nudge_on_empty(mock_memory):
+    """Verify that a nudge is occasionally provided when no context is found."""
     engine = GovernanceEngine("./tmp_mem")
-    user_input = b"ls"
-    transformed = engine.transform_input(user_input)
-    # In v2.4.0, we return b"" for short inputs to signal "no injection needed"
-    assert transformed == b""
+    mock_memory.search_decisions.return_value = []
+    
+    # Mock random to force a nudge (we use 0.1 threshold in code)
+    with patch("random.random", return_value=0.05):
+        transformed = engine.transform_input(b"New Topic Query")
+        assert b"SYSTEM NOTE" in transformed
+        assert b"record_decision" in transformed

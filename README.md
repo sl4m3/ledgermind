@@ -1,8 +1,13 @@
-# Agent Memory System (v2.4.0)
+# Agent Memory System (v2.4.1)
 
 > **OSS = Standard + Correctness + Autonomy**
 
 A modular, autonomous, and auditable memory ecosystem for AI agents.
+
+## 🌟 New in v2.4.1 (Anti-Spam & Proactive Reflection)
+- **Knowledge Cooldown:** Context injection now tracks recent usage to prevent repeating the same facts in every prompt.
+- **Proactive Reflection:** The engine now suggests "Best Practice" proposals based on recurring success patterns, not just errors.
+- **Nudge Mechanism:** Occasionally prompts the agent to record new decisions when no relevant context is found.
 
 ## 🌟 New in v2.4.0 (The UX & Trust Update)
 - **Auto-Enter Injection:** The PTY driver now automatically submits the query after injecting context, eliminating the need for a second "Enter" press.
