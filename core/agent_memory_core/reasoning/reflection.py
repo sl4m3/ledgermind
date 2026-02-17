@@ -14,12 +14,14 @@ logger = logging.getLogger(__name__)
 
 class ReflectionPolicy:
     def __init__(self, 
-                 error_threshold: int = 3, 
+                 error_threshold: int = 2, 
+                 success_threshold: int = 5,
                  min_confidence: float = 0.3,
-                 observation_window_hours: int = 12,
+                 observation_window_hours: int = 6,
                  decay_rate: float = 0.05,
-                 ready_threshold: float = 0.8):
+                 ready_threshold: float = 0.7):
         self.error_threshold = error_threshold
+        self.success_threshold = success_threshold
         self.min_confidence = min_confidence
         self.observation_window = timedelta(hours=observation_window_hours)
         self.decay_rate = decay_rate
@@ -27,8 +29,9 @@ class ReflectionPolicy:
 
 class ReflectionEngine:
     """
-    Reflection Engine v4: Competitive Hypotheses & Scientific Falsification.
-    No longer just counts errors; it pits explanations against each other.
+    Reflection Engine v4.1: Proactive Knowledge Discovery.
+    Suggests proposals for both recurring errors (fixes) and 
+    recurring successes (best practices).
     """
     def __init__(self, episodic_store: EpisodicStore, semantic_store: SemanticStore, policy: Optional[ReflectionPolicy] = None):
         self.episodic = episodic_store
@@ -36,7 +39,7 @@ class ReflectionEngine:
         self.policy = policy or ReflectionPolicy()
 
     def run_cycle(self) -> List[str]:
-        logger.info("Starting competitive reflection cycle (v4)...")
+        logger.info("Starting proactive reflection cycle (v4.1)...")
         
         # 0. Distillation (MemP Ground Truth)
         distiller = DistillationEngine(self.episodic)
@@ -52,6 +55,7 @@ class ReflectionEngine:
         evidence_clusters = self._cluster_evidence(recent_events)
         
         all_drafts = self._get_all_draft_proposals()
+        active_decisions = self._get_active_decision_targets()
         processed_fids = set()
         
         # 2. Update and Falsify existing hypotheses
@@ -63,10 +67,18 @@ class ReflectionEngine:
                 processed_fids.add(fid)
                 result_ids.append(fid)
             
-            # 3. Generate new hypotheses if threshold met and no active strong hypo
-            if stats['errors'] >= self.policy.error_threshold and not any(p[1]['context']['confidence'] > 0.7 for p in relevant_proposals):
-                new_fids = self._generate_competing_hypotheses(target, stats)
-                result_ids.extend(new_fids)
+            # 3. Knowledge Discovery
+            # Case A: Repeated Errors (Needs a fix)
+            if stats['errors'] >= self.policy.error_threshold:
+                if not any(p[1]['context']['confidence'] > 0.6 for p in relevant_proposals):
+                    new_fids = self._generate_competing_hypotheses(target, stats)
+                    result_ids.extend(new_fids)
+            
+            # Case B: Repeated Successes (Needs formalization as Best Practice)
+            elif stats['successes'] >= self.policy.success_threshold and target not in active_decisions:
+                if not relevant_proposals:
+                    new_fid = self._generate_success_proposal(target, stats)
+                    result_ids.append(new_fid)
 
         # 4. Global Competition & Decay
         for fid, data in all_drafts.items():
@@ -74,6 +86,32 @@ class ReflectionEngine:
                 self._apply_decay(fid, data)
                 
         return result_ids
+
+    def _get_active_decision_targets(self) -> set:
+        targets = set()
+        from agent_memory_core.stores.semantic_store.loader import MemoryLoader
+        for fid in self.semantic.list_decisions():
+            try:
+                with open(os.path.join(self.semantic.repo_path, fid), 'r', encoding='utf-8') as f:
+                    data, _ = MemoryLoader.parse(f.read())
+                    if data.get('kind') == 'decision' and data.get('context', {}).get('status') == 'active':
+                        targets.add(data.get('context', {}).get('target'))
+            except Exception: continue
+        return targets
+
+    def _generate_success_proposal(self, target: str, stats: Dict[str, Any]) -> str:
+        """Generates a proposal for a recurring successful pattern."""
+        h = ProposalContent(
+            title=f"Best Practice for {target}",
+            target=target,
+            rationale=f"Observed {stats['successes']} successful operations. This pattern should be formalized.",
+            confidence=0.6,
+            strengths=["Based on verified positive outcomes", "Codifies successful workflow"],
+            evidence_event_ids=[e['id'] for e in stats['success_events']],
+            first_observed_at=datetime.now()
+        )
+        event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
+        return self.semantic.save(event)
 
     def _cluster_evidence(self, events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         clusters = {}
