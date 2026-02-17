@@ -1,9 +1,9 @@
-# Agent Memory Runner (v2.2.1)
+# Agent Memory Runner (v2.4.0)
 
 A zero-overhead PTY (Pseudo-Terminal) wrapper that injects long-term memory into ANY terminal-based AI agent.
 
 ## How it works
-`am-run` creates a transparent layer between your terminal and the agent. It captures the agent's output to record new facts and injects previous knowledge into the agent's input stream at startup.
+`am-run` creates a transparent layer between your terminal and the agent. It captures the agent's output to record new facts and injects previous knowledge into the agent's input stream at startup. In v2.4.0, it also dynamically updates the agent's context during input using a local vector store.
 
 ## Universal Support
 Since it works at the terminal level (PTY), it doesn't matter what language the agent is written in or what model it uses.
@@ -16,8 +16,13 @@ Since it works at the terminal level (PTY), it doesn't matter what language the 
 - **Mods (Charm)**: `am-run mods "Analyze this code"`
 - **Shell**: `am-run bash` (useful for manual auditing)
 
-## Key Features
-- **100% UX Preservation**: Colors, TUI, and hotkeys work exactly as native.
+## Key Features in v2.4.0
+- **Seamless Injection**: The driver automatically submits the user's query after appending context. Zero friction.
+- **Verified Context**: Injected blocks are marked as `[VERIFIED KNOWLEDGE BASE]`, reducing agent hallucinations.
+- **100% UX Preservation**: Re-engineered PTY driver ensures that colors, TUI, and hotkeys (Gemini, aichat) work exactly as native.
+- **Dynamic Retrieval Layer (Level 3)**: Powered by a local Vector Search engine (NumPy) for sub-millisecond context lookups.
+- **Smart Caching**: Built-in LRU cache reduces disk I/O and speeds up repetitive user queries.
+- **Hybrid Search**: Seamlessly falls back to keyword-based search if vector dependencies are missing.
 - **Environment Protocol**: Automatically instructs the agent on how to use the memory.
 - **Hard Writeback**: Intercepts `MEMORY: {...}` markers and commits them to Git without asking the model.
 - **Heuristic Backup**: Automatically extracts insights even if the model doesn't use markers.
