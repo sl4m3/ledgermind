@@ -38,3 +38,32 @@ def test_ansi_stripping(mock_memory, tmp_path):
     recorded_contents = [call.kwargs.get('content') for call in mock_memory.process_event.call_args_list]
     assert "Target: Backend" in recorded_contents
     assert "\x1b[32m" not in str(recorded_contents[0])
+
+def test_result_classification(mock_memory, tmp_path):
+    """Ensure outputs are classified as results with correct success flag."""
+    extractor = MemoryExtractor(str(tmp_path))
+    
+    # Case 1: Success output
+    extractor.process_chunk(b"All tests passed successfully.\n")
+    extractor.flush()
+    
+    mock_memory.process_event.assert_called_with(
+        source="system",
+        kind="result",
+        content="All tests passed successfully.",
+        context={"layer": "pty_observation", "success": True}
+    )
+    
+    mock_memory.process_event.reset_mock()
+    extractor.recorded_hashes.clear()
+    
+    # Case 2: Failure output
+    extractor.process_chunk(b"Fatal Error: Connection refused.\n")
+    extractor.flush()
+    
+    mock_memory.process_event.assert_called_with(
+        source="system",
+        kind="result",
+        content="Fatal Error: Connection refused.",
+        context={"layer": "pty_observation", "success": False}
+    )
