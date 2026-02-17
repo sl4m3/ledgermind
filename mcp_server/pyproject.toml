@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-memory-server"
-version = "2.1.1"
+version = "2.2.1"
 description = "Dedicated MCP Server for agent-memory-core"
 readme = "README.md"
 requires-python = ">=3.10"
