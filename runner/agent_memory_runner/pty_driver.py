@@ -92,7 +92,13 @@ class PTYDriver:
                                 for char in data:
                                     c = bytes([char])
                                     if c in (b'\r', b'\n'):
-                                        clean_query = "".join(chr(b) for b in user_input_buffer if 31 < b < 127).strip()
+                                        try:
+                                            # Support UTF-8 (Russian, etc.) while stripping control characters
+                                            decoded = user_input_buffer.decode('utf-8', errors='ignore')
+                                            clean_query = "".join(ch for ch in decoded if ord(ch) >= 32).strip()
+                                        except Exception:
+                                            clean_query = ""
+                                            
                                         if len(clean_query) >= 20:
                                             processed_payload = on_input(user_input_buffer)
                                             if processed_payload:
