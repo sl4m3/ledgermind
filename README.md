@@ -1,8 +1,13 @@
-# Agent Memory System (v2.4.1)
+# Agent Memory System (v2.4.2)
 
 > **OSS = Standard + Correctness + Autonomy**
 
 A modular, autonomous, and auditable memory ecosystem for AI agents.
+
+## 🌟 New in v2.4.2 (Input Safety & Interaction Stability)
+- **Interactive Safety:** Increased input threshold to 20 characters and added space requirement to prevent context injection from interfering with interactive shell prompts and selections.
+- **De-noising:** Removed aggressive "record_decision" nudges to reduce system spam.
+- **Maintenance:** Cleaned up project metadata and updated all component versions.
 
 ## 🌟 New in v2.4.1 (Anti-Spam & Proactive Reflection)
 - **Knowledge Cooldown:** Context injection now tracks recent usage to prevent repeating the same facts in every prompt.

@@ -25,7 +25,7 @@ def test_governance_transform_input(mock_memory):
         user_input = b"How should we store data?"
         transformed = engine.transform_input(user_input).decode()
 
-        # Check for presence of key sections in v2.4.1
+        # Check for presence of key sections in v2.4.2
         assert "VERIFIED KNOWLEDGE BASE" in transformed
         assert "Rationale: Use Postgres" in transformed
 
@@ -41,22 +41,20 @@ def test_governance_cooldown(mock_memory):
         {'kind': 'context_injection', 'content': 'dec_1'}
     ]
     
-    with patch.object(GovernanceEngine, "_get_file_content", return_value="Some Content"), \
-         patch("random.random", return_value=0.5): # Avoid nudge
-        transformed = engine.transform_input(b"Test Query")
+    with patch.object(GovernanceEngine, "_get_file_content", return_value="Some Content"):
+        # Use a long enough query with a space to bypass the new safety threshold
+        transformed = engine.transform_input(b"This is a long test query for context.")
         # Should be empty because the only relevant item is on cooldown
         assert transformed == b""
         
         # Verify it checks episodic memory
         assert mock_memory.get_recent_events.called
 
-def test_governance_nudge_on_empty(mock_memory):
-    """Verify that a nudge is occasionally provided when no context is found."""
+def test_governance_no_nudge_on_empty(mock_memory):
+    """Verify that no nudge is provided when no context is found (nudge removed in v2.4.2)."""
     engine = GovernanceEngine("./tmp_mem")
     mock_memory.search_decisions.return_value = []
     
-    # Mock random to force a nudge (we use 0.1 threshold in code)
-    with patch("random.random", return_value=0.05):
-        transformed = engine.transform_input(b"New Topic Query")
-        assert b"SYSTEM NOTE" in transformed
-        assert b"record_decision" in transformed
+    # Even with random triggered, it should be empty
+    transformed = engine.transform_input(b"New Topic Query that is long enough.")
+    assert transformed == b""

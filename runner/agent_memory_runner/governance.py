@@ -8,10 +8,9 @@ class GovernanceEngine:
     INIT_PROTOCOL = """
 --- [SESSION START: PERSISTENT CONTEXT ACTIVE] ---
 System: Audit Layer initialized. Memory Governance: Level 3 (Dynamic).
-Rule 1: Use the [VERIFIED KNOWLEDGE BASE] block to ensure consistency with past decisions.
-Rule 2: If you encounter new patterns or reach a significant conclusion NOT in the knowledge base, 
-        PROACTIVELY use 'record_decision' to persist it for future sessions.
-Rule 3: Avoid repeating information already present in the [VERIFIED KNOWLEDGE BASE].
+Rule 1: Use the [VERIFIED KNOWLEDGE BASE] block to maintain consistency with established project decisions.
+Rule 2: If you reach a significant, non-obvious conclusion or establish a new architectural pattern that should persist across sessions, use 'record_decision'. Avoid recording trivial or temporary information.
+Rule 3: Do not repeat information already present in the [VERIFIED KNOWLEDGE BASE].
 -------------------------------------------------
 """
 
@@ -101,16 +100,14 @@ Rule 3: Avoid repeating information already present in the [VERIFIED KNOWLEDGE B
     def transform_input(self, user_data: bytes) -> bytes:
         try:
             query = user_data.decode('utf-8', errors='ignore').strip()
-            if len(query) < 4:
+            # Threshold increased to 20 and must contain a space to avoid 
+            # injecting during interactive selections/short answers.
+            if len(query) < 20 or " " not in query:
                 return b""
             
             context = self.fetch_relevant_context(query)
             
             if not context:
-                # If no context found, occasionally nudge the agent to create some
-                import random
-                if random.random() < 0.1: # 10% chance to nudge
-                    return b"\n\n[SYSTEM NOTE]: No relevant verified knowledge found for this query. If this leads to a new insight, please 'record_decision'.\n"
                 return b""
 
             # Readable multi-line format with authoritative header
