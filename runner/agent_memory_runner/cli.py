@@ -7,7 +7,7 @@ from agent_memory_runner.extractor import MemoryExtractor
 from agent_memory_runner.governance import GovernanceEngine
 
 def main():
-    parser = argparse.ArgumentParser(description="Agent Memory Runner v2.4.1")
+    parser = argparse.ArgumentParser(description="Agent Memory Runner v2.4.2")
     parser.add_argument("--path", default=".agent_memory", help="Path to memory storage")
     parser.add_argument("command", nargs=argparse.REMAINDER, help="Agent command")
     
@@ -27,7 +27,7 @@ def main():
         extractor.process_chunk(data)
 
     try:
-        print(f"🔌 [Agent Memory v2.4.1] Dynamic Retrieval Layer: ACTIVE")
+        print(f"🔌 [Agent Memory v2.4.2] Dynamic Retrieval Layer: ACTIVE")
         driver.run(
             on_output=output_observer, 
             on_exit=extractor.flush, 
