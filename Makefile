@@ -1,21 +1,19 @@
-.PHONY: install install-core install-server install-adapters test clean
+.PHONY: install test clean help
 
-install: install-core install-server install-adapters
-
-install-core:
-	pip install -e ./core
-
-install-server:
-	pip install -e ./mcp_server
-
-install-adapters:
-	pip install -e ./adapters
+install:
+	pip install -e .[all,dev]
 
 test:
-	cd core && pytest tests
-	cd mcp_server && pytest tests
+	pytest tests
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
 	find . -type d -name ".pytest_cache" -exec rm -rf {} +
+	find . -type d -name ".benchmarks" -exec rm -rf {} +
+
+help:
+	@echo "Ledgermind Makefile"
+	@echo "  install   - Install in editable mode with all dependencies"
+	@echo "  test      - Run all tests"
+	@echo "  clean     - Remove build artifacts and caches"

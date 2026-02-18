@@ -1,0 +1,135 @@
+import argparse
+import os
+import json
+from ledgermind.server.server import MCPServer
+
+def export_schemas():
+    """Outputs the formal industrial-grade API specification."""
+    from ledgermind.server.specification import MCPApiSpecification
+    spec = MCPApiSpecification.generate_full_spec()
+    print(json.dumps(spec, indent=2))
+
+def init_project(path: str):
+    """Initializes a new memory project structure."""
+    from ledgermind.core.api.memory import Memory
+    
+    print(f"Initializing Ledgermind project at {path}...")
+    
+    # Initialize directory structure and Git repo via Core API
+    try:
+        Memory(storage_path=path)
+        print(f"✓ Created memory structure at {path}")
+    except Exception as e:
+        print(f"✗ Error initializing storage: {e}")
+        return
+
+    print("\nInitialization complete! You can now start the server with:")
+    print(f"  ledgermind-mcp run --path {path}")
+
+def check_project(path: str):
+    """Runs diagnostics on an existing project."""
+    from ledgermind.core.api.bridge import IntegrationBridge
+    print(f"Running diagnostics for project at {path}...")
+    try:
+        bridge = IntegrationBridge(memory_path=path)
+        health = bridge.check_health()
+        
+        print(f"Git Available: {'✓' if health['git_available'] else '✗'}")
+        print(f"Storage Writable: {'✓' if health['storage_writable'] else '✗'}")
+        print(f"Repo Healthy: {'✓' if health['repo_healthy'] else '✗'}")
+        print(f"Vector Search: {'✓' if health['vector_available'] else '(!) Disabled'}")
+        
+        if health["errors"]:
+            print("\nErrors Found:")
+            for err in health["errors"]:
+                print(f"  - {err}")
+        
+        if health["warnings"]:
+            print("\nWarnings:")
+            for warn in health["warnings"]:
+                print(f"  - {warn}")
+                
+        if not health["errors"]:
+             print("\n✓ Environment is healthy.")
+    except Exception as e:
+        print(f"✗ Fatal error during check: {e}")
+
+def show_stats(path: str):
+    """Displays memory statistics."""
+    from ledgermind.core.api.bridge import IntegrationBridge
+    try:
+        bridge = IntegrationBridge(memory_path=path)
+        stats = bridge.get_stats()
+        print(f"Memory Statistics for {path}:")
+        print(f"  Episodic Events: {stats['episodic_count']}")
+        print(f"  Semantic Decisions: {stats['semantic_count']}")
+        print(f"  Vector Embeddings: {stats['vector_count']}")
+    except Exception as e:
+        print(f"✗ Error fetching stats: {e}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Ledgermind MCP Server Launcher")
+    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+    
+    # Run command
+    run_parser = subparsers.add_parser("run", help="Run the MCP server")
+    run_parser.add_argument("--path", default=".ledgermind", help="Path to memory storage")
+    run_parser.add_argument("--name", default="Ledgermind", help="MCP Server Name")
+    run_parser.add_argument("--capabilities", help="JSON string of capabilities")
+    run_parser.add_argument("--metrics-port", type=int, help="Port for Prometheus metrics")
+    run_parser.add_argument("--rest-port", type=int, help="Port for REST Gateway")
+    
+    # Init command
+    init_parser = subparsers.add_parser("init", help="Initialize a new memory project")
+    init_parser.add_argument("--path", default=".ledgermind", help="Path to create memory storage")
+
+    # Check command
+    check_parser = subparsers.add_parser("check", help="Check project health")
+    check_parser.add_argument("--path", default=".ledgermind", help="Path to memory storage")
+    
+    # Stats command
+    stats_parser = subparsers.add_parser("stats", help="Show project statistics")
+    stats_parser.add_argument("--path", default=".ledgermind", help="Path to memory storage")
+
+    # Export schema command
+    subparsers.add_parser("export-schema", help="Export JSON schemas for API contracts")
+    
+    # Default to 'run' if no command is provided, but we need to handle arguments
+    # A simple way is to check sys.argv
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] not in ["run", "init", "check", "stats", "export-schema", "-h", "--help"]:
+        # Insert 'run' as the default command
+        sys.argv.insert(1, "run")
+
+    args = parser.parse_args()
+    
+    if args.command == "export-schema":
+        export_schemas()
+    elif args.command == "init":
+        init_project(args.path)
+    elif args.command == "check":
+        check_project(args.path)
+    elif args.command == "stats":
+        show_stats(args.path)
+    elif args.command == "run":
+        capabilities = None
+        if args.capabilities:
+            try:
+                capabilities = json.loads(args.capabilities)
+            except json.JSONDecodeError:
+                print(f"Error: Invalid JSON for capabilities: {args.capabilities}")
+                return
+
+        MCPServer.serve(
+            storage_path=args.path,
+            server_name=args.name,
+            capabilities=capabilities,
+            metrics_port=args.metrics_port,
+            rest_port=args.rest_port
+        )
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
