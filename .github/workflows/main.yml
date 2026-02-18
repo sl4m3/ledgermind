@@ -25,19 +25,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements-dev.txt
-        pip install -e ./core
-        pip install -e ./mcp_server
-        pip install -e ./adapters
+        pip install -e .[all,dev]
 
-    - name: Run Core Tests
+    - name: Run Tests
       run: |
-        cd core && pytest --cov=agent_memory_core tests/
-
-    - name: Run Server Tests
-      run: |
-        cd mcp_server && pytest tests/
-
-    - name: Run Adapters Tests
-      run: |
-        cd adapters && pytest tests/
+        pytest tests/
