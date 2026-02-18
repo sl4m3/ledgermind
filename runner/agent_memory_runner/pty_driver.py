@@ -33,19 +33,10 @@ class PTYDriver:
             fcntl.ioctl(self.master_fd, termios.TIOCSWINSZ, winsize)
         except Exception: pass
 
-    def _send_enter_later(self):
-        """Sends an Enter keystroke after a tiny delay to ensure the shell registers it."""
-        try:
-            time.sleep(0.05)
-            if self.master_fd:
-                os.write(self.master_fd, b'\r')
-        except: pass
-
     def run(self, 
             on_output: Callable[[bytes], None],
             on_exit: Callable[[], None],
-            on_input: Optional[Callable[[bytes], bytes]] = None,
-            initial_input: Optional[bytes] = None):
+            on_input: Optional[Callable[[bytes], bytes]] = None):
         
         self._on_exit_callback = on_exit
         atexit.register(self._cleanup)
@@ -58,90 +49,56 @@ class PTYDriver:
             try: os.execvp(self.cmd[0], self.cmd)
             except Exception as e: sys.stderr.write(f"Fatal: {e}\n"); sys.exit(1)
         else:
-            signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
-            signal.signal(signal.SIGWINCH, self._resize_handler)
-            self._resize_handler(None, None)
+            # Only set signals if main thread
+            if threading.current_thread() is threading.main_thread():
+                signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
+                signal.signal(signal.SIGWINCH, self._resize_handler)
+                self._resize_handler(None, None)
             
             try:
                 if self.old_tty_attrs: tty.setraw(sys.stdin.fileno())
-                if initial_input: os.write(self.master_fd, initial_input)
 
                 fds = [sys.stdin.fileno(), self.master_fd]
-                user_input_buffer = b""
+                user_input_buffer = bytearray()
+                MAX_BUF_SIZE = 8192
 
                 while True:
-                    r, _, _ = select.select(fds, [], [], 0.1)
+                    r, _, _ = select.select(fds, [], [], 0.05)
                     
                     if self.master_fd in r:
                         try:
-                            data = os.read(self.master_fd, 10240)
+                            data = os.read(self.master_fd, 16384)
                             if not data: break
                             on_output(data)
                             os.write(sys.stdout.fileno(), data)
                         except OSError as e:
-                            # EIO is normal on some systems when child exits
                             if e.errno == errno.EIO: break
                             raise
 
                     if sys.stdin.fileno() in r:
                         try:
-                            data = os.read(sys.stdin.fileno(), 10240)
+                            data = os.read(sys.stdin.fileno(), 16384)
                             if not data: break
                             
-                            # PASTE HANDLING: For moderate pastes, buffer and trigger memory if newline present.
-                            # Large blocks (>4KB) still bypass to avoid corrupting code/files.
-                            if len(data) > 5:
-                                os.write(self.master_fd, data)
-                                # PASTE HANDLING: Buffer but DO NOT inject memory on fast input/paste.
-                                # This prevents corruption of pasted code/text.
-                                if len(data) < 4096:
-                                    user_input_buffer += data
-                                    # If the paste contains a newline, the shell executes it.
-                                    # We must clear the buffer to stay in sync, but we skip injection.
-                                    if b'\r' in data or b'\n' in data:
-                                        user_input_buffer = b""
-                                else:
-                                    user_input_buffer = b""
-                                continue
-
                             if on_input:
-                                for char in data:
-                                    c = bytes([char])
-                                    if c in (b'\r', b'\n'):
-                                        try:
-                                            # Support UTF-8 (Russian, etc.) while stripping control characters
-                                            decoded = user_input_buffer.decode('utf-8', errors='ignore')
-                                            clean_query = "".join(ch for ch in decoded if ord(ch) >= 32).strip()
-                                        except Exception:
-                                            clean_query = ""
-                                            
-                                        if len(clean_query) >= 20:
-                                            processed_payload = on_input(user_input_buffer)
-                                            if processed_payload:
-                                                os.write(self.master_fd, processed_payload)
-                                                threading.Thread(target=self._send_enter_later, daemon=True).start()
-                                            else:
-                                                os.write(self.master_fd, b'\r')
-                                        else:
-                                            os.write(self.master_fd, b'\r')
-                                        user_input_buffer = b""
-                                    elif char in (8, 127):
-                                        os.write(self.master_fd, c)
-                                        if user_input_buffer: user_input_buffer = user_input_buffer[:-1]
-                                    else:
-                                        os.write(self.master_fd, c)
-                                        if char >= 32: user_input_buffer += c
+                                user_input_buffer.extend(data)
+                                if len(user_input_buffer) > MAX_BUF_SIZE:
+                                    user_input_buffer = user_input_buffer[-MAX_BUF_SIZE:]
+
+                                if b'\r' in data or b'\n' in data:
+                                    payload = on_input(bytes(user_input_buffer))
+                                    if payload:
+                                        os.write(self.master_fd, payload)
+                                        time.sleep(0.02)
+                                    os.write(self.master_fd, data)
+                                    user_input_buffer = bytearray()
+                                else:
+                                    os.write(self.master_fd, data)
                             else:
                                 os.write(self.master_fd, data)
                         except: break
             except Exception: pass
             finally:
-                # DRAIN remaining output before closing
-                try:
-                    time.sleep(0.1)
-                    final_data = os.read(self.master_fd, 10240)
-                    if final_data: on_output(final_data)
-                except: pass
                 self._cleanup()
 
     def _cleanup(self):
