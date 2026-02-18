@@ -14,16 +14,24 @@ class GitAuditProvider(AuditProvider):
 
     def run(self, args: List[str], max_retries: int = 15):
         last_error = ""
+        # Ensure we always use --no-pager to avoid hanging in interactive environments
+        cmd = ["git", "--no-pager"] + args
         for i in range(max_retries):
             try:
-                return subprocess.run(["git"] + args, cwd=self.repo_path, check=True, capture_output=True)
+                return subprocess.run(cmd, cwd=self.repo_path, check=True, capture_output=True)
             except subprocess.CalledProcessError as e:
                 last_error = e.stderr.decode()
                 combined = last_error + "\n" + e.stdout.decode()
+                
+                # Check for "nothing to commit" which is not a fatal error for us
                 if any(msg in combined for msg in ["nothing to commit", "working tree clean", "no changes added", "nothing added"]):
                     return e
+                
+                # Handle lock contention with exponential backoff
                 if any(msg in last_error for msg in ["index.lock", "File exists", "could not lock", "cannot lock", "Another git process"]):
-                    time.sleep(0.3 * (1.4 ** i))
+                    wait_time = 0.3 * (1.4 ** i)
+                    logger.warning(f"Git lock contention detected. Retrying in {wait_time:.2f}s... (Attempt {i+1}/{max_retries})")
+                    time.sleep(wait_time)
                     continue
                 raise e
         raise RuntimeError(f"Git failed after {max_retries} retries: {last_error}")
