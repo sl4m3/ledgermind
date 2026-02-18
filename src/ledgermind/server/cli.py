@@ -1,7 +1,9 @@
 import argparse
 import os
 import json
+import logging
 from ledgermind.server.server import MCPServer
+from ledgermind.core.utils.logging import setup_logging
 
 def export_schemas():
     """Outputs the formal industrial-grade API specification."""
@@ -91,17 +93,26 @@ def main():
     stats_parser = subparsers.add_parser("stats", help="Show project statistics")
     stats_parser.add_argument("--path", default=".ledgermind", help="Path to memory storage")
 
+    # Global options
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--log-file", help="Path to log file")
+
     # Export schema command
     subparsers.add_parser("export-schema", help="Export JSON schemas for API contracts")
     
     # Default to 'run' if no command is provided, but we need to handle arguments
     # A simple way is to check sys.argv
     import sys
-    if len(sys.argv) > 1 and sys.argv[1] not in ["run", "init", "check", "stats", "export-schema", "-h", "--help"]:
+    known_commands = ["run", "init", "check", "stats", "export-schema", "-h", "--help", "--verbose", "-v", "--log-file"]
+    if len(sys.argv) > 1 and sys.argv[1] not in known_commands:
         # Insert 'run' as the default command
         sys.argv.insert(1, "run")
 
     args = parser.parse_args()
+    
+    # Initialize logging
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    setup_logging(level=log_level, log_file=args.log_file)
     
     if args.command == "export-schema":
         export_schemas()

@@ -1,6 +1,8 @@
 import os
 import yaml
 import logging
+import shutil
+import subprocess
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union, Tuple
 
@@ -28,6 +30,8 @@ class Memory:
     The main entry point for the ledgermind-core.
     Provides methods for processing events, recording decisions, and managing knowledge decay.
     """
+    _git_available: Optional[bool] = None
+
     def __init__(self, 
                  storage_path: Optional[str] = None, 
                  ttl_days: Optional[int] = None, 
@@ -53,7 +57,7 @@ class Memory:
                 vector_model=vector_model or "all-MiniLM-L6-v2"
             )
 
-        self.storage_path = self.config.storage_path
+        self.storage_path = os.path.abspath(self.config.storage_path)
         self.trust_boundary = self.config.trust_boundary
         self.namespace = self.config.namespace
         
@@ -102,7 +106,9 @@ class Memory:
         """
         results = {
             "git_available": False,
+            "git_configured": False,
             "storage_writable": False,
+            "disk_space_ok": False,
             "repo_healthy": False,
             "vector_available": False,
             "errors": [],
@@ -110,29 +116,57 @@ class Memory:
         }
         
         # 0. Check Vector Search (Optional)
+        logger.debug("Checking vector search availability...")
         from ledgermind.core.stores.vector import EMBEDDING_AVAILABLE
         results["vector_available"] = EMBEDDING_AVAILABLE
         if not EMBEDDING_AVAILABLE:
             results["warnings"].append("Sentence-transformers not installed. Vector search is disabled.")
 
         # 1. Check Git
-        import subprocess
-        try:
-            subprocess.run(["git", "--version"], capture_output=True, check=True)
-            results["git_available"] = True
-        except (subprocess.CalledProcessError, FileNotFoundError):
+        if Memory._git_available is None:
+            try:
+                subprocess.run(["git", "--version"], capture_output=True, check=True)
+                Memory._git_available = True
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                Memory._git_available = False
+        
+        results["git_available"] = Memory._git_available
+        if not results["git_available"]:
             results["errors"].append("Git is not installed or not in PATH. Semantic storage will fail.")
+        else:
+            # Check git config
+            try:
+                name = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True).stdout.strip()
+                email = subprocess.run(["git", "config", "user.email"], capture_output=True, text=True).stdout.strip()
+                if name and email:
+                    results["git_configured"] = True
+                else:
+                    results["warnings"].append("Git user.name or user.email not configured. Commits will use defaults.")
+            except Exception:
+                pass
             
-        # 2. Check Storage Permissions
+        # 2. Check Storage Permissions and Disk Space
         if os.path.exists(self.storage_path):
             if os.access(self.storage_path, os.W_OK):
                 results["storage_writable"] = True
+                
+                # Check disk space (require at least 50MB for healthy operation)
+                try:
+                    usage = shutil.disk_usage(self.storage_path)
+                    free_mb = usage.free / (1024 * 1024)
+                    if free_mb > 50:
+                        results["disk_space_ok"] = True
+                    else:
+                        results["warnings"].append(f"Low disk space: {free_mb:.1f}MB available.")
+                except Exception:
+                    results["disk_space_ok"] = True # Fallback if disk_usage fails
             else:
                 results["errors"].append(f"Storage path is not writable: {self.storage_path}")
         else:
             try:
                 os.makedirs(self.storage_path, exist_ok=True)
                 results["storage_writable"] = True
+                results["disk_space_ok"] = True
             except Exception as e:
                 results["errors"].append(f"Failed to create storage path: {e}")
                 
@@ -150,6 +184,7 @@ class Memory:
                  logger.error(f"Environment check failed: {error}")
                  
         return results
+
 
     def process_event(self, 
                       source: str, 
