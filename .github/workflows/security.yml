@@ -21,9 +21,11 @@ jobs:
       run: pip install bandit safety
 
     - name: Run Bandit (Sast)
-      run: bandit -r core adapters mcp_server -ll
+      run: bandit -r src/ledgermind -ll
 
     - name: Run Safety (Dependency Check)
       run: |
-        # Check core requirements
-        safety check -r core/requirements.txt
+        # Check project dependencies
+        pip install .
+        pip freeze > requirements.txt
+        safety check -r requirements.txt

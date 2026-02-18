@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ledgermind"
+version = "2.5.0"
+description = "Monolithic Autonomous Agent Memory Management System"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0.0,<3.0.0",
+    "pyyaml>=6.0,<7.0.0",
+    "sqlalchemy>=2.0.0",
+    "nest-asyncio>=1.6.0",
+    "numpy>=1.24.0",
+    "mcp>=0.1.0",
+    "fastmcp>=0.1.0",
+    "httpx>=0.25.0",
+    "fastapi>=0.100.0",
+    "uvicorn>=0.22.0",
+    "sse-starlette>=1.6.0",
+    "prometheus-client>=0.17.0"
+]
+
+[project.optional-dependencies]
+vector = [
+    "annoy>=1.17.0",
+    "sentence-transformers>=2.2.2"
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.20.0",
+    "pytest-benchmark>=4.0.0",
+    "hypothesis>=6.0.0",
+    "ruff>=0.1.0"
+]
+all = [
+    "ledgermind[vector]"
+]
+
+[project.scripts]
+ledgermind = "ledgermind.server.cli:main"
+ledgermind-mcp = "ledgermind.server.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ledgermind*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "strict"
