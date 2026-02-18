@@ -20,6 +20,11 @@ def main():
     extractor = MemoryExtractor(args.path)
     governance = GovernanceEngine(args.path)
 
+    print(f"🔌 [Agent Memory v2.4.3] Dynamic Retrieval Layer: INITIALIZING...")
+    start_time = time.time()
+    governance.warmup()
+    elapsed = time.time() - start_time
+    
     # 2. Driver
     driver = PTYDriver(cmd)
 
@@ -27,12 +32,11 @@ def main():
         extractor.process_chunk(data)
 
     try:
-        print(f"🔌 [Agent Memory v2.4.3] Dynamic Retrieval Layer: ACTIVE")
+        print(f"✅ [Agent Memory v2.4.3] Knowledge Base READY ({elapsed:.1f}s)")
         driver.run(
             on_output=output_observer, 
             on_exit=extractor.flush, 
-            on_input=governance.transform_input,
-            initial_input=governance.get_init_payload()
+            on_input=governance.transform_input
         )
     except Exception as e:
         print(f"Runner Error: {e}")
