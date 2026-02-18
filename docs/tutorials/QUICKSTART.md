@@ -1,32 +1,26 @@
 # Quickstart Tutorial: Building a Code Analysis Agent with Memory
 
-This guide will walk you through creating a simple agent that uses the Agent Memory System to track architectural decisions and code style rules.
+This guide will walk you through creating a simple agent that uses the Ledgermind to track architectural decisions and code style rules.
 
 ## Prerequisites
 
 ```bash
-pip install -e ./core -e ./adapters
+pip install ledgermind
 ```
 
-## Modern API: Connecting via MCP
+## Quick Start (Direct Library Access)
 
-For distributed or secure setups, use the simplified MCP connection API:
+For local CLI tools or autonomous agents, use the `IntegrationBridge` for the simplest integration.
 
 ```python
-from agent_memory_adapters import Memory, OpenAIAdapter
+from ledgermind.core.api.bridge import IntegrationBridge
 
-async def main():
-    # Connect to memory with a single line (starts the server automatically)
-    async with Memory.connect("./project_memory", role="agent") as memory:
-        adapter = OpenAIAdapter(memory_provider=memory)
-        
-        # Now use the adapter as usual
-        # ...
+# Initialize the memory system
+bridge = IntegrationBridge(memory_path="./project_memory")
+memory = bridge.memory
 ```
 
-## 1. Initialize Memory (Direct Library Access)
-
-## 2. Record an Architectural Decision
+## 1. Record an Architectural Decision
 
 Imagine your agent analyzes a codebase and decides that the project should use **FastAPI** for its speed.
 
@@ -66,7 +60,7 @@ memory.supersede_decision(
     title="Migrate to Go (Gin) for Web Layer",
     target="web_framework",
     rationale="While FastAPI served us well, we need the concurrency model of Go to handle 10k+ requests per second.",
-    supersedes=[old_id]
+    old_decision_ids=[old_id]
 )
 print("Policy updated!")
 ```

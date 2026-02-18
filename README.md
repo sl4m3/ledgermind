@@ -1,79 +1,45 @@
-# Agent Memory System (v2.4.4)
+# Ledgermind (v2.5.0)
 
-> **OSS = Standard + Correctness + Autonomy**
+> **Standard + Correctness + Autonomy**
 
-A modular, autonomous, and auditable memory ecosystem for AI agents.
+Ядро автономной и аудируемой памяти для форка Gemini CLI. Ledgermind предоставляет механизмы семантического и эпизодического хранения, рефлексии и инъекции контекста для повышения автономности ИИ-агентов.
 
-## 🌟 New in v2.4.4 (Injection Optimization & Maintenance)
-- **Knowledge Cooldown:** Refined the injection cooldown to a strict 6-hour window (tracked via episodic memory) and added session-level tracking to prevent redundant context within a single interaction.
-- **Relevance Threshold:** Introduced a `relevance_threshold` (0.55) in the Governance Engine to filter out low-confidence semantic matches, reducing context noise.
-- **Version Sync:** Synchronized version `2.4.4` across `core`, `adapters`, `server`, and `runner`.
-- **API Consistency:** Updated `MCP_API_VERSION` to match the project version.
+## 🏗 Архитектура
 
-## 🌟 New in v2.4.3 (UTF-8 & Schema Evolution)
-- **UTF-8 Input Support:** The PTY driver now correctly handles non-ASCII characters (e.g., Russian text) in the input buffer, ensuring reliable context injection for multilingual users.
-- **Schema Update:** Added `context_injection` event kind and `runner` source to the core memory schemas for better auditability of automated injections.
-- **Stability:** Increased default cooldown and refined safety thresholds for context injection.
+Ledgermind поставляется как единый пакет с модульной структурой:
 
-## 🌟 New in v2.4.2 (Input Safety & Interaction Stability)
-- **Interactive Safety:** Increased input threshold to 20 characters and added space requirement to prevent context injection from interfering with interactive shell prompts and selections.
-- **De-noising:** Removed aggressive "record_decision" nudges to reduce system spam.
-- **Maintenance:** Cleaned up project metadata and updated all component versions.
+- `ledgermind.core`: Управление хранилищем (Git + SQLite), рассуждение и целостность.
+- `ledgermind.server`: MCP-сервер для удаленного доступа.
 
-## 🌟 New in v2.4.1 (Anti-Spam & Proactive Reflection)
-- **Knowledge Cooldown:** Context injection now tracks recent usage to prevent repeating the same facts in every prompt.
-- **Proactive Reflection:** The engine now suggests "Best Practice" proposals based on recurring success patterns, not just errors.
-- **Nudge Mechanism:** Occasionally prompts the agent to record new decisions when no relevant context is found.
+## 🚀 Установка
 
-## 🌟 New in v2.4.0 (The UX & Trust Update)
-- **Auto-Enter Injection:** The PTY driver now automatically submits the query after injecting context, eliminating the need for a second "Enter" press.
-- **Verified Knowledge Base:** Memory blocks are now marked as "Verified" to encourage agents to trust the injected context without unnecessary file lookups.
-- **Full Content Injection:** Instead of just paths, the runner injects the full content of relevant decisions (Rationale + Consequences) directly into the prompt.
-- **Visual Cleanup:** Complete removal of "black square" artifacts and flickering during memory injection.
-
-## 🌟 New in v2.3.0
-- **Local Vector Search:** Instant semantic retrieval using NumPy and Sentence-Transformers (all-MiniLM-L6-v2).
-
-## 🏗 Reference Architecture
-
-1.  **[Core](./core)** (`agent-memory-core`): The domain heart. Handles storage (Hybrid Semantic Store: SQLite + Git), Epistemic Reasoning, and Transactional Integrity.
-2.  **[MCP Server](./mcp_server)** (`agent-memory-server`): The standard transport layer. Implements a unified interface for agents.
-3.  **[Adapters](./adapters)** (`agent-memory-adapters`): Lightweight clients for LLM providers (OpenAI, Anthropic, Gemini, etc.) that connect via MCP.
-4.  **[Runner](./runner)** (`agent-memory-runner`): **(New)** A PTY-based wrapper to inject memory into ANY CLI agent (Gemini, aichat, interpreter) with zero code changes.
-
-## 🌟 Core Features
-
-- **PTY Injection**: Transparently attach memory to any terminal process (Zero Fork).
-- **Epistemic Reasoning**: Active Knowledge Reflection, Distillation, and Recursive Truth Resolution.
-- **Hybrid Semantic Store**: High-performance metadata indexing in SQLite combined with Git-backed cold storage.
-- **Conflict Resolution**: Built-in detection of contradictory decisions with mandatory resolution paths.
-- **Knowledge Evolution**: Native support for superseding and deprecating facts.
-- **Transactional Integrity**: ACID-compliant operations ensure memory never becomes corrupted.
-
-## 🚀 Quick Start
-
-### Installation
 ```bash
-pip install -e ./core -e ./mcp_server -e ./adapters -e ./runner
+pip install -e .[all]
 ```
 
-### Running ANY Agent with Memory (Runner)
-```bash
-# Wrap gemini-cli
-am-run gemini
+## 🛠 Использование
 
-# Wrap aichat
-am-run aichat
+### Прямая интеграция
+```python
+from ledgermind.core.api.bridge import IntegrationBridge
 
-# Wrap your own script
-am-run python3 my_agent.py
+bridge = IntegrationBridge(memory_path="./memory")
 ```
 
-### Starting the Dedicated MCP Server
+### Через MCP
 ```bash
-# Start the standalone server
-agent-memory-mcp run --path ./.agent_memory
+ledgermind run --path ./memory
 ```
+
+## 📜 Лицензия
+
+Проект распространяется под лицензией **Non-Commercial Source Available License (NCSA)**.
+
+- **Для частных лиц:** Свободное использование в личных, образовательных и экспериментальных целях (pet-проекты, обучение).
+- **Для организаций и коммерции:** Любое коммерческое использование (включая использование во внутренних инструментах компаний) **строго запрещено** без письменного разрешения автора.
+- **НКО и образование:** Разрешено использование для академических и некоммерческих целей.
+
+Для получения коммерческой лицензии свяжитесь с автором (Stanislav Zotov).
 
 ---
-*Agent Memory System - Engineering the foundation of AI autonomy.*
+*Ledgermind - Фундамент автономности ИИ.*

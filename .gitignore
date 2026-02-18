@@ -10,6 +10,6 @@ build/
 .idea/
 .vscode/
 .gemini/
-.agent_memory/
+.ledgermind/
 .benchmarks/
 .hypothesis/
