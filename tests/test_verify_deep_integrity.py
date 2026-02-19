@@ -18,8 +18,7 @@ class TestDeepIntegrity(unittest.TestCase):
             shutil.rmtree(self.test_dir)
 
     def test_conflict_prevention(self):
-        print("
-Testing Conflict Prevention (Invariant I4)...")
+        print("Testing Conflict Prevention (Invariant I4)...")
         # 1. Create decision
         self.memory.record_decision("Original Decision Title", "target_1", "Rationale that is long enough to pass validation")
         
@@ -32,8 +31,7 @@ Testing Conflict Prevention (Invariant I4)...")
             print(f"✓ Conflict correctly blocked: {e}")
 
     def test_transition_validation(self):
-        print("
-Testing Transition Validation (Immutability)...")
+        print("Testing Transition Validation (Immutability)...")
         dec = self.memory.record_decision("Immutability Test Title", "target_2", "Original rationale that is long enough")
         fid = dec.metadata['file_id']
         
@@ -46,8 +44,7 @@ Testing Transition Validation (Immutability)...")
             print(f"✓ Illegal transition blocked: {e}")
 
     def test_orphan_cleanup(self):
-        print("
-Testing Automatic Orphan (Ghost) Cleanup...")
+        print("Testing Automatic Orphan (Ghost) Cleanup...")
         self.memory.record_decision("To be ghosted decision", "target_3", "Rationale that is long enough")
         fids = self.memory.get_decisions()
         fid = fids[0]

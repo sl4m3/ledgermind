@@ -17,8 +17,7 @@ class TestGroundedRanking(unittest.TestCase):
             shutil.rmtree(self.test_dir)
 
     def test_evidence_boost(self):
-        print("
-Testing Evidence-based Ranking Boost...")
+        print("Testing Evidence-based Ranking Boost...")
         # 1. Create two similar decisions
         dec1 = self.memory.record_decision("Network Policy A Title", "net_a", "Standard security rationale long enough")
         dec2 = self.memory.record_decision("Network Policy B Title", "net_b", "Standard security rationale long enough")
