@@ -1,88 +1,121 @@
-# Quickstart Tutorial: Building a Code Analysis Agent with Memory
+# Руководство по быстрому старту
 
-This guide will walk you through creating a simple agent that uses the Ledgermind to track architectural decisions and code style rules.
+Этот туториал проведет вас через процесс создания простого агента, который
+использует Ledgermind для отслеживания архитектурных решений и правил стиля
+кода. Вы научитесь записывать, искать и обновлять знания агента.
 
-## Prerequisites
+## Предварительные требования
+
+Перед началом работы убедитесь, что в вашей системе установлен Python 3.10 или
+выше. Вы можете установить Ledgermind с помощью `pip`.
 
 ```bash
 pip install ledgermind
 ```
 
-## Quick Start (Direct Library Access)
+## Быстрый запуск
 
-For local CLI tools or autonomous agents, use the `IntegrationBridge` for the simplest integration.
+Для локальных CLI-инструментов или автономных агентов используйте класс
+`IntegrationBridge`. Это самый простой способ начать работу с системой.
 
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
 
-# Initialize the memory system
+# Инициализируйте систему памяти
 bridge = IntegrationBridge(memory_path="./project_memory")
 memory = bridge.memory
 ```
 
-## 1. Record an Architectural Decision
+## 1. Запись архитектурного решения
 
-Imagine your agent analyzes a codebase and decides that the project should use **FastAPI** for its speed.
+Представьте, что ваш агент анализирует кодовую базу и решает, что проект должен
+использовать **FastAPI** из-за его производительности.
+
+Вы можете зафиксировать это решение в семантической памяти следующим образом:
 
 ```python
 memory.record_decision(
-    title="Use FastAPI for the Web Layer",
+    title="Использовать FastAPI для веб-слоя",
     target="web_framework",
-    rationale="FastAPI provides high performance and automatic OpenAPI generation, which is essential for our microservices."
+    rationale="FastAPI обеспечивает высокую производительность и автоматическую "
+              "генерацию OpenAPI, что важно для наших микросервисов."
 )
-print("Decision recorded!")
+print("Решение записано!")
 ```
 
-## 3. Search for Knowledge
+## 2. Поиск знаний
 
-Later, the agent (or another agent) needs to know which framework to use.
+Позже этому же или другому агенту может понадобиться узнать, какой фреймворк
+выбран для проекта. Вы можете выполнить семантический поиск по памяти.
 
 ```python
-# Search using semantic query
-results = memory.search_decisions("Which framework are we using for the web layer?")
+# Поиск с использованием семантического запроса
+results = memory.search_decisions("Какой фреймворк мы используем для веба?")
 
 for res in results:
-    print(f"Found: {res['title']} (Status: {res['status']})")
-    print(f"Rationale: {res['rationale']}")
+    print(f"Найдено: {res['title']} (Статус: {res['status']})")
+    print(f"Обоснование: {res['rationale']}")
 ```
 
-## 4. Evolve Knowledge (Supersede)
+## 3. Эволюция знаний и замещение
 
-Technology changes. A year later, the team decides to move to **Go (Gin)** for even better performance. Instead of deleting the old memory, we **supersede** it.
+Технологии меняются со временем. Если через год команда решит перейти на **Go
+(Gin)** для еще большей производительности, вам не нужно удалять старую память.
+
+Вместо этого вы можете использовать механизм замещения (`supersede`):
 
 ```python
-# Get the ID of the old decision
+# Получите ID старого решения
 old_decisions = memory.search_decisions("FastAPI", mode="audit")
 old_id = old_decisions[0]['id']
 
-# Create a new decision that replaces the old one
+# Создайте новое решение, которое заменяет старое
 memory.supersede_decision(
-    title="Migrate to Go (Gin) for Web Layer",
+    title="Миграция на Go (Gin) для веб-слоя",
     target="web_framework",
-    rationale="While FastAPI served us well, we need the concurrency model of Go to handle 10k+ requests per second.",
+    rationale="Хотя FastAPI хорошо нам служил, нам нужна модель конкурентности Go "
+              "для обработки 10к+ запросов в секунду.",
     old_decision_ids=[old_id]
 )
-print("Policy updated!")
+print("Политика обновлена!")
 ```
 
-## 5. Truth Resolution
+## 4. Разрешение истины
 
-If you search now, the system will prioritize the **Active** Go decision, even if you search for "FastAPI" (due to Recursive Truth Resolution).
+Система автоматически приоритизирует актуальные данные. Если вы выполните поиск
+сейчас, Ledgermind вернет активное решение на Go, даже если запрос содержит
+упоминание «FastAPI».
+
+Это происходит благодаря механизму рекурсивного разрешения истины:
 
 ```python
-# Even if searching for 'FastAPI', the system knows it's superseded
-results = memory.search_decisions("FastAPI web framework", mode="balanced")
-print(f"Top result: {results[0]['title']} (Status: {results[0]['status']})")
-# Output: Top result: Migrate to Go (Gin) for Web Layer (Status: active)
+# Система знает, что решение по FastAPI было замещено
+results = memory.search_decisions("веб-фреймворк FastAPI", mode="balanced")
+print(f"Топ результат: {results[0]['title']} (Статус: {results[0]['status']})")
+# Вывод: Топ результат: Миграция на Go (Gin) для веб-слоя (Статус: active)
 ```
 
-## 6. Audit Trail (Git)
+## 5. Аудит через Git
 
-Every operation above created a Git commit. You can check the history:
+Каждая операция, описанная выше, создает автоматический коммит в `Git`. Вы
+можете проверить историю изменений в директории памяти.
+
+Используйте стандартные команды `Git` для просмотра логов:
 
 ```bash
 cd project_memory
 git log --oneline
 ```
 
-This ensures that every change in the agent's "mind" is fully auditable by humans.
+Это гарантирует, что любое изменение в «сознании» агента полностью прозрачно и
+может быть проверено человеком.
+
+## Следующие шаги
+
+Вы успешно освоили базовые операции с памятью Ledgermind. Теперь вы можете
+интегрировать систему в более сложные сценарии.
+
+- [Руководство по интеграции](../INTEGRATION_GUIDE.md) — узнайте, как настроить
+  MCP-сервер.
+- [Архитектура](../../README.md#архитектура) — изучите внутреннее устройство
+  модулей.
