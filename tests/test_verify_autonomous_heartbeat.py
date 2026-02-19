@@ -20,8 +20,7 @@ class TestHeartbeat(unittest.TestCase):
             shutil.rmtree(self.test_dir)
 
     def test_persistent_timers(self):
-        print("
-Testing Persistent Timers across restarts...")
+        print("Testing Persistent Timers across restarts...")
         # 1. Set a fake "last run" time in the past (e.g., 20 hours ago)
         twenty_hours_ago = time.time() - (20 * 3600)
         self.memory.semantic.meta.set_config("last_git_gc_time", twenty_hours_ago)
