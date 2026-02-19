@@ -89,7 +89,7 @@ class Memory:
         self.conflict_engine = ConflictEngine(self.semantic.repo_path, meta_store=self.semantic.meta)
         self.resolution_engine = ResolutionEngine(self.semantic.repo_path)
         self.decay_engine = DecayEngine(ttl_days=self.config.ttl_days)
-        self.reflection_engine = ReflectionEngine(self.episodic, self.semantic)
+        self.reflection_engine = ReflectionEngine(self.episodic, self.semantic, processor=self)
         
         self.router = MemoryRouter(
             self.conflict_engine, 

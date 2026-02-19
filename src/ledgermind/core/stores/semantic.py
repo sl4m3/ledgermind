@@ -59,11 +59,15 @@ class SemanticStore:
         self.audit.initialize()
         
         # Data Format Migration (Ensure backward compatibility)
-        if self.meta.get_version() != "1.22.0":
-            from ledgermind.core.core.migration import MigrationEngine
-            migrator = MigrationEngine(self)
-            migrator.run_all()
-            self.meta.set_version("1.22.0")
+        self._fs_lock.acquire(exclusive=True)
+        try:
+            if self.meta.get_version() != "1.22.0":
+                from ledgermind.core.core.migration import MigrationEngine
+                migrator = MigrationEngine(self)
+                migrator.run_all()
+                self.meta.set_version("1.22.0")
+        finally:
+            self._fs_lock.release()
         
         self.reconcile_untracked()
         IntegrityChecker.validate(self.repo_path)
@@ -93,7 +97,7 @@ class SemanticStore:
 
     def sync_meta_index(self):
         """Ensures that the metadata index reflects the actual Markdown files on disk."""
-        self._fs_lock.acquire(exclusive=False)
+        self._fs_lock.acquire(exclusive=True)
         from datetime import datetime
         try:
             # 1. Get current files on disk
