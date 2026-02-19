@@ -111,11 +111,24 @@ class Memory:
             "disk_space_ok": False,
             "repo_healthy": False,
             "vector_available": False,
+            "storage_locked": False,
+            "lock_owner": None,
             "errors": [],
             "warnings": []
         }
         
-        # 0. Check Vector Search (Optional)
+        # 0. Check Lock Status
+        lock_path = os.path.join(self.semantic.repo_path, ".lock")
+        if os.path.exists(lock_path):
+            results["storage_locked"] = True
+            try:
+                with open(lock_path, 'r') as f:
+                    results["lock_owner"] = f.read().strip()
+            except Exception:
+                pass
+            results["warnings"].append(f"Storage is currently locked by PID: {results['lock_owner'] or 'unknown'}")
+
+        # 0.1 Check Vector Search (Optional)
         logger.debug("Checking vector search availability...")
         from ledgermind.core.stores.vector import EMBEDDING_AVAILABLE
         results["vector_available"] = EMBEDDING_AVAILABLE
@@ -209,7 +222,8 @@ class Memory:
             source=source,
             kind=kind,
             content=content,
-            context=context or {}
+            context=context or {},
+            parent_event_id=context.get('parent_event_id') if isinstance(context, dict) else getattr(context, 'parent_event_id', None)
         )
         
         # 2.5: Prevent duplicate processing
@@ -219,12 +233,22 @@ class Memory:
                 store_type="none",
                 reason="Duplicate event detected"
             )
-        
-        decision = self.router.route(event, intent=intent)
+
+        # 2.6: Deep Conflict Detection for semantic records
+        if decision := self.router.route(event, intent=intent):
+             if decision.should_persist and decision.store_type == "semantic" and not intent:
+                 # Check for active conflicts that aren't being superseded
+                 if conflict_msg := self.conflict_engine.check_for_conflicts(event):
+                     return MemoryDecision(
+                         should_persist=False,
+                         store_type="none",
+                         reason=f"Invariant Violation: {conflict_msg}"
+                     )
         
         if decision.should_persist:
             if decision.store_type == "episodic":
-                self.episodic.append(event)
+                ev_id = self.episodic.append(event)
+                decision.metadata["event_id"] = ev_id
             elif decision.store_type == "semantic":
                 # Use Transaction for atomic save + status updates
                 with self.semantic.transaction():
@@ -265,7 +289,8 @@ class Memory:
                             )
 
                 # Immortal Link (after transaction success)
-                self.episodic.append(event, linked_id=new_fid)
+                ev_id = self.episodic.append(event, linked_id=new_fid)
+                decision.metadata["event_id"] = ev_id
                 
         return decision
 
@@ -275,6 +300,13 @@ class Memory:
         List all active decision identifiers in the semantic store.
         """
         return self.semantic.list_decisions()
+
+    def get_decision_history(self, decision_id: str) -> List[Dict[str, Any]]:
+        """
+        Retrieve the full version history of a specific decision from the audit log.
+        """
+        self.semantic._validate_fid(decision_id)
+        return self.semantic.audit.get_history(decision_id)
 
     def get_recent_events(self, limit: int = 10, include_archived: bool = False) -> List[Dict[str, Any]]:
         """
@@ -293,9 +325,9 @@ class Memory:
         """
         Execute the decay process for episodic memories.
         """
-        active_events = self.episodic.query(limit=10000, status='active')
-        archived_events = self.episodic.query(limit=10000, status='archived')
-        to_archive, to_prune, retained = self.decay_engine.evaluate(active_events + archived_events)
+        # Retrieve both active and archived to decide their next state
+        all_events = self.episodic.query(limit=20000, status=None)
+        to_archive, to_prune, retained = self.decay_engine.evaluate(all_events)
         
         if not dry_run:
             self.episodic.mark_archived(to_archive)
@@ -406,12 +438,23 @@ class Memory:
 
         # Convert proposal to decision
         with self.semantic.transaction():
-            decision = self.record_decision(
-                title=ctx.get("title"),
-                target=ctx.get("target"),
-                rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
-                consequences=ctx.get("suggested_consequences", [])
-            )
+            supersedes = ctx.get("suggested_supersedes", [])
+            
+            if supersedes:
+                decision = self.supersede_decision(
+                    title=ctx.get("title"),
+                    target=ctx.get("target"),
+                    rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
+                    old_decision_ids=supersedes,
+                    consequences=ctx.get("suggested_consequences", [])
+                )
+            else:
+                decision = self.record_decision(
+                    title=ctx.get("title"),
+                    target=ctx.get("target"),
+                    rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
+                    consequences=ctx.get("suggested_consequences", [])
+                )
             
             if decision.should_persist:
                 new_id = decision.metadata.get("file_id")
@@ -457,18 +500,26 @@ class Memory:
             ctx = data.get("context", {})
             status = ctx.get("status", "unknown")
             if mode == "strict" and status != "active": continue
+            
+            # Evidence-based ranking boost
+            link_count, link_strength = self.episodic.count_links_for_semantic(final_id)
+            # Boost score: +10% per 5 links, capped at +30%
+            boost = min(0.3, (link_count / 5) * 0.1)
+            final_score = item['score'] * (1.0 + boost)
                 
             candidates.append({
                 "id": final_id,
-                "score": item['score'],
+                "score": final_score,
                 "status": status,
                 "title": ctx.get("title", "unknown"),
                 "target": ctx.get("target", "unknown"),
                 "preview": data.get("content", fid)[:200],
                 "kind": data.get("kind"),
-                "is_active": (status == "active")
+                "is_active": (status == "active"),
+                "evidence_count": link_count
             })
             seen_ids.add(final_id)
+            self.semantic.meta.increment_hit(final_id)
 
         # 3. Fallback to keyword search if we need more results
         if len(candidates) < limit:
@@ -493,6 +544,7 @@ class Memory:
                     "is_active": (status == "active")
                 })
                 seen_ids.add(final_id)
+                self.semantic.meta.increment_hit(final_id)
             
         return candidates[:limit]
 
@@ -519,18 +571,29 @@ class Memory:
     def generate_knowledge_graph(self, target: Optional[str] = None) -> str:
         """Generates a Mermaid graph of knowledge evolution."""
         from ledgermind.core.reasoning.ranking.graph import KnowledgeGraphGenerator
-        generator = KnowledgeGraphGenerator(self.semantic.repo_path, self.semantic.meta)
+        generator = KnowledgeGraphGenerator(self.semantic.repo_path, self.semantic.meta, self.episodic)
         return generator.generate_mermaid(target_filter=target)
 
     def run_maintenance(self) -> Dict[str, Any]:
         """Runs periodic maintenance tasks: decay and merge analysis."""
+        # 0. Deep Integrity Sync & Check
+        from ledgermind.core.stores.semantic_store.integrity import IntegrityChecker
+        self.semantic.sync_meta_index()
+        integrity_status = "ok"
+        try:
+            IntegrityChecker.validate(self.semantic.repo_path, force=True)
+        except Exception as ie:
+            logger.error(f"Integrity Violation detected during maintenance: {ie}")
+            integrity_status = f"violation: {str(ie)}"
+
         decay_report = self.run_decay()
         from ledgermind.core.reasoning.merging import MergeEngine
         merger = MergeEngine(self)
         merges = merger.scan_for_duplicates()
         return {
             "decay": decay_report.__dict__,
-            "merging": {"proposals_created": len(merges), "ids": merges}
+            "merging": {"proposals_created": len(merges), "ids": merges},
+            "integrity": integrity_status
         }
 
     def get_stats(self) -> Dict[str, Any]:
@@ -546,5 +609,6 @@ class Memory:
         """Hard-deletes a memory from filesystem and metadata."""
         self.semantic._validate_fid(decision_id)
         self.semantic.purge_memory(decision_id)
+        self.vector.remove_id(decision_id)
         logger.info(f"Memory {decision_id} forgotten across systems.")
 

@@ -54,19 +54,37 @@ class GitIndexer:
     def index_to_memory(self, memory_instance, limit: int = 20) -> int:
         """Сканирует Git и записывает новые коммиты в эпизодическую память."""
         # 1. Пытаемся найти хэш последнего проиндексированного коммита
-        # Мы ищем его в последних событиях типа commit_change
-        recent_events = memory_instance.episodic.query(limit=50)
-        last_hash = None
-        for ev in recent_events:
-            if ev.get('kind') == 'commit_change':
-                last_hash = ev.get('context', {}).get('hash')
-                break
+        # Сначала проверяем в надежном хранилище метаданных
+        last_hash = memory_instance.semantic.meta.get_config('last_indexed_commit_hash')
+        
+        # Fallback к поиску в последних событиях если в конфиге пусто
+        if not last_hash:
+            recent_events = memory_instance.episodic.query(limit=50)
+            for ev in recent_events:
+                if ev.get('kind') == 'commit_change':
+                    last_hash = ev.get('context', {}).get('hash')
+                    break
         
         # 2. Получаем новые коммиты
         new_commits = self.get_recent_commits(limit=limit, since_hash=last_hash)
         
+        if not new_commits:
+            return 0
+
         indexed_count = 0
+        latest_hash = last_hash
+        
         for commit in reversed(new_commits): # От старых к новым
+            # Дополнительно получаем список измененных файлов для контекста
+            try:
+                diff_res = subprocess.run(
+                    ["git", "show", "--name-only", "--format=", commit['hash']], 
+                    cwd=self.repo_path, capture_output=True, text=True
+                )
+                changed_files = [f for f in diff_res.stdout.strip().split('\n') if f]
+            except Exception:
+                changed_files = []
+
             event = MemoryEvent(
                 source="system",
                 kind="commit_change",
@@ -75,11 +93,17 @@ class GitIndexer:
                     "hash": commit['hash'],
                     "author": commit['author'],
                     "full_message": commit['body'],
+                    "changed_files": changed_files,
                     "type": "git_history"
                 },
                 timestamp=datetime.fromisoformat(commit['date'].strip())
             )
             memory_instance.episodic.append(event)
             indexed_count += 1
+            latest_hash = commit['hash']
+            
+        # Сохраняем последний проиндексированный хэш
+        if latest_hash:
+            memory_instance.semantic.meta.set_config('last_indexed_commit_hash', latest_hash)
             
         return indexed_count

@@ -32,6 +32,7 @@ class SemanticStore:
         
         self._fs_lock = FileSystemLock(self.lock_file)
         self._in_transaction = False
+        self._current_tx = None
         
         if not os.path.exists(self.repo_path):
             os.makedirs(self.repo_path, exist_ok=True)
@@ -79,19 +80,37 @@ class SemanticStore:
         self._fs_lock.acquire(exclusive=False)
         from datetime import datetime
         try:
-            files = [f for f in os.listdir(self.repo_path) if f.endswith(".md") or f.endswith(".yaml")]
+            # 1. Get current files on disk
+            disk_files = set()
+            for root, _, filenames in os.walk(self.repo_path):
+                if ".git" in root or ".tx_backup" in root: continue
+                for f in filenames:
+                    if f.endswith(".md") or f.endswith(".yaml"):
+                        rel_path = os.path.relpath(os.path.join(root, f), self.repo_path)
+                        disk_files.add(rel_path)
+
+            # 2. Get current records in MetaStore
             try:
                 current_meta = self.meta.list_all()
+                meta_files = {m['fid'] for m in current_meta}
             except Exception:
-                # Fallback or initialization
                 current_meta = []
+                meta_files = set()
 
-            if len(files) != len(current_meta):
-                logger.info("Rebuilding semantic meta index...")
-                self.meta.clear()
-                for f in files:
+            # 3. Handle Mismatches
+            if disk_files != meta_files:
+                logger.info(f"Syncing semantic meta index ({len(disk_files)} on disk, {len(meta_files)} in meta)...")
+                
+                # Remove orphans from meta
+                for orphaned_fid in meta_files - disk_files:
+                    logger.debug(f"Removing orphan from meta: {orphaned_fid}")
+                    self.meta.delete(orphaned_fid)
+                
+                # Add/Update missing or changed files
+                for f in disk_files:
                     try:
-                        with open(os.path.join(self.repo_path, f), 'r', encoding='utf-8') as stream:
+                        full_path = os.path.join(self.repo_path, f)
+                        with open(full_path, 'r', encoding='utf-8') as stream:
                             data, _ = MemoryLoader.parse(stream.read())
                             if data:
                                 ctx = data.get("context", {})
@@ -107,7 +126,6 @@ class SemanticStore:
                                     superseded_by=ctx.get("superseded_by"),
                                     namespace=ctx.get("namespace", "default")
                                 )
-
                     except Exception as e:
                         logger.error(f"Failed to index {f}: {e}")
         finally:
@@ -115,30 +133,27 @@ class SemanticStore:
 
     @contextmanager
     def transaction(self):
-        """Groups multiple operations into a single ACID transactional unit."""
-        self._fs_lock.acquire(exclusive=True)
+        """Groups multiple operations into a single ACID transactional unit using TransactionManager."""
+        from ledgermind.core.stores.semantic_store.transactions import TransactionManager
+        
+        self._current_tx = TransactionManager(self.repo_path, self.meta)
         self._in_transaction = True
         
-        import shutil
-        backup_dir = os.path.join(self.repo_path, ".tx_backup")
-        if os.path.exists(backup_dir): shutil.rmtree(backup_dir)
-        os.makedirs(backup_dir)
-
         try:
-            yield
-            IntegrityChecker.validate(self.repo_path)
-            self.audit.commit_transaction("Atomic Transaction Commit")
+            with self._current_tx.begin():
+                yield
+                # Invariants check before commit
+                IntegrityChecker.validate(self.repo_path)
+                self.audit.commit_transaction("Atomic Transaction Commit")
         except Exception as e:
             logger.error(f"Transaction Failed: {e}. Rolling back...")
-            # Basic Git-level rollback for GitAuditProvider
             if isinstance(self.audit, GitAuditProvider):
                 self.audit.run(["reset", "--hard", "HEAD"])
             self.sync_meta_index() 
             raise
         finally:
             self._in_transaction = False
-            if os.path.exists(backup_dir): shutil.rmtree(backup_dir)
-            self._fs_lock.release()
+            self._current_tx = None
 
     def _enforce_trust(self, event: Optional[MemoryEvent] = None):
         if self.trust_boundary == TrustBoundary.HUMAN_ONLY:
@@ -157,6 +172,9 @@ class SemanticStore:
             relative_path = os.path.join(effective_namespace, filename) if effective_namespace else filename
             full_path = os.path.join(self.repo_path, relative_path)
             
+            if self._in_transaction and self._current_tx:
+                self._current_tx.stage_file(relative_path)
+
             if effective_namespace: os.makedirs(os.path.join(self.repo_path, effective_namespace), exist_ok=True)
             
             data = event.model_dump(mode='json')
@@ -209,6 +227,9 @@ class SemanticStore:
         self._enforce_trust()
         if not self._in_transaction: self._fs_lock.acquire(exclusive=True)
         try:
+            if self._in_transaction and self._current_tx:
+                self._current_tx.stage_file(filename)
+
             file_path = os.path.join(self.repo_path, filename)
             with open(file_path, "r", encoding="utf-8") as f: content = f.read()
             old_data, body = MemoryLoader.parse(content)

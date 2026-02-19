@@ -65,15 +65,59 @@ class MCPServer:
         import time
 
         def maintenance_loop():
+            # Grace period to allow server to bind ports and stabilize
+            time.sleep(30)
+            logger.info("Maintenance thread: Initializing startup tasks...")
+            
+            # Load last run timestamps from persistent MetaStore
+            def get_last_run(key):
+                val = self.memory.semantic.meta.get_config(key)
+                return float(val) if val else 0.0
+
+            last_maintenance = get_last_run("last_maintenance_time")
+            last_reflection = get_last_run("last_reflection_time")
+            last_git_gc = get_last_run("last_git_gc_time")
+            
+            # Special case: Always trigger reflection on startup to recover from potential crashes
+            # as requested by user, but only if it's not brand new storage
+            is_startup = True
+            
             while True:
-                # Perform git gc every 24 hours
-                try:
-                    logger.info("Running periodic Git maintenance (gc)...")
-                    self.memory.semantic.audit.run(["gc", "--prune=now", "--quiet"])
-                except Exception as e:
-                    logger.error(f"Maintenance error: {e}")
+                now = time.time()
                 
-                time.sleep(86400) # 24 hours
+                # 1. General Maintenance (Decay + Merging) - Every 1 hour
+                if now - last_maintenance >= 3600:
+                    try:
+                        logger.info("Running memory maintenance (decay + merging)...")
+                        self.memory.run_maintenance()
+                        last_maintenance = now
+                        self.memory.semantic.meta.set_config("last_maintenance_time", now)
+                    except Exception as e:
+                        logger.error(f"Maintenance error: {e}")
+
+                # 2. Proactive Reflection - Every 4 hours OR every startup
+                if is_startup or (now - last_reflection >= 14400):
+                    try:
+                        reason = "startup recovery" if is_startup else "periodic cycle"
+                        logger.info(f"Running proactive reflection ({reason})...")
+                        self.memory.run_reflection()
+                        last_reflection = now
+                        self.memory.semantic.meta.set_config("last_reflection_time", now)
+                    except Exception as e:
+                        logger.error(f"Reflection error: {e}")
+                    is_startup = False # Only once per process life
+
+                # 3. Git GC - Every 24 hours (strictly persistent)
+                if now - last_git_gc >= 86400:
+                    try:
+                        logger.info("Running periodic Git maintenance (gc)...")
+                        self.memory.semantic.audit.run(["gc", "--prune=now", "--quiet"])
+                        last_git_gc = now
+                        self.memory.semantic.meta.set_config("last_git_gc_time", now)
+                    except Exception as e:
+                        logger.error(f"Git GC error: {e}")
+                
+                time.sleep(300) # Sleep for 5 minutes between checks
 
         threading.Thread(target=maintenance_loop, daemon=True).start()
 
@@ -282,6 +326,57 @@ class MCPServer:
                 TOOL_LATENCY.labels(tool="get_memory_stats").observe(time.time() - start_time)
 
         @self.mcp.tool()
+        def get_environment_health() -> str:
+            """Returns diagnostic information about the system environment (disk, git, python)."""
+            start_time = time.time()
+            try:
+                self._check_capability("read")
+                health = self.env_context.get_context()
+                TOOL_CALLS.labels(tool="get_environment_health", status="success").inc()
+                return json.dumps({"status": "success", "health": health})
+            except Exception as e:
+                TOOL_CALLS.labels(tool="get_environment_health", status="error").inc()
+                return json.dumps({"status": "error", "message": str(e)})
+            finally:
+                TOOL_LATENCY.labels(tool="get_environment_health").observe(time.time() - start_time)
+
+        @self.mcp.tool()
+        def get_audit_logs(limit: int = 20) -> str:
+            """Returns the last N lines of the MCP audit log."""
+            start_time = time.time()
+            try:
+                self._check_capability("read")
+                logs = self.audit_logger.get_logs(limit=limit)
+                return json.dumps({"status": "success", "logs": logs})
+            except Exception as e:
+                return json.dumps({"status": "error", "message": str(e)})
+            finally:
+                TOOL_LATENCY.labels(tool="get_audit_logs").observe(time.time() - start_time)
+
+        @self.mcp.tool()
+        def export_memory_bundle(output_filename: str = "memory_export.tar.gz") -> str:
+            """Creates a full backup of the memory storage in a .tar.gz file."""
+            start_time = time.time()
+            try:
+                self._check_capability("purge") # Exporting full data is a sensitive operation
+                from ledgermind.core.api.transfer import MemoryTransferManager
+                transfer = MemoryTransferManager(self.memory.storage_path)
+                # Save to a temporary file in the same directory or specified path
+                path = transfer.export_to_tar(output_filename)
+                return json.dumps({"status": "success", "export_path": os.path.abspath(path)})
+            except Exception as e:
+                return json.dumps({"status": "error", "message": str(e)})
+            finally:
+                TOOL_LATENCY.labels(tool="export_memory_bundle").observe(time.time() - start_time)
+
+        @self.mcp.tool()
+        def get_api_specification() -> str:
+            """Returns the formal JSON specification (OpenRPC-like) of the Ledgermind API."""
+            from ledgermind.server.specification import MCPApiSpecification
+            spec = MCPApiSpecification.generate_full_spec()
+            return json.dumps(spec, indent=2)
+
+        @self.mcp.tool()
         def get_relevant_context(prompt: str, limit: int = 3) -> str:
             """Retrieves and formats relevant context for a given user prompt (Bridge Tool)."""
             from ledgermind.core.api.bridge import IntegrationBridge
@@ -295,6 +390,19 @@ class MCPServer:
             bridge = IntegrationBridge(memory_path=self.memory.storage_path)
             bridge.record_interaction(prompt, response, success=success)
             return json.dumps({"status": "success"})
+
+        @self.mcp.tool()
+        def link_interaction_to_decision(event_id: int, decision_id: str) -> str:
+            """Links a specific episodic event (e.g., from search) to a semantic decision as evidence."""
+            start_time = time.time()
+            try:
+                self._check_capability("supersede")
+                self.memory.link_evidence(event_id, decision_id)
+                return json.dumps({"status": "success", "message": f"Linked event {event_id} to {decision_id}"})
+            except Exception as e:
+                return json.dumps({"status": "error", "message": str(e)})
+            finally:
+                TOOL_LATENCY.labels(tool="link_interaction_to_decision").observe(time.time() - start_time)
 
     def run(self):
         if self.metrics_port:

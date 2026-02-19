@@ -100,3 +100,24 @@ class GitAuditProvider(AuditProvider):
 
     def commit_transaction(self, message: str):
         self.run(["commit", "--allow-empty", "-m", message])
+
+    def get_history(self, relative_path: str) -> List[dict]:
+        """Retrieves commit history for a specific file."""
+        try:
+            # Format: hash|author|date|message
+            res = self.run(["log", "--format=%H|%an|%ai|%s", "--", relative_path])
+            lines = res.stdout.decode().strip().split('\n')
+            history = []
+            for line in lines:
+                if not line: continue
+                parts = line.split('|')
+                if len(parts) >= 4:
+                    history.append({
+                        "hash": parts[0],
+                        "author": parts[1],
+                        "timestamp": parts[2],
+                        "message": parts[3]
+                    })
+            return history
+        except Exception:
+            return []

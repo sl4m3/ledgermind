@@ -7,11 +7,13 @@ def worker(storage_path, worker_id):
     """Каждый воркер пытается записать свое решение."""
     try:
         memory = Memory(storage_path=storage_path)
+        # Increase lock timeout for heavy concurrent tests
+        memory.semantic._fs_lock.timeout = 60
         for i in range(5):
             memory.record_decision(
                 title=f"Decision from worker {worker_id} - {i}",
                 target=f"target_{worker_id}_{i}", # Unique target
-                rationale="Testing parallel write access"
+                rationale="Testing parallel write access with a rationale long enough to pass validation"
             )
     except Exception as e:
         return str(e)
@@ -66,7 +68,7 @@ def test_supersede_consistency_under_load(tmp_path):
     target = "consistent_target"
     
     # Создаем начальное состояние
-    memory.record_decision("v0", target, "Initial version of decision")
+    memory.record_decision("v0", target, "Initial version of decision with a rationale long enough to pass")
     
     def writer_loop(path, stop_ev):
         m = Memory(storage_path=path)
