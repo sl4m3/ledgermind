@@ -1,27 +1,57 @@
-# Comparison with Alternatives
+# Сравнение с альтернативами
 
-This document provides a technical comparison between the Ledgermind and other popular memory frameworks for AI agents.
+Этот документ содержит техническое сравнение Ledgermind с другими популярными
+фреймворками управления памятью для ИИ-агентов. Вы можете использовать эту
+информацию для выбора подходящего решения под ваши требования к аудиту и
+надежности.
 
-| Feature | Ledgermind | LangChain Memory | Mem0 (EmbedChain) | Zep |
+| Возможность | Ledgermind | LangChain Memory | Mem0 | Zep |
 | :--- | :--- | :--- | :--- | :--- |
-| **Primary Goal** | Knowledge Governance & Audit | Session Context Management | User Personalization | High-Performance Search |
-| **Storage Engine** | Hybrid (SQLite + Git) | Pluggable (Redis, SQL, etc.) | Vector Databases | Postgres + Vector |
-| **Versioning** | Explicit DAG (Supersede) | None (usually overwrite) | Partial (Update) | None |
-| **Audit Trail** | Cryptographic (Git commits) | Application Logs | Metadata | Metadata |
-| **Truth Resolution** | Recursive (follows DAG) | Most Recent / Similarity | Similarity | Similarity / Recency |
-| **Integrity Checks** | Formal Invariants (I1-I7) | Basic Schema | None | Basic Schema |
-| **Reasoning** | Reflection & Distillation | None (Manual) | None | Automated Summarization |
+| **Основная цель** | Управление знаниями и аудит | Контекст сессии | Персонализация | Быстрый поиск |
+| **Хранилище** | Гибридное (SQLite + Git) | Разное (Redis, SQL) | Векторные БД | Postgres + Vector |
+| **Версионирование** | Явный DAG (замещение) | Отсутствует | Частичное | Отсутствует |
+| **Аудит** | Криптографический (Git) | Логи приложения | Метаданные | Метаданные |
+| **Разрешение истины** | Рекурсивное (по DAG) | Сходство / Последнее | Сходство | Сходство / Свежесть |
+| **Целостность** | Формальные инварианты | Базовая схема | Отсутствует | Базовая схема |
+| **Рассуждение** | Рефлексия и дистилляция | Ручное | Отсутствует | Авто-саммаризация |
 
-## Why Ledgermind?
+## Почему Ledgermind?
 
-### 1. Hardened Auditability
-Unlike LangChain or Mem0, where memory can be overwritten or deleted, our system uses **Git as a back-end**. Every change is a commit. You can always answer: *"Who changed this rule, when, and based on what evidence?"*
+Ledgermind выделяется среди других решений благодаря фокусу на достоверности и
+прослеживаемости знаний. Ниже описаны ключевые преимущества нашей системы.
 
-### 2. Knowledge Evolution vs. Data Storage
-Most systems treat memory as a simple key-value store or a vector index. Ledgermind treats it as an **evolving graph of truths**. Using the `supersede` operation, agents can replace old SOPs with new ones while maintaining a link to the original reasoning.
+### Строгий аудит
 
-### 3. Recursive Truth Resolution
-When an agent searches for "deployment policy", other systems might return an outdated version if it's more semantically similar. Our system's **Hybrid Search** automatically follows the supersession chain to return the currently `active` version, guaranteed.
+В отличие от LangChain или Mem0, где память может быть перезаписана или
+удалена, наша система использует `Git` в качестве бэкенда. Каждое изменение —
+это коммит. Вы всегда можете ответить на вопросы: «Кто изменил это правило,
+когда и на основании каких доказательств?».
 
-### 4. Epistemic Safety
-With the **Reflection Engine**, the system distinguishes between *facts* and *hypotheses*. It requires a "Review Window" and "Evidence Threshold" before a hypothesis can be promoted to a decision, preventing "hallucination loops."
+### Эволюция знаний вместо простого хранения
+
+Большинство систем рассматривают память как простое хранилище «ключ-значение»
+или векторный индекс. Ledgermind относится к ней как к развивающемуся графу
+истин. Используя операцию замещения (`supersede`), агенты могут заменять старые
+регламенты новыми, сохраняя связь с исходной логикой.
+
+### Рекурсивное разрешение истины
+
+Когда агент ищет «политику деплоя», другие системы могут вернуть устаревшую
+версию, если она семантически ближе к запросу. Гибридный поиск Ledgermind
+автоматически следует по цепочке замещений и гарантированно возвращает
+актуальную версию со статусом `active`.
+
+### Эпистемическая безопасность
+
+Благодаря механизму рефлексии (`Reflection Engine`), система различает факты и
+гипотезы. Она требует прохождения «окна проверки» и достижения порога
+достоверности перед тем, как гипотеза станет решением. Это предотвращает
+зацикливание галлюцинаций агента.
+
+## Следующие шаги
+
+Для более глубокого понимания того, как работают эти механизмы на практике,
+рекомендуем изучить руководство по интеграции.
+
+- [Руководство по интеграции](INTEGRATION_GUIDE.md) — способы встраивания в код.
+- [Быстрый старт](tutorials/QUICKSTART.md) — практические примеры использования.

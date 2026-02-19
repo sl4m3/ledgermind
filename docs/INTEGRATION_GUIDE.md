@@ -1,61 +1,98 @@
-# Ledgermind Integration Guide
+# Руководство по интеграции Ledgermind
 
-Ledgermind is designed to be embedded directly into AI agents or accessed via the Model Context Protocol (MCP). This guide covers both approaches.
+Ledgermind предназначен для прямого встраивания в ИИ-агентов или доступа через
+Model Context Protocol (MCP). В этом руководстве рассматриваются оба подхода к
+интеграции системы в ваш рабочий процесс.
 
-## 1. Direct Embedding (Library Mode)
+## Встраивание в виде библиотеки
 
-This is the recommended approach for building autonomous agents where Ledgermind acts as the "Brain Core".
+Это рекомендуемый подход для создания автономных агентов, где Ledgermind
+выступает в роли центрального модуля управления знаниями («ядра мозга»).
 
-### Installation
+### Установка
+
+Для начала работы установите пакет Ledgermind с помощью `pip`. Мы рекомендуем
+использовать виртуальное окружение для управления зависимостями.
+
 ```bash
 pip install ledgermind
 ```
 
-### Basic Usage with IntegrationBridge
-The `IntegrationBridge` provides a high-level API for the most common tasks.
+### Использование IntegrationBridge
+
+Класс `IntegrationBridge` предоставляет высокоуровневый интерфейс для решения
+наиболее распространенных задач управления памятью.
+
+Ниже приведен пример базового цикла взаимодействия с системой:
 
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
 
-# 1. Initialize the bridge
+# 1. Инициализируйте мост
 bridge = IntegrationBridge(memory_path="./my_agent_memory")
 
-# 2. Check health (recommended for production)
+# 2. Проверьте состояние системы (рекомендуется для продакшена)
 health = bridge.check_health()
 if health["errors"]:
-    print(f"Memory system issues: {health['errors']}")
+    print(f"Обнаружены проблемы в системе памяти: {health['errors']}")
 
-# 3. Inject context into your prompt
-user_query = "How do I configure the database?"
+# 3. Получите контекст для вставки в промпт
+user_query = "Как мне настроить базу данных?"
 context = bridge.get_context_for_prompt(user_query)
 
 full_prompt = f"{context}
 
-User: {user_query}"
-# Send full_prompt to your LLM...
+Пользователь: {user_query}"
+# Отправьте full_prompt в вашу LLM...
 
-# 4. Record the interaction
-agent_response = "You should use the config.yaml file..."
+# 4. Запишите результат взаимодействия
+agent_response = "Вам следует использовать файл config.yaml..."
 bridge.record_interaction(user_query, agent_response)
 
-# 5. Periodic maintenance (run this occasionally)
+# 5. Выполняйте периодическое обслуживание
 bridge.run_maintenance()
 ```
 
-## 2. Integration via MCP (Modular Mode)
+## Интеграция через MCP
 
-Use this approach if you want to keep memory as a separate process or use multiple different tools to access the same memory.
+Используйте этот подход, если вы хотите вынести управление памятью в отдельный
+процесс или предоставить доступ к одним и тем же данным нескольким инструментам.
 
-### Start the Server
+### Запуск сервера
+
+Для запуска сервера используйте встроенную команду CLI. Вы должны указать путь к
+директории, где будет храниться база данных и репозиторий `Git`.
+
 ```bash
 ledgermind-mcp run --path ./.memory
 ```
 
-Any MCP-compatible client (like Gemini CLI, Claude Desktop, or custom scripts using `mcp` library) can connect to this server and use the provided tools: `search_decisions`, `record_decision`, `supersede_decision`, etc.
+Любой MCP-совместимый клиент (например, Gemini CLI, Claude Desktop или ваши
+собственные скрипты) может подключиться к этому серверу. Вам станут доступны
+инструменты `search_decisions`, `record_decision`, `supersede_decision` и другие.
 
-## 3. Best Practices for Production
+## Рекомендации для эксплуатации
 
-1.  **Namespace your memory**: Use different storage paths for different agents or projects.
-2.  **Regular Maintenance**: Call `bridge.run_maintenance()` or `bridge.trigger_reflection()` periodically (e.g., once a day or after 100 interactions) to distill episodic events into permanent semantic knowledge.
-3.  **Handle Git Locks**: If you have multiple processes accessing the same memory, Ledgermind handles locks internally, but expect occasional slight delays in commit operations.
-4.  **Vector Search**: For best performance in searching, ensure `sentence-transformers` is installed. Without it, Ledgermind falls back to keyword-based metadata search.
+При использовании Ledgermind в реальных проектах следуйте этим правилам для
+обеспечения стабильности и высокой производительности системы.
+
+1.  **Разделяйте пространства имен**: используйте разные пути хранения для
+    разных агентов или независимых проектов.
+2.  **Регулярное обслуживание**: вызывайте `bridge.run_maintenance()` или
+    `bridge.trigger_reflection()` периодически (например, раз в день или после
+    каждых 100 взаимодействий). Это позволяет системе дистиллировать эпизоды в
+    постоянные знания.
+3.  **Обработка блокировок Git**: если несколько процессов обращаются к одной и
+    той же памяти, Ledgermind управляет блокировками внутренне, но будьте готовы
+    к небольшим задержкам при операциях записи.
+4.  **Векторный поиск**: для достижения наилучшей точности поиска убедитесь, что
+    установлен пакет `sentence-transformers`. В противном случае Ledgermind
+    будет использовать поиск по метаданным.
+
+## Следующие шаги
+
+Теперь, когда вы знакомы с основными способами интеграции, вы можете перейти к
+изучению конкретных сценариев использования в нашем туториале.
+
+- [Быстрый старт](tutorials/QUICKSTART.md) — создание простого агента с нуля.
+- [Сравнение](COMPARISON.md) — подробности об архитектурных отличиях.
