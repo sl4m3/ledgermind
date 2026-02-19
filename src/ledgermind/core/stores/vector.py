@@ -29,6 +29,7 @@ class VectorStore:
         self._model = None
         self._vectors = None # NumPy array of vectors
         self._doc_ids = []
+        self._deleted_ids = set()
 
         if not os.path.exists(storage_path):
             os.makedirs(storage_path, exist_ok=True)
@@ -48,6 +49,7 @@ class VectorStore:
             try:
                 self._vectors = np.load(self.index_path)
                 self._doc_ids = np.load(self.meta_path, allow_pickle=True).tolist()
+                self._deleted_ids = set()
                 logger.info(f"Loaded {len(self._doc_ids)} vectors from disk")
             except Exception as e:
                 logger.error(f"Failed to load vector store: {e}")
@@ -59,26 +61,36 @@ class VectorStore:
             np.save(self.meta_path, np.array(self._doc_ids, dtype=object))
 
     def remove_id(self, fid: str):
-        """Removes a vector from the store by its document ID."""
-        if self._vectors is None or not self._doc_ids:
-            return
-        
-        try:
-            idx = self._doc_ids.index(fid)
-            self._vectors = np.delete(self._vectors, idx, axis=0)
-            self._doc_ids.pop(idx)
+        """Soft-removes a vector from the store."""
+        if fid in self._doc_ids:
+            self._deleted_ids.add(fid)
+            logger.info(f"Marked vector {fid} as deleted (soft delete)")
             
-            if len(self._doc_ids) == 0:
-                self._vectors = None
-                if os.path.exists(self.index_path): os.remove(self.index_path)
-                if os.path.exists(self.meta_path): os.remove(self.meta_path)
-            else:
-                self.save()
-            logger.info(f"Removed vector for {fid} from store")
-        except ValueError:
-            logger.debug(f"ID {fid} not found in vector store")
-        except Exception as e:
-            logger.error(f"Failed to remove vector for {fid}: {e}")
+            # Periodically compact if deleted items > 20% of index
+            if len(self._deleted_ids) > max(10, len(self._doc_ids) * 0.2):
+                self.compact()
+
+    def compact(self):
+        """Physically removes soft-deleted vectors and rebuilds index."""
+        if not self._deleted_ids or self._vectors is None:
+            return
+
+        logger.info(f"Compacting vector store: removing {len(self._deleted_ids)} items...")
+        
+        remaining_indices = [i for i, fid in enumerate(self._doc_ids) if fid not in self._deleted_ids]
+        
+        if not remaining_indices:
+            self._vectors = None
+            self._doc_ids = []
+            if os.path.exists(self.index_path): os.remove(self.index_path)
+            if os.path.exists(self.meta_path): os.remove(self.meta_path)
+        else:
+            self._vectors = self._vectors[remaining_indices]
+            self._doc_ids = [self._doc_ids[i] for i in remaining_indices]
+            self.save()
+
+        self._deleted_ids = set()
+        logger.info("Vector store compaction complete")
 
     def add_documents(self, documents: List[Dict[str, Any]]):
         if not documents or not EMBEDDING_AVAILABLE: return
@@ -113,12 +125,17 @@ class VectorStore:
         similarities = np.dot(self._vectors, query_vector) / (norms * query_norm + 1e-9)
         
         # Get top indices
-        top_indices = np.argsort(similarities)[::-1][:limit]
+        top_indices = np.argsort(similarities)[::-1]
         
         results = []
         for idx in top_indices:
+            fid = self._doc_ids[idx]
+            if fid in self._deleted_ids: continue
+            
             results.append({
-                "id": self._doc_ids[idx],
+                "id": fid,
                 "score": float(similarities[idx])
             })
+            if len(results) >= limit: break
+            
         return results

@@ -82,8 +82,19 @@ class GitIndexer:
                     cwd=self.repo_path, capture_output=True, text=True
                 )
                 changed_files = [f for f in diff_res.stdout.strip().split('\n') if f]
+                
+                # Heuristic: Infer target from common path prefix or first file
+                # If file is src/module/file.py, target is 'module'
+                inferred_target = None
+                if changed_files:
+                    first_file = changed_files[0]
+                    parts = first_file.split('/')
+                    if len(parts) > 1:
+                        if parts[0] in ['src', 'lib', 'app']: inferred_target = parts[1]
+                        else: inferred_target = parts[0]
             except Exception:
                 changed_files = []
+                inferred_target = None
 
             event = MemoryEvent(
                 source="system",
@@ -94,6 +105,7 @@ class GitIndexer:
                     "author": commit['author'],
                     "full_message": commit['body'],
                     "changed_files": changed_files,
+                    "target": inferred_target,
                     "type": "git_history"
                 },
                 timestamp=datetime.fromisoformat(commit['date'].strip())

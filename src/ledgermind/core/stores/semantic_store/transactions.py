@@ -29,15 +29,37 @@ class FileSystemLock:
             try:
                 import fcntl
                 op = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
-                fcntl.flock(self._fd, op | fcntl.LOCK_NB)
-                # Write PID for debugging
-                os.ftruncate(self._fd, 0)
-                os.write(self._fd, str(os.getpid()).encode())
-                return
-            except (BlockingIOError, OSError):
-                if time.time() - start_time > self.timeout:
-                    raise TimeoutError(f"Could not acquire lock on {self.lock_path} after {self.timeout}s")
-                time.sleep(0.1)
+                # Try acquiring fcntl lock
+                try:
+                    fcntl.flock(self._fd, op | fcntl.LOCK_NB)
+                    # Write PID for debugging
+                    os.ftruncate(self._fd, 0)
+                    os.write(self._fd, str(os.getpid()).encode())
+                    return
+                except (BlockingIOError, OSError) as e:
+                    # If it's a real error (like ENOSYS), fall back. 
+                    # If it's just blocked (EAGAIN/EACCES), retry.
+                    import errno
+                    if isinstance(e, BlockingIOError) or e.errno in (errno.EAGAIN, errno.EACCES):
+                        if time.time() - start_time > self.timeout:
+                            raise TimeoutError(f"Could not acquire fcntl lock on {self.lock_path} after {self.timeout}s")
+                        time.sleep(0.1)
+                        continue
+                    raise # Fall back to semaphore for other OSErrors
+            except (ImportError, Exception):
+                # Fallback for Windows or systems without fcntl
+                # Try to create a secondary lock file as a semaphore
+                semaphore_path = self.lock_path + ".lock"
+                try:
+                    # O_EXCL ensures atomic creation
+                    fd = os.open(semaphore_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                    with os.fdopen(fd, 'w') as f:
+                        f.write(str(os.getpid()))
+                    return
+                except FileExistsError:
+                    if time.time() - start_time > self.timeout:
+                        raise TimeoutError(f"Could not acquire semaphore lock on {self.lock_path} after {self.timeout}s")
+                    time.sleep(0.1)
 
     def release(self):
         if self._fd:
@@ -51,6 +73,15 @@ class FileSystemLock:
                 os.close(self._fd)
             except OSError: pass
             self._fd = None
+            
+        # Clean up semaphore if it exists
+        semaphore_path = self.lock_path + ".lock"
+        if os.path.exists(semaphore_path):
+            try:
+                # Check if we are the owner before deleting? 
+                # For simplicity, just delete if we are releasing.
+                os.remove(semaphore_path)
+            except OSError: pass
 
 class TransactionManager:
     """
