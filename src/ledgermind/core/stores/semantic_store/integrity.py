@@ -25,7 +25,15 @@ class IntegrityChecker:
         """
         Generates a hash of the current repository state based on filenames and mtimes.
         """
-        files = sorted([f for f in os.listdir(repo_path) if f.endswith(".md") or f.endswith(".yaml")])
+        all_files = []
+        for root, _, filenames in os.walk(repo_path):
+            if ".git" in root or ".tx_backup" in root: continue
+            for f in filenames:
+                if f.endswith(".md") or f.endswith(".yaml"):
+                    rel_path = os.path.relpath(os.path.join(root, f), repo_path)
+                    all_files.append(rel_path)
+        
+        files = sorted(all_files)
         state = []
         for f in files:
             try:
@@ -51,12 +59,19 @@ class IntegrityChecker:
         if not force and IntegrityChecker._state_cache.get(repo_path) == current_hash:
             return
 
-        files = [f for f in os.listdir(repo_path) if f.endswith(".md") or f.endswith(".yaml")]
+        all_files = []
+        for root, _, filenames in os.walk(repo_path):
+            if ".git" in root or ".tx_backup" in root: continue
+            for f in filenames:
+                if f.endswith(".md") or f.endswith(".yaml"):
+                    rel_path = os.path.relpath(os.path.join(root, f), repo_path)
+                    all_files.append(rel_path)
+        
         decisions = {}
         
         from .loader import MemoryLoader
         
-        for f in files:
+        for f in all_files:
             file_path = os.path.join(repo_path, f)
             try:
                 mtime = os.path.getmtime(file_path)

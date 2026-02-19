@@ -32,10 +32,15 @@ class ReflectionEngine:
     Reflection Engine v4.2: Proactive Knowledge Discovery with Git Integration.
     Suggests proposals for recurring errors, successes, and code evolution patterns.
     """
-    def __init__(self, episodic_store: EpisodicStore, semantic_store: SemanticStore, policy: Optional[ReflectionPolicy] = None):
+    BLACKLISTED_TARGETS = {"general", "general_development", "unknown"}
+
+    def __init__(self, episodic_store: EpisodicStore, semantic_store: SemanticStore, 
+                 policy: Optional[ReflectionPolicy] = None,
+                 processor: Any = None):
         self.episodic = episodic_store
         self.semantic = semantic_store
         self.policy = policy or ReflectionPolicy()
+        self.processor = processor
 
     def run_cycle(self) -> List[str]:
         logger.info("Starting proactive reflection cycle (v4.2)...")
@@ -46,8 +51,19 @@ class ReflectionEngine:
         result_ids = []
         
         for prop in procedural_proposals:
-            event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=prop.title, context=prop)
-            result_ids.append(self.semantic.save(event))
+            if self.processor:
+                # Use high-level processor to ensure vector indexing and episodic linking
+                decision = self.processor.process_event(
+                    source="reflection_engine",
+                    kind=KIND_PROPOSAL,
+                    content=prop.title,
+                    context=prop
+                )
+                if decision.should_persist:
+                    result_ids.append(decision.metadata.get("file_id"))
+            else:
+                event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=prop.title, context=prop)
+                result_ids.append(self.semantic.save(event))
 
         # 1. Evidence Aggregation
         recent_events = self.episodic.query(limit=1000, status='active')
@@ -59,6 +75,8 @@ class ReflectionEngine:
         
         # 2. Update and Falsify existing hypotheses
         for target, stats in evidence_clusters.items():
+            if target in self.BLACKLISTED_TARGETS: continue
+            
             relevant_proposals = self._find_proposals_by_target(all_drafts, target)
             
             for fid, data in relevant_proposals:
@@ -69,7 +87,7 @@ class ReflectionEngine:
             # 3. Knowledge Discovery
             # Case A: Repeated Errors (Needs a fix)
             if stats['errors'] >= self.policy.error_threshold:
-                if not any(p[1]['context']['confidence'] > 0.6 for p in relevant_proposals):
+                if not any(p[1]['context'].get('confidence', 0.0) > 0.6 for p in relevant_proposals):
                     new_fids = self._generate_competing_hypotheses(target, stats)
                     result_ids.extend(new_fids)
             
@@ -77,13 +95,13 @@ class ReflectionEngine:
             elif stats['successes'] >= self.policy.success_threshold and target not in active_decisions:
                 if not relevant_proposals:
                     new_fid = self._generate_success_proposal(target, stats)
-                    result_ids.append(new_fid)
+                    if new_fid: result_ids.append(new_fid)
 
             # Case C: Active Development (Code Evolution)
             elif stats['commits'] >= 2 and target not in active_decisions: # 2 commits to same target = pattern
                  if not relevant_proposals:
                     new_fid = self._generate_evolution_proposal(target, stats)
-                    result_ids.append(new_fid)
+                    if new_fid: result_ids.append(new_fid)
 
         # 4. Global Competition & Decay
         for fid, data in all_drafts.items():
@@ -106,6 +124,10 @@ class ReflectionEngine:
             evidence_event_ids=[e['id'] for e in stats['success_events']],
             first_observed_at=datetime.now()
         )
+        if self.processor:
+             decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
+             return decision.metadata.get("file_id") if decision.should_persist else ""
+        
         event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
         return self.semantic.save(event)
 
@@ -124,6 +146,10 @@ class ReflectionEngine:
             evidence_event_ids=[e['id'] for e in stats['commit_events']],
             first_observed_at=datetime.now()
         )
+        if self.processor:
+             decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
+             return decision.metadata.get("file_id") if decision.should_persist else ""
+
         event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
         return self.semantic.save(event)
 
@@ -250,8 +276,13 @@ class ReflectionEngine:
 
         fids = []
         for h_ctx in [h1, h2]:
-            event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=h_ctx.title, context=h_ctx)
-            fids.append(self.semantic.save(event))
+            if self.processor:
+                decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=h_ctx.title, context=h_ctx)
+                if decision.should_persist:
+                    fids.append(decision.metadata.get("file_id"))
+            else:
+                event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=h_ctx.title, context=h_ctx)
+                fids.append(self.semantic.save(event))
         
         # Cross-link them as alternatives
         for fid in fids:
