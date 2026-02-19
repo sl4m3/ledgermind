@@ -32,10 +32,21 @@ class DecayEngine:
         results = []
         
         for dec in decisions:
-            # Only apply decay to active proposals.
-            # Permanent 'decisions' should NEVER decay based on hit counts.
-            if dec.get('status') != 'active': continue
-            if dec.get('kind') != 'proposal': continue
+            # ONLY apply decay to active proposals.
+            # Permanent 'decisions', 'assumptions', 'constraints' should NEVER decay based on hit counts.
+            status = dec.get('status')
+            kind = dec.get('kind')
+            
+            if status != 'active':
+                continue
+            
+            if kind != 'proposal':
+                # Explicitly skip anything that isn't a proposal
+                continue
+            
+            # Additional safety: never decay decisions
+            if kind == 'decision':
+                continue
             
             last_hit = dec.get('last_hit_at')
             if not last_hit:
