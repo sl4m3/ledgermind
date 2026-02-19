@@ -41,7 +41,8 @@ class SemanticMetaStore:
                 "hit_count": "INTEGER DEFAULT 0",
                 "content": "TEXT DEFAULT ''",
                 "last_hit_at": "DATETIME",
-                "confidence": "REAL DEFAULT 1.0"
+                "confidence": "REAL DEFAULT 1.0",
+                "context_json": "TEXT DEFAULT '{}'"
             }
             for col, definition in cols.items():
                 try:
@@ -64,20 +65,21 @@ class SemanticMetaStore:
 
     def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, 
                title: str = "", superseded_by: Optional[str] = None, namespace: str = "default",
-               content: str = "", confidence: float = 1.0):
+               content: str = "", confidence: float = 1.0, context_json: str = "{}"):
         """Atomic upsert of decision metadata with content caching."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
-                INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, confidence)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, confidence, context_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(fid) DO UPDATE SET
                     title=excluded.title,
                     status=excluded.status,
                     superseded_by=excluded.superseded_by,
                     namespace=excluded.namespace,
                     content=excluded.content,
-                    confidence=excluded.confidence
-            """, (fid, target, title, status, kind, timestamp.isoformat(), superseded_by, namespace, content, confidence))
+                    confidence=excluded.confidence,
+                    context_json=excluded.context_json
+            """, (fid, target, title, status, kind, timestamp.isoformat(), superseded_by, namespace, content, confidence, context_json))
 
     def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
         """Retrieves full metadata for a specific file ID."""

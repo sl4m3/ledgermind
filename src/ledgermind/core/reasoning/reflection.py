@@ -262,15 +262,22 @@ class ReflectionEngine:
 
     def _get_all_draft_proposals(self) -> Dict[str, Dict[str, Any]]:
         drafts = {}
-        from ledgermind.core.stores.semantic_store.loader import MemoryLoader
+        import json
         draft_metas = self.semantic.meta.list_draft_proposals()
         for m in draft_metas:
             fid = m['fid']
             try:
-                with open(os.path.join(self.semantic.repo_path, fid), 'r', encoding='utf-8') as f:
-                    data, _ = MemoryLoader.parse(f.read())
-                    drafts[fid] = data
-            except Exception: continue
+                # Use context_json from metadata instead of reading file from disk
+                ctx = json.loads(m.get('context_json', '{}'))
+                drafts[fid] = {
+                    'kind': m.get('kind'),
+                    'content': m.get('content'),
+                    'timestamp': m.get('timestamp'),
+                    'context': ctx
+                }
+            except Exception as e:
+                logger.debug(f"Failed to load draft {fid} from meta: {e}")
+                continue
         return drafts
 
     def _find_proposals_by_target(self, drafts: Dict[str, Dict[str, Any]], target: str) -> List[Tuple[str, Dict[str, Any]]]:

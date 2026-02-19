@@ -14,6 +14,8 @@ class TestHeartbeat(unittest.TestCase):
             shutil.rmtree(self.test_dir)
         os.makedirs(self.test_dir)
         self.memory = Memory(storage_path=self.test_dir)
+        # Reset maintenance flag for testing
+        MCPServer._maintenance_running = False
 
     def tearDown(self):
         if os.path.exists(self.test_dir):
