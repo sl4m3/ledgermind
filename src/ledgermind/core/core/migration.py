@@ -38,10 +38,17 @@ class MigrationEngine:
         - Ensures 'namespace' exists
         - Fixes 'rationale' if too short
         """
-        files = [f for f in os.listdir(self.semantic.repo_path) if f.endswith(".md")]
+        all_files = []
+        for root, _, filenames in os.walk(self.semantic.repo_path):
+            if ".git" in root or ".tx_backup" in root: continue
+            for f in filenames:
+                if f.endswith(".md"):
+                    rel_path = os.path.relpath(os.path.join(root, f), self.semantic.repo_path)
+                    all_files.append(rel_path)
+
         modified_count = 0
         
-        for f in files:
+        for f in all_files:
             file_path = os.path.join(self.semantic.repo_path, f)
             try:
                 with open(file_path, 'r', encoding='utf-8') as stream:
