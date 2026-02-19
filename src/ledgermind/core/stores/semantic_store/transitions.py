@@ -20,9 +20,29 @@ class TransitionValidator:
         Ensures that core semantics have not changed during an update.
         Only status and linking fields (superseded_by) should change for existing files.
         """
+        
+        # Minor edits (like typo correction) are allowed even in core fields
+        def is_minor_diff(s1, s2):
+            if not s1 or not s2: return s1 == s2
+            # Very simple fuzzy check: length difference and prefix
+            if abs(len(s1) - len(s2)) > 5: return False
+            # Check if one contains most of the other
+            common_start = 0
+            for i in range(min(len(s1), len(s2), 20)):
+                if s1[i] == s2[i]: common_start += 1
+                else: break
+            return common_start > 10
 
         for field in TransitionValidator.IMMUTABLE_FIELDS:
-            if old_data.get(field) != new_data.get(field):
+            old_val = old_data.get(field)
+            new_val = new_data.get(field)
+            if old_val != new_val:
+                # 1. Proposals can evolve as more evidence arrives
+                if old_data.get("kind") == "proposal":
+                    continue
+                # 2. Minor typo correction in decisions
+                if field == "content" and is_minor_diff(old_val, new_val):
+                    continue
                 raise TransitionError(f"I1 Violation: Core field '{field}' is immutable. Change rejected.")
 
         old_ctx = old_data.get("context", {})

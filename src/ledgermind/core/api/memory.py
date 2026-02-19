@@ -252,6 +252,13 @@ class Memory:
             elif decision.store_type == "semantic":
                 # Use Transaction for atomic save + status updates
                 with self.semantic.transaction():
+                    # 2.7: Late-bind Conflict Detection (Inside Lock)
+                    # This prevents race conditions where two agents check simultaneously
+                    if not intent:
+                        if conflict_msg := self.conflict_engine.check_for_conflicts(event):
+                            logger.warning(f"Race condition prevented: {conflict_msg}")
+                            raise ConflictError(f"Conflict detected during transaction: {conflict_msg}")
+
                     # 1. Update back-links and deactivate old versions BEFORE saving new one
                     # to satisfy SQLite UNIQUE constraint on active targets.
                     if intent and intent.resolution_type == "supersede":
@@ -272,9 +279,21 @@ class Memory:
                     
                     # 3.5: Index in VectorStore
                     try:
+                        # Combine content with rationale for better grounded search
+                        indexed_content = event.content
+                        ctx = event.context
+                        rationale = ""
+                        if isinstance(ctx, dict):
+                            rationale = ctx.get('rationale', '')
+                        elif hasattr(ctx, 'rationale'):
+                            rationale = getattr(ctx, 'rationale', '')
+                        
+                        if rationale:
+                            indexed_content = f"{event.content}\n{rationale}"
+
                         self.vector.add_documents([{
                             "id": new_fid,
-                            "content": event.content
+                            "content": indexed_content
                         }])
                     except Exception as ve:
                         logger.warning(f"Vector indexing failed for {new_fid}: {ve}")
@@ -323,17 +342,33 @@ class Memory:
 
     def run_decay(self, dry_run: bool = False) -> DecayReport:
         """
-        Execute the decay process for episodic memories.
+        Execute the decay process for episodic and semantic memories.
         """
-        # Retrieve both active and archived to decide their next state
+        # 1. Episodic Decay
         all_events = self.episodic.query(limit=20000, status=None)
         to_archive, to_prune, retained = self.decay_engine.evaluate(all_events)
         
+        # 2. Semantic Decay
+        all_decisions = self.semantic.meta.list_all()
+        semantic_results = self.decay_engine.evaluate_semantic(all_decisions)
+        
+        forgotten_count = 0
         if not dry_run:
+            # Apply Episodic changes
             self.episodic.mark_archived(to_archive)
             self.episodic.physical_prune(to_prune)
             
-        return DecayReport(len(to_archive), len(to_prune), retained)
+            # Apply Semantic changes
+            for fid, new_conf, should_forget in semantic_results:
+                if should_forget:
+                    logger.info(f"Semantic Decay: Forgetting {fid} (confidence dropped to {new_conf})")
+                    self.forget(fid)
+                    forgotten_count += 1
+                else:
+                    self.semantic.update_decision(fid, {"confidence": new_conf}, 
+                                                  commit_msg=f"Decay: Reduced confidence to {new_conf}")
+            
+        return DecayReport(len(to_archive), len(to_prune), retained, semantic_forgotten=forgotten_count)
 
     def run_reflection(self) -> List[str]:
         """
@@ -480,6 +515,7 @@ class Memory:
     def search_decisions(self, query: str, limit: int = 5, mode: str = "balanced") -> List[Dict[str, Any]]:
         """
         Search with Recursive Truth Resolution and Hybrid Vector/Keyword ranking.
+        Uses Metadata Cache to avoid N+1 file reads.
         """
         # 1. Try Vector Search first
         vector_results = []
@@ -494,11 +530,11 @@ class Memory:
         # 2. Process Vector Candidates
         for item in vector_results:
             fid = item['id']
-            final_id, data = self._resolve_to_truth(fid, mode)
-            if not data or final_id in seen_ids: continue
+            meta = self._resolve_to_truth(fid, mode)
+            if not meta or meta['fid'] in seen_ids: continue
             
-            ctx = data.get("context", {})
-            status = ctx.get("status", "unknown")
+            final_id = meta['fid']
+            status = meta.get("status", "unknown")
             if mode == "strict" and status != "active": continue
             
             # Evidence-based ranking boost
@@ -511,10 +547,10 @@ class Memory:
                 "id": final_id,
                 "score": final_score,
                 "status": status,
-                "title": ctx.get("title", "unknown"),
-                "target": ctx.get("target", "unknown"),
-                "preview": data.get("content", fid)[:200],
-                "kind": data.get("kind"),
+                "title": meta.get("title", "unknown"),
+                "target": meta.get("target", "unknown"),
+                "preview": meta.get("content", "")[:200],
+                "kind": meta.get("kind"),
                 "is_active": (status == "active"),
                 "evidence_count": link_count
             })
@@ -526,21 +562,21 @@ class Memory:
             raw_keyword = self.semantic.meta.keyword_search(query, limit=limit * 2)
             for item in raw_keyword:
                 fid = item['fid']
-                final_id, data = self._resolve_to_truth(fid, mode)
-                if not data or final_id in seen_ids: continue
+                meta = self._resolve_to_truth(fid, mode)
+                if not meta or meta['fid'] in seen_ids: continue
                 
-                ctx = data.get("context", {})
-                status = ctx.get("status", "unknown")
+                final_id = meta['fid']
+                status = meta.get("status", "unknown")
                 if mode == "strict" and status != "active": continue
                     
                 candidates.append({
                     "id": final_id,
                     "score": 0.5, # Lower default score for keyword matches
                     "status": status,
-                    "title": ctx.get("title", "unknown"),
-                    "target": ctx.get("target", "unknown"),
-                    "preview": data.get("content", fid)[:200],
-                    "kind": data.get("kind"),
+                    "title": meta.get("title", "unknown"),
+                    "target": meta.get("target", "unknown"),
+                    "preview": meta.get("content", "")[:200],
+                    "kind": meta.get("kind"),
                     "is_active": (status == "active")
                 })
                 seen_ids.add(final_id)
@@ -549,24 +585,24 @@ class Memory:
         return candidates[:limit]
 
 
-    def _resolve_to_truth(self, doc_id: str, mode: str) -> Tuple[str, Optional[Dict[str, Any]]]:
-        """Recursively follows 'superseded_by' links to find the latest version."""
+    def _resolve_to_truth(self, doc_id: str, mode: str) -> Optional[Dict[str, Any]]:
+        """Recursively follows 'superseded_by' links using Metadata Store."""
         self.semantic._validate_fid(doc_id)
-        from ledgermind.core.stores.semantic_store.loader import MemoryLoader
         current_id = doc_id
         depth = 0
         while depth < 5:
-            file_path = os.path.join(self.semantic.repo_path, current_id)
-            if not os.path.exists(file_path): return current_id, None
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data, _ = MemoryLoader.parse(f.read())
-            status = data.get("context", {}).get("status")
-            successor = data.get("context", {}).get("superseded_by")
+            meta = self.semantic.meta.get_by_fid(current_id)
+            if not meta: return None
+            
+            status = meta.get("status")
+            successor = meta.get("superseded_by")
+            
             if mode == "audit" or status == "active" or not successor:
-                return current_id, data
+                return meta
+                
             current_id = successor
             depth += 1
-        return current_id, None
+        return None
 
     def generate_knowledge_graph(self, target: Optional[str] = None) -> str:
         """Generates a Mermaid graph of knowledge evolution."""

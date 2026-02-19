@@ -93,16 +93,7 @@ class ReflectionEngine:
         return result_ids
 
     def _get_active_decision_targets(self) -> set:
-        targets = set()
-        from ledgermind.core.stores.semantic_store.loader import MemoryLoader
-        for fid in self.semantic.list_decisions():
-            try:
-                with open(os.path.join(self.semantic.repo_path, fid), 'r', encoding='utf-8') as f:
-                    data, _ = MemoryLoader.parse(f.read())
-                    if data.get('kind') == 'decision' and data.get('context', {}).get('status') == 'active':
-                        targets.add(data.get('context', {}).get('target'))
-            except Exception: continue
-        return targets
+        return self.semantic.meta.list_active_targets()
 
     def _generate_success_proposal(self, target: str, stats: Dict[str, Any]) -> str:
         """Generates a proposal for a recurring successful pattern."""
@@ -272,12 +263,13 @@ class ReflectionEngine:
     def _get_all_draft_proposals(self) -> Dict[str, Dict[str, Any]]:
         drafts = {}
         from ledgermind.core.stores.semantic_store.loader import MemoryLoader
-        for fid in self.semantic.list_decisions():
+        draft_metas = self.semantic.meta.list_draft_proposals()
+        for m in draft_metas:
+            fid = m['fid']
             try:
                 with open(os.path.join(self.semantic.repo_path, fid), 'r', encoding='utf-8') as f:
                     data, _ = MemoryLoader.parse(f.read())
-                    if data.get('kind') == KIND_PROPOSAL and data.get('context', {}).get('status') in [ProposalStatus.DRAFT]:
-                        drafts[fid] = data
+                    drafts[fid] = data
             except Exception: continue
         return drafts
 

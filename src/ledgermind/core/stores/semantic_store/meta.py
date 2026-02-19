@@ -26,24 +26,29 @@ class SemanticMetaStore:
                     timestamp DATETIME NOT NULL,
                     superseded_by TEXT,
                     content_hash TEXT,
+                    content TEXT DEFAULT '',
                     hit_count INTEGER DEFAULT 0,
+                    last_hit_at DATETIME,
+                    confidence REAL DEFAULT 1.0,
                     namespace TEXT DEFAULT 'default'
                 )
             """)
             
-            # Migration: Add title and namespace and hit_count columns if they don't exist
-            try:
-                conn.execute("ALTER TABLE semantic_meta ADD COLUMN title TEXT DEFAULT ''")
-            except sqlite3.OperationalError: pass
-            try:
-                conn.execute("ALTER TABLE semantic_meta ADD COLUMN namespace TEXT DEFAULT 'default'")
-            except sqlite3.OperationalError: pass
-            try:
-                conn.execute("ALTER TABLE semantic_meta ADD COLUMN hit_count INTEGER DEFAULT 0")
-            except sqlite3.OperationalError: pass
+            # Migration: Add missing columns
+            cols = {
+                "title": "TEXT DEFAULT ''",
+                "namespace": "TEXT DEFAULT 'default'",
+                "hit_count": "INTEGER DEFAULT 0",
+                "content": "TEXT DEFAULT ''",
+                "last_hit_at": "DATETIME",
+                "confidence": "REAL DEFAULT 1.0"
+            }
+            for col, definition in cols.items():
+                try:
+                    conn.execute(f"ALTER TABLE semantic_meta ADD COLUMN {col} {definition}")
+                except sqlite3.OperationalError: pass
 
             # I4 Violation Prevention: Only one 'active' decision per target per namespace
-            # We don't drop the index if it fails, just try to create the new one
             try:
                 conn.execute("""
                     CREATE UNIQUE INDEX IF NOT EXISTS idx_active_target_ns 
@@ -57,19 +62,29 @@ class SemanticMetaStore:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_namespace ON semantic_meta(namespace)")
             conn.commit()
 
-    def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, title: str = "", superseded_by: Optional[str] = None, namespace: str = "default"):
-        """Atomic upsert of decision metadata."""
+    def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, 
+               title: str = "", superseded_by: Optional[str] = None, namespace: str = "default",
+               content: str = "", confidence: float = 1.0):
+        """Atomic upsert of decision metadata with content caching."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("""
-                INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, confidence)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(fid) DO UPDATE SET
                     title=excluded.title,
                     status=excluded.status,
                     superseded_by=excluded.superseded_by,
-                    namespace=excluded.namespace
-            """, (fid, target, title, status, kind, timestamp.isoformat(), superseded_by, namespace))
+                    namespace=excluded.namespace,
+                    content=excluded.content,
+                    confidence=excluded.confidence
+            """, (fid, target, title, status, kind, timestamp.isoformat(), superseded_by, namespace, content, confidence))
 
+    def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
+        """Retrieves full metadata for a specific file ID."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            row = conn.execute("SELECT * FROM semantic_meta WHERE fid = ?", (fid,)).fetchone()
+            return dict(row) if row else None
 
     def get_active_fid(self, target: str, namespace: str = "default") -> Optional[str]:
         with sqlite3.connect(self.db_path) as conn:
@@ -114,9 +129,31 @@ class SemanticMetaStore:
             cursor = conn.execute("SELECT * FROM semantic_meta")
             return [dict(row) for row in cursor.fetchall()]
 
+    def list_draft_proposals(self) -> List[Dict[str, Any]]:
+        """Efficiently retrieves all draft proposals from the database."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                "SELECT * FROM semantic_meta WHERE kind = 'proposal' AND status = 'draft'"
+            )
+            return [dict(row) for row in cursor.fetchall()]
+
+    def list_active_targets(self) -> set:
+        """Efficiently retrieves all targets of active decisions."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT DISTINCT target FROM semantic_meta WHERE kind = 'decision' AND status = 'active'"
+            )
+            return {row[0] for row in cursor.fetchall()}
+
     def increment_hit(self, fid: str):
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("UPDATE semantic_meta SET hit_count = hit_count + 1 WHERE fid = ?", (fid,))
+            conn.execute("""
+                UPDATE semantic_meta 
+                SET hit_count = hit_count + 1, 
+                    last_hit_at = ? 
+                WHERE fid = ?
+            """, (datetime.now().isoformat(), fid))
 
     def delete(self, fid: str):
         with sqlite3.connect(self.db_path) as conn:

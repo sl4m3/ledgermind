@@ -33,35 +33,44 @@ class IntegrationBridge:
     def get_context_for_prompt(self, prompt: str, limit: int = 3) -> str:
         """
         Retrieves and formats relevant context for a given user prompt.
-        
-        Args:
-            prompt: The user's input prompt.
-            limit: Maximum number of relevant memories to include.
-            
-        Returns:
-            A formatted string containing relevant knowledge, or an empty string if nothing found.
+        Returns a structured JSON string with a prefix for agent consumption.
         """
+        import json
         try:
             results = self._memory.search_decisions(prompt, limit=limit, mode="balanced")
-            blocks = []
+            memories = []
             
             for item in results:
                 fid = item.get('id')
                 score = item.get('score', 0)
                 
                 if score >= self.relevance_threshold:
-                    content = self._get_formatted_decision(fid)
-                    if content:
-                        blocks.append(content)
+                    # Get additional meta from DB
+                    meta = self._memory.semantic.meta.get_by_fid(fid)
+                    
+                    # Use formatted content to include rationale and other details
+                    full_content = self._get_formatted_decision(fid)
+                    
+                    memories.append({
+                        "id": fid,
+                        "title": item.get('title'),
+                        "target": item.get('target'),
+                        "kind": item.get('kind'),
+                        "score": round(score, 3),
+                        "recency": meta.get('timestamp') if meta else None,
+                        "content": full_content or item.get('preview', "")
+                    })
             
-            if not blocks:
+            if not memories:
                 return ""
-                
-            return (
-                "\n[LEDGERMIND KNOWLEDGE BASE ACTIVE]\n" +
-                "\n---\n".join(blocks) +
-                "\n[END KNOWLEDGE BASE]\n"
-            )
+            
+            json_data = json.dumps({
+                "source": "ledgermind",
+                "memories": memories
+            }, indent=2, ensure_ascii=False)
+            
+            return f"[LEDGERMIND KNOWLEDGE BASE ACTIVE]\n{json_data}"
+            
         except Exception as e:
             logger.error(f"Error fetching context: {e}")
             return ""

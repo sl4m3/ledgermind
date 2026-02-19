@@ -5,23 +5,62 @@ class DecayReport:
     """
     Summary of the results from a memory decay process.
     """
-    def __init__(self, archived: int, pruned: int, retained: int):
+    def __init__(self, archived: int, pruned: int, retained: int, semantic_forgotten: int = 0):
         self.archived = archived
         self.pruned = pruned
         self.retained_by_link = retained
+        self.semantic_forgotten = semantic_forgotten
 
     def __repr__(self):
-        return f"<DecayReport archived={self.archived}, pruned={self.pruned}, retained={self.retained_by_link}>"
+        return f"<DecayReport archived={self.archived}, pruned={self.pruned}, semantic_forgotten={self.semantic_forgotten}>"
 
 class DecayEngine:
     """
-    Engine for managing the lifecycle of episodic memories.
+    Engine for managing the lifecycle of memories (Episodic and Semantic).
     """
-    def __init__(self, ttl_days: int = 30):
-        """
-        Initialize with a specific Time-To-Live for episodic memories.
-        """
+    def __init__(self, ttl_days: int = 30, semantic_decay_rate: float = 0.05, forget_threshold: float = 0.1):
         self.ttl_days = ttl_days
+        self.semantic_decay_rate = semantic_decay_rate
+        self.forget_threshold = forget_threshold
+
+    def evaluate_semantic(self, decisions: List[Dict[str, Any]]) -> List[Tuple[str, float, bool]]:
+        """
+        Analyzes semantic decisions and calculates confidence decay.
+        Returns: List of (fid, new_confidence, should_forget)
+        """
+        now = datetime.now()
+        results = []
+        
+        for dec in decisions:
+            # We only decay active decisions
+            if dec.get('status') != 'active': continue
+            
+            last_hit = dec.get('last_hit_at')
+            if not last_hit:
+                # If never hit, use creation timestamp
+                last_hit = dec.get('timestamp')
+            
+            try:
+                if isinstance(last_hit, str):
+                    last_hit_dt = datetime.fromisoformat(last_hit)
+                else:
+                    last_hit_dt = last_hit
+            except (ValueError, TypeError):
+                last_hit_dt = now - timedelta(days=self.ttl_days)
+
+            days_inactive = (now - last_hit_dt).days
+            
+            # Decay logic: -0.05 confidence per month (30 days) of inactivity
+            # but only if inactive for more than 7 days
+            if days_inactive > 7:
+                decay_steps = days_inactive // 7
+                current_conf = dec.get('confidence', 1.0)
+                new_conf = max(0.0, current_conf - (self.semantic_decay_rate * decay_steps))
+                
+                should_forget = new_conf < self.forget_threshold
+                results.append((dec['fid'], round(new_conf, 2), should_forget))
+                
+        return results
 
     def evaluate(self, events: List[Dict[str, Any]]) -> Tuple[List[int], List[int], int]:
         """

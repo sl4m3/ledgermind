@@ -38,7 +38,23 @@ class SemanticStore:
             os.makedirs(self.repo_path, exist_ok=True)
             
         self.meta = meta_store or SemanticMetaStore(os.path.join(repo_path, "semantic_meta.db"))
-        self.audit = audit_store or GitAuditProvider(repo_path)
+        
+        # Check for Git availability
+        import subprocess
+        git_available = False
+        try:
+            subprocess.run(["git", "--version"], capture_output=True, check=True)
+            git_available = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+
+        if audit_store:
+            self.audit = audit_store
+        elif git_available:
+            self.audit = GitAuditProvider(repo_path)
+        else:
+            from ledgermind.core.stores.audit_no import NoAuditProvider
+            self.audit = NoAuditProvider(repo_path)
         
         self.audit.initialize()
         
@@ -111,7 +127,8 @@ class SemanticStore:
                     try:
                         full_path = os.path.join(self.repo_path, f)
                         with open(full_path, 'r', encoding='utf-8') as stream:
-                            data, _ = MemoryLoader.parse(stream.read())
+                            raw_content = stream.read()
+                            data, body = MemoryLoader.parse(raw_content)
                             if data:
                                 ctx = data.get("context", {})
                                 ts = data.get("timestamp")
@@ -124,7 +141,9 @@ class SemanticStore:
                                     kind=data.get("kind", "unknown"),
                                     timestamp=ts or datetime.now(),
                                     superseded_by=ctx.get("superseded_by"),
-                                    namespace=ctx.get("namespace", "default")
+                                    namespace=ctx.get("namespace", "default"),
+                                    content=data.get("content", "")[:1000], # Cache first 1000 chars
+                                    confidence=ctx.get("confidence", 1.0)
                                 )
                     except Exception as e:
                         logger.error(f"Failed to index {f}: {e}")
@@ -186,14 +205,32 @@ class SemanticStore:
             
             try:
                 ctx = event.context
+                def get_ctx_val(obj, key, default):
+                    if isinstance(obj, dict): return obj.get(key, default)
+                    return getattr(obj, key, default)
+
+                # Prepare cached content including rationale for searchability
+                cached_content = event.content
+                ctx_obj = event.context
+                rationale_val = ""
+                if isinstance(ctx_obj, dict):
+                    rationale_val = ctx_obj.get('rationale', '')
+                elif hasattr(ctx_obj, 'rationale'):
+                    rationale_val = getattr(ctx_obj, 'rationale', '')
+                
+                if rationale_val:
+                    cached_content = f"{event.content}\n{rationale_val}"
+
                 self.meta.upsert(
                     fid=relative_path,
-                    target=ctx.target if hasattr(ctx, 'target') else ctx.get('target'),
-                    title=ctx.title if hasattr(ctx, 'title') else ctx.get('title', ''),
-                    status=ctx.status if hasattr(ctx, 'status') else ctx.get('status', 'active'),
+                    target=get_ctx_val(ctx, 'target', 'unknown'),
+                    title=get_ctx_val(ctx, 'title', ''),
+                    status=get_ctx_val(ctx, 'status', 'active'),
                     kind=event.kind,
                     timestamp=event.timestamp,
-                    namespace=namespace or "default"
+                    namespace=namespace or "default",
+                    content=cached_content[:1000],
+                    confidence=get_ctx_val(ctx, 'confidence', 1.0)
                 )
             except Exception as e:
 
@@ -245,6 +282,13 @@ class SemanticStore:
             from datetime import datetime
             ts = new_data.get("timestamp")
             if isinstance(ts, str): ts = datetime.fromisoformat(ts)
+            
+            # Combine content with rationale for better searchability in metadata cache
+            cached_content_upd = new_data.get("content", "")
+            rationale_upd = ctx.get("rationale", "")
+            if rationale_upd:
+                cached_content_upd = f"{cached_content_upd}\n{rationale_upd}"
+
             self.meta.upsert(
                 fid=filename,
                 target=ctx.get("target"),
@@ -253,7 +297,9 @@ class SemanticStore:
                 kind=new_data.get("kind"),
                 timestamp=ts or datetime.now(),
                 superseded_by=ctx.get("superseded_by"),
-                namespace=ctx.get("namespace", "default")
+                namespace=ctx.get("namespace", "default"),
+                content=cached_content_upd[:1000],
+                confidence=ctx.get("confidence", 1.0)
             )
 
 
