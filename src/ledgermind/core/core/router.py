@@ -51,7 +51,7 @@ class MemoryRouter:
                         reason=f"CONFLICT: Provided ResolutionIntent is invalid or does not cover all conflicts: {conflicts}."
                     )
 
-        if event.kind in SEMANTIC_KINDS:
+        if event.kind in SEMANTIC_KINDS or (intent and intent.resolution_type == "supersede"):
             store_type = "semantic"
         else:
             store_type = "episodic"

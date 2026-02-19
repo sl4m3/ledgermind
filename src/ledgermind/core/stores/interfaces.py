@@ -50,6 +50,10 @@ class AuditProvider(ABC):
     def commit_transaction(self, message: str):
         pass
 
+    @abstractmethod
+    def get_history(self, relative_path: str) -> List[Dict[str, Any]]:
+        pass
+
 class MetadataStore(ABC):
     @abstractmethod
     def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, superseded_by: Optional[str] = None):
@@ -73,5 +77,13 @@ class MetadataStore(ABC):
 
     @abstractmethod
     def clear(self):
+        pass
+
+    @abstractmethod
+    def get_config(self, key: str, default: Any = None) -> Any:
+        pass
+
+    @abstractmethod
+    def set_config(self, key: str, value: Any):
         pass
 

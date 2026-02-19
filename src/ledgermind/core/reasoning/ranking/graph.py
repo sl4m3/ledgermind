@@ -5,9 +5,10 @@ from ledgermind.core.stores.interfaces import MetadataStore
 class KnowledgeGraphGenerator:
     """Generates a Mermaid diagram representing the knowledge evolution graph."""
 
-    def __init__(self, repo_path: str, meta_store: MetadataStore):
+    def __init__(self, repo_path: str, meta_store: MetadataStore, episodic_store: Optional[Any] = None):
         self.repo_path = repo_path
         self.meta = meta_store
+        self.episodic = episodic_store
 
     def generate_mermaid(self, target_filter: Optional[str] = None) -> str:
         """
@@ -34,9 +35,16 @@ class KnowledgeGraphGenerator:
             status = m.get('status', 'unknown')
             kind = m.get('kind', 'decision')
             
+            # Evidence count for label
+            evidence_label = ""
+            if self.episodic:
+                count, _ = self.episodic.count_links_for_semantic(fid)
+                if count > 0:
+                    evidence_label = f"<br/>[{count} evidence]"
+
             # Sanitize for Mermaid
             node_id = fid.replace('.', '_').replace('-', '_').replace('/', '_')
-            display_text = f"{target}<br/>({status})"
+            display_text = f"{target}<br/>({status}){evidence_label}"
             
             # Add node with style
             style_class = status if status in ["active", "superseded"] else "proposal" if kind == "proposal" else ""

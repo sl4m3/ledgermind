@@ -126,15 +126,23 @@ class SemanticMetaStore:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("DELETE FROM semantic_meta")
 
-    def get_version(self) -> str:
-        """Retrieves the current schema version."""
+    def get_config(self, key: str, default: Any = None) -> Any:
+        """Retrieves a configuration value from sys_config."""
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("CREATE TABLE IF NOT EXISTS sys_config (key TEXT PRIMARY KEY, value TEXT)")
-            row = conn.execute("SELECT value FROM sys_config WHERE key = 'version'").fetchone()
-            return row[0] if row else "1.0.0"
+            row = conn.execute("SELECT value FROM sys_config WHERE key = ?", (key,)).fetchone()
+            return row[0] if row else default
+
+    def set_config(self, key: str, value: Any):
+        """Stores a configuration value in sys_config."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("CREATE TABLE IF NOT EXISTS sys_config (key TEXT PRIMARY KEY, value TEXT)")
+            conn.execute("INSERT OR REPLACE INTO sys_config (key, value) VALUES (?, ?)", (key, str(value)))
+
+    def get_version(self) -> str:
+        """Retrieves the current schema version."""
+        return self.get_config('version', '1.0.0')
 
     def set_version(self, version: str):
         """Updates the schema version."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("CREATE TABLE IF NOT EXISTS sys_config (key TEXT PRIMARY KEY, value TEXT)")
-            conn.execute("INSERT OR REPLACE INTO sys_config (key, value) VALUES ('version', ?)", (version,))
+        self.set_config('version', version)

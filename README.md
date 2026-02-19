@@ -1,4 +1,4 @@
-# Ledgermind (v2.5.0)
+# Ledgermind (v2.5.1)
 
 > **Standard + Correctness + Autonomy**
 

@@ -77,11 +77,12 @@ class IntegrationBridge:
         """
         try:
             # Record prompt
-            self._memory.process_event(
+            prompt_dec = self._memory.process_event(
                 source="user",
                 kind="prompt",
                 content=prompt
             )
+            prompt_id = prompt_dec.metadata.get("event_id")
             
             # Record response
             is_error = not success or any(kw in response.lower() for kw in ["error", "failed", "exception", "traceback", "fatal"])
@@ -92,7 +93,8 @@ class IntegrationBridge:
                 content=response,
                 context={
                     "layer": "cli_integration",
-                    "success": not is_error
+                    "success": not is_error,
+                    "parent_event_id": prompt_id
                 }
             )
         except Exception as e:
@@ -103,7 +105,7 @@ class IntegrationBridge:
         Manually triggers the reflection process to distill episodic memories into semantic knowledge.
         """
         try:
-            self._memory.reflection_engine.reflect()
+            self._memory.reflection_engine.run_cycle()
         except Exception as e:
             logger.error(f"Reflection error: {e}")
 

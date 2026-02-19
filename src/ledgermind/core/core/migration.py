@@ -23,6 +23,9 @@ class MigrationEngine:
         try:
             logger.info("Checking memory format compatibility...")
             self.migrate_to_v1_22()
+            # After all file-level migrations, rebuild the metadata index
+            # to ensure hit_count, namespace and other SQLite-only fields are fresh
+            self.semantic.sync_meta_index()
         finally:
             if hasattr(self.semantic, "_fs_lock"):
                 self.semantic._fs_lock.release()

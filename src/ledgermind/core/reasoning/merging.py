@@ -12,7 +12,7 @@ class MergeEngine:
     def __init__(self, memory: Memory):
         self.memory = memory
 
-    def scan_for_duplicates(self, threshold: float = 0.95) -> List[str]:
+    def scan_for_duplicates(self, threshold: float = 0.85) -> List[str]:
         """
         Scans active decisions and creates proposals for merging duplicates.
         Returns list of created proposal IDs.
