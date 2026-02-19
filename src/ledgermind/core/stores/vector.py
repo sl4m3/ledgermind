@@ -58,6 +58,28 @@ class VectorStore:
             np.save(self.index_path, self._vectors)
             np.save(self.meta_path, np.array(self._doc_ids, dtype=object))
 
+    def remove_id(self, fid: str):
+        """Removes a vector from the store by its document ID."""
+        if self._vectors is None or not self._doc_ids:
+            return
+        
+        try:
+            idx = self._doc_ids.index(fid)
+            self._vectors = np.delete(self._vectors, idx, axis=0)
+            self._doc_ids.pop(idx)
+            
+            if len(self._doc_ids) == 0:
+                self._vectors = None
+                if os.path.exists(self.index_path): os.remove(self.index_path)
+                if os.path.exists(self.meta_path): os.remove(self.meta_path)
+            else:
+                self.save()
+            logger.info(f"Removed vector for {fid} from store")
+        except ValueError:
+            logger.debug(f"ID {fid} not found in vector store")
+        except Exception as e:
+            logger.error(f"Failed to remove vector for {fid}: {e}")
+
     def add_documents(self, documents: List[Dict[str, Any]]):
         if not documents or not EMBEDDING_AVAILABLE: return
         

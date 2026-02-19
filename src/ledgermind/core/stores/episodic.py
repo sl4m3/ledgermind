@@ -1,6 +1,6 @@
 import sqlite3
 import json
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from ledgermind.core.core.schemas import MemoryEvent
 
 class EpisodicStore:
@@ -19,11 +19,17 @@ class EpisodicStore:
                     context TEXT,
                     timestamp TEXT,
                     status TEXT DEFAULT 'active',
-                    linked_id TEXT DEFAULT NULL
+                    linked_id TEXT DEFAULT NULL,
+                    link_strength REAL DEFAULT 1.0
                 )
             """)
+            # Migration: Add link_strength if it doesn't exist
+            try:
+                conn.execute("ALTER TABLE events ADD COLUMN link_strength REAL DEFAULT 1.0")
+            except sqlite3.OperationalError:
+                pass
 
-    def append(self, event: MemoryEvent, linked_id: Optional[str] = None) -> int:
+    def append(self, event: MemoryEvent, linked_id: Optional[str] = None, link_strength: float = 1.0) -> int:
         with sqlite3.connect(self.db_path) as conn:
             # Handle context serialization for Pydantic models
             context_data = event.context
@@ -33,32 +39,33 @@ class EpisodicStore:
                 context_dict = context_data
                 
             cursor = conn.execute(
-                "INSERT INTO events (source, kind, content, context, timestamp, linked_id) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO events (source, kind, content, context, timestamp, linked_id, link_strength) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
                     event.source,
                     event.kind,
                     event.content,
                     json.dumps(context_dict),
                     event.timestamp.isoformat(),
-                    linked_id
+                    linked_id,
+                    link_strength
                 )
             )
             return cursor.lastrowid
 
-    def link_to_semantic(self, event_id: int, semantic_id: str):
+    def link_to_semantic(self, event_id: int, semantic_id: str, strength: float = 1.0):
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("UPDATE events SET linked_id = ? WHERE id = ?", (semantic_id, event_id))
+            conn.execute("UPDATE events SET linked_id = ?, link_strength = ? WHERE id = ?", (semantic_id, strength, event_id))
 
     def query(self, limit: int = 100, status: Optional[str] = 'active') -> List[Dict[str, Any]]:
         with sqlite3.connect(self.db_path) as conn:
             if status:
                 cursor = conn.execute(
-                    "SELECT id, source, kind, content, context, timestamp, status, linked_id FROM events WHERE status = ? ORDER BY id DESC LIMIT ?",
+                    "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events WHERE status = ? ORDER BY id DESC LIMIT ?",
                     (status, limit)
                 )
             else:
                 cursor = conn.execute(
-                    "SELECT id, source, kind, content, context, timestamp, status, linked_id FROM events ORDER BY id DESC LIMIT ?",
+                    "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events ORDER BY id DESC LIMIT ?",
                     (limit,)
                 )
             return [
@@ -70,9 +77,19 @@ class EpisodicStore:
                     "context": json.loads(row[4]),
                     "timestamp": row[5],
                     "status": row[6],
-                    "linked_id": row[7]
+                    "linked_id": row[7],
+                    "link_strength": row[8]
                 } for row in cursor.fetchall()
             ]
+
+    def count_links_for_semantic(self, semantic_id: str) -> Tuple[int, float]:
+        """Returns (count, total_strength) for a given semantic decision."""
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*), SUM(link_strength) FROM events WHERE linked_id = ?",
+                (semantic_id,)
+            ).fetchone()
+            return (row[0] or 0, row[1] or 0.0)
 
     def mark_archived(self, event_ids: List[int]):
         if not event_ids: return

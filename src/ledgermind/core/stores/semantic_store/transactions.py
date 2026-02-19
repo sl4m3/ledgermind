@@ -12,7 +12,7 @@ class FileSystemLock:
     """
     Cross-platform file locking mechanism (using fcntl on Unix/Android).
     """
-    def __init__(self, lock_path: str, timeout: int = 30):
+    def __init__(self, lock_path: str, timeout: int = 60):
         self.lock_path = lock_path
         self.timeout = timeout
         self._fd = None
