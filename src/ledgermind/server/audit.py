@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime
+from typing import List
 from ledgermind.server.contracts import BaseResponse
 
 class AuditLogger:
@@ -34,3 +35,14 @@ class AuditLogger:
             msg += f" | Error: {error}"
             
         self.logger.info(msg)
+
+    def get_logs(self, limit: int = 50) -> List[str]:
+        """Reads the last N lines from the audit log."""
+        if not os.path.exists(self.log_path):
+            return []
+        try:
+            with open(self.log_path, 'r') as f:
+                lines = f.readlines()
+                return lines[-limit:]
+        except Exception as e:
+            return [f"Error reading logs: {e}"]
