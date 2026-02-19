@@ -26,8 +26,7 @@ class TestTools(unittest.TestCase):
             shutil.rmtree(self.test_dir)
 
     def test_audit_logs_tool(self):
-        print("
-Testing Audit Logs Tool...")
+        print("Testing Audit Logs Tool...")
         # 1. Trigger some activity
         class MockRequest:
             def __init__(self, query, limit, mode):
@@ -48,8 +47,7 @@ Testing Audit Logs Tool...")
         print("✓ Audit Logs OK.")
 
     def test_decision_history(self):
-        print("
-Testing Decision History (Git integration)...")
+        print("Testing Decision History (Git integration)...")
         dec = self.memory.record_decision("Evolution Decision Title", "evolution", "Initial version rationale long enough")
         fid = dec.metadata['file_id']
         
@@ -63,11 +61,10 @@ Testing Decision History (Git integration)...")
         print("✓ Decision History OK.")
 
     def test_api_specification(self):
-        print("
-Testing API Specification Tool...")
+        print("Testing API Specification Tool...")
         from ledgermind.server.specification import MCPApiSpecification
         spec = MCPApiSpecification.generate_full_spec()
-        self.assertEqual(spec['mcp_api_version'], "1.0.0")
+        self.assertEqual(spec['mcp_api_version'], "2.5.1")
         self.assertIn("record_decision", spec['tools'])
         print("✓ API Specification OK.")
 
