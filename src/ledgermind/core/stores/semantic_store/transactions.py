@@ -109,31 +109,34 @@ class TransactionManager:
         """
         Starts a transaction.
         1. Acquires Exclusive Lock.
-        2. Clears previous backup.
-        3. Starts SQLite transaction.
+        2. Starts SQLite SAVEPOINT.
+        3. Clears previous backup.
         """
         self.lock.acquire(exclusive=True)
         self._staged_files = []
         
+        # Start DB transaction via SAVEPOINT
+        db_conn = getattr(self.meta_db, '_conn', None)
+        if db_conn:
+            db_conn.execute("SAVEPOINT ledgermind_tx")
+
         # Ensure clean state
         if os.path.exists(self.backup_dir):
             shutil.rmtree(self.backup_dir)
         os.makedirs(self.backup_dir)
-
-        # Start DB transaction
-        # meta_db is likely the SemanticMetaStore wrapper, we need the raw connection/cursor or use its methods
-        # Assuming meta_db handles its own transaction via the wrapper or we rely on the context manager
-        # For now, we assume the caller manages the DB transaction scope or we implement a hook.
-        # Ideally, SemanticMetaStore should expose a `transaction()` method.
         
         try:
             yield self
         except Exception as e:
             logger.error(f"Transaction failed: {e}. Rolling back...")
             self._rollback()
+            if db_conn:
+                db_conn.execute("ROLLBACK TO ledgermind_tx")
             raise
         else:
             self._commit()
+            if db_conn:
+                db_conn.execute("RELEASE ledgermind_tx")
         finally:
             if os.path.exists(self.backup_dir):
                 shutil.rmtree(self.backup_dir)
