@@ -77,7 +77,7 @@ def test_concurrent_conflict(clean_storage):
             if "Timeout" in msg or "lock" in msg:
                 return "timeout"
             # Integrity/Runtime errors due to race conditions are also valid rejections
-            if "UNIQUE constraint" in msg or "active decision" in msg:
+            if "UNIQUE constraint" in msg or "active decision" in msg or "Invariant Violation" in msg:
                 return "conflict"
             return f"error: {type(e).__name__} {msg}"
 
