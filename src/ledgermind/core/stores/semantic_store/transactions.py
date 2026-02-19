@@ -17,9 +17,10 @@ class FileSystemLock:
         self.timeout = timeout
         self._fd = None
 
-    def acquire(self, exclusive: bool = True):
+    def acquire(self, exclusive: bool = True, timeout: Optional[int] = None):
         start_time = time.time()
         flags = os.O_RDWR | os.O_CREAT
+        effective_timeout = timeout if timeout is not None else self.timeout
         
         # Open file once
         if self._fd is None:
@@ -35,18 +36,25 @@ class FileSystemLock:
                     # Write PID for debugging
                     os.ftruncate(self._fd, 0)
                     os.write(self._fd, str(os.getpid()).encode())
-                    return
+                    return True
                 except (BlockingIOError, OSError) as e:
                     # If it's a real error (like ENOSYS), fall back. 
                     # If it's just blocked (EAGAIN/EACCES), retry.
                     import errno
                     if isinstance(e, BlockingIOError) or e.errno in (errno.EAGAIN, errno.EACCES):
-                        if time.time() - start_time > self.timeout:
-                            raise TimeoutError(f"Could not acquire fcntl lock on {self.lock_path} after {self.timeout}s")
+                        if time.time() - start_time >= effective_timeout:
+                            if timeout == 0: return False # Immediate return if timeout is 0
+                            raise TimeoutError(f"Could not acquire fcntl lock on {self.lock_path} after {effective_timeout}s")
                         time.sleep(0.1)
                         continue
                     raise # Fall back to semaphore for other OSErrors
-            except (ImportError, Exception):
+            except (ImportError, Exception) as ie:
+                if isinstance(ie, TimeoutError) or (isinstance(ie, OSError) and ie.errno in (11, 13)):
+                    # These are expected lock failures, handle them
+                    if time.time() - start_time >= effective_timeout:
+                        if timeout == 0: return False
+                        raise TimeoutError(f"Could not acquire lock on {self.lock_path} after {effective_timeout}s")
+                
                 # Fallback for Windows or systems without fcntl
                 # Try to create a secondary lock file as a semaphore
                 semaphore_path = self.lock_path + ".lock"
@@ -55,10 +63,11 @@ class FileSystemLock:
                     fd = os.open(semaphore_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                     with os.fdopen(fd, 'w') as f:
                         f.write(str(os.getpid()))
-                    return
+                    return True
                 except FileExistsError:
-                    if time.time() - start_time > self.timeout:
-                        raise TimeoutError(f"Could not acquire semaphore lock on {self.lock_path} after {self.timeout}s")
+                    if time.time() - start_time >= effective_timeout:
+                        if timeout == 0: return False
+                        raise TimeoutError(f"Could not acquire semaphore lock on {self.lock_path} after {effective_timeout}s")
                     time.sleep(0.1)
 
     def release(self):

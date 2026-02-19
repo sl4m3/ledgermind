@@ -130,6 +130,7 @@ class SemanticStore:
                             raw_content = stream.read()
                             data, body = MemoryLoader.parse(raw_content)
                             if data:
+                                import json
                                 ctx = data.get("context", {})
                                 ts = data.get("timestamp")
                                 if isinstance(ts, str): ts = datetime.fromisoformat(ts)
@@ -143,7 +144,8 @@ class SemanticStore:
                                     superseded_by=ctx.get("superseded_by"),
                                     namespace=ctx.get("namespace", "default"),
                                     content=data.get("content", "")[:1000], # Cache first 1000 chars
-                                    confidence=ctx.get("confidence", 1.0)
+                                    confidence=ctx.get("confidence", 1.0),
+                                    context_json=json.dumps(ctx)
                                 )
                     except Exception as e:
                         logger.error(f"Failed to index {f}: {e}")
@@ -221,6 +223,7 @@ class SemanticStore:
                 if rationale_val:
                     cached_content = f"{event.content}\n{rationale_val}"
 
+                import json
                 self.meta.upsert(
                     fid=relative_path,
                     target=get_ctx_val(ctx, 'target', 'unknown'),
@@ -230,7 +233,8 @@ class SemanticStore:
                     timestamp=event.timestamp,
                     namespace=namespace or "default",
                     content=cached_content[:1000],
-                    confidence=get_ctx_val(ctx, 'confidence', 1.0)
+                    confidence=get_ctx_val(ctx, 'confidence', 1.0),
+                    context_json=json.dumps(ctx if isinstance(ctx, dict) else ctx.model_dump(mode='json'))
                 )
             except Exception as e:
 
@@ -289,6 +293,7 @@ class SemanticStore:
             if rationale_upd:
                 cached_content_upd = f"{cached_content_upd}\n{rationale_upd}"
 
+            import json
             self.meta.upsert(
                 fid=filename,
                 target=ctx.get("target"),
@@ -299,7 +304,8 @@ class SemanticStore:
                 superseded_by=ctx.get("superseded_by"),
                 namespace=ctx.get("namespace", "default"),
                 content=cached_content_upd[:1000],
-                confidence=ctx.get("confidence", 1.0)
+                confidence=ctx.get("confidence", 1.0),
+                context_json=json.dumps(ctx)
             )
 
 
