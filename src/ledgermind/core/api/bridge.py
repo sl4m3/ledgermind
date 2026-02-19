@@ -134,9 +134,15 @@ class IntegrationBridge:
         Returns basic statistics about the memory system.
         """
         try:
+            semantic_count = 0
+            if os.path.exists(self._memory.semantic.repo_path):
+                for root, _, filenames in os.walk(self._memory.semantic.repo_path):
+                    if ".git" in root or ".tx_backup" in root: continue
+                    semantic_count += len([f for f in filenames if f.endswith(".md") or f.endswith(".yaml")])
+
             return {
                 "episodic_count": self._memory.episodic.count_events() if hasattr(self._memory.episodic, 'count_events') else "unknown",
-                "semantic_count": len(os.listdir(self._memory.semantic.repo_path)) if os.path.exists(self._memory.semantic.repo_path) else 0,
+                "semantic_count": semantic_count,
                 "vector_count": len(self._memory.vector._doc_ids) if self._memory.vector else 0,
                 "health": self.check_health()
             }

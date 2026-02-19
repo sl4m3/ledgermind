@@ -1,17 +1,37 @@
-import subprocess
 import sys
 import os
 import pytest
+import io
+from unittest.mock import patch
+from ledgermind.server.cli import main
 
 def run_cli(args):
-    """Helper to run the ledgermind CLI in a subprocess."""
-    # Use sys.executable to ensure we use the same python env
-    # Add src to PYTHONPATH so we can import ledgermind
-    env = os.environ.copy()
-    env["PYTHONPATH"] = os.path.abspath("src")
+    """Helper to run the ledgermind CLI directly in the current process."""
+    # Capture stdout and stderr
+    stdout = io.StringIO()
+    stderr = io.StringIO()
     
-    cmd = [sys.executable, "-m", "ledgermind.server.cli"] + args
-    return subprocess.run(cmd, capture_output=True, text=True, env=env)
+    # We patch sys.argv to simulate the command line arguments
+    # and sys.stdout/stderr to capture output
+    with patch.object(sys, 'argv', ['ledgermind'] + args):
+        with patch.object(sys, 'stdout', stdout):
+            with patch.object(sys, 'stderr', stderr):
+                try:
+                    main()
+                    return_code = 0
+                except SystemExit as e:
+                    return_code = e.code if isinstance(e.code, int) else 0
+                except Exception as e:
+                    stderr.write(str(e))
+                    return_code = 1
+                    
+    class Result:
+        def __init__(self, stdout, stderr, returncode):
+            self.stdout = stdout
+            self.stderr = stderr
+            self.returncode = returncode
+            
+    return Result(stdout.getvalue(), stderr.getvalue(), return_code)
 
 def test_cli_help():
     result = run_cli(["--help"])

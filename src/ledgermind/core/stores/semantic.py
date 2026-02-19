@@ -78,8 +78,15 @@ class SemanticStore:
         self._fs_lock.acquire(exclusive=True)
         import subprocess
         try:
-            files = [f for f in os.listdir(self.repo_path) if f.endswith(".md") or f.endswith(".yaml")]
-            for f in files:
+            disk_files = []
+            for root, _, filenames in os.walk(self.repo_path):
+                if ".git" in root or ".tx_backup" in root: continue
+                for f in filenames:
+                    if f.endswith(".md") or f.endswith(".yaml"):
+                        rel_path = os.path.relpath(os.path.join(root, f), self.repo_path)
+                        disk_files.append(rel_path)
+
+            for f in disk_files:
                 # Check if file is tracked by git
                 if isinstance(self.audit, GitAuditProvider):
                     res = subprocess.run(["git", "ls-files", "--error-unmatch", f], 
@@ -241,9 +248,10 @@ class SemanticStore:
                     context_json=json.dumps(ctx if isinstance(ctx, dict) else ctx.model_dump(mode='json'))
                 )
             except Exception as e:
-
-
-                if os.path.exists(full_path): os.remove(full_path)
+                # If we are in a transaction, TransactionManager will handle rollback.
+                # If not, we do manual cleanup.
+                if not self._in_transaction:
+                    if os.path.exists(full_path): os.remove(full_path)
                 raise RuntimeError(f"Metadata Update Failed: {e}")
 
             if not self._in_transaction:
@@ -255,6 +263,7 @@ class SemanticStore:
                     self.meta.delete(relative_path)
                     raise RuntimeError(f"Integrity Violation: {e}")
             else:
+                # In transaction: validation and audit commit happen at the end of the block
                 if isinstance(self.audit, GitAuditProvider):
                     self.audit.run(["add", "--", relative_path])
             
@@ -297,20 +306,25 @@ class SemanticStore:
             if rationale_upd:
                 cached_content_upd = f"{cached_content_upd}\n{rationale_upd}"
 
-            import json
-            self.meta.upsert(
-                fid=filename,
-                target=ctx.get("target"),
-                title=ctx.get("title", ""),
-                status=ctx.get("status"),
-                kind=new_data.get("kind"),
-                timestamp=ts or datetime.now(),
-                superseded_by=ctx.get("superseded_by"),
-                namespace=ctx.get("namespace", "default"),
-                content=cached_content_upd[:1000],
-                confidence=ctx.get("confidence", 1.0),
-                context_json=json.dumps(ctx)
-            )
+            try:
+                import json
+                self.meta.upsert(
+                    fid=filename,
+                    target=ctx.get("target"),
+                    title=ctx.get("title", ""),
+                    status=ctx.get("status"),
+                    kind=new_data.get("kind"),
+                    timestamp=ts or datetime.now(),
+                    superseded_by=ctx.get("superseded_by"),
+                    namespace=ctx.get("namespace", "default"),
+                    content=cached_content_upd[:1000],
+                    confidence=ctx.get("confidence", 1.0),
+                    context_json=json.dumps(ctx)
+                )
+            except Exception as e:
+                if not self._in_transaction:
+                    with open(file_path, "w", encoding="utf-8") as f: f.write(content)
+                raise RuntimeError(f"Metadata Update Failed: {e}")
 
 
             if not self._in_transaction:

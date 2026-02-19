@@ -32,7 +32,7 @@ class ReflectionEngine:
     Reflection Engine v4.2: Proactive Knowledge Discovery with Git Integration.
     Suggests proposals for recurring errors, successes, and code evolution patterns.
     """
-    BLACKLISTED_TARGETS = {"general", "general_development", "unknown"}
+    BLACKLISTED_TARGETS = {"general", "general_development", "general_task", "unknown", "none", "null"}
 
     def __init__(self, episodic_store: EpisodicStore, semantic_store: SemanticStore, 
                  policy: Optional[ReflectionPolicy] = None,
@@ -41,6 +41,8 @@ class ReflectionEngine:
         self.semantic = semantic_store
         self.policy = policy or ReflectionPolicy()
         self.processor = processor
+        if not self.processor:
+            logger.warning("ReflectionEngine initialized without a high-level processor. Proposals will not be vector-indexed.")
 
     def run_cycle(self) -> List[str]:
         logger.info("Starting proactive reflection cycle (v4.2)...")
@@ -51,6 +53,9 @@ class ReflectionEngine:
         result_ids = []
         
         for prop in procedural_proposals:
+            if prop.target in self.BLACKLISTED_TARGETS or prop.target.startswith("general"):
+                continue
+
             if self.processor:
                 # Use high-level processor to ensure vector indexing and episodic linking
                 decision = self.processor.process_event(
@@ -128,8 +133,8 @@ class ReflectionEngine:
              decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
              return decision.metadata.get("file_id") if decision.should_persist else ""
         
-        event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
-        return self.semantic.save(event)
+        logger.error(f"Cannot generate success proposal for {target}: No processor available for indexing.")
+        return ""
 
     def _generate_evolution_proposal(self, target: str, stats: Dict[str, Any]) -> str:
         """Generates a proposal based on recent code changes."""
@@ -150,8 +155,8 @@ class ReflectionEngine:
              decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
              return decision.metadata.get("file_id") if decision.should_persist else ""
 
-        event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
-        return self.semantic.save(event)
+        logger.error(f"Cannot generate evolution proposal for {target}: No processor available for indexing.")
+        return ""
 
     def _cluster_evidence(self, events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         clusters = {}
@@ -171,6 +176,8 @@ class ReflectionEngine:
                     target = "general_development"
 
             target = target or "general"
+            if target in self.BLACKLISTED_TARGETS or target.startswith("general"):
+                continue
             
             if target not in clusters:
                 clusters[target] = {
@@ -281,8 +288,7 @@ class ReflectionEngine:
                 if decision.should_persist:
                     fids.append(decision.metadata.get("file_id"))
             else:
-                event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=h_ctx.title, context=h_ctx)
-                fids.append(self.semantic.save(event))
+                logger.error(f"Cannot generate competing hypothesis for {target}: No processor available.")
         
         # Cross-link them as alternatives
         for fid in fids:

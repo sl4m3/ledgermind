@@ -173,8 +173,14 @@ class TransactionManager:
 
     def _commit(self):
         """
-        Finalizes the transaction. The DB commit happens in the caller or wrapper.
-        Here we basically just confirm the file operations are 'good'.
-        The actual Git commit happens after this return in the SemanticStore.
+        Finalizes the transaction. Verifies that all staged files are correctly written.
+        The DB commit and Git commit are coordinated by the caller (SemanticStore).
         """
-        pass
+        for rel_path in self._staged_files:
+            full_path = os.path.join(self.repo_path, rel_path)
+            if not os.path.exists(full_path):
+                raise RuntimeError(f"Atomic Commit Failed: File {rel_path} missing before commit.")
+            
+            # Additional check: ensure file is not empty if it's supposed to have data
+            if os.path.getsize(full_path) == 0:
+                logger.warning(f"File {rel_path} is empty during commit verification.")
