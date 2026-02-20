@@ -437,10 +437,13 @@ class Memory:
         
         # 3. Update watermark if we processed new events
         if new_max_id is not None and (after_id is None or new_max_id > after_id):
-            # Protect with FS lock to be safe, though MetaStore is thread-safe
-            with self.semantic._fs_lock:
-                self.semantic.meta.set_config(watermark_key, new_max_id)
-                logger.info(f"Reflection: Updated watermark to {new_max_id}")
+            # Protect with FS lock to be safe
+            if self.semantic._fs_lock.acquire(exclusive=True, timeout=5):
+                try:
+                    self.semantic.meta.set_config(watermark_key, new_max_id)
+                    logger.info(f"Reflection: Updated watermark to {new_max_id}")
+                finally:
+                    self.semantic._fs_lock.release()
                 
         return proposal_ids
 
