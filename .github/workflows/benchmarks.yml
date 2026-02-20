@@ -17,12 +17,12 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install pytest pytest-benchmark
+        pip install pytest pytest-benchmark pytest-xdist
         pip install -e .[all]
 
     - name: Run Benchmarks
       run: |
-        pytest tests/core/performance/bench_ops.py --benchmark-json output.json
+        pytest tests/core/performance/bench_ops.py -n0 --benchmark-json output.json
 
     - name: Upload Benchmark Results
       uses: actions/upload-artifact@v4
