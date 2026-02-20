@@ -101,6 +101,12 @@ class GitIndexer:
                 changed_files = []
                 inferred_target = None
 
+            date_str = commit['date'].strip()
+            # Handle ISO 8601 with colon in timezone (Python < 3.11 compatibility)
+            # e.g. 2026-02-21 01:23:28 +03:00 -> 2026-02-21 01:23:28 +0300
+            if len(date_str) > 6 and date_str[-3] == ':':
+                date_str = date_str[:-3] + date_str[-2:]
+            
             event = MemoryEvent(
                 source="system",
                 kind="commit_change",
@@ -113,7 +119,7 @@ class GitIndexer:
                     "target": inferred_target,
                     "type": "git_history"
                 },
-                timestamp=datetime.fromisoformat(commit['date'].strip())
+                timestamp=datetime.fromisoformat(date_str)
             )
             memory_instance.episodic.append(event)
             indexed_count += 1
