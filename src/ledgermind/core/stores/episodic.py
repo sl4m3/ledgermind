@@ -88,7 +88,7 @@ class EpisodicStore:
                 where_clause = "WHERE " + " AND ".join(query_parts)
             
             direction = 'ASC' if order.upper() == 'ASC' else 'DESC'
-            sql = f"SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events {where_clause} ORDER BY id {direction} LIMIT ?"
+            sql = f"SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events {where_clause} ORDER BY id {direction} LIMIT ?"  # nosec B608
             params.append(limit)
             
             cursor = conn.execute(sql, params)
