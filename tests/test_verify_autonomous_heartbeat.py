@@ -23,6 +23,10 @@ class TestHeartbeat(unittest.TestCase):
 
     def test_persistent_timers(self):
         print("Testing Persistent Timers across restarts...")
+        # 0. Add at least one episodic event so reflection has something to do
+        from ledgermind.core.core.schemas import MemoryEvent
+        self.memory.episodic.append(MemoryEvent(source="system", kind="result", content="Initial event"))
+
         # 1. Set a fake "last run" time in the past (e.g., 20 hours ago)
         twenty_hours_ago = time.time() - (20 * 3600)
         self.memory.semantic.meta.set_config("last_git_gc_time", twenty_hours_ago)
