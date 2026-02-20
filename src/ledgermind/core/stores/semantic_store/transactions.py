@@ -127,16 +127,15 @@ class TransactionManager:
         
         try:
             yield self
+            self._commit()
+            if db_conn:
+                db_conn.execute("RELEASE ledgermind_tx")
         except Exception as e:
             logger.error(f"Transaction failed: {e}. Rolling back...")
             self._rollback()
             if db_conn:
                 db_conn.execute("ROLLBACK TO ledgermind_tx")
             raise
-        else:
-            self._commit()
-            if db_conn:
-                db_conn.execute("RELEASE ledgermind_tx")
         finally:
             if os.path.exists(self.backup_dir):
                 shutil.rmtree(self.backup_dir)

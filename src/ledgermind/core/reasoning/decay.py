@@ -32,21 +32,18 @@ class DecayEngine:
         results = []
         
         for dec in decisions:
-            # ONLY apply decay to active proposals.
-            # Permanent 'decisions', 'assumptions', 'constraints' should NEVER decay based on hit counts.
             status = dec.get('status')
             kind = dec.get('kind')
             
-            if status != 'active':
+            if status not in ('active', 'deprecated'):
                 continue
             
-            if kind != 'proposal':
-                # Explicitly skip anything that isn't a proposal
-                continue
-            
-            # Additional safety: never decay decisions
-            if kind == 'decision':
-                continue
+            # Differentiated decay rate
+            # Proposals decay at full rate (e.g. 0.05 per week)
+            # Decisions/Constraints decay at 1/3 rate (slower)
+            effective_rate = self.semantic_decay_rate
+            if kind in ('decision', 'constraint', 'assumption'):
+                effective_rate = self.semantic_decay_rate / 3.0
             
             last_hit = dec.get('last_hit_at')
             if not last_hit:
@@ -63,13 +60,13 @@ class DecayEngine:
 
             days_inactive = (now - last_hit_dt).days
             
-            # Decay logic: -0.05 confidence per month (30 days) of inactivity
-            # but only if inactive for more than 7 days
+            # Decay logic: inactivity check (min 7 days)
             if days_inactive > 7:
                 decay_steps = days_inactive // 7
                 current_conf = dec.get('confidence', 1.0)
-                new_conf = max(0.0, current_conf - (self.semantic_decay_rate * decay_steps))
+                new_conf = max(0.0, current_conf - (effective_rate * decay_steps))
                 
+                # Deletion threshold (cleanup trash)
                 should_forget = new_conf < self.forget_threshold
                 results.append((dec['fid'], round(new_conf, 2), should_forget))
                 
@@ -81,8 +78,9 @@ class DecayEngine:
         
         Logic: 
         1. If linked_id is NOT NULL -> Keep forever (Immortal Link).
-        2. If older than TTL and 'active' -> Move to archive.
-        3. If older than TTL and 'archived' -> Physical prune.
+        2. If kind is decision or constraint -> Keep forever (Immortal Kind).
+        3. If older than TTL and 'active' -> Move to archive.
+        4. If older than TTL and 'archived' -> Physical prune.
         """
 
         now = datetime.now()
@@ -92,7 +90,7 @@ class DecayEngine:
         
         for ev in events:
             # I2 Integrity: Immortal episodes
-            if ev.get('linked_id'):
+            if ev.get('linked_id') or ev.get('kind') in ('decision', 'constraint'):
                 retained_count += 1
                 continue
             
