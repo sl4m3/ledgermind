@@ -17,8 +17,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install pytest pytest-benchmark pytest-xdist
-        pip install -e .[all]
+        pip install -e .[all,dev]
 
     - name: Run Benchmarks
       run: |
