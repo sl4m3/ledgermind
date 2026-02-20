@@ -23,7 +23,6 @@ class BackgroundWorker:
         self.last_run: Dict[str, datetime] = {}
         self.status = "stopped"
         self.errors: List[str] = []
-        self.is_startup = True # Force reflection on first run
 
     def start(self):
         if self.running: return
@@ -116,34 +115,18 @@ class BackgroundWorker:
             logger.warning(f"Git sync failed: {e}")
 
     def _run_reflection(self):
-        """Runs the reflection cycle to generate proposals."""
+        """Runs the incremental reflection cycle to generate proposals."""
         try:
-            # Run reflection every 4 hours or if it's the first run (startup)
+            # Reflection is now incremental and cheap, run it every 5 minutes
             last = self.last_run.get("reflection")
             now = datetime.now()
             
-            # Check persistent config for the very first run across process restarts
-            if self.is_startup and not last:
-                val = self.memory.semantic.meta.get_config("last_reflection_time")
-                if val: last = datetime.fromtimestamp(float(val))
-
-            if self.is_startup or not last or (now - last).total_seconds() > 14400: # 4 hours
+            if not last or (now - last).total_seconds() > 300: # 5 minutes
                 proposals = self.memory.run_reflection()
                 if proposals:
-                    logger.info(f"Background Reflection: Generated {len(proposals)} proposals.")
+                    logger.info(f"Background Reflection: Generated/Updated {len(proposals)} proposals.")
                 
                 self.last_run["reflection"] = now
-                
-                # Protect metadata update with file lock
-                try:
-                    if self.memory.semantic._fs_lock.acquire(exclusive=True, timeout=5):
-                        try:
-                            self.memory.semantic.meta.set_config("last_reflection_time", now.timestamp())
-                        finally:
-                            self.memory.semantic._fs_lock.release()
-                except Exception: pass # Skip config update if locked
-                
-                self.is_startup = False # Only force once
         except Exception as e:
             if "no such table" in str(e).lower(): raise e
             logger.error(f"Reflection cycle failed: {e}")

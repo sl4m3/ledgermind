@@ -114,7 +114,7 @@ class IntegrationBridge:
         Manually triggers the reflection process to distill episodic memories into semantic knowledge.
         """
         try:
-            self._memory.reflection_engine.run_cycle()
+            self._memory.run_reflection()
         except Exception as e:
             logger.error(f"Reflection error: {e}")
 

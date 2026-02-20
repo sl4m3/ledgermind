@@ -424,9 +424,25 @@ class Memory:
 
     def run_reflection(self) -> List[str]:
         """
-        Execute the reflection process to identify patterns and suggest improvements.
+        Execute the incremental reflection process to identify patterns.
+        Uses a watermark stored in MetaStore to avoid double-processing.
         """
-        return self.reflection_engine.run_cycle()
+        # 1. Retrieve the last processed event ID
+        watermark_key = "last_reflection_event_id"
+        last_id = self.semantic.meta.get_config(watermark_key)
+        after_id = int(last_id) if last_id is not None else None
+        
+        # 2. Run incremental cycle
+        proposal_ids, new_max_id = self.reflection_engine.run_cycle(after_id=after_id)
+        
+        # 3. Update watermark if we processed new events
+        if new_max_id is not None and (after_id is None or new_max_id > after_id):
+            # Protect with FS lock to be safe, though MetaStore is thread-safe
+            with self.semantic._fs_lock:
+                self.semantic.meta.set_config(watermark_key, new_max_id)
+                logger.info(f"Reflection: Updated watermark to {new_max_id}")
+                
+        return proposal_ids
 
     def sync_git(self, repo_path: str = ".", limit: int = 20) -> int:
         """

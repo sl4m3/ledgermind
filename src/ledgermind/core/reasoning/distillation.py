@@ -16,17 +16,18 @@ class DistillationEngine:
     def __init__(self, episodic_store):
         self.episodic = episodic_store
 
-    def distill_trajectories(self, limit: int = 100) -> List[ProposalContent]:
+    def distill_trajectories(self, limit: int = 100, after_id: Optional[int] = None) -> List[ProposalContent]:
         """
         Ищет успешные цепочки событий и превращает их в предложения по процедурам.
         """
-        # query возвращает события в порядке убывания времени (DESC)
-        events = self.episodic.query(limit=limit, status='active')
+        # Если есть after_id, идем по порядку (ASC), если нет - берем последние (DESC)
+        order = 'ASC' if after_id is not None else 'DESC'
+        events = self.episodic.query(limit=limit, status='active', after_id=after_id, order=order)
         if not events:
             return []
 
-        # Переворачиваем, чтобы идти от прошлого к настоящему
-        chronological_events = list(reversed(events))
+        # Если брали DESC, переворачиваем для хронологии. Если ASC - уже ок.
+        chronological_events = list(reversed(events)) if order == 'DESC' else events
         proposals = []
         
         for i, event in enumerate(chronological_events):

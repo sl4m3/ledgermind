@@ -70,18 +70,28 @@ class EpisodicStore:
             with conn:
                 conn.execute("UPDATE events SET linked_id = ?, link_strength = ? WHERE id = ?", (semantic_id, strength, event_id))
 
-    def query(self, limit: int = 100, status: Optional[str] = 'active') -> List[Dict[str, Any]]:
+    def query(self, limit: int = 100, status: Optional[str] = 'active', after_id: Optional[int] = None, order: str = 'DESC') -> List[Dict[str, Any]]:
         with self._get_conn() as conn:
+            query_parts = []
+            params = []
+            
             if status:
-                cursor = conn.execute(
-                    "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events WHERE status = ? ORDER BY id DESC LIMIT ?",
-                    (status, limit)
-                )
-            else:
-                cursor = conn.execute(
-                    "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events ORDER BY id DESC LIMIT ?",
-                    (limit,)
-                )
+                query_parts.append("status = ?")
+                params.append(status)
+            
+            if after_id is not None:
+                query_parts.append("id > ?")
+                params.append(after_id)
+            
+            where_clause = ""
+            if query_parts:
+                where_clause = "WHERE " + " AND ".join(query_parts)
+            
+            direction = 'ASC' if order.upper() == 'ASC' else 'DESC'
+            sql = f"SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events {where_clause} ORDER BY id {direction} LIMIT ?"
+            params.append(limit)
+            
+            cursor = conn.execute(sql, params)
             return [
                 {
                     "id": row[0],

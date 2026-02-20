@@ -7,7 +7,7 @@ class MCPApiSpecification:
     Formal specification generator for Agent Memory MCP API.
     Ensures that the interface is versioned and predictable.
     """
-    API_VERSION = "2.6.1"
+    API_VERSION = "2.6.2"
     
     @classmethod
     def generate_full_spec(cls) -> Dict[str, Any]:
