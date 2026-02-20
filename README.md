@@ -35,20 +35,20 @@ LedgerMind is an **autonomous knowledge lifecycle manager**. It combines a hybri
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        LedgerMind Core                       │
+│                       LedgerMind Core                       │
 │                                                              │
-│  ┌──────────────┐   ┌──────────────┐   ┌─────────────────┐  │
-│  │  Integration │   │    Memory    │   │  MCP / REST     │  │
-│  │    Bridge    │──▶│   (main API) │◀──│    Server       │  │
-│  └──────────────┘   └──────┬───────┘   └─────────────────┘  │
-│                             │                                 │
-│          ┌──────────────────┼──────────────────┐             │
-│          ▼                  ▼                  ▼             │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │   Semantic   │  │   Episodic   │  │  Vector Index    │   │
-│  │   Store      │  │   Store      │  │  (NumPy/FAISS)   │   │
-│  │ (Git + MD)   │  │  (SQLite)    │  │                  │   │
-│  └──────────────┘  └──────────────┘  └──────────────────┘   │
+│  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐ │
+│  │  Integration  │    │    Memory     │    │  MCP / REST   │ │
+│  │    Bridge     │───▶│  (main API)   │◀───│    Server     │ │
+│  └───────────────┘    └───────┬───────┘    └───────────────┘ │
+│                               │                              │
+│           ┌───────────────────┼───────────────────┐          │
+│           ▼                   ▼                   ▼          │
+│  ┌───────────────┐    ┌───────────────┐    ┌───────────────┐ │
+│  │   Semantic    │    │   Episodic    │    │ Vector Index  │ │
+│  │     Store     │    │     Store     │    │ (NumPy/FAISS) │ │
+│  │  (Git + MD)   │    │   (SQLite)    │    │               │ │
+│  └───────────────┘    └───────────────┘    └───────────────┘ │
 │                                                              │
 │  ┌───────────────────── Reasoning Layer ──────────────────┐  │
 │  │  ConflictEngine · ResolutionEngine · ReflectionEngine  │  │
@@ -56,7 +56,7 @@ LedgerMind is an **autonomous knowledge lifecycle manager**. It combines a hybri
 │  └────────────────────────────────────────────────────────┘  │
 │                                                              │
 │  ┌────────────────── Background Worker ──────────────────┐   │
-│  │  Health Check · Git Sync · Reflection · Decay         │   │
+│  │     Health Check · Git Sync · Reflection · Decay       │   │
 │  └────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
