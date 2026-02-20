@@ -1,149 +1,257 @@
-# LedgerMind (v2.6.0)
+# LedgerMind
 
-LedgerMind — это полностью автономная система управления памятью для ИИ-агентов.
-Она превращает пассивное хранилище в активный «мозг», который самостоятельно
-следит за своим здоровьем, нормализует знания и разрешает конфликты без участия
-человека.
+**v2.6.0** · Autonomous Memory Management System for AI Agents
 
-## Основные возможности
+> *LedgerMind is not a memory store — it is a living knowledge core that thinks, heals itself, and evolves without human intervention.*
 
-Система предоставляет полный цикл управления жизненным циклом знаний — от
-наблюдения до автоматической кристаллизации правил.
+[![License: NCSA](https://img.shields.io/badge/License-NCSA-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)](https://python.org)
+[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green)](https://modelcontextprotocol.io)
 
-- **Фоновое самообслуживание (Heartbeat)**: Встроенный воркер каждые 5 минут
-  выполняет очистку, синхронизацию с Git и проверку целостности данных.
-- **Интеллектуальное разрешение конфликтов**: Векторный анализ позволяет системе
-  автоматически обновлять существующие знания (supersede), если новое решение
-  семантически похоже на старое.
-- **Канонический реестр целей (Target Registry)**: Автоматическая нормализация и
-  поддержка алиасов для объектов памяти (например, `db` -> `database_config`).
-- **Автономная рефлексия**: Высокоточные предложения (`proposals`) теперь
-  принимаются автоматически при достижении порога уверенности в 0.9.
-- **Гибридное хранилище**: Сочетание `SQLite` для быстрых запросов и `Git` для
-  версионирования и глубокого аудита.
-- **Model Context Protocol (MCP)**: Полноценный сервер для работы с памятью из
-  любого совместимого клиента (Claude, Gemini CLI и др.).
+---
 
-## Примеры цепочек работы (Workflows)
+## What is LedgerMind?
 
-LedgerMind минимизирует количество рутинных действий при работе с памятью.
+Most AI memory systems are passive stores: you write, you read, and if the information becomes stale or contradictory — that is your problem. LedgerMind takes a fundamentally different approach.
 
-### Цепочка 1: Интеллектуальное обновление (Auto-Supersede)
-Вам больше не нужно вручную искать ID старого решения для его замены.
-1.  **Запись**: Вы отправляете новое правило для `target="api_settings"`.
-2.  **Анализ**: Система видит, что такое правило уже есть, и сравнивает векторы.
-3.  **Авто-замещение**: Если контент похож на 85%+, LedgerMind автоматически
-    создает связь `supersede`, сохраняя историю и не выдавая ошибку конфликта.
+LedgerMind is an **autonomous knowledge lifecycle manager**. It combines a hybrid storage engine (SQLite + Git) with a built-in reasoning layer that continuously monitors knowledge health, detects conflicts, distills raw experience into structured rules, and repairs itself — all in the background, without any intervention from the developer or the agent.
 
-### Цепочка 2: Полная автономия (Self-Evolution)
-Процесс превращения сырого опыта в стандарты без вызова команд.
-1.  **Сбор**: Фоновый воркер автоматически индексирует ваши коммиты из Git.
-2.  **Рефлексия**: Система обнаруживает повторяющиеся ошибки и создает Proposal.
-3.  **Фиксация**: Если уверенность системы высока (>0.9), предложение
-    автоматически становится активным решением в семантической памяти.
+### Core Capabilities
 
-### Цепочка 3: Самоисцеление (Self-Healing)
-Система следит за своей работоспособностью.
-1.  **Блокировки**: Если процесс упал, оставив lock-файл, воркер автоматически
-    снимет его через 10 минут.
-2.  **Индексы**: Автоматическое восстановление векторных индексов и синхронизация
-    метаданных с файлами на диске.
+| Capability | Description |
+|---|---|
+| **Autonomous Heartbeat** | A background worker runs every 5 minutes: Git sync, reflection, decay, self-healing. |
+| **Intelligent Conflict Resolution** | Vector similarity analysis automatically supersedes outdated decisions (threshold: 85%). |
+| **Canonical Target Registry** | Auto-normalizes target names and resolves aliases to prevent memory fragmentation. |
+| **Autonomous Reflection** | Proposals with confidence ≥ 0.9 are automatically promoted to active decisions. |
+| **Hybrid Storage** | SQLite for fast queries + Git for cryptographic audit and version history. |
+| **MCP Server** | 15 tools for any compatible client (Claude, Gemini CLI, custom agents). |
+| **REST Gateway** | FastAPI endpoints + Server-Sent Events + WebSocket for real-time updates. |
+| **Epistemic Safety** | The Reflection Engine distinguishes facts from hypotheses using scientific falsification. |
 
-## Архитектура
+---
 
-Проект имеет модульную структуру, которая разделяет логику рассуждений и методы
-хранения данных. Это позволяет вам гибко настраивать компоненты под ваши задачи.
+## Architecture at a Glance
 
-- `ledgermind.core`:
-  - `api`: высокоуровневые интерфейсы, включая `IntegrationBridge` и
-    `MemoryManager`.
-  - `reasoning`: логика рефлексии, дистилляции знаний и разрешения конфликтов.
-  - `stores`: реализации хранилищ, таких как `Semantic`, `Episodic` и `Vector`.
-- `ledgermind.server`: реализация MCP-сервера, интерфейс командной строки (CLI)
-  и инструменты мониторинга.
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        LedgerMind Core                       │
+│                                                              │
+│  ┌──────────────┐   ┌──────────────┐   ┌─────────────────┐  │
+│  │  Integration │   │    Memory    │   │  MCP / REST     │  │
+│  │    Bridge    │──▶│   (main API) │◀──│    Server       │  │
+│  └──────────────┘   └──────┬───────┘   └─────────────────┘  │
+│                             │                                 │
+│          ┌──────────────────┼──────────────────┐             │
+│          ▼                  ▼                  ▼             │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐   │
+│  │   Semantic   │  │   Episodic   │  │  Vector Index    │   │
+│  │   Store      │  │   Store      │  │  (NumPy/FAISS)   │   │
+│  │ (Git + MD)   │  │  (SQLite)    │  │                  │   │
+│  └──────────────┘  └──────────────┘  └──────────────────┘   │
+│                                                              │
+│  ┌───────────────────── Reasoning Layer ──────────────────┐  │
+│  │  ConflictEngine · ResolutionEngine · ReflectionEngine  │  │
+│  │  DecayEngine · MergeEngine · DistillationEngine        │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│  ┌────────────────── Background Worker ──────────────────┐   │
+│  │  Health Check · Git Sync · Reflection · Decay         │   │
+│  └────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
 
-## Установка
+---
 
-Вы можете установить LedgerMind с помощью пакетного менеджера `pip`. Выберите
-подходящий вариант установки в зависимости от ваших потребностей.
+## Installation
 
-Для базовой установки выполните:
 ```bash
+# Basic install
 pip install ledgermind
-```
 
-Если вам нужен векторный поиск, используйте:
-```bash
+# With vector search (recommended — enables semantic conflict resolution)
 pip install ledgermind[vector]
-```
 
-Для настройки среды разработки выполните:
-```bash
+# Development setup
 pip install -e .[dev]
 ```
 
-## Использование
+**Requirements:** Python 3.10+, Git installed and configured in PATH.
 
-LedgerMind поддерживает два основных режима работы: прямую интеграцию в виде
-библиотеки и запуск в качестве независимого сервиса через MCP.
+---
 
-### Прямая интеграция
+## Quick Start
 
-Этот режим рекомендуется для создания полностью автономных агентов. Вы можете
-использовать `IntegrationBridge` для взаимодействия с системой памяти.
+### Option A: Library (Direct Integration)
 
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
 
-# Инициализируйте мост
 bridge = IntegrationBridge(memory_path="./memory")
 
-# Получите контекст для промпта
-context = bridge.get_context_for_prompt("Как настроить базу данных?")
-print(context)
+# Inject relevant context into your agent's prompt
+context = bridge.get_context_for_prompt("How should we handle database migrations?")
 
-# Запишите новое решение
+# Record the interaction for future reflection
+bridge.record_interaction(
+    prompt="How should we handle database migrations?",
+    response="Use Alembic with a dedicated migrations/ folder...",
+    success=True
+)
+
+# Record a structured decision
 bridge.memory.record_decision(
-    title="Использовать PostgreSQL",
-    target="database",
-    rationale="PostgreSQL обеспечивает надежность и поддержку сложных запросов."
+    title="Use Alembic for all database migrations",
+    target="database_migrations",
+    rationale="Alembic provides version-controlled, reversible migrations compatible with SQLAlchemy."
 )
 ```
 
-### Работа через MCP
-
-Вы можете запустить LedgerMind как сервер для взаимодействия с внешними
-клиентами. Для этого используйте команду запуска:
+### Option B: MCP Server
 
 ```bash
+# Initialize a new memory project
+ledgermind-mcp init --path ./memory
+
+# Start the MCP server
 ledgermind-mcp run --path ./memory
 ```
 
-## Документация
+Then add to your Claude Desktop / Gemini CLI MCP configuration:
 
-Для более глубокого изучения возможностей системы ознакомьтесь с нашими
-руководствами. Они помогут вам быстрее интегрировать LedgerMind в ваш проект.
-
-- [Руководство по интеграции](docs/INTEGRATION_GUIDE.md) — подробные примеры
-  использования.
-- [Быстрый старт](docs/tutorials/QUICKSTART.md) — пошаговый туториал по созданию
-  первого агента.
-- [Сравнение](docs/COMPARISON.md) — информация о том, чем LedgerMind отличается
-  от альтернативных решений.
-
-## Лицензия
-
-Проект распространяется под лицензией **Non-Commercial Source Available License
-(NCSA)**. Перед использованием ознакомьтесь с условиями.
-
-- **Для частных лиц**: свободное использование в личных, образовательных и
-  экспериментальных целях.
-- **Для организаций и коммерции**: любое коммерческое использование строго
-  запрещено без письменного разрешения автора.
-- **НКО и образование**: разрешено использование для академических и
-  некоммерческих целей.
-
-Для получения коммерческой лицензии свяжитесь с автором (Stanislav Zotov).
+```json
+{
+  "mcpServers": {
+    "ledgermind": {
+      "command": "ledgermind-mcp",
+      "args": ["run", "--path", "./memory"]
+    }
+  }
+}
+```
 
 ---
-*LedgerMind — фундамент автономности ИИ.*
+
+## Key Workflows
+
+### Workflow 1: Auto-Supersede — Update Without Knowing the Old ID
+
+```python
+# First decision
+memory.record_decision(
+    title="Use PostgreSQL",
+    target="database",
+    rationale="PostgreSQL provides ACID transactions and JSON support."
+)
+
+# Later — just record the updated decision for the same target.
+# If vector similarity > 85%, LedgerMind automatically supersedes the old one.
+memory.record_decision(
+    title="Use Aurora PostgreSQL",
+    target="database",
+    rationale="Aurora PostgreSQL adds auto-scaling and built-in replication."
+)
+# ✓ Old decision is now status=superseded, linked to the new one.
+```
+
+### Workflow 2: Self-Evolution — From Raw Experience to Rules
+
+```
+1. [Background Worker] Indexes your Git commits into episodic memory every 5 min
+2. [Reflection Engine]  Detects recurring errors in a target area → creates a Proposal
+3. [Auto-Acceptance]    If confidence ≥ 0.9 and no objections → Proposal becomes active Decision
+```
+
+### Workflow 3: Self-Healing — Automatic Recovery
+
+```
+1. Process crashes → leaves .lock file in semantic store
+2. [Background Worker] Detects lock age > 10 minutes
+3. [Self-Healing]       Automatically removes stale lock and runs sync_meta_index()
+```
+
+---
+
+## Project Structure
+
+```
+src/ledgermind/
+├── core/
+│   ├── api/
+│   │   ├── bridge.py         # IntegrationBridge — high-level facade
+│   │   ├── memory.py         # Memory — main orchestrator
+│   │   └── transfer.py       # MemoryTransferManager — export/import
+│   ├── core/
+│   │   ├── exceptions.py     # ConflictError, InvariantViolation
+│   │   ├── migration.py      # Schema migration engine
+│   │   ├── router.py         # MemoryRouter
+│   │   ├── schemas.py        # All Pydantic data models
+│   │   └── targets.py        # TargetRegistry
+│   ├── reasoning/
+│   │   ├── conflict.py       # ConflictEngine
+│   │   ├── decay.py          # DecayEngine
+│   │   ├── distillation.py   # DistillationEngine (MemP principle)
+│   │   ├── git_indexer.py    # GitIndexer
+│   │   ├── merging.py        # MergeEngine
+│   │   ├── reflection.py     # ReflectionEngine v4.2
+│   │   ├── resolution.py     # ResolutionEngine
+│   │   └── ranking/graph.py  # KnowledgeGraphGenerator (Mermaid)
+│   └── stores/
+│       ├── episodic.py       # EpisodicStore (SQLite)
+│       ├── semantic.py       # SemanticStore (Git + Markdown)
+│       ├── vector.py         # VectorStore (NumPy)
+│       └── semantic_store/   # Internal semantic store components
+└── server/
+    ├── background.py         # BackgroundWorker (the Heartbeat)
+    ├── cli.py                # CLI entry point
+    ├── gateway.py            # FastAPI REST + SSE + WebSocket
+    ├── server.py             # MCPServer with 15 tools
+    └── ...
+```
+
+---
+
+## Documentation
+
+| Document | Description |
+|---|---|
+| [API Reference](docs/API_REFERENCE.md) | Complete reference for all public methods |
+| [Integration Guide](docs/INTEGRATION_GUIDE.md) | Library and MCP integration patterns |
+| [MCP Tools Reference](docs/MCP_TOOLS.md) | All 15 MCP tools with parameters and examples |
+| [Data Schemas](docs/DATA_SCHEMAS.md) | All Pydantic models and their fields |
+| [Workflows](docs/WORKFLOWS.md) | Step-by-step guides for common patterns |
+| [Architecture](docs/ARCHITECTURE.md) | Deep dive into internals and design decisions |
+| [Configuration](docs/CONFIGURATION.md) | All configuration parameters and tuning |
+| [Quick Start Tutorial](docs/tutorials/QUICKSTART.md) | Your first autonomous agent in 5 minutes |
+| [Comparison](docs/COMPARISON.md) | LedgerMind vs LangChain Memory, Mem0, Zep |
+
+---
+
+## CLI Reference
+
+```bash
+ledgermind-mcp init --path ./memory                    # Initialize project
+ledgermind-mcp run  --path ./memory                    # Start MCP server
+ledgermind-mcp run  --path ./memory \
+                    --metrics-port 9090 \               # Prometheus metrics
+                    --rest-port 8080                    # REST API gateway
+ledgermind-mcp check --path ./memory                   # Run diagnostics
+ledgermind-mcp stats --path ./memory                   # Show statistics
+ledgermind-mcp export-schema                           # Print JSON API spec
+```
+
+---
+
+## License
+
+LedgerMind is distributed under the **Non-Commercial Source Available License (NCSA)**.
+
+- **Individuals:** Free for personal, educational, and experimental use.
+- **Commercial use:** Strictly prohibited without written permission from the author.
+- **NGOs & Academia:** Permitted for academic and non-profit purposes.
+
+For commercial licensing, contact the author: **Stanislav Zotov**.
+
+---
+
+*LedgerMind — the foundation of AI autonomy.*
