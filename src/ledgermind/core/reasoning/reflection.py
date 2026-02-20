@@ -19,13 +19,15 @@ class ReflectionPolicy:
                  min_confidence: float = 0.3,
                  observation_window_hours: int = 1, # Was 6. Faster feedback loop.
                  decay_rate: float = 0.05,
-                 ready_threshold: float = 0.6): # Was 0.7. Slightly lower bar for readiness.
+                 ready_threshold: float = 0.6,
+                 auto_accept_threshold: float = 0.9): # New: Auto-Acceptance
         self.error_threshold = error_threshold
         self.success_threshold = success_threshold
         self.min_confidence = min_confidence
         self.observation_window = timedelta(hours=observation_window_hours)
         self.decay_rate = decay_rate
         self.ready_threshold = ready_threshold
+        self.auto_accept_threshold = auto_accept_threshold
 
 class ReflectionEngine:
     """
@@ -126,6 +128,24 @@ class ReflectionEngine:
                                 self.processor.update_decision(fid, {"ready_for_review": True}, 
                                                               commit_msg="Reflection: Automatic readiness update.")
                     except (ValueError, KeyError, TypeError): pass
+
+                # 4.3 Auto-Acceptance
+                # Check fresh context after potential update
+                meta = self.semantic.meta.get_by_fid(fid)
+                if meta:
+                     # Re-read context from meta because update_decision might have changed it
+                     import json
+                     curr_ctx = json.loads(meta.get('context_json', '{}'))
+                     if (curr_ctx.get('ready_for_review') and 
+                         curr_ctx.get('confidence', 0.0) >= self.policy.auto_accept_threshold and
+                         not curr_ctx.get('objections')):
+                         
+                         logger.info(f"Reflection: Auto-Accepting high-confidence proposal {fid}")
+                         try:
+                             if hasattr(self.processor, 'accept_proposal'):
+                                 self.processor.accept_proposal(fid)
+                         except Exception as e:
+                             logger.error(f"Auto-acceptance failed for {fid}: {e}")
                 
         return result_ids
 

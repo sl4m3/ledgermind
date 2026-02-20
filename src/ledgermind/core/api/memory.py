@@ -24,6 +24,7 @@ from ledgermind.core.reasoning.decay import DecayEngine, DecayReport
 from ledgermind.core.reasoning.reflection import ReflectionEngine
 from ledgermind.core.reasoning.git_indexer import GitIndexer
 from ledgermind.core.stores.vector import VectorStore
+from ledgermind.core.core.targets import TargetRegistry
 
 class Memory:
     """
@@ -95,6 +96,8 @@ class Memory:
             self.conflict_engine, 
             self.resolution_engine
         )
+        
+        self.targets = TargetRegistry(self.semantic.repo_path)
         
         # Immediate environment check
         self.check_environment()
@@ -435,10 +438,55 @@ class Memory:
     def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> MemoryDecision:
         """
         Helper to record a new decision in semantic memory.
-        Raises:
-            ConflictError: If target already has an active decision.
-            InvariantViolation: If other invariants are violated.
+        Automatically resolves conflicts if content similarity > 0.85 (Knowledge Evolution).
         """
+        if not title.strip(): raise ValueError("Title cannot be empty")
+        if not target.strip(): raise ValueError("Target cannot be empty")
+        if not rationale.strip(): raise ValueError("Rationale cannot be empty")
+
+        # 1. Target Normalization
+        target = self.targets.normalize(target)
+        self.targets.register(target, description=title)
+
+        # 2. Pre-flight Conflict Check & Auto-Resolution
+        active_conflicts = self.semantic.list_active_conflicts(target)
+        if active_conflicts:
+            # Intelligent Conflict Resolution
+            try:
+                from ledgermind.core.stores.vector import EMBEDDING_AVAILABLE
+                if EMBEDDING_AVAILABLE and self.vector._vectors is not None:
+                    import numpy as np
+                    
+                    # Calculate new vector
+                    new_text = f"{title}\n{rationale}"
+                    new_vec = self.vector.model.encode([new_text])[0]
+                    new_norm = np.linalg.norm(new_vec)
+                    
+                    for old_fid in active_conflicts:
+                        old_vec = self.vector.get_vector(old_fid)
+                        if old_vec is not None:
+                            old_norm = np.linalg.norm(old_vec)
+                            sim = np.dot(new_vec, old_vec) / (new_norm * old_norm + 1e-9)
+                            
+                            if sim > 0.85:
+                                logger.info(f"Auto-resolving conflict for {target} (similarity {sim:.2f}) -> Superseding {old_fid}")
+                                return self.supersede_decision(
+                                    title=title,
+                                    target=target,
+                                    rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
+                                    old_decision_ids=[old_fid],
+                                    consequences=consequences
+                                )
+            except Exception as e:
+                logger.warning(f"Auto-resolution failed: {e}")
+            
+            # If we fall through, it's a hard conflict
+            suggestions = self.targets.suggest(target)
+            msg = f"CONFLICT: Target '{target}' already has active decisions: {active_conflicts}. "
+            if suggestions:
+                msg += f"Did you mean: {', '.join(suggestions)}?"
+            raise ConflictError(msg)
+
         ctx = {
             "title": title,
             "target": target,
@@ -588,8 +636,8 @@ class Memory:
             
             # Evidence-based ranking boost
             link_count, link_strength = self.episodic.count_links_for_semantic(final_id)
-            # Boost score: +10% per 5 links, capped at +30%
-            boost = min(0.3, (link_count / 5) * 0.1)
+            # Boost score: +20% per link, capped at 100% (2x) to ensure it really affects ranking
+            boost = min(1.0, link_count * 0.2)
             final_score = item['score'] * (1.0 + boost)
                 
             candidates.append({

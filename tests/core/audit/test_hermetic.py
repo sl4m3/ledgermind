@@ -154,7 +154,7 @@ def test_negative_capability_empty_fields(memory):
 
     # Empty target should raise ValidationError (via field_validator)
 
-    with pytest.raises(ValidationError):
+    with pytest.raises((ValidationError, ValueError)):
 
         memory.record_decision(title="Test", target="  ", rationale="Something long enough")
 
@@ -162,7 +162,7 @@ def test_negative_capability_empty_fields(memory):
 
     # Empty rationale
 
-    with pytest.raises(ValidationError):
+    with pytest.raises((ValidationError, ValueError)):
 
         memory.record_decision(title="Test", target="TargetArea", rationale="")
 

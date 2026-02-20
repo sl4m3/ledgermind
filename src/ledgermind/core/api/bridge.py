@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class IntegrationBridge:
     """
-    High-level bridge for integrating Ledgermind into CLI tools (like gemini-cli).
+    High-level bridge for integrating LedgerMind into CLI tools (like gemini-cli).
     Provides streamlined methods for context injection and interaction recording.
     """
     
@@ -18,7 +18,7 @@ class IntegrationBridge:
         try:
             self._memory = Memory(storage_path=self.memory_path)
         except Exception as e:
-            logger.critical(f"Failed to initialize Ledgermind Core: {e}")
+            logger.critical(f"Failed to initialize LedgerMind Core: {e}")
             raise RuntimeError(f"Memory initialization failed. Check permissions for {memory_path}")
             
         self.relevance_threshold = relevance_threshold

@@ -109,6 +109,17 @@ class VectorStore:
         self._doc_ids.extend(ids)
         self.save()
 
+    def get_vector(self, fid: str) -> Optional[np.ndarray]:
+        """Retrieves the vector for a specific document ID."""
+        if self._vectors is None or fid not in self._doc_ids:
+            return None
+        try:
+            idx = self._doc_ids.index(fid)
+            if fid in self._deleted_ids: return None
+            return self._vectors[idx]
+        except ValueError:
+            return None
+
     def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         if self._vectors is None or len(self._vectors) == 0 or not EMBEDDING_AVAILABLE:
             return []

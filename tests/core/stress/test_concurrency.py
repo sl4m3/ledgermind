@@ -67,7 +67,10 @@ def test_concurrent_conflict(clean_storage):
     def worker(i):
         try:
             worker_mem = Memory(storage_path=clean_storage)
-            worker_mem.record_decision(f"Title {i}", target, f"Rationale {i} ensuring sufficient length for stress test")
+            # Use RADICALLY different content to ensure 0 similarity
+            subjects = ["quantum physics", "medieval history", "culinary arts", "industrial mining"]
+            subj = subjects[i % len(subjects)]
+            worker_mem.record_decision(f"Title {i}", target, f"Rationale regarding {subj} with absolutely no overlap in semantic meaning.")
             return "success"
         except ConflictError:
             return "conflict"
