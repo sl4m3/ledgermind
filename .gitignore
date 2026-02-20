@@ -13,3 +13,6 @@ build/
 .ledgermind/
 .benchmarks/
 .hypothesis/
+.gemini/
+ledgermind/
+GEMINI.md

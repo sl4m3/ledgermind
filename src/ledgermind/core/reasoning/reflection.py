@@ -52,100 +52,102 @@ class ReflectionEngine:
             logger.error("ReflectionEngine cannot run: No processor available.")
             return []
 
-        # 0. Distillation (MemP Ground Truth)
-        distiller = DistillationEngine(self.episodic)
-        procedural_proposals = distiller.distill_trajectories()
         result_ids = []
-        
-        for prop in procedural_proposals:
-            if prop.target in self.BLACKLISTED_TARGETS or prop.target.lower().startswith("general"):
-                continue
-
-            # Use high-level processor to ensure vector indexing and episodic linking
-            decision = self.processor.process_event(
-                source="reflection_engine",
-                kind=KIND_PROPOSAL,
-                content=prop.title,
-                context=prop
-            )
-            if decision.should_persist:
-                result_ids.append(decision.metadata.get("file_id"))
-
-        # 1. Evidence Aggregation
-        recent_events = self.episodic.query(limit=1000, status='active')
-        evidence_clusters = self._cluster_evidence(recent_events)
-        
-        all_drafts = self._get_all_draft_proposals()
-        active_decisions = self._get_active_decision_targets()
-        processed_fids = set()
-        
-        # 2. Update and Falsify existing hypotheses
-        for target, stats in evidence_clusters.items():
-            if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general"):
-                continue
+        # Performance: Group all reflection updates into a single transaction
+        with self.semantic.transaction():
+            # 0. Distillation (MemP Ground Truth)
+            distiller = DistillationEngine(self.episodic)
+            procedural_proposals = distiller.distill_trajectories()
             
-            relevant_proposals = self._find_proposals_by_target(all_drafts, target)
-            
-            for fid, data in relevant_proposals:
-                self._evaluate_hypothesis(fid, data, stats)
-                processed_fids.add(fid)
-                result_ids.append(fid)
-            
-            # 3. Knowledge Discovery
-            # Case A: Repeated Errors (Needs a fix)
-            if stats['errors'] >= self.policy.error_threshold:
-                if not any(p[1]['context'].get('confidence', 0.0) > 0.6 for p in relevant_proposals):
-                    new_fids = self._generate_competing_hypotheses(target, stats)
-                    result_ids.extend(new_fids)
-            
-            # Case B: Repeated Successes (Needs formalization as Best Practice)
-            elif stats['successes'] >= self.policy.success_threshold and target not in active_decisions:
-                if not relevant_proposals:
-                    new_fid = self._generate_success_proposal(target, stats)
-                    if new_fid: result_ids.append(new_fid)
+            for prop in procedural_proposals:
+                if prop.target in self.BLACKLISTED_TARGETS or prop.target.lower().startswith("general"):
+                    continue
 
-            # Case C: Active Development (Code Evolution)
-            elif stats['commits'] >= 2 and target not in active_decisions: # 2 commits to same target = pattern
-                 if not relevant_proposals:
-                    new_fid = self._generate_evolution_proposal(target, stats)
-                    if new_fid: result_ids.append(new_fid)
+                # Use high-level processor to ensure vector indexing and episodic linking
+                decision = self.processor.process_event(
+                    source="reflection_engine",
+                    kind=KIND_PROPOSAL,
+                    content=prop.title,
+                    context=prop
+                )
+                if decision.should_persist:
+                    result_ids.append(decision.metadata.get("file_id"))
 
-        # 4. Global Competition, Decay and Automatic Readiness
-        now = datetime.now()
-        for fid, data in all_drafts.items():
-            if fid not in processed_fids:
-                # 4.1 Apply decay if no new evidence
-                self._apply_decay(fid, data)
+            # 1. Evidence Aggregation
+            recent_events = self.episodic.query(limit=1000, status='active')
+            evidence_clusters = self._cluster_evidence(recent_events)
+            
+            all_drafts = self._get_all_draft_proposals()
+            active_decisions = self._get_active_decision_targets()
+            processed_fids = set()
+            
+            # 2. Update and Falsify existing hypotheses
+            for target, stats in evidence_clusters.items():
+                if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general"):
+                    continue
                 
-                # 4.2 Check for Automatic Readiness (Time-based)
-                ctx = data['context']
-                if not ctx.get('ready_for_review'):
-                    try:
-                        first_seen = datetime.fromisoformat(ctx['first_observed_at'])
-                        if (now - first_seen) >= self.policy.observation_window:
-                            if ctx.get('confidence', 0.0) >= self.policy.ready_threshold:
-                                logger.info(f"Reflection: Proposal {fid} is now ready for review (time window passed).")
-                                self.processor.update_decision(fid, {"ready_for_review": True}, 
-                                                              commit_msg="Reflection: Automatic readiness update.")
-                    except (ValueError, KeyError, TypeError): pass
+                relevant_proposals = self._find_proposals_by_target(all_drafts, target)
+                
+                for fid, data in relevant_proposals:
+                    self._evaluate_hypothesis(fid, data, stats)
+                    processed_fids.add(fid)
+                    result_ids.append(fid)
+                
+                # 3. Knowledge Discovery
+                # Case A: Repeated Errors (Needs a fix)
+                if stats['errors'] >= self.policy.error_threshold:
+                    if not any(p[1]['context'].get('confidence', 0.0) > 0.6 for p in relevant_proposals):
+                        new_fids = self._generate_competing_hypotheses(target, stats)
+                        result_ids.extend(new_fids)
+                
+                # Case B: Repeated Successes (Needs formalization as Best Practice)
+                elif stats['successes'] >= self.policy.success_threshold and target not in active_decisions:
+                    if not relevant_proposals:
+                        new_fid = self._generate_success_proposal(target, stats)
+                        if new_fid: result_ids.append(new_fid)
 
-                # 4.3 Auto-Acceptance
-                # Check fresh context after potential update
-                meta = self.semantic.meta.get_by_fid(fid)
-                if meta:
-                     # Re-read context from meta because update_decision might have changed it
-                     import json
-                     curr_ctx = json.loads(meta.get('context_json', '{}'))
-                     if (curr_ctx.get('ready_for_review') and 
-                         curr_ctx.get('confidence', 0.0) >= self.policy.auto_accept_threshold and
-                         not curr_ctx.get('objections')):
-                         
-                         logger.info(f"Reflection: Auto-Accepting high-confidence proposal {fid}")
-                         try:
-                             if hasattr(self.processor, 'accept_proposal'):
-                                 self.processor.accept_proposal(fid)
-                         except Exception as e:
-                             logger.error(f"Auto-acceptance failed for {fid}: {e}")
+                # Case C: Active Development (Code Evolution)
+                elif stats['commits'] >= 2 and target not in active_decisions: # 2 commits to same target = pattern
+                    if not relevant_proposals:
+                        new_fid = self._generate_evolution_proposal(target, stats)
+                        if new_fid: result_ids.append(new_fid)
+
+            # 4. Global Competition, Decay and Automatic Readiness
+            now = datetime.now()
+            for fid, data in all_drafts.items():
+                if fid not in processed_fids:
+                    # 4.1 Apply decay if no new evidence
+                    self._apply_decay(fid, data)
+                    
+                    # 4.2 Check for Automatic Readiness (Time-based)
+                    ctx = data['context']
+                    if not ctx.get('ready_for_review'):
+                        try:
+                            first_seen = datetime.fromisoformat(ctx['first_observed_at'])
+                            if (now - first_seen) >= self.policy.observation_window:
+                                if ctx.get('confidence', 0.0) >= self.policy.ready_threshold:
+                                    logger.info(f"Reflection: Proposal {fid} is now ready for review (time window passed).")
+                                    self.processor.update_decision(fid, {"ready_for_review": True}, 
+                                                                commit_msg="Reflection: Automatic readiness update.")
+                        except (ValueError, KeyError, TypeError): pass
+
+                    # 4.3 Auto-Acceptance
+                    # Check fresh context after potential update
+                    meta = self.semantic.meta.get_by_fid(fid)
+                    if meta:
+                        # Re-read context from meta because update_decision might have changed it
+                        import json
+                        curr_ctx = json.loads(meta.get('context_json', '{}'))
+                        if (curr_ctx.get('ready_for_review') and 
+                            curr_ctx.get('confidence', 0.0) >= self.policy.auto_accept_threshold and
+                            not curr_ctx.get('objections')):
+                            
+                            logger.info(f"Reflection: Auto-Accepting high-confidence proposal {fid}")
+                            try:
+                                if hasattr(self.processor, 'accept_proposal'):
+                                    self.processor.accept_proposal(fid)
+                            except Exception as e:
+                                logger.error(f"Auto-acceptance failed for {fid}: {e}")
                 
         return result_ids
 

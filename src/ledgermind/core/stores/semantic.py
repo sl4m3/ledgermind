@@ -137,26 +137,49 @@ class SemanticStore:
                 for f in disk_files:
                     try:
                         full_path = os.path.join(self.repo_path, f)
+                        mtime = os.path.getmtime(full_path)
+                        
+                        # Check if we already have this file with the same mtime
+                        # Note: We need to store mtime in MetaStore or check against its current record
+                        existing = self.meta.get_by_fid(f)
+                        if existing:
+                            # Heuristic: if timestamp in meta is close to mtime, skip re-parsing
+                            # A more robust way would be a dedicated 'last_synced_mtime' column
+                            existing_ts = existing.get('timestamp')
+                            if isinstance(existing_ts, str):
+                                try:
+                                    from datetime import datetime
+                                    existing_ts = datetime.fromisoformat(existing_ts)
+                                except ValueError: pass
+                            
+                            if existing_ts and abs(existing_ts.timestamp() - mtime) < 1.0:
+                                continue
+
                         with open(full_path, 'r', encoding='utf-8') as stream:
                             raw_content = stream.read()
                             data, body = MemoryLoader.parse(raw_content)
                             if data:
                                 import json
-                                ctx = data.get("context", {})
                                 ts = data.get("timestamp")
-                                if isinstance(ts, str): ts = datetime.fromisoformat(ts)
+                                if isinstance(ts, str):
+                                    from datetime import datetime
+                                    ts = datetime.fromisoformat(ts)
+                                
+                                # Use file mtime if no internal timestamp
+                                final_ts = ts or datetime.fromtimestamp(mtime)
+                                
                                 self.meta.upsert(
                                     fid=f, 
-                                    target=ctx.get("target", "unknown"),
-                                    title=ctx.get("title", ""),
-                                    status=ctx.get("status", "unknown"),
+                                    target=ctx.get("target", "unknown") if (ctx := data.get("context", {})) else "unknown",
+                                    title=ctx.get("title", "") if ctx else "",
+                                    status=ctx.get("status", "unknown") if ctx else "unknown",
                                     kind=data.get("kind", "unknown"),
-                                    timestamp=ts or datetime.now(),
-                                    superseded_by=ctx.get("superseded_by"),
-                                    namespace=ctx.get("namespace", "default"),
-                                    content=data.get("content", "")[:1000], # Cache first 1000 chars
-                                    confidence=ctx.get("confidence", 1.0),
-                                    context_json=json.dumps(ctx)
+                                    timestamp=final_ts,
+                                    superseded_by=ctx.get("superseded_by") if ctx else None,
+                                    namespace=ctx.get("namespace", "default") if ctx else "default",
+                                    content=data.get("content", "")[:1000],
+                                    confidence=ctx.get("confidence", 1.0) if ctx else 1.0,
+                                    context_json=json.dumps(ctx or {})
                                 )
                     except Exception as e:
                         logger.error(f"Failed to index {f}: {e}")
@@ -176,6 +199,10 @@ class SemanticStore:
                 yield
                 # Invariants check before commit
                 IntegrityChecker.validate(self.repo_path)
+                
+                # Commit to Audit Provider (Git) BEFORE releasing SQLite savepoint
+                # This ensures that if Git fails, the transaction block raises and 
+                # SQLite rolls back.
                 self.audit.commit_transaction("Atomic Transaction Commit")
         except Exception as e:
             logger.error(f"Transaction Failed: {e}. Rolling back...")
@@ -194,6 +221,13 @@ class SemanticStore:
 
     def save(self, event: MemoryEvent, namespace: Optional[str] = None) -> str:
         self._enforce_trust(event)
+        
+        # Security: Validate namespace
+        if namespace and namespace != "default":
+            import re
+            if not re.match(r'^[a-zA-Z0-9_\-]+$', namespace):
+                raise ValueError(f"Invalid namespace format: {namespace}. Only alphanumeric, underscores, and hyphens allowed.")
+        
         if not self._in_transaction: self._fs_lock.acquire(exclusive=True)
         
         effective_namespace = namespace if namespace and namespace != "default" else None

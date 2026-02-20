@@ -22,7 +22,12 @@ class GitIndexer:
             cmd = ["git", "log", f"-n {limit}", f"--format={format_str}"]
             
             if since_hash:
-                cmd.append(f"{since_hash}..HEAD")
+                # Security: Validate hash to prevent argument injection
+                import re
+                if not re.match(r'^[a-f0-9]{4,40}$', since_hash):
+                    logger.warning(f"Invalid since_hash detected: {since_hash}. Ignoring.")
+                else:
+                    cmd.append(f"{since_hash}..HEAD")
             
             res = subprocess.run(cmd, cwd=self.repo_path, capture_output=True, text=True, check=True)
             if not res.stdout.strip():
