@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.6.0** · Autonomous Memory Management System for AI Agents
+**v2.6.1** · Autonomous Memory Management System for AI Agents
 
 > *LedgerMind is not a memory store — it is a living knowledge core that thinks, heals itself, and evolves without human intervention.*
 
