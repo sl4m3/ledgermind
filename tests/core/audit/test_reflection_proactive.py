@@ -32,7 +32,7 @@ def test_reflection_proactive_success():
         mock_decision.metadata = {"file_id": "prop_123"}
         mock_processor.process_event.return_value = mock_decision
         
-        results = engine.run_cycle()
+        results, _ = engine.run_cycle()
         
         # Check if a proposal was created for the success pattern
         assert "prop_123" in results
@@ -69,7 +69,7 @@ def test_reflection_lower_error_threshold():
         mock_decision.metadata = {"file_id": "prop_err_1"}
         mock_processor.process_event.return_value = mock_decision
         
-        results = engine.run_cycle()
+        results, _ = engine.run_cycle()
         assert "prop_err_1" in results
         
         # Check that competing hypotheses were processed
@@ -104,7 +104,7 @@ context: {target: existing_target, status: active}
         from ledgermind.core.stores.semantic_store.loader import MemoryLoader
         with patch.object(MemoryLoader, "parse", return_value=({"kind": "decision", "context": {"target": "existing_target", "status": "active"}}, "body")):
             engine = ReflectionEngine(mock_episodic, mock_semantic)
-            results = engine.run_cycle()
+            results, _ = engine.run_cycle()
             
             # Should NOT create a success proposal because target is already active
             assert not any("Best Practice" in r for r in results)

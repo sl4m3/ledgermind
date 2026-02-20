@@ -1,5 +1,6 @@
 import logging
 import os
+import json
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from ledgermind.core.core.schemas import (
@@ -14,13 +15,13 @@ logger = logging.getLogger(__name__)
 
 class ReflectionPolicy:
     def __init__(self, 
-                 error_threshold: int = 1, # Was 2. Any error is worth analyzing now.
-                 success_threshold: int = 2, # Was 5. Architectural patterns emerge faster.
+                 error_threshold: int = 1,
+                 success_threshold: int = 2,
                  min_confidence: float = 0.3,
-                 observation_window_hours: int = 1, # Was 6. Faster feedback loop.
+                 observation_window_hours: int = 1,
                  decay_rate: float = 0.05,
                  ready_threshold: float = 0.6,
-                 auto_accept_threshold: float = 0.9): # New: Auto-Acceptance
+                 auto_accept_threshold: float = 0.9):
         self.error_threshold = error_threshold
         self.success_threshold = success_threshold
         self.min_confidence = min_confidence
@@ -31,8 +32,7 @@ class ReflectionPolicy:
 
 class ReflectionEngine:
     """
-    Reflection Engine v4.2: Proactive Knowledge Discovery with Git Integration.
-    Suggests proposals for recurring errors, successes, and code evolution patterns.
+    Reflection Engine v4.3: Incremental Proactive Knowledge Discovery.
     """
     BLACKLISTED_TARGETS = {"general", "general_development", "general_task", "unknown", "none", "null"}
 
@@ -44,26 +44,30 @@ class ReflectionEngine:
         self.policy = policy or ReflectionPolicy()
         self.processor = processor
         if not self.processor:
-            logger.warning("ReflectionEngine initialized without a high-level processor. Proposals will not be vector-indexed.")
+            logger.warning("ReflectionEngine initialized without a high-level processor.")
 
-    def run_cycle(self) -> List[str]:
-        logger.info("Starting proactive reflection cycle (v4.2)...")
+    def run_cycle(self, after_id: Optional[int] = None) -> Tuple[List[str], Optional[int]]:
+        """
+        Runs an incremental reflection cycle.
+        Returns (list of created/updated proposal IDs, last processed event ID).
+        """
+        logger.info(f"Starting incremental reflection cycle [after_id={after_id}]...")
         if not self.processor:
             logger.error("ReflectionEngine cannot run: No processor available.")
-            return []
+            return [], after_id
 
         result_ids = []
-        # Performance: Group all reflection updates into a single transaction
+        max_id = after_id
+        
         with self.semantic.transaction():
-            # 0. Distillation (MemP Ground Truth)
+            # 0. Distillation (Procedural Patterns)
             distiller = DistillationEngine(self.episodic)
-            procedural_proposals = distiller.distill_trajectories()
+            procedural_proposals = distiller.distill_trajectories(after_id=after_id)
             
             for prop in procedural_proposals:
                 if prop.target in self.BLACKLISTED_TARGETS or prop.target.lower().startswith("general"):
                     continue
 
-                # Use high-level processor to ensure vector indexing and episodic linking
                 decision = self.processor.process_event(
                     source="reflection_engine",
                     kind=KIND_PROPOSAL,
@@ -73,15 +77,19 @@ class ReflectionEngine:
                 if decision.should_persist:
                     result_ids.append(decision.metadata.get("file_id"))
 
-            # 1. Evidence Aggregation
-            recent_events = self.episodic.query(limit=1000, status='active')
+            # 1. Evidence Aggregation (Forward from after_id)
+            recent_events = self.episodic.query(limit=1000, status='active', after_id=after_id, order='ASC')
+            if not recent_events:
+                return result_ids, max_id
+                
+            max_id = max(e['id'] for e in recent_events)
             evidence_clusters = self._cluster_evidence(recent_events)
             
             all_drafts = self._get_all_draft_proposals()
             active_decisions = self._get_active_decision_targets()
             processed_fids = set()
             
-            # 2. Update and Falsify existing hypotheses
+            # 2. Update existing hypotheses or discover new ones
             for target, stats in evidence_clusters.items():
                 if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general"):
                     continue
@@ -94,68 +102,63 @@ class ReflectionEngine:
                     result_ids.append(fid)
                 
                 # 3. Knowledge Discovery
-                # Case A: Repeated Errors (Needs a fix)
                 if stats['errors'] >= self.policy.error_threshold:
                     if not any(p[1]['context'].get('confidence', 0.0) > 0.6 for p in relevant_proposals):
                         new_fids = self._generate_competing_hypotheses(target, stats)
                         result_ids.extend(new_fids)
                 
-                # Case B: Repeated Successes (Needs formalization as Best Practice)
                 elif stats['successes'] >= self.policy.success_threshold and target not in active_decisions:
                     if not relevant_proposals:
                         new_fid = self._generate_success_proposal(target, stats)
                         if new_fid: result_ids.append(new_fid)
 
-                # Case C: Active Development (Code Evolution)
-                elif stats['commits'] >= 2 and target not in active_decisions: # 2 commits to same target = pattern
+                elif stats['commits'] >= 2 and target not in active_decisions:
                     if not relevant_proposals:
                         new_fid = self._generate_evolution_proposal(target, stats)
                         if new_fid: result_ids.append(new_fid)
 
-            # 4. Global Competition, Decay and Automatic Readiness
+            # 4. Decay and Automatic Readiness
             now = datetime.now()
             for fid, data in all_drafts.items():
                 if fid not in processed_fids:
-                    # 4.1 Apply decay if no new evidence
+                    # Apply decay only if time passed (heuristic: check timestamp of draft)
                     self._apply_decay(fid, data)
-                    
-                    # 4.2 Check for Automatic Readiness (Time-based)
-                    ctx = data['context']
-                    if not ctx.get('ready_for_review'):
-                        try:
-                            first_seen = datetime.fromisoformat(ctx['first_observed_at'])
-                            if (now - first_seen) >= self.policy.observation_window:
-                                if ctx.get('confidence', 0.0) >= self.policy.ready_threshold:
-                                    logger.info(f"Reflection: Proposal {fid} is now ready for review (time window passed).")
-                                    self.processor.update_decision(fid, {"ready_for_review": True}, 
-                                                                commit_msg="Reflection: Automatic readiness update.")
-                        except (ValueError, KeyError, TypeError): pass
-
-                    # 4.3 Auto-Acceptance
-                    # Check fresh context after potential update
-                    meta = self.semantic.meta.get_by_fid(fid)
-                    if meta:
-                        # Re-read context from meta because update_decision might have changed it
-                        import json
-                        curr_ctx = json.loads(meta.get('context_json', '{}'))
-                        if (curr_ctx.get('ready_for_review') and 
-                            curr_ctx.get('confidence', 0.0) >= self.policy.auto_accept_threshold and
-                            not curr_ctx.get('objections')):
-                            
-                            logger.info(f"Reflection: Auto-Accepting high-confidence proposal {fid}")
-                            try:
-                                if hasattr(self.processor, 'accept_proposal'):
-                                    self.processor.accept_proposal(fid)
-                            except Exception as e:
-                                logger.error(f"Auto-acceptance failed for {fid}: {e}")
                 
-        return result_ids
+                # Check for Automatic Readiness & Acceptance
+                self._check_proposal_lifecycle(fid, data, now)
+                
+        return result_ids, max_id
+
+    def _check_proposal_lifecycle(self, fid: str, data: Dict[str, Any], now: datetime):
+        ctx = data['context']
+        if not ctx.get('ready_for_review'):
+            try:
+                first_seen = datetime.fromisoformat(ctx['first_observed_at'])
+                if (now - first_seen) >= self.policy.observation_window:
+                    if ctx.get('confidence', 0.0) >= self.policy.ready_threshold:
+                        logger.info(f"Reflection: Proposal {fid} is now ready for review.")
+                        self.processor.update_decision(fid, {"ready_for_review": True}, 
+                                                    commit_msg="Reflection: Automatic readiness update.")
+            except (ValueError, KeyError, TypeError): pass
+
+        meta = self.semantic.meta.get_by_fid(fid)
+        if meta:
+            curr_ctx = json.loads(meta.get('context_json', '{}'))
+            if (curr_ctx.get('ready_for_review') and 
+                curr_ctx.get('confidence', 0.0) >= self.policy.auto_accept_threshold and
+                not curr_ctx.get('objections')):
+                
+                logger.info(f"Reflection: Auto-Accepting proposal {fid}")
+                try:
+                    if hasattr(self.processor, 'accept_proposal'):
+                        self.processor.accept_proposal(fid)
+                except Exception as e:
+                    logger.error(f"Auto-acceptance failed: {e}")
 
     def _get_active_decision_targets(self) -> set:
         return self.semantic.meta.list_active_targets()
 
     def _generate_success_proposal(self, target: str, stats: Dict[str, Any]) -> str:
-        """Generates a proposal for a recurring successful pattern."""
         h = ProposalContent(
             title=f"Best Practice for {target}",
             target=target,
@@ -168,13 +171,9 @@ class ReflectionEngine:
         if self.processor:
              decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
              return decision.metadata.get("file_id") if decision.should_persist else ""
-        
-        logger.error(f"Cannot generate success proposal for {target}: No processor available for indexing.")
         return ""
 
     def _generate_evolution_proposal(self, target: str, stats: Dict[str, Any]) -> str:
-        """Generates a proposal based on recent code changes."""
-        # Summarize commit messages
         messages = [e.get('context', {}).get('full_message', '').split('\n')[0] for e in stats['commit_events']]
         summary = "; ".join(messages[:3])
         
@@ -190,26 +189,19 @@ class ReflectionEngine:
         if self.processor:
              decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=h.title, context=h)
              return decision.metadata.get("file_id") if decision.should_persist else ""
-
-        logger.error(f"Cannot generate evolution proposal for {target}: No processor available for indexing.")
         return ""
 
     def _cluster_evidence(self, events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         clusters = {}
         for ev in events:
             ctx = ev.get('context', {})
-            # Try to infer target from commit message if available
             target = ctx.get('target')
             
             if ev['kind'] == 'commit_change':
                 msg = ev.get('content', '')
-                # Simple heuristic: extract module name from "fix(module):" or "feat(module):"
                 import re
                 match = re.search(r'\(([^)]+)\):', msg)
-                if match:
-                    target = match.group(1)
-                else:
-                    target = "general_development"
+                target = match.group(1) if match else "general_development"
 
             target = target or "general"
             if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general"):
@@ -238,13 +230,7 @@ class ReflectionEngine:
         return clusters
 
     def _evaluate_hypothesis(self, fid: str, data: Dict[str, Any], stats: Dict[str, Any]):
-        """
-        Evaluates a hypothesis against new evidence using scientific falsification.
-        Successes in the same target area act as strong objections.
-        """
         ctx = data['context']
-        
-        # 1. Collect Evidence vs Objections
         new_errors = ctx.get('hit_count', 0) + stats['errors']
         new_successes = ctx.get('miss_count', 0) + stats['successes']
         
@@ -252,24 +238,19 @@ class ReflectionEngine:
         if stats['successes'] > 0:
             objections.append(f"Falsification Signal: {stats['successes']} successes observed in target area.")
         
-        # 2. Epistemic Confidence (Bayesian-ish)
-        # We penalize inconsistency (mix of errors and successes)
         total_observations = new_errors + new_successes
         if total_observations == 0: return
         
-        # Formula: Confidence drops sharply if successes are present
         base_rate = new_errors / total_observations
         epistemic_penalty = (new_successes * 2) / (new_errors + 1)
         confidence = max(0.0, base_rate - epistemic_penalty)
         
-        # 3. Scientific Falsification
-        # If confidence hits 0 or successes significantly outweigh errors, kill the hypothesis
         if confidence <= 0.05 and new_successes > new_errors:
             self.processor.update_decision(fid, {
                 "status": ProposalStatus.FALSIFIED,
                 "confidence": 0.0,
                 "objections": objections + ["Hypothesis failed to explain high success rate."]
-            }, commit_msg="Reflection: Hypothesis falsified by contradictory evidence.")
+            }, commit_msg="Reflection: Hypothesis falsified.")
             return
 
         try:
@@ -279,7 +260,6 @@ class ReflectionEngine:
             first_seen = datetime.now()
             last_seen = datetime.now()
         
-        # Readiness requires high confidence AND sufficient observation time AND low objection count
         ready = (confidence >= self.policy.ready_threshold and 
                  (last_seen - first_seen) >= self.policy.observation_window and
                  len(objections) < 2)
@@ -294,54 +274,37 @@ class ReflectionEngine:
         }, commit_msg=f"Reflection: Epistemic update. Confidence: {confidence:.2f}")
 
     def _generate_competing_hypotheses(self, target: str, stats: Dict[str, Any]) -> List[str]:
-        """
-        Generates at least two competing explanations for the observed failures.
-        """
-        # H1: The "Causal" Hypothesis (Assumption of a logical flaw)
         h1 = ProposalContent(
             title=f"Structural flaw in {target}",
             target=target,
-            rationale=f"Consistent failures ({stats['errors']}) suggest a missing logical constraint.",
+            rationale=f"Consistent failures suggest a missing logical constraint.",
             confidence=0.5,
-            strengths=["Explains repeated errors", "Provides actionable fix"],
-            objections=["Doesn't explain transient successes if any"],
+            strengths=["Explains repeated errors"],
             evidence_event_ids=[e['id'] for e in stats['error_events']],
             first_observed_at=datetime.now()
         )
-        
-        # H2: The "Environmental" Hypothesis (Assumption of transient/noise issues)
         h2 = ProposalContent(
             title=f"Environmental noise in {target}",
             target=target,
-            rationale=f"Errors might be due to transient fluctuations, not logical flaws.",
+            rationale=f"Errors might be due to transient fluctuations.",
             confidence=0.4,
-            strengths=["More conservative", "Prevents over-engineering"],
-            objections=["Harder to prove", "Doesn't provide an immediate fix"],
+            strengths=["More conservative"],
             evidence_event_ids=[e['id'] for e in stats['error_events']],
             first_observed_at=datetime.now()
         )
-
         fids = []
         for h_ctx in [h1, h2]:
             decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=h_ctx.title, context=h_ctx)
             if decision.should_persist:
                 fids.append(decision.metadata.get("file_id"))
-        
-        # Cross-link them as alternatives
-        for fid in fids:
-            alts = [f for f in fids if f != fid]
-            self.processor.update_decision(fid, {"alternative_ids": alts}, commit_msg="Reflection: Linking competing hypotheses.")
-            
         return fids
 
     def _get_all_draft_proposals(self) -> Dict[str, Dict[str, Any]]:
         drafts = {}
-        import json
         draft_metas = self.semantic.meta.list_draft_proposals()
         for m in draft_metas:
             fid = m['fid']
             try:
-                # Use context_json from metadata instead of reading file from disk
                 ctx = json.loads(m.get('context_json', '{}'))
                 drafts[fid] = {
                     'kind': m.get('kind'),
@@ -349,9 +312,7 @@ class ReflectionEngine:
                     'timestamp': m.get('timestamp'),
                     'context': ctx
                 }
-            except Exception as e:
-                logger.debug(f"Failed to load draft {fid} from meta: {e}")
-                continue
+            except Exception: continue
         return drafts
 
     def _find_proposals_by_target(self, drafts: Dict[str, Dict[str, Any]], target: str) -> List[Tuple[str, Dict[str, Any]]]:
@@ -362,6 +323,6 @@ class ReflectionEngine:
         new_conf = max(0.0, ctx.get('confidence', 0.0) - self.policy.decay_rate)
         if new_conf < self.policy.min_confidence:
             self.processor.update_decision(fid, {"status": ProposalStatus.REJECTED, "confidence": new_conf}, 
-                                          commit_msg="Reflection: Hypothesis rejected due to lack of new evidence.")
+                                          commit_msg="Reflection: Hypothesis rejected (decay).")
         else:
             self.processor.update_decision(fid, {"confidence": new_conf}, commit_msg="Reflection: Applied decay.")

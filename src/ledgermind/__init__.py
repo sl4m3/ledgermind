@@ -1,4 +1,4 @@
-__version__ = "2.6.1"
+__version__ = "2.6.2"
 
 from ledgermind.core.api.memory import Memory as CoreMemory
 from ledgermind.core.api.bridge import IntegrationBridge

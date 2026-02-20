@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 
 # --- API Versioning ---
-MCP_API_VERSION = "2.6.1"
+MCP_API_VERSION = "2.6.2"
 
 # --- Request Models ---
 
