@@ -95,7 +95,14 @@ class DecayEngine:
                 continue
             
             try:
-                ts = datetime.fromisoformat(ev['timestamp'])
+                if isinstance(ev['timestamp'], str):
+                    ts = datetime.fromisoformat(ev['timestamp'])
+                else:
+                    ts = ev['timestamp']
+                
+                # Ensure consistency (Strip timezone if present to match datetime.now())
+                if ts.tzinfo is not None:
+                    ts = ts.replace(tzinfo=None)
             except (ValueError, TypeError):
                 # If timestamp is invalid, treat it as very old to trigger archive/prune
                 ts = datetime.min

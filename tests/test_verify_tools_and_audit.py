@@ -15,9 +15,15 @@ class TestTools(unittest.TestCase):
             shutil.rmtree(self.test_dir)
         os.makedirs(self.test_dir)
         self.memory = Memory(storage_path=self.test_dir)
+        
+        # Patch BackgroundWorker to avoid SQLite concurrency issues in unit tests
+        self.patcher = unittest.mock.patch("ledgermind.server.background.BackgroundWorker.start")
+        self.patcher.start()
+        
         self.server = MCPServer(self.memory, storage_path=self.test_dir)
 
     def tearDown(self):
+        self.patcher.stop()
         # Shutdown any logging handlers to free files
         for handler in logging.getLogger("agent_memory_audit").handlers[:]:
             handler.close()

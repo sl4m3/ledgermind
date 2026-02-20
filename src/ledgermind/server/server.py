@@ -31,8 +31,6 @@ class MCPRole(str, enum.Enum):
     ADMIN = "admin"
 
 class MCPServer:
-    _maintenance_running = False
-    _maintenance_lock = threading.Lock()
 
     def __init__(self, 
                  memory: Memory, 
@@ -60,88 +58,11 @@ class MCPServer:
         self._last_write_time = 0
         self._write_cooldown = 1.0 
         self._register_tools()
-        self._start_maintenance_thread()
-
-    def _start_maintenance_thread(self):
-        """Starts a background thread for periodic maintenance tasks with protection."""
-        with MCPServer._maintenance_lock:
-            if MCPServer._maintenance_running:
-                logger.debug("Maintenance thread already running in this process. Skipping.")
-                return
-            MCPServer._maintenance_running = True
-
-        def maintenance_loop():
-            # Grace period to allow server to bind ports and stabilize
-            time.sleep(30)
-            logger.info("Maintenance thread: Initializing startup tasks...")
-            
-            # Load last run timestamps from persistent MetaStore
-            def get_last_run(key):
-                val = self.memory.semantic.meta.get_config(key)
-                return float(val) if val else 0.0
-
-            last_maintenance = get_last_run("last_maintenance_time")
-            last_reflection = get_last_run("last_reflection_time")
-            last_git_gc = get_last_run("last_git_gc_time")
-            
-            # Special case: Always trigger reflection on startup to recover from potential crashes
-            # as requested by user, but only if it's not brand new storage
-            is_startup = True
-            
-            while True:
-                now = time.time()
-                
-                # Try to acquire FS lock for the entire maintenance cycle to prevent multi-process conflicts
-                # Use non-blocking acquire
-                try:
-                    lock_acquired = self.memory.semantic._fs_lock.acquire(exclusive=True, timeout=0)
-                    if not lock_acquired:
-                        logger.debug("Maintenance loop: Skipping cycle (storage locked by another process)")
-                        time.sleep(300)
-                        continue
-                except Exception as le:
-                    logger.debug(f"Maintenance loop: Lock acquisition error: {le}")
-                    time.sleep(300)
-                    continue
-
-                try:
-                    # 1. General Maintenance (Decay + Merging) - Every 1 hour
-                    if now - last_maintenance >= 3600:
-                        try:
-                            logger.info("Running memory maintenance (decay + merging)...")
-                            self.memory.run_maintenance()
-                            last_maintenance = now
-                            self.memory.semantic.meta.set_config("last_maintenance_time", now)
-                        except Exception as e:
-                            logger.error(f"Maintenance error: {e}")
-
-                    # 2. Proactive Reflection - Every 4 hours OR every startup
-                    if is_startup or (now - last_reflection >= 14400):
-                        try:
-                            reason = "startup recovery" if is_startup else "periodic cycle"
-                            logger.info(f"Running proactive reflection ({reason})...")
-                            self.memory.run_reflection()
-                            last_reflection = now
-                            self.memory.semantic.meta.set_config("last_reflection_time", now)
-                        except Exception as e:
-                            logger.error(f"Reflection error: {e}")
-                        is_startup = False # Only once per process life
-
-                    # 3. Git GC - Every 24 hours (strictly persistent)
-                    if now - last_git_gc >= 86400:
-                        try:
-                            logger.info("Running periodic Git maintenance (gc)...")
-                            self.memory.semantic.audit.run(["gc", "--prune=now", "--quiet"])
-                            last_git_gc = now
-                            self.memory.semantic.meta.set_config("last_git_gc_time", now)
-                        except Exception as e:
-                            logger.error(f"Git GC error: {e}")
-                finally:
-                    self.memory.semantic._fs_lock.release()
-                
-                time.sleep(300) # Sleep for 5 minutes between checks
-
-        threading.Thread(target=maintenance_loop, name="LedgermindMaintenance", daemon=True).start()
+        
+        # Initialize Background Worker (Active Loop)
+        from ledgermind.server.background import BackgroundWorker
+        self.worker = BackgroundWorker(self.memory)
+        self.worker.start()
 
     def _validate_isolation(self, decision_ids: List[str]):
         """
