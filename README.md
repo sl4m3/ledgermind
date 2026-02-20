@@ -34,32 +34,31 @@ LedgerMind is an **autonomous knowledge lifecycle manager**. It combines a hybri
 ## Architecture at a Glance
 
 ```text
-+-------------------------------------------------------------+
-|                       LedgerMind Core                       |
-|                                                             |
-|  +---------------+    +---------------+    +---------------+ |
-|  │  Integration  │    │    Memory     │    │  MCP / REST   │ |
-|  │    Bridge     │--->│  (main API)   │<---│    Server     │ |
-|  +---------------+    +-------+-------+    +---------------+ |
-|                               |                              |
-|           +-------------------+-------------------+          |
-|           |                   |                   |          |
-|           v                   v                   v          |
-|  +---------------+    +---------------+    +---------------+ |
-|  │   Semantic    │    │   Episodic    │    │ Vector Index  │ |
-|  │     Store     │    │     Store     │    │ (NumPy/FAISS) │ |
-|  │  (Git + MD)   │    │   (SQLite)    │    │               │ |
-|  +---------------+    +---------------+    +---------------+ |
-|                                                             |
-|  +--------------------- Reasoning Layer ------------------+  |
-|  │  ConflictEngine * ResolutionEngine * ReflectionEngine  │  │
-|  │  DecayEngine * MergeEngine * DistillationEngine        │  │
-|  +---------------------------------------------------------+  |
-|                                                             |
-|  +------------------ Background Worker ------------------+   |
-|  │     Health Check * Git Sync * Reflection * Decay       │   │
-|  +--------------------------------------------------------+   |
-+-------------------------------------------------------------+
+┌─────────────────────────────────────────────────────────────┐
+│                       LedgerMind Core                       │
+│                                                             │
+│    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
+│    │ Integration │    │    Memory   │    │  MCP / REST │    │
+│    │    Bridge   │───>│  (main API) │<───│    Server   │    │
+│    └─────────────┘    └──────┬──────┘    └─────────────┘    │
+│                              │                              │
+│          ┌───────────────────┴───────────────────┐          │
+│          ▼                   ▼                   ▼          │
+│    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
+│    │   Semantic  │    │   Episodic  │    │ Vector Index│    │
+│    │    Store    │    │    Store    │    │(NumPy/FAISS)│    │
+│    │  (Git + MD) │    │   (SQLite)  │    │             │    │
+│    └─────────────┘    └─────────────┘    └─────────────┘    │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │  ConflictEngine * ResolutionEngine * ReflectionEngine   │ │
+│ │    DecayEngine * MergeEngine * DistillationEngine       │ │
+│ └───────────────────── Reasoning Layer ───────────────────┘ │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │      Health Check * Git Sync * Reflection * Decay       │ │
+│ └─────────────────── Background Worker ───────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
