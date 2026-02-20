@@ -37,9 +37,10 @@ class TestHeartbeat(unittest.TestCase):
         last_gc = float(last_gc_val) if last_gc_val else 0.0
         self.assertEqual(last_gc, twenty_hours_ago, "Git GC timer should persist and NOT reset on startup")
         
-        # 4. Reflection SHOULD have run because it's a startup recovery task
-        last_ref = self.memory.semantic.meta.get_config("last_reflection_time")
-        self.assertIsNotNone(last_ref, "Reflection should run on startup regardless of timer for recovery")
+        # 4. Reflection SHOULD have run because it's a startup recovery task (Incremental Watermark)
+        # We check for the new key: last_reflection_event_id
+        last_ref_id = self.memory.semantic.meta.get_config("last_reflection_event_id")
+        self.assertIsNotNone(last_ref_id, "Reflection should run on startup to index existing episodic events")
         print("✓ Persistent Timers and Startup Recovery OK.")
 
 if __name__ == "__main__":
