@@ -33,32 +33,43 @@ LedgerMind is an **autonomous knowledge lifecycle manager**. It combines a hybri
 
 ## Architecture at a Glance
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                       LedgerMind Core                       │
-│                                                             │
-│    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
-│    │ Integration │    │    Memory   │    │  MCP / REST │    │
-│    │    Bridge   │───>│  (main API) │<───│    Server   │    │
-│    └─────────────┘    └──────┬──────┘    └─────────────┘    │
-│                              │                              │
-│          ┌───────────────────┴───────────────────┐          │
-│          ▼                   ▼                   ▼          │
-│    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    │
-│    │   Semantic  │    │   Episodic  │    │ Vector Index│    │
-│    │    Store    │    │    Store    │    │(NumPy/FAISS)│    │
-│    │  (Git + MD) │    │   (SQLite)  │    │             │    │
-│    └─────────────┘    └─────────────┘    └─────────────┘    │
-│                                                             │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │  ConflictEngine * ResolutionEngine * ReflectionEngine   │ │
-│ │    DecayEngine * MergeEngine * DistillationEngine       │ │
-│ └───────────────────── Reasoning Layer ───────────────────┘ │
-│                                                             │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │      Health Check * Git Sync * Reflection * Decay       │ │
-│ └─────────────────── Background Worker ───────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph Core ["LedgerMind Core"]
+        Bridge["Integration Bridge"]
+        Memory["Memory (Main API)"]
+        Server["MCP / REST Server"]
+        
+        Bridge --> Memory
+        Server <--> Memory
+        
+        subgraph Stores ["Storage Layer"]
+            Semantic["Semantic Store (Git + MD)"]
+            Episodic["Episodic Store (SQLite)"]
+            Vector["Vector Index (NumPy/FAISS)"]
+        end
+        
+        Memory --> Semantic
+        Memory --> Episodic
+        Memory --> Vector
+        
+        subgraph Reasoning ["Reasoning Layer"]
+            Conflict["Conflict Engine"]
+            Reflection["Reflection Engine"]
+            Decay["Decay Engine"]
+            Merge["Merge Engine"]
+            Distillation["Distillation Engine"]
+        end
+        
+        Memory -.-> Reasoning
+    end
+
+    subgraph Background ["Background Process"]
+        Worker["Background Worker (Heartbeat)"]
+        Worker --- WorkerAction["Health Check | Git Sync | Reflection | Decay"]
+    end
+    
+    Worker -.-> Memory
 ```
 
 ---
