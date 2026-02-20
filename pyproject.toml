@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ledgermind"
-version = "2.5.3"
+version = "2.5.4"
 description = "Monolithic Autonomous Agent Memory Management System"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -69,4 +69,4 @@ include = ["ledgermind*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "strict"
-addopts = "-n auto --dist loadscope --durations=5"
+addopts = "-n 4 --dist loadscope --durations=5"

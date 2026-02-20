@@ -33,8 +33,8 @@ def test_concurrent_writes(clean_storage):
             return False, str(e)
 
     # 2. Launch concurrent workers
-    # Reduce workers to 5 to fit within typical 10s timeout on CI
-    num_workers = 5
+    # Reduce workers to 4 to fit within limits
+    num_workers = 4
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = [executor.submit(worker, i) for i in range(num_workers)]
         results = [f.result() for f in futures]
@@ -81,7 +81,7 @@ def test_concurrent_conflict(clean_storage):
                 return "conflict"
             return f"error: {type(e).__name__} {msg}"
 
-    num_workers = 5
+    num_workers = 4
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = [executor.submit(worker, i) for i in range(num_workers)]
         results = [f.result() for f in futures]

@@ -46,29 +46,28 @@ class ReflectionEngine:
 
     def run_cycle(self) -> List[str]:
         logger.info("Starting proactive reflection cycle (v4.2)...")
-        
+        if not self.processor:
+            logger.error("ReflectionEngine cannot run: No processor available.")
+            return []
+
         # 0. Distillation (MemP Ground Truth)
         distiller = DistillationEngine(self.episodic)
         procedural_proposals = distiller.distill_trajectories()
         result_ids = []
         
         for prop in procedural_proposals:
-            if prop.target in self.BLACKLISTED_TARGETS or prop.target.startswith("general"):
+            if prop.target in self.BLACKLISTED_TARGETS or prop.target.lower().startswith("general"):
                 continue
 
-            if self.processor:
-                # Use high-level processor to ensure vector indexing and episodic linking
-                decision = self.processor.process_event(
-                    source="reflection_engine",
-                    kind=KIND_PROPOSAL,
-                    content=prop.title,
-                    context=prop
-                )
-                if decision.should_persist:
-                    result_ids.append(decision.metadata.get("file_id"))
-            else:
-                event = MemoryEvent(source="reflection_engine", kind=KIND_PROPOSAL, content=prop.title, context=prop)
-                result_ids.append(self.semantic.save(event))
+            # Use high-level processor to ensure vector indexing and episodic linking
+            decision = self.processor.process_event(
+                source="reflection_engine",
+                kind=KIND_PROPOSAL,
+                content=prop.title,
+                context=prop
+            )
+            if decision.should_persist:
+                result_ids.append(decision.metadata.get("file_id"))
 
         # 1. Evidence Aggregation
         recent_events = self.episodic.query(limit=1000, status='active')
@@ -80,7 +79,8 @@ class ReflectionEngine:
         
         # 2. Update and Falsify existing hypotheses
         for target, stats in evidence_clusters.items():
-            if target in self.BLACKLISTED_TARGETS: continue
+            if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general"):
+                continue
             
             relevant_proposals = self._find_proposals_by_target(all_drafts, target)
             
@@ -108,10 +108,24 @@ class ReflectionEngine:
                     new_fid = self._generate_evolution_proposal(target, stats)
                     if new_fid: result_ids.append(new_fid)
 
-        # 4. Global Competition & Decay
+        # 4. Global Competition, Decay and Automatic Readiness
+        now = datetime.now()
         for fid, data in all_drafts.items():
             if fid not in processed_fids:
+                # 4.1 Apply decay if no new evidence
                 self._apply_decay(fid, data)
+                
+                # 4.2 Check for Automatic Readiness (Time-based)
+                ctx = data['context']
+                if not ctx.get('ready_for_review'):
+                    try:
+                        first_seen = datetime.fromisoformat(ctx['first_observed_at'])
+                        if (now - first_seen) >= self.policy.observation_window:
+                            if ctx.get('confidence', 0.0) >= self.policy.ready_threshold:
+                                logger.info(f"Reflection: Proposal {fid} is now ready for review (time window passed).")
+                                self.processor.update_decision(fid, {"ready_for_review": True}, 
+                                                              commit_msg="Reflection: Automatic readiness update.")
+                    except (ValueError, KeyError, TypeError): pass
                 
         return result_ids
 
@@ -176,7 +190,7 @@ class ReflectionEngine:
                     target = "general_development"
 
             target = target or "general"
-            if target in self.BLACKLISTED_TARGETS or target.startswith("general"):
+            if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general"):
                 continue
             
             if target not in clusters:
@@ -229,22 +243,26 @@ class ReflectionEngine:
         # 3. Scientific Falsification
         # If confidence hits 0 or successes significantly outweigh errors, kill the hypothesis
         if confidence <= 0.05 and new_successes > new_errors:
-            self.semantic.update_decision(fid, {
+            self.processor.update_decision(fid, {
                 "status": ProposalStatus.FALSIFIED,
                 "confidence": 0.0,
                 "objections": objections + ["Hypothesis failed to explain high success rate."]
             }, commit_msg="Reflection: Hypothesis falsified by contradictory evidence.")
             return
 
-        first_seen = datetime.fromisoformat(ctx['first_observed_at'])
-        last_seen = datetime.fromisoformat(stats['last_seen'])
+        try:
+            first_seen = datetime.fromisoformat(ctx['first_observed_at'])
+            last_seen = datetime.fromisoformat(stats['last_seen'])
+        except (ValueError, KeyError, TypeError):
+            first_seen = datetime.now()
+            last_seen = datetime.now()
         
         # Readiness requires high confidence AND sufficient observation time AND low objection count
         ready = (confidence >= self.policy.ready_threshold and 
                  (last_seen - first_seen) >= self.policy.observation_window and
                  len(objections) < 2)
 
-        self.semantic.update_decision(fid, {
+        self.processor.update_decision(fid, {
             "confidence": round(confidence, 2),
             "hit_count": new_errors,
             "miss_count": new_successes,
@@ -283,17 +301,14 @@ class ReflectionEngine:
 
         fids = []
         for h_ctx in [h1, h2]:
-            if self.processor:
-                decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=h_ctx.title, context=h_ctx)
-                if decision.should_persist:
-                    fids.append(decision.metadata.get("file_id"))
-            else:
-                logger.error(f"Cannot generate competing hypothesis for {target}: No processor available.")
+            decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=h_ctx.title, context=h_ctx)
+            if decision.should_persist:
+                fids.append(decision.metadata.get("file_id"))
         
         # Cross-link them as alternatives
         for fid in fids:
             alts = [f for f in fids if f != fid]
-            self.semantic.update_decision(fid, {"alternative_ids": alts}, commit_msg="Reflection: Linking competing hypotheses.")
+            self.processor.update_decision(fid, {"alternative_ids": alts}, commit_msg="Reflection: Linking competing hypotheses.")
             
         return fids
 
@@ -324,7 +339,7 @@ class ReflectionEngine:
         ctx = data['context']
         new_conf = max(0.0, ctx.get('confidence', 0.0) - self.policy.decay_rate)
         if new_conf < self.policy.min_confidence:
-            self.semantic.update_decision(fid, {"status": ProposalStatus.REJECTED, "confidence": new_conf}, 
+            self.processor.update_decision(fid, {"status": ProposalStatus.REJECTED, "confidence": new_conf}, 
                                           commit_msg="Reflection: Hypothesis rejected due to lack of new evidence.")
         else:
-            self.semantic.update_decision(fid, {"confidence": new_conf}, commit_msg="Reflection: Applied decay.")
+            self.processor.update_decision(fid, {"confidence": new_conf}, commit_msg="Reflection: Applied decay.")

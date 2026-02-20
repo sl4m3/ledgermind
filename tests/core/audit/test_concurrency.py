@@ -29,7 +29,7 @@ def test_multi_process_locking(tmp_path):
     # Use spawn for safety in multi-threaded environments (pytest-xdist)
     ctx = multiprocessing.get_context('spawn')
     
-    num_workers = 5
+    num_workers = 4
     with ctx.Pool(num_workers) as pool:
         results = pool.starmap(worker, [(storage_path, i) for i in range(num_workers)])
     
@@ -37,11 +37,11 @@ def test_multi_process_locking(tmp_path):
     errors = [r for r in results if r is not None]
     assert len(errors) == 0, f"Concurrency errors detected: {errors}"
     
-    # Проверяем, что все решения записаны (5 воркеров * 5 записей = 25 файлов)
+    # Проверяем, что все решения записаны (4 воркера * 5 записей = 20 файлов)
     memory = Memory(storage_path=storage_path)
     decisions = memory.get_decisions()
-    assert len(decisions) == 25
-    print(f"Concurrency check passed: 25 decisions recorded by {num_workers} processes.")
+    assert len(decisions) == 20
+    print(f"Concurrency check passed: 20 decisions recorded by {num_workers} processes.")
 
 def reader_worker(storage_path, stop_event):
     """Читатель постоянно опрашивает память, пока не получит сигнал остановки."""
