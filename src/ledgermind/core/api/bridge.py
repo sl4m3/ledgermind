@@ -2,6 +2,7 @@ import os
 import re
 import logging
 from typing import List, Optional, Dict, Any
+from ledgermind.core.core.schemas import MemoryDecision
 from ledgermind.core.api.memory import Memory
 from ledgermind.core.stores.semantic_store.loader import MemoryLoader
 
@@ -13,7 +14,7 @@ class IntegrationBridge:
     Provides streamlined methods for context injection and interaction recording.
     """
     
-    def __init__(self, memory_path: str = ".ledgermind", relevance_threshold: float = 0.35):
+    def __init__(self, memory_path: str = ".ledgermind", relevance_threshold: float = 0.35, retention_turns: int = 5):
         self.memory_path = os.path.abspath(memory_path)
         try:
             self._memory = Memory(storage_path=self.memory_path)
@@ -22,6 +23,39 @@ class IntegrationBridge:
             raise RuntimeError(f"Memory initialization failed. Check permissions for {memory_path}")
             
         self.relevance_threshold = relevance_threshold
+        self.retention_turns = retention_turns
+        # Maps decision_id -> turn_number when it was last injected
+        self._active_context_ids: Dict[str, int] = {}
+        self._turn_counter = 0
+
+    def reset_session(self):
+        """Clears the session context cache (forgotten injected IDs)."""
+        self._active_context_ids.clear()
+        self._turn_counter = 0
+
+    def _find_relevant_memories(self, prompt: str, limit: int = 3, exclude_ids: Optional[set[str]] = None) -> List[Dict[str, Any]]:
+        """Helper to find memories with exclusion logic."""
+        try:
+            results = self._memory.search_decisions(prompt, limit=limit, mode="balanced")
+            memories = []
+            exclude = exclude_ids or set()
+            
+            for item in results:
+                fid = item.get('id')
+                if fid in exclude:
+                    continue
+                    
+                score = item.get('score', 0)
+                if score >= self.relevance_threshold:
+                    memories.append({
+                        "id": fid,
+                        "title": item.get('title'),
+                        "content": item.get('preview')
+                    })
+            return memories
+        except Exception as e:
+            logger.error(f"Error searching memories: {e}")
+            return []
 
     def check_health(self) -> Dict[str, Any]:
         """
@@ -36,44 +70,71 @@ class IntegrationBridge:
         Returns a structured JSON string with a prefix for agent consumption.
         """
         import json
-        try:
-            results = self._memory.search_decisions(prompt, limit=limit, mode="balanced")
-            memories = []
-            
-            for item in results:
-                fid = item.get('id')
-                score = item.get('score', 0)
-                
-                if score >= self.relevance_threshold:
-                    # Get additional meta from DB
-                    meta = self._memory.semantic.meta.get_by_fid(fid)
-                    
-                    # Use formatted content to include rationale and other details
-                    full_content = self._get_formatted_decision(fid)
-                    
-                    memories.append({
-                        "id": fid,
-                        "title": item.get('title'),
-                        "target": item.get('target'),
-                        "kind": item.get('kind'),
-                        "score": round(score, 3),
-                        "recency": meta.get('timestamp') if meta else None,
-                        "content": full_content or item.get('preview', "")
-                    })
-            
-            if not memories:
-                return ""
-            
-            json_data = json.dumps({
-                "source": "ledgermind",
-                "memories": memories
-            }, indent=2, ensure_ascii=False)
-            
-            return f"[LEDGERMIND KNOWLEDGE BASE ACTIVE]\n{json_data}"
-            
-        except Exception as e:
-            logger.error(f"Error fetching context: {e}")
+        memories = self._find_relevant_memories(prompt, limit=limit)
+        
+        if not memories:
             return ""
+        
+        json_data = json.dumps({
+            "source": "ledgermind",
+            "memories": memories
+        }, indent=2, ensure_ascii=False)
+        
+        return f"[LEDGERMIND KNOWLEDGE BASE ACTIVE]\n{json_data}"
+
+    # --- Core Interaction Methods ---
+
+    def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> MemoryDecision:
+        """Proxies record_decision to memory core."""
+        return self._memory.record_decision(title, target, rationale, consequences)
+
+    def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None) -> MemoryDecision:
+        """Proxies supersede_decision to memory core."""
+        return self._memory.supersede_decision(title, target, rationale, old_decision_ids, consequences)
+
+    def accept_proposal(self, proposal_id: str) -> MemoryDecision:
+        """Proxies accept_proposal to memory core."""
+        return self._memory.accept_proposal(proposal_id)
+
+    def reject_proposal(self, proposal_id: str, reason: str):
+        """Proxies reject_proposal to memory core."""
+        self._memory.reject_proposal(proposal_id, reason)
+
+    def search_decisions(self, query: str, limit: int = 5, mode: str = "balanced") -> List[Dict[str, Any]]:
+        """Proxies search_decisions to memory core."""
+        return self._memory.search_decisions(query, limit, mode)
+
+    def get_decisions(self) -> List[str]:
+        """Proxies get_decisions to memory core."""
+        return self._memory.get_decisions()
+
+    def get_decision_history(self, decision_id: str) -> List[Dict[str, Any]]:
+        """Proxies get_decision_history to memory core."""
+        return self._memory.get_decision_history(decision_id)
+
+    def get_recent_events(self, limit: int = 10, include_archived: bool = False) -> List[Dict[str, Any]]:
+        """Proxies get_recent_events to memory core."""
+        return self._memory.get_recent_events(limit, include_archived)
+
+    def link_evidence(self, event_id: int, semantic_id: str):
+        """Proxies link_evidence to memory core."""
+        self._memory.link_evidence(event_id, semantic_id)
+
+    def update_decision(self, decision_id: str, updates: Dict[str, Any], commit_msg: str) -> bool:
+        """Proxies update_decision to memory core."""
+        return self._memory.update_decision(decision_id, updates, commit_msg)
+
+    def sync_git(self, repo_path: str = ".", limit: int = 20) -> int:
+        """Proxies sync_git to memory core."""
+        return self._memory.sync_git(repo_path, limit)
+
+    def forget(self, decision_id: str):
+        """Proxies forget to memory core."""
+        self._memory.forget(decision_id)
+
+    def generate_knowledge_graph(self, target: Optional[str] = None) -> str:
+        """Proxies generate_knowledge_graph to memory core."""
+        return self._memory.generate_knowledge_graph(target)
 
     def record_interaction(self, prompt: str, response: str, success: bool = True, metadata: Optional[Dict[str, Any]] = None):
         """
@@ -148,20 +209,41 @@ class IntegrationBridge:
 
     def execute_with_memory(self, command_args: List[str], user_prompt: str, stream: bool = True) -> str:
         """
-        High-level orchestration:
-        1. Injects context from LedgerMind.
-        2. Executes the external CLI command with real-time streaming.
-        3. Records everything to episodic memory.
+        High-level orchestration with SLIDING WINDOW CONTEXT DEDUPLICATION:
+        1. Manages turn counter and prunes old context from cache.
+        2. Injects NEW context (excluding recently injected ones).
+        3. Executes external command.
+        4. Records interaction.
         """
         import subprocess
         import sys
-        from ledgermind.core.core.exceptions import ConflictError
+        import json
         
-        # 1. Get Context
-        context = self.get_context_for_prompt(user_prompt)
+        self._turn_counter += 1
+        
+        # Prune old memories from cache based on retention_turns
+        cutoff = self._turn_counter - self.retention_turns
+        # Keep only memories injected within the retention window
+        active_ids = {k for k, v in self._active_context_ids.items() if v > cutoff}
+        self._active_context_ids = {k: v for k, v in self._active_context_ids.items() if k in active_ids}
+        
+        # 1. Get Context (Only NEW memories not in active_ids)
+        memories = self._find_relevant_memories(user_prompt, exclude_ids=active_ids)
+        
+        context_str = ""
+        if memories:
+            # Add to active cache with current turn number
+            for m in memories:
+                self._active_context_ids[m['id']] = self._turn_counter
+                
+            json_data = json.dumps({
+                "source": "ledgermind",
+                "memories": memories
+            }, indent=2, ensure_ascii=False)
+            context_str = f"[LEDGERMIND KNOWLEDGE BASE ACTIVE]\n{json_data}"
         
         # 2. Prepare Augmented Prompt
-        augmented_prompt = f"{context}\n\n{user_prompt}" if context else user_prompt
+        augmented_prompt = f"{context_str}\n\n{user_prompt}" if context_str else user_prompt
         
         # 3. Execute CLI with Streaming
         cmd = command_args + [augmented_prompt]

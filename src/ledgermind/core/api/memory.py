@@ -373,9 +373,10 @@ class Memory:
         if meta:
             event = MemoryEvent(
                 source="system",
-                kind=meta.get('kind', 'decision'),
+                kind="commit_change",
                 content=f"Updated {meta.get('kind')}: {meta.get('title')}",
                 context={
+                    "original_kind": meta.get('kind', 'decision'),
                     "updates": updates,
                     "target": meta.get('target'),
                     "rationale": commit_msg
