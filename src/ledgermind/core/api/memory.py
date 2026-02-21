@@ -43,7 +43,8 @@ class Memory:
                  namespace: Optional[str] = None,
                  meta_store_provider: Optional[MetadataStore] = None,
                  audit_store_provider: Optional[AuditProvider] = None,
-                 vector_model: Optional[str] = None):
+                 vector_model: Optional[str] = None,
+                 vector_workers: Optional[int] = None):
         """
         Initialize the memory system.
         """
@@ -55,7 +56,8 @@ class Memory:
                 ttl_days=ttl_days or 30,
                 trust_boundary=trust_boundary or TrustBoundary.AGENT_WITH_INTENT,
                 namespace=namespace or "default",
-                vector_model=vector_model or "all-MiniLM-L6-v2"
+                vector_model=vector_model or "all-MiniLM-L6-v2",
+                vector_workers=vector_workers if vector_workers is not None else 0
             )
 
         self.storage_path = os.path.abspath(self.config.storage_path)
@@ -83,7 +85,8 @@ class Memory:
 
         self.vector = VectorStore(
             os.path.join(self.storage_path, "vector_index"),
-            model_name=self.config.vector_model
+            model_name=self.config.vector_model,
+            workers=self.config.vector_workers
         )
         self.vector.load()
 
@@ -763,4 +766,10 @@ class Memory:
         self.semantic.purge_memory(decision_id)
         self.vector.remove_id(decision_id)
         logger.info(f"Memory {decision_id} forgotten across systems.")
+
+    def close(self):
+        """Releases all resources held by the memory system."""
+        if hasattr(self, 'vector'):
+            self.vector.close()
+        logger.info("Memory system closed.")
 

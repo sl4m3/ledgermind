@@ -75,7 +75,7 @@ class IntegrationBridge:
             logger.error(f"Error fetching context: {e}")
             return ""
 
-    def record_interaction(self, prompt: str, response: str, success: bool = True):
+    def record_interaction(self, prompt: str, response: str, success: bool = True, metadata: Optional[Dict[str, Any]] = None):
         """
         Records a completed interaction (prompt and response) into episodic memory.
         
@@ -83,31 +83,143 @@ class IntegrationBridge:
             prompt: The user's input.
             response: The agent's output.
             success: Whether the interaction was successful.
+            metadata: Optional additional context (e.g. model name, latency).
         """
         try:
             # Record prompt
             prompt_dec = self._memory.process_event(
                 source="user",
                 kind="prompt",
-                content=prompt
+                content=prompt,
+                context=metadata or {}
             )
             prompt_id = prompt_dec.metadata.get("event_id")
             
             # Record response
             is_error = not success or any(kw in response.lower() for kw in ["error", "failed", "exception", "traceback", "fatal"])
             
+            ctx = {
+                "layer": "cli_integration",
+                "success": not is_error,
+                "parent_event_id": prompt_id
+            }
+            if metadata:
+                ctx.update(metadata)
+
             self._memory.process_event(
                 source="agent",
                 kind="result",
                 content=response,
-                context={
-                    "layer": "cli_integration",
-                    "success": not is_error,
-                    "parent_event_id": prompt_id
-                }
+                context=ctx
             )
         except Exception as e:
             logger.error(f"Error recording interaction: {e}")
+
+    def arbitrate_with_cli(self, cli_command: List[str], new_proposal: Dict[str, Any], old_decision: Dict[str, Any]) -> str:
+        """
+        Uses the provided CLI to decide if a new proposal should supersede an old decision.
+        Returns: "SUPERSEDE", "CONFLICT", or "UNKNOWN"
+        """
+        import subprocess
+        
+        prompt = (
+            "You are a knowledge evolution arbiter. Determine if the NEW PROPOSAL "
+            "should supersede (replace) the OLD DECISION or if they are distinct (conflict).\n\n"
+            f"OLD DECISION:\nTitle: {old_decision.get('title')}\nRationale: {old_decision.get('rationale')}\n\n"
+            f"NEW PROPOSAL:\nTitle: {new_proposal.get('title')}\nRationale: {new_proposal.get('rationale')}\n\n"
+            "Rule: If the new proposal is an update, refinement, or replacement of the same logic, return 'SUPERSEDE'. "
+            "If they describe different things or have a fundamental contradiction that needs human eyes, return 'CONFLICT'.\n"
+            "Respond ONLY with the word 'SUPERSEDE' or 'CONFLICT'."
+        )
+        
+        try:
+            # We use a short timeout for arbitration
+            result = subprocess.run(
+                cli_command + [prompt], 
+                capture_output=True, text=True, encoding='utf-8', timeout=30
+            )
+            response = result.stdout.strip().upper()
+            if "SUPERSEDE" in response: return "SUPERSEDE"
+            if "CONFLICT" in response: return "CONFLICT"
+            return "UNKNOWN"
+        except Exception as e:
+            logger.error(f"Arbitration failed: {e}")
+            return "ERROR"
+
+    def execute_with_memory(self, command_args: List[str], user_prompt: str) -> str:
+        """
+        High-level orchestration:
+        1. Injects context from LedgerMind.
+        2. Executes the external CLI command.
+        3. Records everything to episodic memory.
+        4. Handles ConflictError by using the CLI for cognitive arbitration.
+        """
+        import subprocess
+        from ledgermind.core.core.exceptions import ConflictError
+        
+        # 1. Get Context
+        context = self.get_context_for_prompt(user_prompt)
+        
+        # 2. Prepare Augmented Prompt (injecting context)
+        augmented_prompt = f"{context}\n\n{user_prompt}" if context else user_prompt
+        
+        # 3. Execute CLI
+        cmd = command_args + [augmented_prompt]
+        start_time = __import__("time").time()
+        try:
+            process = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
+            response = process.stdout + process.stderr
+            success = process.returncode == 0
+        except Exception as e:
+            response = f"Execution Error: {str(e)}"
+            success = False
+            
+        latency = __import__("time").time() - start_time
+        
+        # 4. Record to Memory (with arbitration fallback)
+        try:
+            self.record_interaction(
+                prompt=user_prompt, 
+                response=response, 
+                success=success,
+                metadata={"latency": latency, "command": " ".join(command_args)}
+            )
+        except ConflictError as ce:
+            # We have a conflict! Try arbitration.
+            logger.info(f"Conflict detected during recording. Attempting CLI arbitration...")
+            
+            # Extract target from prompt or error message
+            # For simplicity, let's assume the conflict is with existing active decisions.
+            # In a real implementation, we'd extract the actual conflicting fids.
+            try:
+                # Get the first active decision for the target of this interaction
+                # (This is simplified; a robust version would pass actual IDs from the error)
+                from ledgermind.core.core.schemas import KIND_DECISION
+                target = user_prompt[:20] # Very crude target extraction
+                active_ids = self._memory.semantic.list_active_conflicts(target)
+                
+                if active_ids:
+                    old_fid = active_ids[0]
+                    old_meta = self._memory.semantic.meta.get_by_fid(old_fid) or {}
+                    
+                    verdict = self.arbitrate_with_cli(
+                        command_args, 
+                        {"title": user_prompt[:50], "rationale": response[:100]}, 
+                        {"title": old_meta.get('title', "Old Decision"), "rationale": "Existing Knowledge"}
+                    )
+                    
+                    if verdict == "SUPERSEDE":
+                        logger.info(f"CLI arbitration verdict: SUPERSEDE. Updating memory...")
+                        self._memory.supersede_decision(
+                            title=user_prompt[:50],
+                            target=target,
+                            rationale=f"Auto-evolved via CLI arbitration. Original: {response[:100]}",
+                            old_decision_ids=[old_fid]
+                        )
+            except Exception as arb_e:
+                logger.error(f"Arbitration fallback failed: {arb_e}")
+
+        return response
 
     def trigger_reflection(self):
         """

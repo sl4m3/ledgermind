@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import logging
+import platform
 from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -20,19 +21,30 @@ class VectorStore:
     A simple vector store using NumPy for cosine similarity.
     Reliable and stable in environments like Termux.
     """
-    def __init__(self, storage_path: str, model_name: str = "all-MiniLM-L6-v2", dimension: int = 384):
+    def __init__(self, storage_path: str, model_name: str = "all-MiniLM-L6-v2", dimension: int = 384, workers: int = 0):
         self.storage_path = storage_path
         self.index_path = os.path.join(storage_path, "vectors.npy")
         self.meta_path = os.path.join(storage_path, "vector_meta.npy")
         self.model_name = model_name
         self.dimension = dimension
+        self.workers = self._resolve_workers(workers)
         self._model = None
+        self._pool = None
         self._vectors = None # NumPy array of vectors
         self._doc_ids = []
         self._deleted_ids = set()
 
         if not os.path.exists(storage_path):
             os.makedirs(storage_path, exist_ok=True)
+
+    def _resolve_workers(self, workers: int) -> int:
+        if workers > 0:
+            return workers
+        
+        # Default to 1 (Single-threaded) for safety in constrained environments like Termux
+        # or when running parallel tests (to avoid nested multiprocessing).
+        # Multi-processing should be explicitly requested by passing workers > 1.
+        return 1
 
     @property
     def model(self):
@@ -43,6 +55,34 @@ class VectorStore:
             self._model = SentenceTransformer(self.model_name)
             self._model.show_progress_bar = False
         return self._model
+
+    def _get_pool(self):
+        if not EMBEDDING_AVAILABLE or self.workers <= 1:
+            return None
+        if self._pool is None:
+            try:
+                logger.info(f"Starting multi-process pool with {self.workers} workers...")
+                # target_devices=None uses all GPUs if available, otherwise CPUs
+                # For Termux/Android we explicitly use CPU to avoid issues
+                is_android = os.path.exists("/data/data/com.termux") or platform.system() == "Android"
+                target_devices = ["cpu"] * self.workers if is_android else None
+                
+                self._pool = self.model.start_multi_process_pool(target_devices=target_devices)
+            except Exception as e:
+                logger.warning(f"Failed to start multi-process pool: {e}. Falling back to single-process.")
+                self.workers = 1
+                self._pool = None
+        return self._pool
+
+    def close(self):
+        """Stops the multi-process pool and releases resources."""
+        if self._pool is not None:
+            try:
+                self.model.stop_multi_process_pool(self._pool)
+                logger.info("Multi-process pool stopped.")
+            except Exception as e:
+                logger.debug(f"Error stopping pool: {e}")
+            self._pool = None
 
     def load(self):
         if os.path.exists(self.index_path) and os.path.exists(self.meta_path):
@@ -98,7 +138,14 @@ class VectorStore:
         texts = [doc["content"] for doc in documents]
         ids = [doc["id"] for doc in documents]
         
-        new_embeddings = self.model.encode(texts)
+        pool = self._get_pool()
+        if pool:
+            # Multi-process encoding for lists of sentences
+            new_embeddings = self.model.encode(texts, pool=pool, batch_size=32)
+        else:
+            # Single-process encoding
+            new_embeddings = self.model.encode(texts)
+            
         new_embeddings = np.array(new_embeddings).astype('float32')
 
         if self._vectors is None:
