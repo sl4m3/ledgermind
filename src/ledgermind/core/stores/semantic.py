@@ -177,7 +177,7 @@ class SemanticStore:
                                     timestamp=final_ts,
                                     superseded_by=ctx.get("superseded_by") if ctx else None,
                                     namespace=ctx.get("namespace", "default") if ctx else "default",
-                                    content=data.get("content", "")[:1000],
+                                    content=data.get("content", "")[:8000],
                                     confidence=ctx.get("confidence", 1.0) if ctx else 1.0,
                                     context_json=json.dumps(ctx or {})
                                 )
@@ -277,7 +277,7 @@ class SemanticStore:
                     kind=event.kind,
                     timestamp=event.timestamp,
                     namespace=namespace or "default",
-                    content=cached_content[:1000],
+                    content=cached_content[:8000],
                     confidence=get_ctx_val(ctx, 'confidence', 1.0),
                     context_json=json.dumps(ctx if isinstance(ctx, dict) else ctx.model_dump(mode='json'))
                 )
@@ -351,7 +351,7 @@ class SemanticStore:
                     timestamp=ts or datetime.now(),
                     superseded_by=ctx.get("superseded_by"),
                     namespace=ctx.get("namespace", "default"),
-                    content=cached_content_upd[:1000],
+                    content=cached_content_upd[:8000],
                     confidence=ctx.get("confidence", 1.0),
                     context_json=json.dumps(ctx)
                 )

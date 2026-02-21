@@ -84,4 +84,4 @@ def test_memory_vector_search_fallback(temp_storage, monkeypatch):
     results = mem.search_decisions("Keyword", limit=1)
     assert len(results) > 0
     assert results[0]["title"] == "Keyword Test"
-    assert results[0]["score"] == 0.5
+    assert results[0]["score"] == 0.55

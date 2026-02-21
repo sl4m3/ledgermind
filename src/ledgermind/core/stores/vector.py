@@ -33,6 +33,8 @@ class VectorStore:
         self._vectors = None # NumPy array of vectors
         self._doc_ids = []
         self._deleted_ids = set()
+        self._dirty = False
+        self._unsaved_count = 0
 
         if not os.path.exists(storage_path):
             os.makedirs(storage_path, exist_ok=True)
@@ -76,6 +78,7 @@ class VectorStore:
 
     def close(self):
         """Stops the multi-process pool and releases resources."""
+        self.save()
         if self._pool is not None:
             try:
                 self.model.stop_multi_process_pool(self._pool)
@@ -96,9 +99,12 @@ class VectorStore:
                 self._vectors = None
 
     def save(self):
-        if self._vectors is not None:
+        if self._vectors is not None and self._dirty:
             np.save(self.index_path, self._vectors)
             np.save(self.meta_path, np.array(self._doc_ids, dtype=object))
+            self._dirty = False
+            self._unsaved_count = 0
+            logger.debug("Vector store flushed to disk.")
 
     def remove_id(self, fid: str):
         """Soft-removes a vector from the store."""
@@ -154,7 +160,11 @@ class VectorStore:
             self._vectors = np.vstack([self._vectors, new_embeddings])
             
         self._doc_ids.extend(ids)
-        self.save()
+        self._dirty = True
+        self._unsaved_count += len(documents)
+        
+        if self._unsaved_count >= 50:
+            self.save()
 
     def get_vector(self, fid: str) -> Optional[np.ndarray]:
         """Retrieves the vector for a specific document ID."""

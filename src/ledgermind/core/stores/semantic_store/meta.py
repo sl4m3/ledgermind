@@ -3,6 +3,8 @@ import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
+import re
+
 logger = logging.getLogger(__name__)
 
 class SemanticMetaStore:
@@ -65,6 +67,56 @@ class SemanticMetaStore:
             self._conn.execute("CREATE INDEX IF NOT EXISTS idx_target ON semantic_meta(target)")
             self._conn.execute("CREATE INDEX IF NOT EXISTS idx_namespace ON semantic_meta(namespace)")
 
+            # FTS5 Full Text Search
+            try:
+                # Use External Content Table pattern for reliable synchronization
+                # Drop triggers and table to ensure clean schema update
+                self._conn.execute("DROP TRIGGER IF EXISTS semantic_ai")
+                self._conn.execute("DROP TRIGGER IF EXISTS semantic_ad")
+                self._conn.execute("DROP TRIGGER IF EXISTS semantic_au")
+                self._conn.execute("DROP TABLE IF EXISTS semantic_fts")
+                
+                # Create FTS5 table linked to semantic_meta
+                self._conn.execute("""
+                    CREATE VIRTUAL TABLE semantic_fts USING fts5(
+                        fid, title, target, content, 
+                        content='semantic_meta', 
+                        content_rowid='rowid'
+                    )
+                """)
+                
+                # Triggers are required for External Content Tables to keep index in sync
+                self._conn.execute("""
+                    CREATE TRIGGER semantic_ai AFTER INSERT ON semantic_meta BEGIN
+                        INSERT INTO semantic_fts(rowid, fid, title, target, content) VALUES (new.rowid, new.fid, new.title, new.target, new.content);
+                    END;
+                """)
+                self._conn.execute("""
+                    CREATE TRIGGER semantic_ad AFTER DELETE ON semantic_meta BEGIN
+                        INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content);
+                    END;
+                """)
+                self._conn.execute("""
+                    CREATE TRIGGER semantic_au AFTER UPDATE ON semantic_meta BEGIN
+                        INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content);
+                        INSERT INTO semantic_fts(rowid, fid, title, target, content) VALUES (new.rowid, new.fid, new.title, new.target, new.content);
+                    END;
+                """)
+                
+                # Check if index needs rebuild (e.g. empty)
+                # For External Content tables, querying count(*) might query the backing table?
+                # Let's just run rebuild if the FTS is empty but meta is not.
+                # Actually, 'rebuild' is safe to run.
+                fts_count = self._conn.execute("SELECT count(*) FROM semantic_fts").fetchone()[0]
+                meta_count = self._conn.execute("SELECT count(*) FROM semantic_meta").fetchone()[0]
+                
+                if fts_count == 0 and meta_count > 0:
+                    logger.info("Rebuilding FTS index...")
+                    self._conn.execute("INSERT INTO semantic_fts(semantic_fts) VALUES('rebuild')")
+                    
+            except sqlite3.OperationalError as e:
+                logger.warning(f"FTS5 setup failed: {e}. Keyword search will be limited.")
+
     def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, 
                title: str = "", superseded_by: Optional[str] = None, namespace: str = "default",
                content: str = "", confidence: float = 1.0, context_json: str = "{}"):
@@ -98,32 +150,79 @@ class SemanticMetaStore:
         return row[0] if row else None
 
     def keyword_search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Fallback search using SQL LIKE when embeddings are unavailable."""
-        words = query.lower().split()
-        if not words: return []
-        
+        """Search using FTS5 (BM25) or fallback to LIKE."""
         self._conn.row_factory = sqlite3.Row
-        
-        # Build dynamic WHERE clause for multiple words
-        conditions = []
-        params = []
-        for word in words:
-            pattern = f"%{word}%"
-            conditions.append("(target LIKE ? OR fid LIKE ? OR title LIKE ?)")
-            params.extend([pattern, pattern, pattern])
-        
-        where_clause = " OR ".join(conditions)
-
-        params.append(limit)
-        
-        query_sql = f"""
-            SELECT * FROM semantic_meta 
-            WHERE {where_clause}
-            ORDER BY timestamp DESC LIMIT ?
-        """  # nosec B608
         cursor = self._conn.cursor()
-        cursor.execute(query_sql, params)
-        return [dict(row) for row in cursor.fetchall()]
+        
+        try:
+            # FTS Search
+            # Simple sanitization for FTS5 syntax
+            safe_query = query.replace('"', '""')
+            if not safe_query.strip(): return []
+            
+            # Clean query of FTS5 special characters to avoid syntax errors or weird matching
+            # Keep alphanumerics and spaces.
+            clean_query = re.sub(r'[^a-zA-Z0-9\s]', ' ', query)
+            # Remove double spaces
+            clean_query = " ".join(clean_query.split())
+
+            # Use simple token search if query is simple, else use exact phrase
+            # Strategy: Implicit AND is best for natural language queries where we expect terms to be present.
+            # CRITICAL FIX: Trim edges logic enabled to handle partial tokens from substrings
+            words = clean_query.split()
+            if len(words) > 5:
+                 # Remove first and last word to be safe against partial tokens
+                 inner_query = " ".join(words[1:-1])
+                 if inner_query:
+                     fts_query = inner_query
+                 else:
+                     fts_query = clean_query
+            elif " " not in clean_query:
+                 fts_query = clean_query + "*"
+            else:
+                 # Standard FTS5 search (implicit AND)
+                 fts_query = clean_query
+            
+            sql = """
+                SELECT m.*, fts.rank 
+                FROM semantic_meta m
+                JOIN semantic_fts fts ON m.rowid = fts.rowid
+                WHERE semantic_fts MATCH ? 
+                ORDER BY rank LIMIT ?
+            """
+            cursor.execute(sql, (fts_query, limit))
+            res = [dict(row) for row in cursor.fetchall()]
+            
+            # Fallback to OR search if AND fails (e.g. partial tokens or noise)
+            if not res and len(words) > 3:
+                 fts_query_or = clean_query.replace(" ", " OR ")
+                 cursor.execute(sql, (fts_query_or, limit * 2)) # Double limit for noisy OR search
+                 res = [dict(row) for row in cursor.fetchall()]
+            
+            return res
+            
+        except Exception as e:
+            # Fallback to LIKE implementation
+            words = query.lower().split()
+            if not words: return []
+            
+            conditions = []
+            params = []
+            for word in words:
+                pattern = f"%{word}%"
+                conditions.append("(target LIKE ? OR fid LIKE ? OR title LIKE ?)")
+                params.extend([pattern, pattern, pattern])
+            
+            where_clause = " OR ".join(conditions)
+            params.append(limit)
+            
+            query_sql = f"""
+                SELECT * FROM semantic_meta 
+                WHERE {where_clause}
+                ORDER BY timestamp DESC LIMIT ?
+            """
+            cursor.execute(query_sql, params)
+            return [dict(row) for row in cursor.fetchall()]
 
 
     def list_all(self) -> List[Dict[str, Any]]:
