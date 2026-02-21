@@ -131,6 +131,7 @@ class LedgermindConfig(BaseModel):
     trust_boundary: TrustBoundary = Field(default=TrustBoundary.AGENT_WITH_INTENT)
     namespace: str = Field(default="default")
     vector_model: str = Field(default="all-MiniLM-L6-v2")
+    vector_workers: int = Field(default=0, ge=0, description="Number of workers for multi-process encoding. 0 for auto-detection.")
     enable_git: bool = Field(default=True)
     relevance_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
 

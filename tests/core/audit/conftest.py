@@ -54,5 +54,5 @@ def temp_storage(tmp_path, base_repo_template):
 
 @pytest.fixture
 def memory(temp_storage):
-    return Memory(storage_path=temp_storage)
+    return Memory(storage_path=temp_storage, vector_workers=1)
 

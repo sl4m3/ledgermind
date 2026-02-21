@@ -80,6 +80,7 @@ def main():
     run_parser.add_argument("--capabilities", help="JSON string of capabilities")
     run_parser.add_argument("--metrics-port", type=int, help="Port for Prometheus metrics")
     run_parser.add_argument("--rest-port", type=int, help="Port for REST Gateway")
+    run_parser.add_argument("--vector-workers", type=int, default=0, help="Number of workers for multi-process encoding (0=auto)")
     
     # Init command
     init_parser = subparsers.add_parser("init", help="Initialize a new memory project")
@@ -136,7 +137,8 @@ def main():
             server_name=args.name,
             capabilities=capabilities,
             metrics_port=args.metrics_port,
-            rest_port=args.rest_port
+            rest_port=args.rest_port,
+            vector_workers=args.vector_workers
         )
     else:
         parser.print_help()

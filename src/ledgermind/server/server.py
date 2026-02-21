@@ -39,7 +39,8 @@ class MCPServer:
                  capabilities: Optional[Dict[str, bool]] = None,
                  metrics_port: Optional[int] = None,
                  rest_port: Optional[int] = None,
-                 default_role: MCPRole = MCPRole.AGENT):
+                 default_role: MCPRole = MCPRole.AGENT,
+                 start_worker: bool = True):
 
         self.memory = memory
         self.default_role = default_role
@@ -62,7 +63,8 @@ class MCPServer:
         # Initialize Background Worker (Active Loop)
         from ledgermind.server.background import BackgroundWorker
         self.worker = BackgroundWorker(self.memory)
-        self.worker.start()
+        if start_worker:
+            self.worker.start()
 
     def _validate_isolation(self, decision_ids: List[str]):
         """
@@ -373,10 +375,11 @@ class MCPServer:
               server_name: str = "Ledgermind",
               capabilities: Optional[Dict[str, bool]] = None,
               metrics_port: Optional[int] = None,
-              rest_port: Optional[int] = None):
+              rest_port: Optional[int] = None,
+              vector_workers: int = 0):
         from ledgermind.core.core.schemas import TrustBoundary
         
-        memory = Memory(storage_path=storage_path, trust_boundary=TrustBoundary.AGENT_WITH_INTENT)
+        memory = Memory(storage_path=storage_path, trust_boundary=TrustBoundary.AGENT_WITH_INTENT, vector_workers=vector_workers)
         server = cls(
             memory, 
             server_name=server_name, 
