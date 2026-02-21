@@ -1,0 +1,9 @@
+pytest
+pytest-benchmark
+psutil
+numpy
+pandas
+tqdm
+matplotlib
+requests
+tiktoken

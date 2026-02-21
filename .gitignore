@@ -16,3 +16,7 @@ build/
 .gemini/
 ledgermind/
 GEMINI.md
+lg.py
+# Benchmarking data
+benchmarks/datasets/
+benchmarks/results/
