@@ -633,35 +633,61 @@ class Memory:
 
     def search_decisions(self, query: str, limit: int = 5, mode: str = "balanced") -> List[Dict[str, Any]]:
         """
-        Search with Recursive Truth Resolution and Hybrid Vector/Keyword ranking.
+        Search with Recursive Truth Resolution and Hybrid Vector/Keyword ranking (RRF).
         Uses Metadata Cache to avoid N+1 file reads.
         """
-        # 1. Try Vector Search first
-        vector_results = []
+        # 1. Execute Searches
+        k = 60 # RRF constant
+        search_limit = limit * 3
+        
+        # Vector Search
+        vec_results = []
         try:
-            vector_results = self.vector.search(query, limit=limit * 3)
-        except Exception as e:
-            logger.debug(f"Vector search bypassed: {e}")
-
-        candidates = []
-        seen_ids = set()
-
-        # 2. Process Vector Candidates
-        for item in vector_results:
+            vec_results = self.vector.search(query, limit=search_limit)
+        except Exception: pass
+            
+        # Keyword Search (FTS)
+        kw_results = self.semantic.meta.keyword_search(query, limit=limit * 10)
+        
+        # 2. RRF Fusion
+        scores = {}
+        
+        for rank, item in enumerate(vec_results):
             fid = item['id']
+            scores[fid] = scores.get(fid, 0.0) + (1.0 / (k + rank + 1))
+            
+        for rank, item in enumerate(kw_results):
+            fid = item['fid']
+            scores[fid] = scores.get(fid, 0.0) + (1.0 / (k + rank + 1))
+
+        # 3. Normalization (to bring RRF into 0-1 range roughly equivalent to similarity)
+        # Theoretical max RRF with 2 sources at rank 0 is 2.0 / (k + 1.0)
+        max_rrf = 2.0 / (k + 1.0)
+
+        # Sort by score descending
+        sorted_fids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
+        
+        candidates = []
+        seen_final_ids = set()
+        
+        for fid in sorted_fids:
+            # Resolve to truth (handle superseding)
             meta = self._resolve_to_truth(fid, mode)
-            if not meta or meta['fid'] in seen_ids: continue
+            if not meta: continue
             
             final_id = meta['fid']
+            if final_id in seen_final_ids: continue
+            
             status = meta.get("status", "unknown")
             if mode == "strict" and status != "active": continue
             
-            # Evidence-based ranking boost
-            link_count, link_strength = self.episodic.count_links_for_semantic(final_id)
-            # Boost score: +20% per link, capped at 100% (2x) to ensure it really affects ranking
-            boost = min(1.0, link_count * 0.2)
-            final_score = item['score'] * (1.0 + boost)
-                
+            # Evidence boost
+            link_count, _ = self.episodic.count_links_for_semantic(final_id)
+            boost = min(1.0, link_count * 0.1) # +10% per link
+            
+            # Normalize and apply boost
+            final_score = (scores[fid] / max_rrf) * (1.0 + boost)
+            
             candidates.append({
                 "id": final_id,
                 "score": final_score,
@@ -673,35 +699,12 @@ class Memory:
                 "is_active": (status == "active"),
                 "evidence_count": link_count
             })
-            seen_ids.add(final_id)
+            seen_final_ids.add(final_id)
             self.semantic.meta.increment_hit(final_id)
-
-        # 3. Fallback to keyword search if we need more results
-        if len(candidates) < limit:
-            raw_keyword = self.semantic.meta.keyword_search(query, limit=limit * 2)
-            for item in raw_keyword:
-                fid = item['fid']
-                meta = self._resolve_to_truth(fid, mode)
-                if not meta or meta['fid'] in seen_ids: continue
-                
-                final_id = meta['fid']
-                status = meta.get("status", "unknown")
-                if mode == "strict" and status != "active": continue
-                    
-                candidates.append({
-                    "id": final_id,
-                    "score": 0.5, # Lower default score for keyword matches
-                    "status": status,
-                    "title": meta.get("title", "unknown"),
-                    "target": meta.get("target", "unknown"),
-                    "preview": meta.get("content", "")[:200],
-                    "kind": meta.get("kind"),
-                    "is_active": (status == "active")
-                })
-                seen_ids.add(final_id)
-                self.semantic.meta.increment_hit(final_id)
             
-        return candidates[:limit]
+            if len(candidates) >= limit: break
+            
+        return candidates
 
 
     def _resolve_to_truth(self, doc_id: str, mode: str) -> Optional[Dict[str, Any]]:
