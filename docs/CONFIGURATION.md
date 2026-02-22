@@ -16,7 +16,7 @@ config = LedgermindConfig(
     ttl_days=30,
     trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
     namespace="default",
-    vector_model="all-MiniLM-L6-v2",
+    vector_model="jinaai/jina-embeddings-v5-text-nano",
     enable_git=True,
     relevance_threshold=0.35,
 )
@@ -29,7 +29,7 @@ memory = Memory(config=config)
 | `ttl_days` | `int ≥ 1` | `30` | Days before episodic events (without immortal links) are archived. |
 | `trust_boundary` | `TrustBoundary` | `AGENT_WITH_INTENT` | Controls who can write to semantic memory. See Trust Boundaries. |
 | `namespace` | `str` | `default` | Logical namespace for multi-tenant isolation. |
-| `vector_model` | `str` | `all-MiniLM-L6-v2` | Any `sentence-transformers` model name. |
+| `vector_model` | `str` | `jinaai/jina-embeddings-v5-text-nano` | Any `sentence-transformers` model name. |
 | `enable_git` | `bool` | `True` | Whether to use Git for audit. Falls back to `NoAuditProvider`. |
 | `relevance_threshold` | `float [0..1]` | `0.35` | Minimum search score for `IntegrationBridge.get_context_for_prompt()`. |
 
@@ -169,7 +169,8 @@ Without vector search:
 
 | Model | Dimensions | Size | Notes |
 |---|---|---|---|
-| `all-MiniLM-L6-v2` | 384 | 80MB | Default. Best balance of speed and quality. |
+| `jinaai/jina-embeddings-v5-text-nano` | 512 | ~150MB | **Standard.** Best precision for research/mobile. |
+| `all-MiniLM-L6-v2` | 384 | 80MB | Legacy default. Fast and reliable. |
 | `all-mpnet-base-v2` | 768 | 420MB | Higher quality, slower. |
 | `paraphrase-multilingual-MiniLM-L12-v2` | 384 | 120MB | Multi-language support. |
 

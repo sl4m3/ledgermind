@@ -14,16 +14,17 @@ class IntegrationBridge:
     Provides streamlined methods for context injection and interaction recording.
     """
     
-    def __init__(self, memory_path: str = ".ledgermind", relevance_threshold: float = 0.35, retention_turns: int = 5):
+    def __init__(self, memory_path: str = ".ledgermind", relevance_threshold: float = 0.35, retention_turns: int = 5, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None):
         self.memory_path = os.path.abspath(memory_path)
         try:
-            self._memory = Memory(storage_path=self.memory_path)
+            self._memory = Memory(storage_path=self.memory_path, vector_model=vector_model)
         except Exception as e:
             logger.critical(f"Failed to initialize LedgerMind Core: {e}")
             raise RuntimeError(f"Memory initialization failed. Check permissions for {memory_path}")
             
         self.relevance_threshold = relevance_threshold
         self.retention_turns = retention_turns
+        self.default_cli = default_cli or ["gemini"]
         # Maps decision_id -> turn_number when it was last injected
         self._active_context_ids: Dict[str, int] = {}
         self._turn_counter = 0
@@ -84,9 +85,10 @@ class IntegrationBridge:
 
     # --- Core Interaction Methods ---
 
-    def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> MemoryDecision:
-        """Proxies record_decision to memory core."""
-        return self._memory.record_decision(title, target, rationale, consequences)
+    def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None) -> MemoryDecision:
+        """Proxies record_decision to memory core with automatic LLM arbitration."""
+        arbiter = lambda new_d, old_d: self.arbitrate_with_cli(self.default_cli, new_d, old_d)
+        return self._memory.record_decision(title, target, rationale, consequences, evidence_ids=evidence_ids, arbiter_callback=arbiter)
 
     def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None) -> MemoryDecision:
         """Proxies supersede_decision to memory core."""
@@ -194,10 +196,10 @@ class IntegrationBridge:
         )
         
         try:
-            # We use a short timeout for arbitration
+            # We use a longer timeout for arbitration in Termux/mobile environments
             result = subprocess.run(
                 cli_command + [prompt], 
-                capture_output=True, text=True, encoding='utf-8', timeout=30
+                capture_output=True, text=True, encoding='utf-8', timeout=60
             )
             response = result.stdout.strip().upper()
             if "SUPERSEDE" in response: return "SUPERSEDE"

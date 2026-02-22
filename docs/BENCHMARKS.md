@@ -80,8 +80,11 @@ python benchmarks/agentic_bench.py
 
 ## Performance targets (2026)
 
-We aim for the following targets to maintain high-quality autonomous operation:
+We aim for the following targets to maintain high-quality autonomous operation
+(measured on mobile ARM hardware):
 
 - **1,000 records:** Write < 150ms, Read < 15ms.
+- **5,000 records:** Write < 180ms, Read < 20ms.
 - **10,000 records:** Write < 200ms, Read < 25ms.
 - **100,000 records:** Throughput of at least 5 ops/sec for write operations.
+

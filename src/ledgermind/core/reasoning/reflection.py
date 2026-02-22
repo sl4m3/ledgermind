@@ -165,7 +165,7 @@ class ReflectionEngine:
             rationale=f"Observed {stats['successes']} successful operations. This pattern should be formalized.",
             confidence=0.6,
             strengths=["Based on verified positive outcomes", "Codifies successful workflow"],
-            evidence_event_ids=[e['id'] for e in stats['success_events']],
+            evidence_event_ids=stats['all_ids'],
             first_observed_at=datetime.now()
         )
         if self.processor:
@@ -183,7 +183,7 @@ class ReflectionEngine:
             rationale=f"Active development detected ({stats['commits']} commits). Recent changes: {summary}.",
             confidence=0.5,
             strengths=["Reflects actual code changes", "Keeps memory in sync with codebase"],
-            evidence_event_ids=[e['id'] for e in stats['commit_events']],
+            evidence_event_ids=stats['all_ids'],
             first_observed_at=datetime.now()
         )
         if self.processor:
@@ -211,8 +211,12 @@ class ReflectionEngine:
                 clusters[target] = {
                     'errors': 0, 'successes': 0, 'commits': 0,
                     'error_events': [], 'success_events': [], 'commit_events': [],
+                    'all_ids': [],
                     'last_seen': ev['timestamp']
                 }
+            
+            # Record every event ID matching this target
+            clusters[target]['all_ids'].append(ev['id'])
             
             if ev['kind'] == KIND_ERROR:
                 clusters[target]['errors'] += 1
@@ -264,12 +268,15 @@ class ReflectionEngine:
                  (last_seen - first_seen) >= self.policy.observation_window and
                  len(objections) < 2)
 
+        new_evidence_ids = list(set(ctx.get('evidence_event_ids', []) + stats['all_ids']))
+
         self.processor.update_decision(fid, {
             "confidence": round(confidence, 2),
             "hit_count": new_errors,
             "miss_count": new_successes,
             "objections": list(set(objections)),
             "ready_for_review": ready,
+            "evidence_event_ids": new_evidence_ids,
             "counter_evidence_event_ids": list(set(ctx.get('counter_evidence_event_ids', []) + [e['id'] for e in stats['success_events']]))
         }, commit_msg=f"Reflection: Epistemic update. Confidence: {confidence:.2f}")
 
@@ -280,7 +287,7 @@ class ReflectionEngine:
             rationale=f"Consistent failures suggest a missing logical constraint.",
             confidence=0.5,
             strengths=["Explains repeated errors"],
-            evidence_event_ids=[e['id'] for e in stats['error_events']],
+            evidence_event_ids=stats['all_ids'],
             first_observed_at=datetime.now()
         )
         h2 = ProposalContent(
@@ -289,7 +296,7 @@ class ReflectionEngine:
             rationale=f"Errors might be due to transient fluctuations.",
             confidence=0.4,
             strengths=["More conservative"],
-            evidence_event_ids=[e['id'] for e in stats['error_events']],
+            evidence_event_ids=stats['all_ids'],
             first_observed_at=datetime.now()
         )
         fids = []

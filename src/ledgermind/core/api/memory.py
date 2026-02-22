@@ -313,6 +313,29 @@ class Memory:
                                 commit_msg=f"Superseded by {new_fid}"
                             )
 
+                    # BUG FIX: Link grounding evidence to the new semantic record
+                    all_grounding_ids = set()
+                    if isinstance(event.context, dict):
+                        all_grounding_ids.update(event.context.get('evidence_event_ids', []))
+                    elif hasattr(event.context, 'evidence_event_ids'):
+                        all_grounding_ids.update(getattr(event.context, 'evidence_event_ids', []))
+                    
+                    # Also inherit links from superseded items
+                    if intent and intent.resolution_type == "supersede":
+                        for old_id in intent.target_decision_ids:
+                            try:
+                                old_links = self.episodic.get_linked_event_ids(old_id)
+                                all_grounding_ids.update(old_links)
+                            except Exception as e:
+                                logger.warning(f"Failed to fetch links from superseded item {old_id}: {e}")
+
+                    if all_grounding_ids:
+                        for ev_id in all_grounding_ids:
+                            try:
+                                self.episodic.link_to_semantic(ev_id, new_fid)
+                            except Exception as le:
+                                logger.warning(f"Failed to link grounding evidence {ev_id} to {new_fid}: {le}")
+
                 # Immortal Link (after transaction success)
                 ev_id = self.episodic.append(event, linked_id=new_fid)
                 decision.metadata["event_id"] = ev_id
@@ -458,10 +481,10 @@ class Memory:
         indexer = GitIndexer(repo_path)
         return indexer.index_to_memory(self, limit=limit)
 
-    def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> MemoryDecision:
+    def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None, arbiter_callback: Optional[callable] = None) -> MemoryDecision:
         """
         Helper to record a new decision in semantic memory.
-        Automatically resolves conflicts if content similarity > 0.85 (Knowledge Evolution).
+        Automatically resolves conflicts using Hybrid Similarity and optional LLM arbitration.
         """
         if not title.strip(): raise ValueError("Title cannot be empty")
         if not target.strip(): raise ValueError("Target cannot be empty")
@@ -479,6 +502,7 @@ class Memory:
                 from ledgermind.core.stores.vector import EMBEDDING_AVAILABLE
                 if EMBEDDING_AVAILABLE and self.vector._vectors is not None:
                     import numpy as np
+                    from difflib import SequenceMatcher
                     
                     # Calculate new vector
                     new_text = f"{title}\n{rationale}"
@@ -486,20 +510,45 @@ class Memory:
                     new_norm = np.linalg.norm(new_vec)
                     
                     for old_fid in active_conflicts:
+                        old_meta = self.semantic.meta.get_by_fid(old_fid)
                         old_vec = self.vector.get_vector(old_fid)
-                        if old_vec is not None:
-                            old_norm = np.linalg.norm(old_vec)
-                            sim = np.dot(new_vec, old_vec) / (new_norm * old_norm + 1e-9)
+                        if old_vec is None or not old_meta:
+                            continue
                             
-                            if sim > 0.85:
-                                logger.info(f"Auto-resolving conflict for {target} (similarity {sim:.2f}) -> Superseding {old_fid}")
-                                return self.supersede_decision(
-                                    title=title,
-                                    target=target,
-                                    rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
-                                    old_decision_ids=[old_fid],
-                                    consequences=consequences
-                                )
+                        # A. Calculate Base Vector Similarity
+                        old_norm = np.linalg.norm(old_vec)
+                        sim = float(np.dot(new_vec, old_vec) / (new_norm * old_norm + 1e-9))
+                        
+                        # B. Title Weighting (Boost if titles are nearly identical)
+                        old_title = old_meta.get('title', '')
+                        title_sim = SequenceMatcher(None, title.lower(), old_title.lower()).ratio()
+                        
+                        if title_sim > 0.90:
+                            sim = max(sim, 0.71) # Force into "consideration" or "auto" zone
+                            logger.info(f"Title match boost for {target}: {title_sim:.2f} -> Adjusted Sim: {sim:.4f}")
+
+                        logger.info(f"Similarity check for {target} against {old_fid}: {sim:.4f} (Threshold: 0.70)")
+                        
+                        # C. LLM Arbitration (Gray Zone: 0.60 - 0.70)
+                        if 0.60 <= sim < 0.70 and arbiter_callback:
+                            logger.info(f"Similarity {sim:.4f} in gray zone. Triggering LLM arbitration...")
+                            new_data = {"title": title, "rationale": rationale}
+                            old_data = {"title": old_title, "rationale": old_meta.get('content', '')}
+                            
+                            if arbiter_callback(new_data, old_data) == "SUPERSEDE":
+                                sim = 0.71 # Elevate to trigger supersede
+                                logger.info("LLM Arbiter decided: SUPERSEDE")
+
+                        if sim > 0.70:
+                            logger.info(f"Auto-resolving conflict for {target} (similarity {sim:.2f}) -> Superseding {old_fid}")
+                            return self.supersede_decision(
+                                title=title,
+                                target=target,
+                                rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
+                                old_decision_ids=[old_fid],
+                                consequences=consequences,
+                                evidence_ids=evidence_ids
+                            )
             except Exception as e:
                 logger.warning(f"Auto-resolution failed: {e}")
             
@@ -515,7 +564,8 @@ class Memory:
             "target": target,
             "status": "active",
             "rationale": rationale,
-            "consequences": consequences or []
+            "consequences": consequences or [],
+            "evidence_event_ids": evidence_ids or []
         }
         decision = self.process_event(
             source="agent",
@@ -531,7 +581,7 @@ class Memory:
             
         return decision
 
-    def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None) -> MemoryDecision:
+    def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None) -> MemoryDecision:
         """
         Helper to evolve knowledge by superseding existing decisions.
         Raises:
@@ -553,7 +603,8 @@ class Memory:
             "target": target,
             "status": "active",
             "rationale": rationale,
-            "consequences": consequences or []
+            "consequences": consequences or [],
+            "evidence_event_ids": evidence_ids or []
         }
         decision = self.process_event(
             source="agent",
@@ -595,24 +646,35 @@ class Memory:
         with self.semantic.transaction():
             supersedes = ctx.get("suggested_supersedes", [])
             
+            # Grounding inheritance: combine IDs from file context with actual DB links
+            # (this captures the proposal's own creation event)
+            grounding_ids = set(ctx.get("evidence_event_ids", []))
+            try:
+                grounding_ids.update(self.episodic.get_linked_event_ids(proposal_id))
+            except Exception: pass
+            evidence_ids = list(grounding_ids)
+            
             if supersedes:
                 decision = self.supersede_decision(
                     title=ctx.get("title"),
                     target=ctx.get("target"),
                     rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
                     old_decision_ids=supersedes,
-                    consequences=ctx.get("suggested_consequences", [])
+                    consequences=ctx.get("suggested_consequences", []),
+                    evidence_ids=evidence_ids
                 )
             else:
                 decision = self.record_decision(
                     title=ctx.get("title"),
                     target=ctx.get("target"),
                     rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
-                    consequences=ctx.get("suggested_consequences", [])
+                    consequences=ctx.get("suggested_consequences", []),
+                    evidence_ids=evidence_ids
                 )
             
             if decision.should_persist:
                 new_id = decision.metadata.get("file_id")
+                
                 self.semantic.update_decision(
                     proposal_id, 
                     {"status": "accepted", "converted_to": new_id}, 
@@ -775,5 +837,7 @@ class Memory:
         """Releases all resources held by the memory system."""
         if hasattr(self, 'vector'):
             self.vector.close()
+        if hasattr(self, 'semantic') and hasattr(self.semantic, 'meta'):
+            self.semantic.meta.close()
         logger.info("Memory system closed.")
 
