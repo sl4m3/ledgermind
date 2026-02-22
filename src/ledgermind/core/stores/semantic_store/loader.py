@@ -12,37 +12,39 @@ class MemoryLoader:
         Separates YAML frontmatter from Markdown body.
         Returns (metadata_dict, body_string).
         """
-        match = MemoryLoader.FRONTMATTER_RE.match(content)
-        if not match:
-            # Try to parse as pure YAML (backward compatibility)
+        if not content.startswith("---"):
             try:
                 data = yaml.safe_load(content)
                 if isinstance(data, dict):
                     return data, ""
-            except yaml.YAMLError:
+            except Exception:
                 pass
             return {}, content
         
-        front_yaml = match.group(1)
-        body = match.group(2).strip()
-        
         try:
-            data = yaml.safe_load(front_yaml)
-            return data if isinstance(data, dict) else {}, body
-        except yaml.YAMLError:
-            return {}, body
+            # We use a more robust split that handles both \n and \r\n
+            parts = re.split(r'^---\s*$', content, maxsplit=2, flags=re.MULTILINE)
+            if len(parts) >= 3:
+                front_yaml = parts[1].strip()
+                body = parts[2].strip()
+                data = yaml.safe_load(front_yaml)
+                if isinstance(data, dict):
+                    return data, body
+        except Exception as e:
+            import logging
+            logging.getLogger("ledgermind.loader").error(f"YAML Parse Error: {e}")
+        
+        return {}, content
 
     @staticmethod
     def stringify(data: Dict[str, Any], body: str = "") -> str:
         """
         Serializes metadata and body into a single Markdown string with frontmatter.
         """
-        # Ensure timestamp is ISO string for consistency
-        if 'timestamp' in data and not isinstance(data['timestamp'], str):
-            try:
-                data['timestamp'] = data['timestamp'].isoformat()
-            except AttributeError:
-                pass
+        import json
+        # Ensure data is purely JSON-compatible to avoid !!python/object tags in YAML
+        # We use a round-trip through JSON to strip any non-primitive Python objects
+        clean_data = json.loads(json.dumps(data, default=str))
                 
-        yaml_str = yaml.dump(data, allow_unicode=True, sort_keys=False).strip()
+        yaml_str = yaml.dump(clean_data, allow_unicode=True, sort_keys=False).strip()
         return f"---\n{yaml_str}\n---\n\n{body}"

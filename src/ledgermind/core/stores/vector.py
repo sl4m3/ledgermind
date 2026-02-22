@@ -54,8 +54,22 @@ class VectorStore:
             raise ImportError("Embedding model dependencies (sentence-transformers) not found.")
         if self._model is None:
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
-            self._model = SentenceTransformer(self.model_name)
+            
+            # Special handling for Jina v5 models which require a 'task' parameter
+            model_kwargs = {}
+            if "jina-embeddings-v5" in self.model_name.lower():
+                model_kwargs["default_task"] = "retrieval"
+            
+            # Enable trust_remote_code for Jina v5 and other modern models
+            self._model = SentenceTransformer(
+                self.model_name, 
+                trust_remote_code=True,
+                model_kwargs=model_kwargs
+            )
             self._model.show_progress_bar = False
+            # PROOF
+            dim = self._model.get_sentence_embedding_dimension()
+            print(f"\n[bold blue][DEBUG][/bold blue] Vector Engine: [green]{self.model_name}[/green] | Dimension: [bold]{dim}[/bold]")
         return self._model
 
     def _get_pool(self):

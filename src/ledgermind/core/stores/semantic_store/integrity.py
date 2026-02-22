@@ -1,6 +1,9 @@
 from typing import List, Dict, Any, Set
 import os
 import yaml
+import logging
+
+logger = logging.getLogger("ledgermind-core.integrity")
 
 class IntegrityViolation(Exception):
     """
@@ -84,6 +87,8 @@ class IntegrityChecker:
                         content = stream.read()
                         data, _ = MemoryLoader.parse(content)
                         if not data:
+                            logger.error(f"Integrity check failed for {f}. Content length: {len(content)}")
+                            logger.error(f"CONTENT START: {content[:200]}")
                             raise IntegrityViolation(f"Corrupted or empty frontmatter", fid=f)
                         IntegrityChecker._file_data_cache[file_path] = (mtime, data)
                 
