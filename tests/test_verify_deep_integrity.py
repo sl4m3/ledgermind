@@ -24,7 +24,7 @@ class TestDeepIntegrity(unittest.TestCase):
         
         # 2. Try to create another for same target - should be blocked
         try:
-            self.memory.record_decision("Conflict Decision Title", "target_1", "Rationale that is also long enough")
+            self.memory.record_decision("Totally Different Strategy", "target_1", "This is a completely unrelated rationale that should not trigger auto-supersede.")
             self.fail("Should have blocked conflicting decision")
         except Exception as e:
             self.assertIn("CONFLICT", str(e))
