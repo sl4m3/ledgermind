@@ -106,6 +106,12 @@ class EpisodicStore:
                 } for row in cursor.fetchall()
             ]
 
+    def get_linked_event_ids(self, semantic_id: str) -> List[int]:
+        """Returns a list of event IDs linked to a given semantic decision."""
+        with self._get_conn() as conn:
+            cursor = conn.execute("SELECT id FROM events WHERE linked_id = ?", (semantic_id,))
+            return [row[0] for row in cursor.fetchall()]
+
     def count_links_for_semantic(self, semantic_id: str) -> Tuple[int, float]:
         """Returns (count, total_strength) for a given semantic decision."""
         with self._get_conn() as conn:

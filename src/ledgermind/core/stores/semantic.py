@@ -104,7 +104,8 @@ class SemanticStore:
 
     def sync_meta_index(self):
         """Ensures that the metadata index reflects the actual Markdown files on disk."""
-        self._fs_lock.acquire(exclusive=True)
+        should_lock = not self._in_transaction
+        if should_lock: self._fs_lock.acquire(exclusive=True)
         from datetime import datetime
         try:
             # 1. Get current files on disk
@@ -184,13 +185,16 @@ class SemanticStore:
                     except Exception as e:
                         logger.error(f"Failed to index {f}: {e}")
         finally:
-            self._fs_lock.release()
+            if should_lock: self._fs_lock.release()
 
     @contextmanager
     def transaction(self):
         """Groups multiple operations into a single ACID transactional unit using TransactionManager."""
+        if self._in_transaction:
+            yield
+            return
+
         from ledgermind.core.stores.semantic_store.transactions import TransactionManager
-        
         self._current_tx = TransactionManager(self.repo_path, self.meta)
         self._in_transaction = True
         
@@ -201,8 +205,6 @@ class SemanticStore:
                 IntegrityChecker.validate(self.repo_path)
                 
                 # Commit to Audit Provider (Git) BEFORE releasing SQLite savepoint
-                # This ensures that if Git fails, the transaction block raises and 
-                # SQLite rolls back.
                 self.audit.commit_transaction("Atomic Transaction Commit")
         except Exception as e:
             logger.error(f"Transaction Failed: {e}. Rolling back...")
@@ -376,28 +378,34 @@ class SemanticStore:
             if not self._in_transaction: self._fs_lock.release()
 
     def list_decisions(self) -> List[str]:
-        self._fs_lock.acquire(exclusive=False)
+        should_lock = not self._in_transaction
+        if should_lock: self._fs_lock.acquire(exclusive=False)
         try:
             all_meta = self.meta.list_all()
             return [m['fid'] for m in all_meta]
-        finally: self._fs_lock.release()
+        finally: 
+            if should_lock: self._fs_lock.release()
 
     def purge_memory(self, fid: str):
         """Hard delete for GDPR compliance."""
-        self._fs_lock.acquire(exclusive=True)
+        should_lock = not self._in_transaction
+        if should_lock: self._fs_lock.acquire(exclusive=True)
         try:
             full_path = os.path.join(self.repo_path, fid)
             if os.path.exists(full_path): os.remove(full_path)
             self.audit.purge_artifact(fid)
             self.meta.delete(fid)
-        finally: self._fs_lock.release()
+        finally: 
+            if should_lock: self._fs_lock.release()
 
     def get_head_hash(self) -> Optional[str]:
         return self.audit.get_head_hash()
 
     def list_active_conflicts(self, target: str, namespace: str = "default") -> List[str]:
-        self._fs_lock.acquire(exclusive=False)
+        should_lock = not self._in_transaction
+        if should_lock: self._fs_lock.acquire(exclusive=False)
         try:
             all_meta = self.meta.list_all()
             return [m['fid'] for m in all_meta if m.get('target') == target and m.get('status') == 'active' and m.get('kind') == 'decision' and m.get('namespace', 'default') == namespace]
-        finally: self._fs_lock.release()
+        finally: 
+            if should_lock: self._fs_lock.release()

@@ -29,7 +29,12 @@ class BenchmarkConfig:
 class FullLedgerMind(BenchmarkConfig):
     """Full version with vector search and hybrid ranking."""
     def setup(self):
-        self.memory = Memory(storage_path=self.temp_dir, vector_workers=1)
+        # Explicitly use Jina v5 Nano for full benchmarks
+        self.memory = Memory(
+            storage_path=self.temp_dir, 
+            vector_model="jinaai/jina-embeddings-v5-text-nano",
+            vector_workers=1
+        )
 
 class KeywordOnlyLedgerMind(BenchmarkConfig):
     """LedgerMind with vector search disabled via workers=0."""
