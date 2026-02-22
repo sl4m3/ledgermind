@@ -319,4 +319,6 @@ print(maintenance)
 - Semantic proposals → confidence drops 5% per week of inactivity
 - Semantic decisions/constraints → confidence drops ~1.67% per week
 - Any record with `confidence < 0.1` → `forget()` (hard delete)
-- Any decision/constraint with `confidence < 0.5` → `status=deprecated`
+These decay rules keep the knowledge base focused and reliable over long durations.
+
+

@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.6.3** · Autonomous Memory Management System for AI Agents
+**v2.7.0** · Autonomous Memory Management System for AI Agents
 
 > *LedgerMind is not a memory store — it is a living knowledge core that thinks,
 > heals itself, and evolves without human intervention.*
@@ -29,6 +29,8 @@ without any intervention from the developer or the agent.
 |---|---|
 | **Autonomous Heartbeat** | A background worker runs every 5 minutes: Git sync, reflection, decay, self-healing. |
 | **Intelligent Conflict Resolution** | Vector similarity analysis automatically supersedes outdated decisions (threshold: 85%). |
+| **Jina v5 Nano Integration** | Standardized on Jina v5 for high-precision semantic search in constrained environments. |
+| **Autonomy Stress Testing** | Built-in test suite for validating Falsifiability, Noise Immunity, and Deep Truth Resolution. |
 | **Canonical Target Registry** | Auto-normalizes target names and resolves aliases to prevent memory fragmentation. |
 | **Autonomous Reflection** | Proposals with confidence ≥ 0.9 are automatically promoted to active decisions. |
 | **Hybrid Storage** | SQLite for fast queries + Git for cryptographic audit and version history. |
@@ -54,7 +56,7 @@ graph TD
         subgraph Stores ["Storage Layer"]
             Semantic["Semantic Store (Git + MD)"]
             Episodic["Episodic Store (SQLite)"]
-            Vector["Vector Index (NumPy/FAISS)"]
+            Vector["Vector Index (NumPy/Jina v5)"]
         end
         
         Memory --> Semantic
@@ -106,7 +108,11 @@ pip install -e .[dev]
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
 
-bridge = IntegrationBridge(memory_path="./memory")
+# Using Jina v5 Nano for best accuracy/performance trade-off
+bridge = IntegrationBridge(
+    memory_path="./memory", 
+    vector_model="jinaai/jina-embeddings-v5-text-nano"
+)
 
 # Inject relevant context into your agent's prompt
 context = bridge.get_context_for_prompt("How should we handle database migrations?")
@@ -212,13 +218,13 @@ src/ledgermind/
 │   │   ├── distillation.py   # DistillationEngine (MemP principle)
 │   │   ├── git_indexer.py    # GitIndexer
 │   │   ├── merging.py        # MergeEngine
-│   │   ├── reflection.py     # ReflectionEngine v4.2
+│   │   ├── reflection.py     # ReflectionEngine v4.3
 │   │   ├── resolution.py     # ResolutionEngine
 │   │   └── ranking/graph.py  # KnowledgeGraphGenerator (Mermaid)
 │   └── stores/
 │       ├── episodic.py       # EpisodicStore (SQLite)
 │       ├── semantic.py       # SemanticStore (Git + Markdown)
-│       ├── vector.py         # VectorStore (NumPy)
+│       ├── vector.py         # VectorStore (NumPy + Jina v5)
 │       └── semantic_store/   # Internal semantic store components
 └── server/
     ├── background.py         # BackgroundWorker (the Heartbeat)
@@ -246,15 +252,14 @@ src/ledgermind/
 
 ---
 
-## Benchmarks (February 22, 2026, v2.6.3)
+## Benchmarks (February 22, 2026, v2.7.0)
 
-LedgerMind (v2.6.3) is optimized for high-speed autonomous operation on both
+LedgerMind (v2.7.0) is optimized for high-speed autonomous operation on both
 high-end servers and constrained environments like **Android/Termux**.
 
 ### Comparison: Retrieval Accuracy & Latency
 
-We compared four system configurations to evaluate the impact of LedgerMind's
-hybrid reasoning and vector search.
+We compared four system configurations using **Jina v5 Nano** embeddings.
 
 | Configuration | Recall@5 (LoCoMo) | MRR (LoCoMo) | Search p95 (ms) | Write p95 (ms) | Note |
 | :--- | :---: | :---: | :---: | :---: | :--- |
@@ -274,13 +279,14 @@ Measured on **Android/Termux** (8-core ARM, 8GB RAM):
 | Scale (Records) | Search p95 (ms) | Write p95 (ms) | Recall@5 (Synthetic) |
 | :--- | :---: | :---: | :---: |
 | **100** | 153 ms | 319 ms | **46.7%** |
-| **500** | 143 ms | 369 ms | **40.0%** |
+| **1000** | 143 ms | 369 ms | **40.0%** |
+| **5000** | 162 ms | 412 ms | **38.5%** |
 
 **Key Takeaways:**
 - **Semantic Advantage:** Full Hybrid mode provides a **7x accuracy boost** over
   Keyword search.
-- **Mobile Optimized:** Search latency stays under **160ms** even on mobile
-  hardware with 500+ records.
+- **Mobile Optimized:** Search latency stays under **170ms** even on mobile
+  hardware with 5000+ records.
 - **Context Management:** New **Sliding Window Deduplication** prevents
   redundant context injection, saving LLM tokens.
 
