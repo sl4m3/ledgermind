@@ -1,8 +1,9 @@
 # LedgerMind
 
-**v2.6.2** · Autonomous Memory Management System for AI Agents
+**v2.6.3** · Autonomous Memory Management System for AI Agents
 
-> *LedgerMind is not a memory store — it is a living knowledge core that thinks, heals itself, and evolves without human intervention.*
+> *LedgerMind is not a memory store — it is a living knowledge core that thinks,
+> heals itself, and evolves without human intervention.*
 
 [![License: NCSA](https://img.shields.io/badge/License-NCSA-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)](https://python.org)
@@ -12,9 +13,15 @@
 
 ## What is LedgerMind?
 
-Most AI memory systems are passive stores: you write, you read, and if the information becomes stale or contradictory — that is your problem. LedgerMind takes a fundamentally different approach.
+Most AI memory systems are passive stores: you write, you read, and if the
+information becomes stale or contradictory — that is your problem. LedgerMind
+takes a fundamentally different approach.
 
-LedgerMind is an **autonomous knowledge lifecycle manager**. It combines a hybrid storage engine (SQLite + Git) with a built-in reasoning layer that continuously monitors knowledge health, detects conflicts, distills raw experience into structured rules, and repairs itself — all in the background, without any intervention from the developer or the agent.
+LedgerMind is an **autonomous knowledge lifecycle manager**. It combines a
+hybrid storage engine (SQLite + Git) with a built-in reasoning layer that
+continuously monitors knowledge health, detects conflicts, distills raw
+experience into structured rules, and repairs itself — all in the background,
+without any intervention from the developer or the agent.
 
 ### Core Capabilities
 
@@ -28,6 +35,7 @@ LedgerMind is an **autonomous knowledge lifecycle manager**. It combines a hybri
 | **MCP Server** | 15 tools for any compatible client (Claude, Gemini CLI, custom agents). |
 | **REST Gateway** | FastAPI endpoints + Server-Sent Events + WebSocket for real-time updates. |
 | **Epistemic Safety** | The Reflection Engine distinguishes facts from hypotheses using scientific falsification. |
+| **Context Deduplication** | Sliding window deduplication prevents redundant memory injection in chat sessions. |
 
 ---
 
@@ -238,22 +246,26 @@ src/ledgermind/
 
 ---
 
-## Benchmarks (February 21, 2026, v2.6.2)
+## Benchmarks (February 22, 2026, v2.6.3)
 
-LedgerMind (v2.6.2) is optimized for high-speed autonomous operation on both high-end servers and constrained environments like **Android/Termux**. 
+LedgerMind (v2.6.3) is optimized for high-speed autonomous operation on both
+high-end servers and constrained environments like **Android/Termux**.
 
 ### Comparison: Retrieval Accuracy & Latency
 
-We compared four system configurations to evaluate the impact of LedgerMind's hybrid reasoning and vector search.
+We compared four system configurations to evaluate the impact of LedgerMind's
+hybrid reasoning and vector search.
 
 | Configuration | Recall@5 (LoCoMo) | MRR (LoCoMo) | Search p95 (ms) | Write p95 (ms) | Note |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| **Full (Hybrid)** | **70.0%** | **0.2450** | 121 ms | 335 ms | **Recommended** (Best accuracy) |
+| **Full (Hybrid)** | **70.0%** | **0.5250** | 143 ms | 368 ms | **Recommended** (Best accuracy) |
 | Keyword Only | 10.0% | 0.1000 | **1 ms** | **181 ms** | Fast but inaccurate |
 | Baseline (Flat) | 50.0% | 0.3700* | 144 ms | 303 ms | No conflict/supersede logic |
 | Baseline (SQL) | 30.0% | 0.1250 | **0.3 ms** | 293 ms | Simple SQLite `LIKE` search |
 
-*\*Baseline (Flat) MRR is higher due to lack of deduplication, leading to "lucky" matches in small synthetic sets. In real-world scenarios (LongMemEval), Full (Hybrid) consistently outperforms all others.*
+*\*Baseline (Flat) MRR is higher due to lack of deduplication, leading to
+"lucky" matches in small synthetic sets. In real-world scenarios
+(LongMemEval), Full (Hybrid) consistently outperforms all others.*
 
 ### Scalability & Degradation (Full Mode)
 
@@ -261,16 +273,19 @@ Measured on **Android/Termux** (8-core ARM, 8GB RAM):
 
 | Scale (Records) | Search p95 (ms) | Write p95 (ms) | Recall@5 (Synthetic) |
 | :--- | :---: | :---: | :---: |
-| **100** | 121 ms | 334 ms | **53.3%** |
-| **500** | 147 ms | 380 ms | 46.7% |
-| **1,000** | 165 ms | 410 ms | 42.1% |
+| **100** | 153 ms | 319 ms | **46.7%** |
+| **500** | 143 ms | 369 ms | **40.0%** |
 
 **Key Takeaways:**
-- **Semantic Advantage:** Full Hybrid mode provides a **7x accuracy boost** over Keyword search.
-- **Mobile Optimized:** Search latency stays under **150ms** even on mobile hardware with 500+ records.
-- **Resource Efficiency:** By forcing `vector_workers=1` in constrained environments, LedgerMind maintains stability without crashing.
+- **Semantic Advantage:** Full Hybrid mode provides a **7x accuracy boost** over
+  Keyword search.
+- **Mobile Optimized:** Search latency stays under **160ms** even on mobile
+  hardware with 500+ records.
+- **Context Management:** New **Sliding Window Deduplication** prevents
+  redundant context injection, saving LLM tokens.
 
-For reproducible code and raw data, see the [`benchmarks/`](benchmarks/) directory.
+For reproducible code and raw data, see the [`benchmarks/`](benchmarks/)
+directory.
 
 ## CLI Reference
 
@@ -289,10 +304,12 @@ ledgermind-mcp export-schema                           # Print JSON API spec
 
 ## License
 
-LedgerMind is distributed under the **Non-Commercial Source Available License (NCSA)**.
+LedgerMind is distributed under the **Non-Commercial Source Available License
+(NCSA)**.
 
 - **Individuals:** Free for personal, educational, and experimental use.
-- **Commercial use:** Strictly prohibited without written permission from the author.
+- **Commercial use:** Strictly prohibited without written permission from the
+  author.
 - **NGOs & Academia:** Permitted for academic and non-profit purposes.
 
 For commercial licensing, contact the author: **Stanislav Zotov**.
