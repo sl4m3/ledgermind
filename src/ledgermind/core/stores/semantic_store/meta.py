@@ -14,13 +14,19 @@ class SemanticMetaStore:
     """
     def __init__(self, db_path: str):
         self.db_path = db_path
-        self._conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0)
+        self._conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0, isolation_level=None)
         self._init_db()
 
     def _init_db(self):
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
+        # Ensure FTS5 is available or fallback
+        try:
+            self._conn.execute("SELECT 1")
+        except sqlite3.OperationalError: pass
+
         with self._conn:
+            self._conn.execute("BEGIN")
             self._conn.execute("""
                 CREATE TABLE IF NOT EXISTS semantic_meta (
                     fid TEXT PRIMARY KEY,
@@ -116,6 +122,8 @@ class SemanticMetaStore:
                     
             except sqlite3.OperationalError as e:
                 logger.warning(f"FTS5 setup failed: {e}. Keyword search will be limited.")
+            
+            self._conn.execute("COMMIT")
 
     def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, 
                title: str = "", superseded_by: Optional[str] = None, namespace: str = "default",

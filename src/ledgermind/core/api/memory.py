@@ -375,37 +375,38 @@ class Memory:
         """
         self.semantic._validate_fid(decision_id)
         
-        # 1. Update Semantic Store (Filesystem + Metadata DB)
-        self.semantic.update_decision(decision_id, updates, commit_msg)
-        
-        # 2. Update Vector Index if content/rationale changed
-        if "content" in updates or "rationale" in updates:
+        with self.semantic.transaction():
+            # 1. Update Semantic Store (Filesystem + Metadata DB)
+            self.semantic.update_decision(decision_id, updates, commit_msg)
+            
+            # 2. Update Vector Index if content/rationale changed
+            if "content" in updates or "rationale" in updates:
+                meta = self.semantic.meta.get_by_fid(decision_id)
+                if meta:
+                    indexed_content = meta.get('content', '')
+                    try:
+                        self.vector.add_documents([{
+                            "id": decision_id,
+                            "content": indexed_content
+                        }])
+                    except Exception as ve:
+                        logger.warning(f"Vector re-indexing failed for {decision_id}: {ve}")
+            
+            # 3. Create episodic event to log the update
             meta = self.semantic.meta.get_by_fid(decision_id)
             if meta:
-                indexed_content = meta.get('content', '')
-                try:
-                    self.vector.add_documents([{
-                        "id": decision_id,
-                        "content": indexed_content
-                    }])
-                except Exception as ve:
-                    logger.warning(f"Vector re-indexing failed for {decision_id}: {ve}")
-        
-        # 3. Create episodic event to log the update
-        meta = self.semantic.meta.get_by_fid(decision_id)
-        if meta:
-            event = MemoryEvent(
-                source="system",
-                kind="commit_change",
-                content=f"Updated {meta.get('kind')}: {meta.get('title')}",
-                context={
-                    "original_kind": meta.get('kind', 'decision'),
-                    "updates": updates,
-                    "target": meta.get('target'),
-                    "rationale": commit_msg
-                }
-            )
-            self.episodic.append(event, linked_id=decision_id)
+                event = MemoryEvent(
+                    source="system",
+                    kind="commit_change",
+                    content=f"Updated {meta.get('kind')}: {meta.get('title')}",
+                    context={
+                        "original_kind": meta.get('kind', 'decision'),
+                        "updates": updates,
+                        "target": meta.get('target'),
+                        "rationale": commit_msg
+                    }
+                )
+                self.episodic.append(event, linked_id=decision_id)
             
         return True
 
@@ -423,29 +424,30 @@ class Memory:
         
         forgotten_count = 0
         if not dry_run:
-            # Apply Episodic changes
-            self.episodic.mark_archived(to_archive)
-            self.episodic.physical_prune(to_prune)
-            
-            # Apply Semantic changes
-            for fid, new_conf, should_forget in semantic_results:
-                if should_forget:
-                    logger.info(f"Semantic Decay: Forgetting {fid} (confidence dropped to {new_conf})")
-                    self.forget(fid)
-                    forgotten_count += 1
-                else:
-                    updates = {"confidence": new_conf}
-                    
-                    # Logic for deprecating stale decisions
-                    # Retrieve current metadata to check kind and status
-                    meta = self.semantic.meta.get_by_fid(fid)
-                    if meta and meta.get('kind') in ('decision', 'constraint') and meta.get('status') == 'active':
-                        if new_conf < 0.5:
-                            logger.info(f"Semantic Decay: Deprecating {fid} (confidence dropped to {new_conf})")
-                            updates["status"] = "deprecated"
-                    
-                    self.semantic.update_decision(fid, updates, 
-                                                  commit_msg=f"Decay: Reduced confidence to {new_conf}")
+            with self.semantic.transaction():
+                # Apply Episodic changes
+                self.episodic.mark_archived(to_archive)
+                self.episodic.physical_prune(to_prune)
+                
+                # Apply Semantic changes
+                for fid, new_conf, should_forget in semantic_results:
+                    if should_forget:
+                        logger.info(f"Semantic Decay: Forgetting {fid} (confidence dropped to {new_conf})")
+                        self.forget(fid)
+                        forgotten_count += 1
+                    else:
+                        updates = {"confidence": new_conf}
+                        
+                        # Logic for deprecating stale decisions
+                        # Retrieve current metadata to check kind and status
+                        meta = self.semantic.meta.get_by_fid(fid)
+                        if meta and meta.get('kind') in ('decision', 'constraint') and meta.get('status') == 'active':
+                            if new_conf < 0.5:
+                                logger.info(f"Semantic Decay: Deprecating {fid} (confidence dropped to {new_conf})")
+                                updates["status"] = "deprecated"
+                        
+                        self.semantic.update_decision(fid, updates, 
+                                                      commit_msg=f"Decay: Reduced confidence to {new_conf}")
             
         return DecayReport(len(to_archive), len(to_prune), retained, semantic_forgotten=forgotten_count)
 
