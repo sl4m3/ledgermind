@@ -7,7 +7,7 @@ import httpx
 import asyncio
 import time
 import threading
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP, Context
 from prometheus_client import start_http_server, Counter, Histogram
 from ledgermind.core.api.memory import Memory
 from ledgermind.server.tools.environment import EnvironmentContext
@@ -100,11 +100,6 @@ class MCPServer:
         if not self.api_key:
             return
             
-        # FastMCP context might not be directly accessible here easily 
-        # for all transports, but we can attempt to check environment/session
-        # In a real MCP scenario, this would check the request metadata.
-        
-        from mcp.server.fastmcp import Context
         ctx: Context = getattr(self.mcp, "context", None)
         
         # If we have request context (SSE/HTTP), check headers

@@ -318,27 +318,6 @@ class Memory:
                     decision.metadata["file_id"] = new_fid
                     self.events.emit("semantic_added", {"id": new_fid, "kind": event.kind, "namespace": effective_namespace})
                     
-                    # 3.5: Index in VectorStore
-                    try:
-                        # Combine content with rationale for better grounded search
-                        indexed_content = event.content
-                        ctx = event.context
-                        rationale = ""
-                        if isinstance(ctx, dict):
-                            rationale = ctx.get('rationale', '')
-                        elif hasattr(ctx, 'rationale'):
-                            rationale = getattr(ctx, 'rationale', '')
-                        
-                        if rationale:
-                            indexed_content = f"{event.content}\n{rationale}"
-
-                        self.vector.add_documents([{
-                            "id": new_fid,
-                            "content": indexed_content
-                        }])
-                    except Exception as ve:
-                        logger.warning(f"Vector indexing failed for {new_fid}: {ve}")
-
                     # 4. Now that we have new_fid, update back-links properly
                     if intent and intent.resolution_type == "supersede":
                         for old_id in intent.target_decision_ids:
@@ -370,6 +349,27 @@ class Memory:
                                 self.episodic.link_to_semantic(ev_id, new_fid)
                             except Exception as le:
                                 logger.warning(f"Failed to link grounding evidence {ev_id} to {new_fid}: {le}")
+
+                # 3.5: Index in VectorStore (OUTSIDE transaction for performance)
+                try:
+                    # Combine content with rationale for better grounded search
+                    indexed_content = event.content
+                    ctx = event.context
+                    rationale = ""
+                    if isinstance(ctx, dict):
+                        rationale = ctx.get('rationale', '')
+                    elif hasattr(ctx, 'rationale'):
+                        rationale = getattr(ctx, 'rationale', '')
+                    
+                    if rationale:
+                        indexed_content = f"{event.content}\n{rationale}"
+
+                    self.vector.add_documents([{
+                        "id": new_fid,
+                        "content": indexed_content
+                    }])
+                except Exception as ve:
+                    logger.warning(f"Vector indexing failed for {new_fid}: {ve}")
 
                 # Immortal Link (after transaction success)
                 ev_id = self.episodic.append(event, linked_id=new_fid)
