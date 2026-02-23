@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771886764602,
+  "lastUpdate": 1771888469195,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -38,6 +38,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000993118489467826",
             "extra": "mean: 4.101996737706002 msec\nrounds: 61"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "5201bed9b6bf18e1f8c5636704a8cf77abf5f068",
+          "message": "security: protect SSE/WS endpoints, harden Dockerfile, and add GGUF deps",
+          "timestamp": "2026-02-24T02:10:06+03:00",
+          "tree_id": "612cb66c1184e4380a073197c52c7166c99fa2d4",
+          "url": "https://github.com/sl4m3/ledgermind/commit/5201bed9b6bf18e1f8c5636704a8cf77abf5f068"
+        },
+        "date": 1771888468321,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 27.96824259752373,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0025762768830507867",
+            "extra": "mean: 35.75483859999622 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 241.48972380198796,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009536979468797375",
+            "extra": "mean: 4.140962953852068 msec\nrounds: 65"
           }
         ]
       }
