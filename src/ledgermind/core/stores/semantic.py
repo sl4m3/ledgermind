@@ -102,12 +102,16 @@ class SemanticStore:
         finally:
             self._fs_lock.release()
 
-    def sync_meta_index(self):
+    def sync_meta_index(self, force: bool = False):
         """Ensures that the metadata index reflects the actual Markdown files on disk."""
         should_lock = not self._in_transaction
         if should_lock: self._fs_lock.acquire(exclusive=True)
         from datetime import datetime
         try:
+            # Re-verify integrity if forced
+            if force:
+                IntegrityChecker.validate(self.repo_path, force=True)
+
             # 1. Get current files on disk
             disk_files = set()
             for root, _, filenames in os.walk(self.repo_path):
