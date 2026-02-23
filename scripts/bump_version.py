@@ -8,8 +8,7 @@ def bump_version(new_version):
     # 1. Update VERSION file
     v_path = os.path.join(root_dir, "src/ledgermind/VERSION")
     with open(v_path, "w") as f:
-        f.write(new_version + "
-")
+        f.write(new_version + "\n")
     print(f"Updated VERSION to {new_version}")
 
     # 2. Update pyproject.toml
@@ -31,15 +30,17 @@ def bump_version(new_version):
             f.write(content)
         print("Updated README.md")
 
-    # 4. Update specification.py (already dynamic now via contracts, but let's check)
-    # Actually, specification.py is now dynamic if it imports contracts.
+    # 4. Update specification.py (already dynamic now via contracts)
     
     # 5. Update tests
     test_path = os.path.join(root_dir, "tests/test_verify_tools_and_audit.py")
     if os.path.exists(test_path):
         with open(test_path, "r") as f:
             content = f.read()
-        content = re.sub(r"mcp_api_version'\], "[^"]+"\)", f"mcp_api_version'], "{new_version}")", content)
+        # Fix: correctly handle nested quotes in regex
+        pattern = r"mcp_api_version'\]\s*,\s*\"[^\"]+\"\)"
+        replacement = f"mcp_api_version'], \"{new_version}\")"
+        content = re.sub(pattern, replacement, content)
         with open(test_path, "w") as f:
             f.write(content)
         print("Updated tests")
