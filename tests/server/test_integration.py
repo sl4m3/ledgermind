@@ -24,7 +24,7 @@ def set_auth_token():
 
 def test_isolation_rule_enforcement(mock_memory):
     """Проверяет, что агент не может вытеснить решение, созданное человеком (без [via MCP])."""
-    server = MCPServer(memory=mock_memory, default_role=MCPRole.AGENT)
+    server = MCPServer(memory=mock_memory, default_role=MCPRole.AGENT, start_worker=False)
     
     # Создаем "человеческое" решение в файловой системе
     human_decision_id = "human_1.md"
@@ -45,7 +45,7 @@ def test_isolation_rule_enforcement(mock_memory):
 
 def test_agent_can_supersede_mcp_decision(mock_memory):
     """Проверяет, что агент МОЖЕТ вытеснить решение, помеченное [via MCP]."""
-    server = MCPServer(memory=mock_memory, default_role=MCPRole.AGENT)
+    server = MCPServer(memory=mock_memory, default_role=MCPRole.AGENT, start_worker=False)
     
     mcp_decision_id = "mcp_1.md"
     file_content = "[via MCP] title: Previous Agent Decision\ncontent: Some rationale"
@@ -70,7 +70,7 @@ def test_agent_can_supersede_mcp_decision(mock_memory):
 
 def test_rate_limiting_cooldown(mock_memory):
     """Проверяет работу кулдауна между записями."""
-    server = MCPServer(memory=mock_memory, default_role=MCPRole.AGENT)
+    server = MCPServer(memory=mock_memory, default_role=MCPRole.AGENT, start_worker=False)
     server._write_cooldown = 0.01 # Minimal cooldown for test
     
     req = RecordDecisionRequest(title="TitleOne", target="TargetArea", rationale="Rationale must be long enough for validation")
@@ -87,7 +87,7 @@ def test_rate_limiting_cooldown(mock_memory):
 
 def test_full_tool_registration(mock_memory):
     """Проверяет, что все инструменты зарегистрированы в FastMCP."""
-    server = MCPServer(memory=mock_memory)
+    server = MCPServer(memory=mock_memory, start_worker=False)
     # FastMCP stores tools in an internal dictionary or allows listing them
     # Based on the error, _tools is not accessible. We can try to invoke them or check the internal structure.
     # In recent versions, it might be 'tools' or available via list_tools()

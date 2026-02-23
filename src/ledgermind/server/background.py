@@ -107,7 +107,7 @@ class BackgroundWorker:
             # Sync only if git is available and configured
             if self.memory._git_available:
                 count = self.memory.sync_git(repo_path=".", limit=5)
-                if count > 0:
+                if isinstance(count, int) and count > 0:
                     logger.info(f"Background Sync: Indexed {count} commits.")
                 self.last_run["git_sync"] = datetime.now()
         except Exception as e:
@@ -139,7 +139,7 @@ class BackgroundWorker:
             now = datetime.now()
             if not last or (now - last).total_seconds() > 3600: # 1 hour
                 report = self.memory.run_decay()
-                if report.archived > 0 or report.pruned > 0:
+                if (isinstance(getattr(report, 'archived', None), int) and report.archived > 0) or (isinstance(getattr(report, 'pruned', None), int) and report.pruned > 0):
                     logger.info(f"Background Decay: Archived {report.archived}, Pruned {report.pruned}")
                 self.last_run["decay"] = now
         except Exception as e:
