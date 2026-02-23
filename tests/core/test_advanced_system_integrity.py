@@ -68,19 +68,20 @@ def test_concurrency_locking_parallel_evolution(temp_memory_path):
     results, errors = [], []
     os.environ["LEDGERMIND_TEST_DELAY"] = "0.2"
     
-    def worker():
+    def worker(worker_id):
+        # Using the SHARED memory instance to test threading.RLock
         try:
-            # Re-using the same memory instance with its internal locks
             res = memory.supersede_decision(
-                title="Evolution Step", target=target,
-                rationale="Parallel worker attempt.",
+                title=f"Evolution by Worker {worker_id}",
+                target=target,
+                rationale=f"Worker {worker_id} is trying to evolve the knowledge.",
                 old_decision_ids=[initial_id]
             )
             results.append(res.metadata["file_id"])
         except Exception as e:
             errors.append(e)
 
-    threads = [threading.Thread(target=worker) for _ in range(5)]
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(5)]
     for t in threads: t.start()
     for t in threads: t.join()
     

@@ -20,6 +20,7 @@ class SemanticMetaStore:
     def _init_db(self):
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
+        self._conn.execute("PRAGMA busy_timeout=30000")
         # Ensure FTS5 is available or fallback
         try:
             self._conn.execute("SELECT 1")

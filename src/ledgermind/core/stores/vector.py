@@ -56,7 +56,8 @@ class GGUFEmbeddingAdapter:
             self.dimension = 1024
 
     def encode(self, sentences: Any, **kwargs) -> np.ndarray:
-        input_list = [sentences] if isinstance(sentences, str) else sentences
+        is_single = isinstance(sentences, str)
+        input_list = [sentences] if is_single else sentences
         
         embeddings = []
         for text in input_list:
@@ -72,7 +73,8 @@ class GGUFEmbeddingAdapter:
                 # Return zero vector on failure to maintain shape
                 embeddings.append([0.0] * self.dimension)
         
-        return np.array(embeddings).astype('float32')
+        arr = np.array(embeddings).astype('float32')
+        return arr[0] if is_single else arr
 
     def get_sentence_embedding_dimension(self):
         return self.dimension
