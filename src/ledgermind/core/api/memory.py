@@ -265,6 +265,26 @@ class Memory:
             elif decision.store_type == "semantic":
                 # Use Transaction for atomic save + status updates
                 with self.semantic.transaction():
+                    # 1. Update back-links and deactivate old versions BEFORE saving new one
+                    # to satisfy SQLite UNIQUE constraint on active targets.
+                    if intent and intent.resolution_type == "supersede":
+                        for old_id in intent.target_decision_ids:
+                            # Verify it exists and is active before deactivating
+                            old_meta = self.semantic.meta.get_by_fid(old_id)
+                            if old_meta and old_meta.get('status') == 'active':
+                                self.semantic.update_decision(
+                                    old_id, 
+                                    {"status": "superseded"},
+                                    commit_msg=f"Deactivating for transition"
+                                )
+                            else:
+                                # If it's already superseded, this worker lost the race
+                                raise ConflictError(f"Cannot supersede {old_id}: it is not active or missing.")
+
+                    # CRITICAL: Force SQLite metadata index sync before checking for conflicts
+                    # to ensure we see deactivations from other processes that just finished.
+                    self.semantic.sync_meta_index(force=True)
+
                     # 2.7: Late-bind Conflict Detection (Inside Lock)
                     # This prevents race conditions where two agents check simultaneously
                     if not intent:
