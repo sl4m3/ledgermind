@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ledgermind"
-version = "2.7.4"
+version = "2.7.5"
 description = "Monolithic Autonomous Agent Memory Management System"
 readme = "README.md"
 requires-python = ">=3.10"
