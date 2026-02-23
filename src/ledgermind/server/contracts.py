@@ -1,8 +1,16 @@
+import os
 from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 
 # --- API Versioning ---
-MCP_API_VERSION = "2.7.1"
+def _get_version():
+    v_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "VERSION")
+    if os.path.exists(v_path):
+        with open(v_path, "r") as f:
+            return f.read().strip()
+    return "0.0.0"
+
+MCP_API_VERSION = _get_version()
 
 # --- Request Models ---
 
