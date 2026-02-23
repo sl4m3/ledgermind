@@ -200,11 +200,14 @@ class ReflectionEngine:
             if ev['kind'] == 'commit_change':
                 msg = ev.get('content', '')
                 import re
+                # Improved regex: require word-like characters and potentially exclude 'ci'
+                # Or just let it capture and filter later by length.
                 match = re.search(r'\(([^)]+)\):', msg)
                 target = match.group(1) if match else "general_development"
 
             target = target or "general"
-            if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general"):
+            # Strict validation for target length (Pydantic requires >= 3)
+            if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general") or len(target) < 3:
                 continue
             
             if target not in clusters:
