@@ -2,7 +2,7 @@ import logging
 import asyncio
 import os
 import json
-from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect, Security
+from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect, Security, Query
 from fastapi.security.api_key import APIKeyHeader, APIKey
 from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
@@ -31,12 +31,18 @@ class RecordRequest(BaseModel):
     consequences: Optional[List[str]] = []
     namespace: str = "default"
 
-async def get_api_key(api_key_header: str = Security(api_key_header)):
+async def get_api_key(
+    api_key_header: str = Security(api_key_header),
+    api_key_query: Optional[str] = Query(None, alias="api_key")
+):
     expected_key = os.environ.get("LEDGERMIND_API_KEY")
     if not expected_key:
         return None
-    if api_key_header == expected_key:
-        return api_key_header
+    
+    # Check both header and query param
+    key = api_key_header or api_key_query
+    if key == expected_key:
+        return key
     raise HTTPException(status_code=403, detail="Could not validate credentials")
 
 def get_memory():
@@ -61,7 +67,7 @@ async def record(req: RecordRequest, mem: Memory = Depends(get_memory)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.get("/events")
+@app.get("/events", dependencies=[Depends(get_api_key)])
 async def sse_events(mem: Memory = Depends(get_memory)):
     """Streaming endpoint for memory updates (SSE)."""
     async def event_generator():
@@ -82,8 +88,18 @@ async def sse_events(mem: Memory = Depends(get_memory)):
     return EventSourceResponse(event_generator())
 
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, mem: Memory = Depends(get_memory)):
+async def websocket_endpoint(
+    websocket: WebSocket, 
+    mem: Memory = Depends(get_memory),
+    api_key: Optional[str] = Query(None)
+):
     """Bi-directional live updates via WebSockets."""
+    expected_key = os.environ.get("LEDGERMIND_API_KEY")
+    if expected_key and api_key != expected_key:
+        await websocket.accept()
+        await websocket.close(code=4003) # Forbidden
+        return
+
     await websocket.accept()
     
     async def on_change(event_type, data):

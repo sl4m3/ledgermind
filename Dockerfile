@@ -10,18 +10,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends
 # Set working directory
 WORKDIR /app
 
+# Create non-root user
+RUN useradd -m -u 1000 ledgermind && 
+    mkdir -p /app/data && 
+    chown -R ledgermind:ledgermind /app
+
 # Copy project files
-COPY . .
+COPY --chown=ledgermind:ledgermind . .
+
+# Switch to non-root user
+USER ledgermind
 
 # Install LedgerMind and all dependencies
-RUN pip install --no-cache-dir -e .[all]
+RUN pip install --no-cache-dir .[all]
 
 # Environment variables
 ENV LEDGERMIND_STORAGE_PATH=/app/data
 ENV LEDGERMIND_API_KEY=""
-
-# Create data directory
-RUN mkdir -p /app/data
 
 # Expose ports
 # REST Gateway / MCP SSE
