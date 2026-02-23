@@ -111,6 +111,37 @@ def run_lifecycle_test(args):
                      console.print("[red]FAIL: Indexed event not found in episodic store.[/red]")
             else:
                 console.print("[red]FAIL: No commits indexed.[/red]")
+
+            # --- STAGE 2.2: GIT-BASED HYPOTHESIS ---
+            console.print("\n[bold cyan]Stage 2.2: Git-Based Hypothesis (Evolution Trigger)[/bold cyan]")
+            git_target = f"auth-module-{uuid.uuid4().hex[:4]}"
+            
+            for i in range(3):
+                fname = f"file_{i}.txt"
+                with open(os.path.join(repo_dir, fname), "w") as f: f.write(f"change {i}")
+                subprocess.run(["git", "add", fname], cwd=repo_dir, check=True)
+                subprocess.run(["git", "commit", "-m", f"feat({git_target}): improve logic part {i}"], cwd=repo_dir, check=True)
+            
+            indexed_count_v2 = bridge.sync_git(repo_path=repo_dir)
+            console.print(f"[dim]Indexed {indexed_count_v2} commits in Stage 2.2[/dim]")
+            
+            proposal_ids = bridge.memory.run_reflection()
+            
+            found_git_prop = False
+            for pid in proposal_ids:
+                meta = bridge.memory.semantic.meta.get_by_fid(pid)
+                if meta and git_target in meta.get('target', '') and "Evolving Pattern" in meta.get('title', ''):
+                    found_git_prop = True
+                    break
+            
+            if found_git_prop:
+                console.print(f"[green]✔ Git Evolution: Successfully generated proposal for {git_target} based on commits.[/green]")
+            else:
+                console.print(f"[red]FAIL: No Git evolution proposal found for {git_target}.[/red]")
+                drafts = bridge.memory.semantic.meta.list_draft_proposals()
+                for d in drafts:
+                    ctx = json.loads(d.get('context_json', '{}'))
+                    console.print(f"[dim]Found Draft: {d.get('content')} for target {ctx.get('target')}[/dim]")
         finally:
             if os.path.exists(repo_dir): shutil.rmtree(repo_dir)
 
