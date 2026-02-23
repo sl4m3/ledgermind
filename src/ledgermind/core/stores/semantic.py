@@ -173,18 +173,22 @@ class SemanticStore:
                                 # Use file mtime if no internal timestamp
                                 final_ts = ts or datetime.fromtimestamp(mtime)
                                 
+                                sync_ctx = data.get("context", {})
+                                sync_target = sync_ctx.get("target") or "unknown"
+                                sync_ns = sync_ctx.get("namespace") or "default"
+
                                 self.meta.upsert(
                                     fid=f, 
-                                    target=ctx.get("target", "unknown") if (ctx := data.get("context", {})) else "unknown",
-                                    title=ctx.get("title", "") if ctx else "",
-                                    status=ctx.get("status", "unknown") if ctx else "unknown",
+                                    target=sync_target,
+                                    title=sync_ctx.get("title", "") if sync_ctx else "",
+                                    status=sync_ctx.get("status", "unknown") if sync_ctx else "unknown",
                                     kind=data.get("kind", "unknown"),
                                     timestamp=final_ts,
-                                    superseded_by=ctx.get("superseded_by") if ctx else None,
-                                    namespace=ctx.get("namespace", "default") if ctx else "default",
+                                    superseded_by=sync_ctx.get("superseded_by") if sync_ctx else None,
+                                    namespace=sync_ns,
                                     content=data.get("content", "")[:8000],
-                                    confidence=ctx.get("confidence", 1.0) if ctx else 1.0,
-                                    context_json=json.dumps(ctx or {})
+                                    confidence=sync_ctx.get("confidence", 1.0) if sync_ctx else 1.0,
+                                    context_json=json.dumps(sync_ctx or {})
                                 )
                     except Exception as e:
                         logger.error(f"Failed to index {f}: {e}")
@@ -275,23 +279,36 @@ class SemanticStore:
                     cached_content = f"{event.content}\n{rationale_val}"
 
                 import json
-                self.meta.upsert(
-                    fid=relative_path,
-                    target=get_ctx_val(ctx, 'target', 'unknown'),
-                    title=get_ctx_val(ctx, 'title', ''),
-                    status=get_ctx_val(ctx, 'status', 'active'),
-                    kind=event.kind,
-                    timestamp=event.timestamp,
-                    namespace=namespace or "default",
-                    content=cached_content[:8000],
-                    confidence=get_ctx_val(ctx, 'confidence', 1.0),
-                    context_json=json.dumps(ctx if isinstance(ctx, dict) else ctx.model_dump(mode='json'))
-                )
+                final_target = get_ctx_val(ctx, 'target', 'unknown') or 'unknown'
+                final_namespace = namespace or get_ctx_val(ctx, 'namespace', 'default') or 'default'
+                
+                try:
+                    self.meta.upsert(
+                        fid=relative_path,
+                        target=final_target,
+                        title=get_ctx_val(ctx, 'title', ''),
+                        status=get_ctx_val(ctx, 'status', 'active'),
+                        kind=event.kind,
+                        timestamp=event.timestamp,
+                        namespace=final_namespace,
+                        content=cached_content[:8000],
+                        confidence=get_ctx_val(ctx, 'confidence', 1.0),
+                        context_json=json.dumps(ctx if isinstance(ctx, dict) else ctx.model_dump(mode='json'))
+                    )
+                except sqlite3.IntegrityError as ie:
+                    if "UNIQUE" in str(ie):
+                        msg = f"CONFLICT: Target '{final_target}' in namespace '{final_namespace}' already has active decisions."
+                        logger.warning(msg)
+                        from ledgermind.core.core.exceptions import ConflictError
+                        raise ConflictError(msg)
+                    raise
             except Exception as e:
                 # If we are in a transaction, TransactionManager will handle rollback.
                 # If not, we do manual cleanup.
                 if not self._in_transaction:
                     if os.path.exists(full_path): os.remove(full_path)
+                
+                if "ConflictError" in str(type(e)): raise
                 raise RuntimeError(f"Metadata Update Failed: {e}")
 
             if not self._in_transaction:
@@ -346,24 +363,36 @@ class SemanticStore:
             if rationale_upd:
                 cached_content_upd = f"{cached_content_upd}\n{rationale_upd}"
 
+            final_target_upd = ctx.get("target") or old_data.get("context", {}).get("target") or "unknown"
+            final_ns_upd = ctx.get("namespace") or old_data.get("context", {}).get("namespace") or "default"
+
             try:
                 import json
                 self.meta.upsert(
                     fid=filename,
-                    target=ctx.get("target") or old_data.get("context", {}).get("target"),
+                    target=final_target_upd,
                     title=ctx.get("title", ""),
                     status=ctx.get("status"),
                     kind=new_data.get("kind"),
                     timestamp=ts or datetime.now(),
                     superseded_by=ctx.get("superseded_by"),
-                    namespace=ctx.get("namespace", "default"),
+                    namespace=final_ns_upd,
                     content=cached_content_upd[:8000],
                     confidence=ctx.get("confidence", 1.0),
                     context_json=json.dumps(ctx)
                 )
+            except sqlite3.IntegrityError as ie:
+                if "UNIQUE" in str(ie):
+                    msg = f"CONFLICT: Target '{final_target_upd}' in namespace '{final_ns_upd}' already has active decisions."
+                    logger.warning(msg)
+                    from ledgermind.core.core.exceptions import ConflictError
+                    raise ConflictError(msg)
+                raise
             except Exception as e:
                 if not self._in_transaction:
                     with open(file_path, "w", encoding="utf-8") as f: f.write(content)
+                
+                if "ConflictError" in str(type(e)): raise
                 raise RuntimeError(f"Metadata Update Failed: {e}")
 
 
