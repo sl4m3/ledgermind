@@ -3,6 +3,7 @@ import yaml
 import logging
 import sqlite3
 import uuid
+import threading
 from typing import List, Optional, Any, Dict, Tuple
 from contextlib import contextmanager
 from ledgermind.core.core.schemas import MemoryEvent, TrustBoundary
@@ -31,8 +32,7 @@ class SemanticStore:
         self.lock_file = os.path.join(repo_path, ".lock")
         
         self._fs_lock = FileSystemLock(self.lock_file)
-        self._in_transaction = False
-        self._current_tx = None
+        self._local = threading.local()
         
         if not os.path.exists(self.repo_path):
             os.makedirs(self.repo_path, exist_ok=True)
@@ -194,6 +194,22 @@ class SemanticStore:
                         logger.error(f"Failed to index {f}: {e}")
         finally:
             if should_lock: self._fs_lock.release()
+
+    @property
+    def _in_transaction(self) -> bool:
+        return getattr(self._local, 'in_transaction', False)
+
+    @_in_transaction.setter
+    def _in_transaction(self, value: bool):
+        self._local.in_transaction = value
+
+    @property
+    def _current_tx(self) -> Optional[Any]:
+        return getattr(self._local, 'current_tx', None)
+
+    @_current_tx.setter
+    def _current_tx(self, value: Optional[Any]):
+        self._local.current_tx = value
 
     @contextmanager
     def transaction(self):
