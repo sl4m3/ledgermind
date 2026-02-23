@@ -27,7 +27,7 @@ class SemanticStore:
     def __init__(self, repo_path: str, trust_boundary: TrustBoundary = TrustBoundary.AGENT_WITH_INTENT, 
                  meta_store: Optional[MetadataStore] = None,
                  audit_store: Optional[AuditProvider] = None,
-                 skip_validate: bool = True):
+                 skip_validate: bool = False):
         self.repo_path = repo_path
         self.trust_boundary = trust_boundary
         self.lock_file = os.path.join(repo_path, ".lock")
@@ -227,8 +227,8 @@ class SemanticStore:
         try:
             with self._current_tx.begin():
                 yield
-                # Invariants check skipped for performance in high-frequency writes
-                # IntegrityChecker.validate(self.repo_path)
+                # Invariants check before commit
+                IntegrityChecker.validate(self.repo_path)
                 
                 # Commit to Audit Provider (Git) BEFORE releasing SQLite savepoint
                 self.audit.commit_transaction("Atomic Transaction Commit")
