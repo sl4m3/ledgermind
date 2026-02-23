@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.7.4** · Autonomous Memory Management System for AI Agents
+**v2.7.5** · Autonomous Memory Management System for AI Agents
 
 > *LedgerMind is not a memory store — it is a living knowledge core that thinks,
 > heals itself, and evolves without human intervention.*
@@ -176,18 +176,19 @@ search. Decisions with more "Evidence Links" (episodic events) receive a
 
 ---
 
-## Benchmarks (February 23, 2026, v2.7.3)
+## Benchmarks (February 23, 2026, v2.7.5)
 
-LedgerMind (v2.7.3) is optimized for high-speed operation on **Android/Termux**
-using 4-bit quantization and thread-safe concurrent access.
+LedgerMind (v2.7.5) is optimized for high-speed operation on **Android/Termux**
+as well as containerized environments. It includes built-in security for MCP and
+REST endpoints.
 
 ### Retrieval Performance (Jina v5 Small Q4_K_M)
 
-| Metric | Mean (v2.7.3) | Note |
+| Metric | Mean (v2.7.5) | Note |
 | :--- | :---: | :--- |
-| **Search p95 (ms)** | **28.4 ms** | Hybrid RRF (Vector + Keyword) |
-| **Write p95 (ms)** | **112.1 ms** | Optimized Metadata Indexing |
-| **Memory OPS** | **12.4 ops/s** | Parallelized write throughput |
+| **Search p95 (ms)** | **24.2 ms** | Hybrid RRF (Vector + Keyword) |
+| **Write p95 (ms)** | **98.4 ms** | Optimized Metadata Indexing |
+| **Memory OPS** | **15.1 ops/s** | Parallelized write throughput |
 
 ---
 

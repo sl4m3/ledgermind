@@ -103,7 +103,20 @@ class MCPServer:
         # FastMCP context might not be directly accessible here easily 
         # for all transports, but we can attempt to check environment/session
         # In a real MCP scenario, this would check the request metadata.
-        pass
+        
+        from mcp.server.fastmcp import Context
+        ctx: Context = getattr(self.mcp, "context", None)
+        
+        # If we have request context (SSE/HTTP), check headers
+        if ctx and hasattr(ctx, "request_context") and ctx.request_context:
+            headers = getattr(ctx.request_context.request, "headers", {})
+            provided_key = headers.get("X-API-Key") or headers.get("x-api-key")
+            if provided_key != self.api_key:
+                raise PermissionError("Invalid or missing X-API-Key header.")
+        
+        # For stdio, we assume the environment is already secured or the key 
+        # is passed via transport-specific metadata if supported by the client.
+        # Currently, if LEDGERMIND_API_KEY is set but no header is found in SSE, it fails.
 
     def _validate_isolation(self, decision_ids: List[str]):
         """
@@ -138,6 +151,7 @@ class MCPServer:
     def handle_record_decision(self, request: RecordDecisionRequest) -> DecisionResponse:
         start_time = time.time()
         try:
+            self._validate_auth()
             self._check_capability("propose")
             self._apply_cooldown()
             result = self.memory.record_decision(
@@ -162,6 +176,7 @@ class MCPServer:
     def handle_supersede_decision(self, request: SupersedeDecisionRequest) -> DecisionResponse:
         start_time = time.time()
         try:
+            self._validate_auth()
             self._check_capability("supersede")
             self._validate_isolation(request.old_decision_ids)
             result = self.memory.supersede_decision(
@@ -186,6 +201,7 @@ class MCPServer:
     def handle_search(self, request: SearchDecisionsRequest) -> SearchResponse:
         start_time = time.time()
         try:
+            self._validate_auth()
             self._check_capability("read")
             results = self.memory.search_decisions(
                 request.query, 

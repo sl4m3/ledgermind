@@ -29,12 +29,16 @@ jobs:
         name: benchmark-results
         path: output.json
 
-    # - name: Store Benchmark Results
-    #   uses: benchmark-action/github-action-benchmark@v1
-    #   with:
-    #     tool: 'pytest'
-    #     output-file-path: core/output.json
-    #     fail-on-alert: true
-    #     github-token: ${{ secrets.GITHUB_TOKEN }}
-    #     auto-push: false
-    #     skip-fetch-gh-pages: true
+    - name: Store Benchmark Results
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'pytest'
+        output-file-path: output.json
+        fail-on-alert: true
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        comment-on-alert: true
+        # gh-pages is common for benchmarks, but requires setup
+        # For now, just keeping history in the job artifacts is done by upload-artifact
+        # but this action helps with comparison.
+
