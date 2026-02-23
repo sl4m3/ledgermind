@@ -47,6 +47,9 @@ vector = [
     "annoy>=1.17.0",
     "sentence-transformers>=2.2.2"
 ]
+gguf = [
+    "llama-cpp-python>=0.2.0"
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.20.0",
@@ -56,7 +59,7 @@ dev = [
     "ruff>=0.1.0"
 ]
 all = [
-    "ledgermind[vector]"
+    "ledgermind[vector,gguf]"
 ]
 
 [project.scripts]
