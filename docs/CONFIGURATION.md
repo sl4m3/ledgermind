@@ -44,6 +44,47 @@ memory = Memory(config=config)
 
 ---
 
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `LEDGERMIND_API_KEY` | If set, enables API-key authentication for MCP and REST. Clients must send the `X-API-Key` header. |
+
+---
+
+## Webhooks
+
+The `MCPServer` can notify external systems of memory events via async HTTP POST requests.
+
+```bash
+ledgermind-mcp run --webhooks http://api.com/v1/mem-events http://backup.local/hook
+```
+
+**Payload Example:**
+```json
+{
+  "event": "semantic_added",
+  "data": {
+    "id": "decisions/2024-02-01_abc.md",
+    "kind": "decision",
+    "namespace": "default"
+  },
+  "timestamp": 1706800000.0
+}
+```
+
+---
+
+## Distillation Engine
+
+Controls how successful trajectories are distilled into procedural knowledge.
+
+| Parameter | Default | Description |
+|---|---|---|
+| `window_size` | `5` | Number of episodic events to include in a distilled trajectory before a successful result. |
+
+---
+
 ## ReflectionPolicy
 
 Controls how the `ReflectionEngine` generates and evaluates proposals. Pass to `ReflectionEngine(policy=...)` or use defaults.

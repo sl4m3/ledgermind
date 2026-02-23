@@ -33,7 +33,7 @@ class ConflictEngine:
             return event.context.get("namespace", "default")
         return "default"
 
-    def get_conflict_files(self, event: MemoryEvent) -> List[str]:
+    def get_conflict_files(self, event: MemoryEvent, namespace: Optional[str] = None) -> List[str]:
         """
         Identify files in the semantic store that conflict with the given event.
         
@@ -48,17 +48,17 @@ class ConflictEngine:
 
         # Optimization: use metadata index if available
         if self.meta:
-            ns = self._get_namespace(event)
+            ns = namespace or self._get_namespace(event)
             fid = self.meta.get_active_fid(new_target, namespace=ns)
             return [fid] if fid else []
 
         raise RuntimeError("Metadata store required for performance")
 
-    def check_for_conflicts(self, event: MemoryEvent) -> Optional[str]:
+    def check_for_conflicts(self, event: MemoryEvent, namespace: Optional[str] = None) -> Optional[str]:
         """
         Check for conflicts and return a human-readable message if any exist.
         """
-        conflicts = self.get_conflict_files(event)
+        conflicts = self.get_conflict_files(event, namespace=namespace)
         if conflicts:
             return f"Conflict detected with: {', '.join(conflicts)}"
         return None

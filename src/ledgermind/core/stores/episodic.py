@@ -1,5 +1,6 @@
 import sqlite3
 import json
+import threading
 from typing import List, Optional, Dict, Any, Tuple
 from contextlib import contextmanager
 from ledgermind.core.core.schemas import MemoryEvent
@@ -7,17 +8,20 @@ from ledgermind.core.core.schemas import MemoryEvent
 class EpisodicStore:
     def __init__(self, db_path: str):
         self.db_path = db_path
+        self._lock = threading.Lock()
         self._init_db()
 
     @contextmanager
     def _get_conn(self):
-        conn = sqlite3.connect(self.db_path, timeout=30.0)
-        try:
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA synchronous=NORMAL")
-            yield conn
-        finally:
-            conn.close()
+        with self._lock:
+            conn = sqlite3.connect(self.db_path, timeout=30.0)
+            try:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA synchronous=NORMAL")
+                conn.execute("PRAGMA busy_timeout=10000")
+                yield conn
+            finally:
+                conn.close()
 
     def _init_db(self):
         with self._get_conn() as conn:

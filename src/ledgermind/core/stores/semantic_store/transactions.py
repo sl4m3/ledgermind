@@ -27,6 +27,25 @@ class FileSystemLock:
             self._fd = os.open(self.lock_path, flags)
 
         while True:
+            # Check for stale semaphore/lock file
+            semaphore_path = self.lock_path + ".lock"
+            if os.path.exists(semaphore_path):
+                try:
+                    with open(semaphore_path, 'r') as f:
+                        pid = int(f.read().strip())
+                    
+                    # Check if process is still alive
+                    try:
+                        os.kill(pid, 0)
+                    except OSError:
+                        # Process is dead, remove stale lock
+                        logger.warning(f"Removing stale lock file for PID {pid}")
+                        try:
+                            os.remove(semaphore_path)
+                        except OSError: pass
+                except (ValueError, IOError):
+                    pass
+
             try:
                 import fcntl
                 op = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH

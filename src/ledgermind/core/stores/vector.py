@@ -16,6 +16,9 @@ except ImportError:
 
 VECTOR_AVAILABLE = True # NumPy is always available
 
+# Module-level cache for models
+_MODEL_CACHE = {}
+
 class VectorStore:
     """
     A simple vector store using NumPy for cosine similarity.
@@ -28,7 +31,6 @@ class VectorStore:
         self.model_name = model_name
         self.dimension = dimension
         self.workers = self._resolve_workers(workers)
-        self._model = None
         self._pool = None
         self._vectors = None # NumPy array of vectors
         self._doc_ids = []
@@ -52,7 +54,9 @@ class VectorStore:
     def model(self):
         if not EMBEDDING_AVAILABLE:
             raise ImportError("Embedding model dependencies (sentence-transformers) not found.")
-        if self._model is None:
+        
+        cache_key = self.model_name
+        if cache_key not in _MODEL_CACHE:
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
             
             # Special handling for Jina v5 models which require a 'task' parameter
@@ -61,16 +65,18 @@ class VectorStore:
                 model_kwargs["default_task"] = "retrieval"
             
             # Enable trust_remote_code for Jina v5 and other modern models
-            self._model = SentenceTransformer(
+            model = SentenceTransformer(
                 self.model_name, 
                 trust_remote_code=True,
                 model_kwargs=model_kwargs
             )
-            self._model.show_progress_bar = False
-            # PROOF
-            dim = self._model.get_sentence_embedding_dimension()
-            print(f"\n[bold blue][DEBUG][/bold blue] Vector Engine: [green]{self.model_name}[/green] | Dimension: [bold]{dim}[/bold]")
-        return self._model
+            model.show_progress_bar = False
+            
+            dim = model.get_sentence_embedding_dimension()
+            logger.info(f"Vector Engine Initialized: {self.model_name} | Dimension: {dim}")
+            _MODEL_CACHE[cache_key] = model
+            
+        return _MODEL_CACHE[cache_key]
 
     def _get_pool(self):
         if not EMBEDDING_AVAILABLE or self.workers <= 1:
