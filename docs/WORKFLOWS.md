@@ -155,6 +155,23 @@ print(f"Indexed {indexed} commits")
 # The ReflectionEngine will pick these up in its next cycle
 ```
 
+### From Commits to Hypotheses
+
+When the `ReflectionEngine` detects a target that has **2 or more commits** (and
+no existing active decision), it generates an **"Evolving Pattern"** proposal.
+
+**Example Evolution Chain:**
+1.  `git commit -m "feat(auth): add JWT support"`
+2.  `git commit -m "feat(auth): implement refresh tokens"`
+3.  `memory.sync_git()` -> indexes both commits.
+4.  `memory.run_reflection()` -> notices `auth` has 2 commits.
+5.  System creates a proposal: **"Evolving Pattern in auth"** with a rationale
+    summarizing the commit messages.
+
+This ensures your knowledge base stays in sync with your actual code evolution,
+proactively suggesting when a new area of the codebase needs formal
+documentation.
+
 In MCP mode, this runs automatically every 5 minutes via `BackgroundWorker._run_git_sync()` (last 5 commits).
 
 ---
