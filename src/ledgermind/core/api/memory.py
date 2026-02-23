@@ -313,8 +313,6 @@ class Memory:
                     # 3. Save new decision (this updates SQLite and Git)
                     new_fid = self.semantic.save(event, namespace=effective_namespace)
                     
-                    # Force immediate meta sync inside transaction if needed? 
-                    # Actually save() calls meta.upsert which is good.
                     decision.metadata["file_id"] = new_fid
                     self.events.emit("semantic_added", {"id": new_fid, "kind": event.kind, "namespace": effective_namespace})
                     
@@ -344,25 +342,26 @@ class Memory:
                                 logger.warning(f"Failed to fetch links from superseded item {old_id}: {e}")
 
                     if all_grounding_ids:
+                        # Batch linking grounding evidence
                         for ev_id in all_grounding_ids:
                             try:
                                 self.episodic.link_to_semantic(ev_id, new_fid)
                             except Exception as le:
                                 logger.warning(f"Failed to link grounding evidence {ev_id} to {new_fid}: {le}")
 
-                # 3.5: Index in VectorStore (OUTSIDE transaction for performance)
+                # 3.5: Index in VectorStore (OUTSIDE transaction for massive speed gain)
                 try:
                     # Combine content with rationale for better grounded search
                     indexed_content = event.content
                     ctx = event.context
-                    rationale = ""
+                    rationale_val = ""
                     if isinstance(ctx, dict):
-                        rationale = ctx.get('rationale', '')
+                        rationale_val = ctx.get('rationale', '')
                     elif hasattr(ctx, 'rationale'):
-                        rationale = getattr(ctx, 'rationale', '')
+                        rationale_val = getattr(ctx, 'rationale', '')
                     
-                    if rationale:
-                        indexed_content = f"{event.content}\n{rationale}"
+                    if rationale_val:
+                        indexed_content = f"{event.content}\n{rationale_val}"
 
                     self.vector.add_documents([{
                         "id": new_fid,
