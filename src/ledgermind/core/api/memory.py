@@ -26,6 +26,8 @@ from ledgermind.core.reasoning.git_indexer import GitIndexer
 from ledgermind.core.stores.vector import VectorStore
 from ledgermind.core.core.targets import TargetRegistry
 
+from ledgermind.core.utils.events import EventEmitter
+
 class Memory:
     """
     The main entry point for the ledgermind-core.
@@ -48,6 +50,7 @@ class Memory:
         """
         Initialize the memory system.
         """
+        self.events = EventEmitter()
         if config:
             self.config = config
         else:
@@ -210,10 +213,13 @@ class Memory:
                       kind: str, 
                       content: str, 
                       context: Optional[Union[DecisionContent, Dict[str, Any]]] = None,
-                      intent: Optional[ResolutionIntent] = None) -> MemoryDecision:
+                      intent: Optional[ResolutionIntent] = None,
+                      namespace: Optional[str] = None) -> MemoryDecision:
         """
         Process an incoming event and decide whether to persist it.
         """
+        effective_namespace = namespace or self.namespace
+
         if (self.trust_boundary == TrustBoundary.HUMAN_ONLY and 
             source == "agent" and 
             kind == KIND_DECISION):
@@ -244,7 +250,7 @@ class Memory:
         if decision := self.router.route(event, intent=intent):
              if decision.should_persist and decision.store_type == "semantic" and not intent:
                  # Check for active conflicts that aren't being superseded
-                 if conflict_msg := self.conflict_engine.check_for_conflicts(event):
+                 if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=effective_namespace):
                      return MemoryDecision(
                          should_persist=False,
                          store_type="none",
@@ -255,13 +261,14 @@ class Memory:
             if decision.store_type == "episodic":
                 ev_id = self.episodic.append(event)
                 decision.metadata["event_id"] = ev_id
+                self.events.emit("episodic_added", {"id": ev_id, "kind": event.kind})
             elif decision.store_type == "semantic":
                 # Use Transaction for atomic save + status updates
                 with self.semantic.transaction():
                     # 2.7: Late-bind Conflict Detection (Inside Lock)
                     # This prevents race conditions where two agents check simultaneously
                     if not intent:
-                        if conflict_msg := self.conflict_engine.check_for_conflicts(event):
+                        if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=effective_namespace):
                             logger.warning(f"Race condition prevented: {conflict_msg}")
                             raise ConflictError(f"Conflict detected during transaction: {conflict_msg}")
 
@@ -280,8 +287,9 @@ class Memory:
                         event.context.supersedes = intent.target_decision_ids
                     
                     # 3. Save new decision (this updates SQLite and Git)
-                    new_fid = self.semantic.save(event)
+                    new_fid = self.semantic.save(event, namespace=effective_namespace)
                     decision.metadata["file_id"] = new_fid
+                    self.events.emit("semantic_added", {"id": new_fid, "kind": event.kind, "namespace": effective_namespace})
                     
                     # 3.5: Index in VectorStore
                     try:
@@ -483,7 +491,7 @@ class Memory:
         indexer = GitIndexer(repo_path)
         return indexer.index_to_memory(self, limit=limit)
 
-    def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None, arbiter_callback: Optional[callable] = None) -> MemoryDecision:
+    def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None, namespace: Optional[str] = None, arbiter_callback: Optional[callable] = None) -> MemoryDecision:
         """
         Helper to record a new decision in semantic memory.
         Automatically resolves conflicts using Hybrid Similarity and optional LLM arbitration.
@@ -492,12 +500,14 @@ class Memory:
         if not target.strip(): raise ValueError("Target cannot be empty")
         if not rationale.strip(): raise ValueError("Rationale cannot be empty")
 
+        effective_namespace = namespace or self.namespace
+
         # 1. Target Normalization
         target = self.targets.normalize(target)
         self.targets.register(target, description=title)
 
         # 2. Pre-flight Conflict Check & Auto-Resolution
-        active_conflicts = self.semantic.list_active_conflicts(target)
+        active_conflicts = self.semantic.list_active_conflicts(target, namespace=effective_namespace)
         if active_conflicts:
             # Intelligent Conflict Resolution
             try:
@@ -549,14 +559,15 @@ class Memory:
                                 rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
                                 old_decision_ids=[old_fid],
                                 consequences=consequences,
-                                evidence_ids=evidence_ids
+                                evidence_ids=evidence_ids,
+                                namespace=effective_namespace
                             )
             except Exception as e:
                 logger.warning(f"Auto-resolution failed: {e}")
             
             # If we fall through, it's a hard conflict
             suggestions = self.targets.suggest(target)
-            msg = f"CONFLICT: Target '{target}' already has active decisions: {active_conflicts}. "
+            msg = f"CONFLICT: Target '{target}' in namespace '{effective_namespace}' already has active decisions: {active_conflicts}. "
             if suggestions:
                 msg += f"Did you mean: {', '.join(suggestions)}?"
             raise ConflictError(msg)
@@ -567,13 +578,15 @@ class Memory:
             "status": "active",
             "rationale": rationale,
             "consequences": consequences or [],
-            "evidence_event_ids": evidence_ids or []
+            "evidence_event_ids": evidence_ids or [],
+            "namespace": effective_namespace
         }
         decision = self.process_event(
             source="agent",
             kind=KIND_DECISION,
             content=title,
-            context=ctx
+            context=ctx,
+            namespace=effective_namespace
         )
         
         if not decision.should_persist:
@@ -583,17 +596,15 @@ class Memory:
             
         return decision
 
-    def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None) -> MemoryDecision:
+    def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None, namespace: Optional[str] = None) -> MemoryDecision:
         """
         Helper to evolve knowledge by superseding existing decisions.
-        Raises:
-            ConflictError: If resolution intent is invalid or incomplete.
-            InvariantViolation: If other invariants are violated.
         """
-        active_files = self.semantic.list_active_conflicts(target)
+        effective_namespace = namespace or self.namespace
+        active_files = self.semantic.list_active_conflicts(target, namespace=effective_namespace)
         for oid in old_decision_ids:
             if oid not in active_files:
-                raise ConflictError(f"Cannot supersede {oid}: it is no longer active for target {target}")
+                raise ConflictError(f"Cannot supersede {oid}: it is no longer active for target {target} in namespace {effective_namespace}")
 
         intent = ResolutionIntent(
             resolution_type="supersede",
@@ -606,14 +617,16 @@ class Memory:
             "status": "active",
             "rationale": rationale,
             "consequences": consequences or [],
-            "evidence_event_ids": evidence_ids or []
+            "evidence_event_ids": evidence_ids or [],
+            "namespace": effective_namespace
         }
         decision = self.process_event(
             source="agent",
             kind=KIND_DECISION,
             content=title,
             context=ctx,
-            intent=intent
+            intent=intent,
+            namespace=effective_namespace
         )
 
         if not decision.should_persist:
@@ -696,23 +709,27 @@ class Memory:
             commit_msg=f"Rejected proposal: {reason}"
         )
 
-    def search_decisions(self, query: str, limit: int = 5, mode: str = "balanced") -> List[Dict[str, Any]]:
+    def search_decisions(self, query: str, limit: int = 5, offset: int = 0, namespace: Optional[str] = None, mode: str = "balanced") -> List[Dict[str, Any]]:
         """
         Search with Recursive Truth Resolution and Hybrid Vector/Keyword ranking (RRF).
-        Uses Metadata Cache to avoid N+1 file reads.
+        Now supports namespacing and pagination.
         """
+        effective_namespace = namespace or self.namespace
+        
         # 1. Execute Searches
         k = 60 # RRF constant
-        search_limit = limit * 3
+        search_limit = (offset + limit) * 3
         
         # Vector Search
         vec_results = []
         try:
+            # Note: VectorStore currently doesn't support namespace filtering internally,
+            # so we'll filter during RRF/Resolution step.
             vec_results = self.vector.search(query, limit=search_limit)
         except Exception: pass
             
         # Keyword Search (FTS)
-        kw_results = self.semantic.meta.keyword_search(query, limit=limit * 10)
+        kw_results = self.semantic.meta.keyword_search(query, limit=search_limit, namespace=effective_namespace)
         
         # 2. RRF Fusion
         scores = {}
@@ -725,8 +742,7 @@ class Memory:
             fid = item['fid']
             scores[fid] = scores.get(fid, 0.0) + (1.0 / (k + rank + 1))
 
-        # 3. Normalization (to bring RRF into 0-1 range roughly equivalent to similarity)
-        # Theoretical max RRF with 2 sources at rank 0 is 2.0 / (k + 1.0)
+        # 3. Normalization
         max_rrf = 2.0 / (k + 1.0)
 
         # Sort by score descending
@@ -734,18 +750,28 @@ class Memory:
         
         candidates = []
         seen_final_ids = set()
+        skipped = 0
         
         for fid in sorted_fids:
             # Resolve to truth (handle superseding)
             meta = self._resolve_to_truth(fid, mode)
             if not meta: continue
             
+            # Namespace Filter
+            if meta.get('namespace', 'default') != effective_namespace:
+                continue
+
             final_id = meta['fid']
             if final_id in seen_final_ids: continue
             
             status = meta.get("status", "unknown")
             if mode == "strict" and status != "active": continue
             
+            # Pagination Logic
+            if skipped < offset:
+                skipped += 1
+                continue
+
             # Evidence boost
             link_count, _ = self.episodic.count_links_for_semantic(final_id)
             boost = min(1.0, link_count * 0.1) # +10% per link

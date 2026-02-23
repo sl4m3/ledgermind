@@ -13,8 +13,9 @@ class DistillationEngine:
     Анализирует эпизодическую память для выделения успешных паттернов действий.
     """
     
-    def __init__(self, episodic_store):
+    def __init__(self, episodic_store, window_size: int = 5):
         self.episodic = episodic_store
+        self.window_size = window_size
 
     def distill_trajectories(self, limit: int = 100, after_id: Optional[int] = None) -> List[ProposalContent]:
         """
@@ -35,8 +36,8 @@ class DistillationEngine:
                 context = event.get('context', {})
                 if context.get('success') or "success" in event.get('content', '').lower():
                     # Траектория - это события ПЕРЕД текущим результатом
-                    # Берем окно из последних 5 событий
-                    trajectory_events = chronological_events[max(0, i-5):i]
+                    # Берем окно из последних событий
+                    trajectory_events = chronological_events[max(0, i - self.window_size):i]
                     if trajectory_events:
                         proposal = self._create_procedural_proposal(trajectory_events, event)
                         proposals.append(proposal)

@@ -10,13 +10,12 @@ LedgerMind exposes 15 tools via the Model Context Protocol. All tools are availa
 # Minimal
 ledgermind-mcp run --path ./memory
 
-# Full options
+# Secure with API Key and Webhooks
+export LEDGERMIND_API_KEY="your-secure-key"
 ledgermind-mcp run \
   --path ./memory \
-  --name "MyAgentMemory" \
-  --metrics-port 9090 \
-  --rest-port 8080 \
-  --capabilities '{"read":true,"propose":true,"supersede":true,"accept":true,"sync":true,"purge":false}'
+  --webhooks http://api.com/hook \
+  --rest-port 8080
 ```
 
 ---
@@ -30,6 +29,8 @@ The server has three roles, controlled by the `default_role` parameter in `MCPSe
 | `viewer` | — | `read` only |
 | `agent` | ✓ | `read`, `propose`, `supersede`, `accept`, `sync` |
 | `admin` | — | All capabilities + bypasses human-record isolation |
+
+**Authentication:** If `LEDGERMIND_API_KEY` is set, all MCP transport metadata and REST requests must include the `X-API-Key` header.
 
 Each capability maps to one or more tools. If a tool's required capability is disabled, it returns an error response.
 
@@ -49,6 +50,7 @@ Records a strategic decision into semantic memory.
 | `target` | string | ✓ | The system/area this decision applies to |
 | `rationale` | string | ✓ | Why this decision was made (min 10 chars) |
 | `consequences` | string[] | — | Rules or effects resulting from this decision |
+| `namespace` | string | — | Logical partition (default: `default`) |
 
 **Returns:** `{"status": "success", "decision_id": "decisions/..."}`
 
@@ -77,9 +79,10 @@ Explicitly replaces one or more existing decisions with a new one.
 |---|---|---|---|
 | `title` | string | ✓ | Title of the new decision |
 | `target` | string | ✓ | Target area |
-| `rationale` | string | ✓ | Why the old decisions are being replaced (min 15 chars) |
+| `rationale` | string | ✓ | Why old decisions are replaced (min 15 chars) |
 | `old_decision_ids` | string[] | ✓ | File IDs of decisions to supersede |
 | `consequences` | string[] | — | Effects of the new decision |
+| `namespace` | string | — | Logical partition (default: `default`) |
 
 **Returns:** `{"status": "success", "decision_id": "decisions/..."}`
 
@@ -105,7 +108,9 @@ Searches semantic memory using hybrid vector + keyword matching.
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `query` | string | — | Natural language search query |
-| `limit` | integer | 5 | Max results to return (1–20) |
+| `limit` | integer | 5 | Max results to return (1–50) |
+| `offset` | integer | 0 | Pagination offset |
+| `namespace` | string | `default`| Partition to search within |
 | `mode` | string | `balanced` | `strict`, `balanced`, or `audit` |
 
 **Mode behavior:**

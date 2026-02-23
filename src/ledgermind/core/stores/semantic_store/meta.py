@@ -157,8 +157,8 @@ class SemanticMetaStore:
         ).fetchone()
         return row[0] if row else None
 
-    def keyword_search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Search using FTS5 (BM25) or fallback to LIKE."""
+    def keyword_search(self, query: str, limit: int = 10, namespace: str = "default") -> List[Dict[str, Any]]:
+        """Search using FTS5 (BM25) or fallback to LIKE with namespace filtering."""
         self._conn.row_factory = sqlite3.Row
         cursor = self._conn.cursor()
         
@@ -175,36 +175,29 @@ class SemanticMetaStore:
             clean_query = " ".join(clean_query.split())
 
             # Use simple token search if query is simple, else use exact phrase
-            # Strategy: Implicit AND is best for natural language queries where we expect terms to be present.
-            # CRITICAL FIX: Trim edges logic enabled to handle partial tokens from substrings
             words = clean_query.split()
             if len(words) > 5:
-                 # Remove first and last word to be safe against partial tokens
                  inner_query = " ".join(words[1:-1])
-                 if inner_query:
-                     fts_query = inner_query
-                 else:
-                     fts_query = clean_query
+                 fts_query = inner_query if inner_query else clean_query
             elif " " not in clean_query:
                  fts_query = clean_query + "*"
             else:
-                 # Standard FTS5 search (implicit AND)
                  fts_query = clean_query
             
             sql = """
                 SELECT m.*, fts.rank 
                 FROM semantic_meta m
                 JOIN semantic_fts fts ON m.rowid = fts.rowid
-                WHERE semantic_fts MATCH ? 
+                WHERE semantic_fts MATCH ? AND m.namespace = ?
                 ORDER BY rank LIMIT ?
             """
-            cursor.execute(sql, (fts_query, limit))
+            cursor.execute(sql, (fts_query, namespace, limit))
             res = [dict(row) for row in cursor.fetchall()]
             
-            # Fallback to OR search if AND fails (e.g. partial tokens or noise)
+            # Fallback to OR search if AND fails
             if not res and len(words) > 3:
                  fts_query_or = clean_query.replace(" ", " OR ")
-                 cursor.execute(sql, (fts_query_or, limit * 2)) # Double limit for noisy OR search
+                 cursor.execute(sql, (fts_query_or, namespace, limit * 2))
                  res = [dict(row) for row in cursor.fetchall()]
             
             return res
@@ -221,15 +214,15 @@ class SemanticMetaStore:
                 conditions.append("(target LIKE ? OR fid LIKE ? OR title LIKE ?)")
                 params.extend([pattern, pattern, pattern])
             
-            where_clause = " OR ".join(conditions)
-            params.append(limit)
+            where_clause = "(" + " OR ".join(conditions) + ")"
+            sql_params = params + [namespace, limit]
             
             query_sql = f"""
                 SELECT * FROM semantic_meta 
-                WHERE {where_clause}
+                WHERE {where_clause} AND namespace = ?
                 ORDER BY timestamp DESC LIMIT ?
             """  # nosec B608
-            cursor.execute(query_sql, params)
+            cursor.execute(query_sql, sql_params)
             return [dict(row) for row in cursor.fetchall()]
 
 
