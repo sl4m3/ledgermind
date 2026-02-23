@@ -41,7 +41,7 @@ Memory (core/api/memory.py)
 │
 ├── SemanticStore          Long-term structured knowledge (Markdown + Git)
 │   ├── GitAuditProvider   Every write = a Git commit
-│   ├── SemanticMetaStore  SQLite index with FTS5 and namespace support
+│   ├── SemanticMetaStore  SQLite index with FTS5 and namespace support (v2.7.6: Idempotent initialization)
 │   ├── TransactionManager ACID isolation using SAVEPOINT and threading.local()
 │   ├── IntegrityChecker   Pre/post-write ns-resolution invariant validation
 │   └── MemoryLoader       Frontmatter YAML + Markdown body parser

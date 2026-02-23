@@ -100,9 +100,30 @@ class VectorStore:
         self._deleted_ids = set()
         self._dirty = False
         self._unsaved_count = 0
+        
+        # Performance Cache: text -> vector
+        self._embedding_cache = {}
+        self._max_cache_size = 500
 
         if not os.path.exists(storage_path):
             os.makedirs(storage_path, exist_ok=True)
+
+    def _get_embedding(self, text: str) -> np.ndarray:
+        """Internal helper with caching."""
+        if text in self._embedding_cache:
+            return self._embedding_cache[text]
+        
+        # Single-process encoding
+        vector = self.model.encode([text])[0].astype('float32')
+        
+        # Cache management (FIFO-ish)
+        if len(self._embedding_cache) >= self._max_cache_size:
+            # Simple eviction
+            first_key = next(iter(self._embedding_cache))
+            del self._embedding_cache[first_key]
+            
+        self._embedding_cache[text] = vector
+        return vector
 
     def _resolve_workers(self, workers: int) -> int:
         if workers > 0:
@@ -287,8 +308,8 @@ class VectorStore:
             if not (self.model_name.endswith(".gguf") and LLAMA_AVAILABLE):
                 return []
 
-        # Use the unified model property which handles GGUF or ST correctly
-        query_vector = self.model.encode([query])[0].astype('float32')
+        # Use cached embedding helper
+        query_vector = self._get_embedding(query)
         
         # Dimension check
         if self._vectors is not None:
