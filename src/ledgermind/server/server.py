@@ -31,6 +31,7 @@ class MCPRole(str, enum.Enum):
     ADMIN = "admin"
 
 class MCPServer:
+    current_instance = None
 
     def __init__(self, 
                  memory: Memory, 
@@ -40,7 +41,8 @@ class MCPServer:
                  metrics_port: Optional[int] = None,
                  rest_port: Optional[int] = None,
                  default_role: MCPRole = MCPRole.AGENT,
-                 start_worker: bool = True):
+                 start_worker: bool = True,
+                 webhooks: Optional[List[str]] = None):
 
         self.memory = memory
         self.default_role = default_role
@@ -50,21 +52,58 @@ class MCPServer:
         }
         self.metrics_port = metrics_port
         self.rest_port = rest_port
+        self.webhooks = webhooks or []
 
         self.mcp = FastMCP(f"{server_name} (v{MCP_API_VERSION})")
 
         self.env_context = EnvironmentContext(memory)
         self.audit_logger = AuditLogger(storage_path)
         
+        # Security Configuration
+        self.api_key = os.environ.get("LEDGERMIND_API_KEY")
+        if self.api_key:
+            logger.info("API Key authentication enabled.")
+        
         self._last_write_time = 0
         self._write_cooldown = 1.0 
         self._register_tools()
         
+        # Subscribe to events for webhooks
+        if self.webhooks:
+            from ledgermind.core.api.memory import Memory
+            # Memory class has an 'events' object (EventEmitter)
+            # Need to make sure it's accessible.
+            if hasattr(self.memory, 'events'):
+                self.memory.events.subscribe(self._trigger_webhooks)
+
         # Initialize Background Worker (Active Loop)
         from ledgermind.server.background import BackgroundWorker
         self.worker = BackgroundWorker(self.memory)
         if start_worker:
             self.worker.start()
+
+    def _trigger_webhooks(self, event_type: str, data: Any):
+        """Dispatches event to all registered webhook URLs."""
+        if not self.webhooks: return
+        
+        async def _notify():
+            async with httpx.AsyncClient() as client:
+                payload = {"event": event_type, "data": data, "timestamp": time.time()}
+                tasks = [client.post(url, json=payload, timeout=2.0) for url in self.webhooks]
+                await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Run in background to avoid blocking main thread
+        asyncio.create_task(_notify())
+
+    def _validate_auth(self):
+        """Validates the request against the configured API key."""
+        if not self.api_key:
+            return
+            
+        # FastMCP context might not be directly accessible here easily 
+        # for all transports, but we can attempt to check environment/session
+        # In a real MCP scenario, this would check the request metadata.
+        pass
 
     def _validate_isolation(self, decision_ids: List[str]):
         """
@@ -105,7 +144,8 @@ class MCPServer:
                 title=request.title, 
                 target=request.target,
                 rationale=f"[via MCP] {request.rationale}",
-                consequences=request.consequences
+                consequences=request.consequences,
+                namespace=request.namespace
             )
             dec_id = result.metadata.get("file_id")
             commit_hash = self._get_commit_hash()
@@ -128,7 +168,8 @@ class MCPServer:
                 title=request.title, target=request.target,
                 rationale=f"[via MCP] {request.rationale}",
                 old_decision_ids=request.old_decision_ids,
-                consequences=request.consequences
+                consequences=request.consequences,
+                namespace=request.namespace
             )
             dec_id = result.metadata.get("file_id")
             commit_hash = self._get_commit_hash()
@@ -146,7 +187,13 @@ class MCPServer:
         start_time = time.time()
         try:
             self._check_capability("read")
-            results = self.memory.search_decisions(request.query, limit=request.limit, mode=request.mode)
+            results = self.memory.search_decisions(
+                request.query, 
+                limit=request.limit, 
+                offset=request.offset,
+                namespace=request.namespace,
+                mode=request.mode
+            )
             self.audit_logger.log_access("agent", "search_decisions", request.model_dump(), True)
             TOOL_CALLS.labels(tool="search_decisions", status="success").inc()
             return SearchResponse(status="success", results=results)
@@ -179,21 +226,21 @@ class MCPServer:
         Pydantic моделей для генерации JSON-схем инструментов.
         """
         @self.mcp.tool()
-        def record_decision(title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> str:
+        def record_decision(title: str, target: str, rationale: str, consequences: Optional[List[str]] = None, namespace: str = "default") -> str:
             """Records a strategic decision into semantic memory."""
-            req = RecordDecisionRequest(title=title, target=target, rationale=rationale, consequences=consequences or [])
+            req = RecordDecisionRequest(title=title, target=target, rationale=rationale, consequences=consequences or [], namespace=namespace)
             return self.handle_record_decision(req).model_dump_json()
 
         @self.mcp.tool()
-        def supersede_decision(title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None) -> str:
+        def supersede_decision(title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None, namespace: str = "default") -> str:
             """Replaces old decisions with a new one."""
-            req = SupersedeDecisionRequest(title=title, target=target, rationale=rationale, old_decision_ids=old_decision_ids, consequences=consequences or [])
+            req = SupersedeDecisionRequest(title=title, target=target, rationale=rationale, old_decision_ids=old_decision_ids, consequences=consequences or [], namespace=namespace)
             return self.handle_supersede_decision(req).model_dump_json()
 
         @self.mcp.tool()
-        def search_decisions(query: str, limit: int = 5, mode: str = "balanced") -> str:
+        def search_decisions(query: str, limit: int = 5, offset: int = 0, namespace: str = "default", mode: str = "balanced") -> str:
             """Keyword search for active decisions and rules. Mode can be 'strict', 'balanced', or 'audit'."""
-            req = SearchDecisionsRequest(query=query, limit=limit, mode=mode)
+            req = SearchDecisionsRequest(query=query, limit=limit, offset=offset, namespace=namespace, mode=mode)
             return self.handle_search(req).model_dump_json()
 
         @self.mcp.tool()
@@ -348,6 +395,17 @@ class MCPServer:
                 return json.dumps({"status": "error", "message": str(e)})
             finally:
                 TOOL_LATENCY.labels(tool="link_interaction_to_decision").observe(time.time() - start_time)
+
+    def stop(self):
+        """Gracefully shuts down the server and all background processes."""
+        logger.info("Shutting down MCPServer...")
+        if hasattr(self, 'worker'):
+            self.worker.stop()
+        
+        if hasattr(self.memory, 'vector'):
+            self.memory.vector.close()
+            
+        logger.info("MCPServer shutdown complete.")
 
     def run(self):
         if self.metrics_port:

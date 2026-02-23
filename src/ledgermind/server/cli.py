@@ -132,14 +132,32 @@ def main():
                 print(f"Error: Invalid JSON for capabilities: {args.capabilities}")
                 return
 
-        MCPServer.serve(
+        from ledgermind.core.core.schemas import TrustBoundary
+        import signal
+        import sys
+        
+        memory = MCPServer.memory_instance_for_cli = None # Placeholder for signal handler access
+
+        def signal_handler(sig, frame):
+            print("\nInterrupt received, shutting down...")
+            if MCPServer.current_instance:
+                MCPServer.current_instance.stop()
+            sys.exit(0)
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+
+        memory = Memory(storage_path=args.path, trust_boundary=TrustBoundary.AGENT_WITH_INTENT, vector_workers=args.vector_workers)
+        server = MCPServer(
+            memory, 
+            server_name=args.name, 
             storage_path=args.path,
-            server_name=args.name,
             capabilities=capabilities,
             metrics_port=args.metrics_port,
-            rest_port=args.rest_port,
-            vector_workers=args.vector_workers
+            rest_port=args.rest_port
         )
+        MCPServer.current_instance = server
+        server.run()
     else:
         parser.print_help()
 

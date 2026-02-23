@@ -104,7 +104,7 @@ class IntegrationBridge:
 
     def search_decisions(self, query: str, limit: int = 5, mode: str = "balanced") -> List[Dict[str, Any]]:
         """Proxies search_decisions to memory core."""
-        return self._memory.search_decisions(query, limit, mode)
+        return self._memory.search_decisions(query, limit=limit, mode=mode)
 
     def get_decisions(self) -> List[str]:
         """Proxies get_decisions to memory core."""

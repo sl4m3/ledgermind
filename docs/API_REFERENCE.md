@@ -1,4 +1,4 @@
-# API Reference
+# API Reference (v2.7.1)
 
 Complete reference for all public classes and methods in LedgerMind.
 
@@ -43,6 +43,9 @@ memory.record_decision(
     target: str,
     rationale: str,
     consequences: Optional[List[str]] = None,
+    namespace: str = "default",
+    evidence_ids: Optional[List[int]] = None,
+    arbiter_callback: Optional[callable] = None
 ) -> MemoryDecision
 ```
 
@@ -50,9 +53,9 @@ Records a new structured decision into semantic memory. This is the primary writ
 
 Before writing, the method:
 1. Normalizes `target` through `TargetRegistry`
-2. Checks for active conflicts on the target
+2. Checks for active conflicts on the target within the given `namespace`
 3. If conflict found and vectors available: calculates cosine similarity. If similarity > 0.85, automatically calls `supersede_decision()` (Auto-Supersede)
-4. If conflict found and similarity ≤ 0.85: raises `ConflictError` with suggestions
+4. If conflict found and similarity ≤ 0.85: raises `ConflictError` with suggestions (or uses `arbiter_callback` if provided)
 
 **Raises:** `ConflictError` if target has active decisions and auto-resolution fails. `ValueError` if any field is empty. `InvariantViolation` on unexpected persistence failure.
 
@@ -67,12 +70,14 @@ memory.supersede_decision(
     rationale: str,
     old_decision_ids: List[str],
     consequences: Optional[List[str]] = None,
+    namespace: str = "default",
+    evidence_ids: Optional[List[int]] = None
 ) -> MemoryDecision
 ```
 
 Explicitly replaces one or more existing decisions with a new one. The old decisions get `status=superseded` and a `superseded_by` backlink. The new decision gets a `supersedes` list.
 
-Use this when the change is a paradigm shift (e.g. migrating from Python to Go) where auto-supersede based on similarity would not be reliable.
+**New in v2.7.1:** Added `namespace` support. All IDs must belong to the same namespace.
 
 **Raises:** `ConflictError` if any `old_decision_ids` is not currently active for the given `target`.
 
@@ -166,11 +171,15 @@ Manually triggers a full `ReflectionEngine` cycle. Returns a list of created/upd
 memory.search_decisions(
     query: str,
     limit: int = 5,
+    offset: int = 0,
+    namespace: Optional[str] = None,
     mode: str = "balanced",
 ) -> List[Dict[str, Any]]
 ```
 
 Hybrid search: vector similarity first, keyword fallback. Results are boosted by their episodic evidence count (up to 2x multiplier).
+
+**New in v2.7.1:** Added `namespace` filtering and `offset` for pagination.
 
 **`mode`** options:
 - `strict` — only `status=active` records
@@ -224,7 +233,20 @@ Generates a Mermaid diagram string showing the knowledge evolution graph (supers
 
 ---
 
-### Lifecycle
+## Lifecycle
+
+#### `events` (EventEmitter)
+
+`memory.events`
+
+**New in v2.7.1.** An internal event bus for real-time notifications.
+
+| Event Type | Data Payload | Description |
+|---|---|---|
+| `episodic_added` | `{"id": int, "kind": str}` | Triggered when a new episodic event is persisted. |
+| `semantic_added` | `{"id": str, "kind": str, "namespace": str}` | Triggered when a new semantic record is created. |
+
+---
 
 #### `run_decay()`
 
