@@ -15,8 +15,8 @@ Every entry point into the system passes through `process_event()`, which enforc
 **3. Immutability through Supersede.**
 Knowledge is never overwritten. When a decision changes, the old record gets `status=superseded` and a forward link (`superseded_by`) to its replacement. The full graph of truth evolution is always preserved.
 
-**4. Crash Safety.**
-All semantic writes happen inside a `FileSystemLock` + `TransactionManager` block. On failure, Git `reset --hard HEAD` rolls the filesystem back. The SQLite meta-index is reconstructed from disk at startup via `sync_meta_index()`.
+**4. Crash Safety & PID-Aware Locking.**
+All semantic writes happen inside a `FileSystemLock` + `TransactionManager` block. The lock file contains the PID of the owner process. If a process crashes, the next operation verifies the PID; if the owner is dead, the stale lock is automatically cleared. On failure, Git `reset --hard HEAD` rolls the filesystem back.
 
 ---
 
@@ -27,18 +27,20 @@ Memory (core/api/memory.py)
 │
 ├── SemanticStore          Long-term structured knowledge (Markdown + Git)
 │   ├── GitAuditProvider   Every write = a Git commit
-│   ├── SemanticMetaStore  SQLite index for fast queries (no file reads)
-│   ├── TransactionManager FileSystemLock + Git rollback on failure
+│   ├── SemanticMetaStore  SQLite index with FTS5 and namespace support
+│   ├── TransactionManager PID-aware FileSystemLock + Git rollback
 │   ├── IntegrityChecker   Pre/post-write invariant validation
 │   └── MemoryLoader       Frontmatter YAML + Markdown body parser
 │
-├── EpisodicStore          Append-only interaction journal (SQLite WAL)
+├── EpisodicStore          Append-only interaction journal (SQLite WAL + ThreadLock)
 │   └── Immortal Links     Events linked to semantic records are never deleted
 │
-├── VectorStore            Cosine similarity index (NumPy arrays on disk)
-│   └── SentenceTransformer  Optional: all-MiniLM-L6-v2 embeddings
+├── VectorStore            Cosine similarity index (NumPy matrix)
+│   ├── Model Caching      Singleton pattern avoids redundant RAM usage
+│   └── Auto-Flush         Auto-saves vectors on graceful shutdown
 │
-├── ConflictEngine         Detects active decisions with the same target
+├── ConflictEngine         Detects collisions within specific namespaces
+├── Webhook Dispatcher     Async HTTP POST notifications for memory events
 ├── ResolutionEngine       Validates ResolutionIntent before supersede
 ├── ReflectionEngine       Analyzes episodic clusters → generates Proposals
 ├── DecayEngine            Manages TTL, confidence decay, and forgetting
@@ -150,12 +152,12 @@ search_decisions(query, limit, mode)
 │   └── vector_meta.npy            ← Parallel array of document IDs
 └── semantic/                      ← Git repository root
     ├── .git/                      ← Full Git history = audit log
-    ├── semantic_meta.db           ← SQLite: fast metadata index
+    ├── semantic_meta.db           ← SQLite: metadata index (partitioned by namespace)
     ├── targets.json               ← TargetRegistry: canonical names + aliases
-    ├── .lock                      ← FileSystemLock (created/removed atomically)
-    └── decisions/
-        ├── 2024-01-15_database_abc123.md
-        └── 2024-02-01_database_def456.md
+    ├── .lock                      ← PID-aware lock file
+    └── default/                   ← Default namespace directory
+        ├── decision_abc123.md
+        └── ...
 ```
 
 ### Markdown Record Format
@@ -190,12 +192,12 @@ Additional notes or agent-generated content goes here.
 ## The Reasoning Layer
 
 ### ConflictEngine
-Detects whether an incoming `decision` event has a collision with an existing active decision on the same `target`. Uses the SQLite meta-index (`get_active_fid(target, namespace)`) for O(1) lookup — no file reads involved.
+Detects whether an incoming `decision` event has a collision with an existing active decision on the same `target`. Uses the SQLite meta-index (`get_active_fid(target, namespace)`) for O(1) lookup. Conflicts are isolated by `namespace` — agents in different namespaces can have different decisions for the same target without collision.
 
-### ReflectionEngine v4.2
+### ReflectionEngine v4.3
 Operates in four phases per cycle:
 
-1. **Distillation (MemP)** — `DistillationEngine` scans episodic trajectories for successful action chains and generates `ProceduralProposals`.
+1. **Distillation (MemP)** — `DistillationEngine` scans episodic trajectories using a configurable `window_size` (default: 5) for successful action chains and generates `ProceduralProposals`.
 2. **Evidence Aggregation** — events are clustered by `target` extracted from their context or commit message (e.g. `fix(redis):` → target = `redis`).
 3. **Hypothesis Update** — existing draft proposals are updated via Bayesian-style confidence scoring. Contradictory evidence (successes in an error cluster) triggers falsification.
 4. **Knowledge Discovery** — new competing hypotheses are generated for error clusters not yet covered by proposals.

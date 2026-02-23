@@ -2,7 +2,8 @@ import logging
 import asyncio
 import os
 import json
-from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect, Security
+from fastapi.security.api_key import APIKeyHeader, APIKey
 from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
 from ledgermind.core.api.memory import Memory
@@ -11,11 +12,16 @@ from sse_starlette.sse import EventSourceResponse
 logger = logging.getLogger("agent_memory_gateway")
 app = FastAPI(title="Agent Memory REST & Real-time Gateway")
 
+API_KEY_NAME = "X-API-Key"
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
 memory_instance: Optional[Memory] = None
 
 class SearchRequest(BaseModel):
     query: str
     limit: int = 5
+    offset: int = 0
+    namespace: str = "default"
     mode: str = "balanced"
 
 class RecordRequest(BaseModel):
@@ -23,18 +29,27 @@ class RecordRequest(BaseModel):
     target: str
     rationale: str
     consequences: Optional[List[str]] = []
+    namespace: str = "default"
+
+async def get_api_key(api_key_header: str = Security(api_key_header)):
+    expected_key = os.environ.get("LEDGERMIND_API_KEY")
+    if not expected_key:
+        return None
+    if api_key_header == expected_key:
+        return api_key_header
+    raise HTTPException(status_code=403, detail="Could not validate credentials")
 
 def get_memory():
     if memory_instance is None:
         raise HTTPException(status_code=500, detail="Memory not initialized")
     return memory_instance
 
-@app.post("/search")
+@app.post("/search", dependencies=[Depends(get_api_key)])
 async def search(req: SearchRequest, mem: Memory = Depends(get_memory)):
     results = mem.search_decisions(req.query, limit=req.limit, mode=req.mode)
     return {"status": "success", "results": results}
 
-@app.post("/record")
+@app.post("/record", dependencies=[Depends(get_api_key)])
 async def record(req: RecordRequest, mem: Memory = Depends(get_memory)):
     try:
         res = mem.record_decision(
