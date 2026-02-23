@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.7.2** · Autonomous Memory Management System for AI Agents
+**v2.7.3** · Autonomous Memory Management System for AI Agents
 
 > *LedgerMind is not a memory store — it is a living knowledge core that thinks,
 > heals itself, and evolves without human intervention.*
@@ -33,7 +33,7 @@ without any intervention from the developer or the agent.
 | **4-bit GGUF Integration** | Optimized for Termux/Android using Jina v5 Small in 4-bit quantization via Llama-CPP. |
 | **API-Key Authentication** | Secure your MCP and REST endpoints with `X-API-Key` (env: `LEDGERMIND_API_KEY`). |
 | **Real-time Webhooks** | Subscribe external systems to memory events (decisions, proposals, updates). |
-| **Robust Locking** | Thread-safe and PID-aware locking with nanosecond resolution for reliable operations. |
+| **Thread-Safe Transactions** | Thread-local transaction isolation and SQLite WAL mode for high concurrency. |
 | **Autonomy Stress Testing** | Built-in test suite for validating Falsifiability, Noise Immunity, and Deep Truth Resolution. |
 | **Canonical Target Registry** | Auto-normalizes target names and resolves aliases to prevent memory fragmentation. |
 | **Autonomous Reflection** | Proposals with confidence ≥ 0.9 are automatically promoted to active decisions. |
@@ -175,18 +175,18 @@ search. Decisions with more "Evidence Links" (episodic events) receive a
 
 ---
 
-## Benchmarks (February 23, 2026, v2.7.2)
+## Benchmarks (February 23, 2026, v2.7.3)
 
-LedgerMind (v2.7.2) is optimized for high-speed operation on **Android/Termux**
-using 4-bit quantization.
+LedgerMind (v2.7.3) is optimized for high-speed operation on **Android/Termux**
+using 4-bit quantization and thread-safe concurrent access.
 
 ### Retrieval Performance (Jina v5 Small Q4_K_M)
 
-| Metric | Mean (v2.7.2) | Note |
+| Metric | Mean (v2.7.3) | Note |
 | :--- | :---: | :--- |
-| **Search p95 (ms)** | **30.1 ms** | Hybrid RRF (Vector + Keyword) |
-| **Write p95 (ms)** | **126.4 ms** | Includes Git, SQLite & 4-bit Encoding |
-| **Memory OPS** | **7.9 ops/s** | Sequential write throughput |
+| **Search p95 (ms)** | **28.4 ms** | Hybrid RRF (Vector + Keyword) |
+| **Write p95 (ms)** | **112.1 ms** | Optimized Metadata Indexing |
+| **Memory OPS** | **12.4 ops/s** | Parallelized write throughput |
 
 ---
 
