@@ -11,12 +11,24 @@ class TargetRegistry:
     Registry for canonical target names to prevent namespace fragmentation.
     Persists known targets and aliases to disk.
     """
+    _cache: Dict[str, 'TargetRegistry'] = {} # storage_path -> instance
+
+    def __new__(cls, storage_path: str):
+        abs_path = os.path.abspath(storage_path)
+        if abs_path not in cls._cache:
+            instance = super(TargetRegistry, cls).__new__(cls)
+            cls._cache[abs_path] = instance
+            # Initialize the instance only once
+            instance.storage_path = abs_path
+            instance.file_path = os.path.join(abs_path, "targets.json")
+            instance.targets = {} 
+            instance.aliases = {}
+            instance._load()
+        return cls._cache[abs_path]
+
     def __init__(self, storage_path: str):
-        self.storage_path = storage_path
-        self.file_path = os.path.join(storage_path, "targets.json")
-        self.targets: Dict[str, Dict[str, Any]] = {} # name -> metadata
-        self.aliases: Dict[str, str] = {} # alias -> canonical_name
-        self._load()
+        # Initialization logic moved to __new__ to ensure it only runs once per path
+        pass
 
     def _load(self):
         if os.path.exists(self.file_path):
