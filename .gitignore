@@ -13,9 +13,13 @@ build/
 .ledgermind/
 .benchmarks/
 .hypothesis/
-.gemini/
-ledgermind/
+/.ledgermind/
+/ledgermind/
 GEMINI.md
+lg.py
 # Benchmarking data
 benchmarks/datasets/
 benchmarks/results/
+# Test temporary dirs
+/temp_test_*/
+/.test_memory/
