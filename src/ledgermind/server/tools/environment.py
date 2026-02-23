@@ -15,12 +15,7 @@ class EnvironmentContext:
         """
         Собирает снимок текущего окружения и записывает его в эпизодическую память.
         """
-        context_data = {
-            "cwd": os.getcwd(),
-            "files": self._get_file_tree(),
-            "git_status": self._get_git_status(),
-            "env_vars": self._get_filtered_env()
-        }
+        context_data = self.get_context()
 
         # Записываем как эпизодическое событие напрямую через ядро
         self.memory.process_event(
@@ -30,6 +25,31 @@ class EnvironmentContext:
             context=context_data
         )
         return {"status": "success", "label": label, "message": "Context captured to episodic memory"}
+
+    def get_context(self) -> Dict[str, Any]:
+        """
+        Возвращает текущий контекст окружения без записи в память.
+        """
+        import shutil
+        import sys
+
+        total, used, free = shutil.disk_usage(".")
+        
+        return {
+            "cwd": os.getcwd(),
+            "git_status": self._get_git_status(),
+            "disk": {
+                "total_gb": round(total / (1024**3), 2),
+                "used_gb": round(used / (1024**3), 2),
+                "free_gb": round(free / (1024**3), 2),
+                "percent_used": round((used / total) * 100, 2)
+            },
+            "python": {
+                "version": sys.version.split()[0],
+                "platform": sys.platform
+            },
+            "files_count": len(self._get_file_tree())
+        }
 
     def _get_file_tree(self, max_depth: int = 2) -> List[str]:
         try:

@@ -9,7 +9,7 @@ def repair_db(db_path):
 
     print(f"Checking integrity of {db_path}...")
     try:
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(db_path, isolation_level=None)
         cursor = conn.cursor()
         
         # Check integrity
@@ -17,7 +17,25 @@ def repair_db(db_path):
         result = cursor.fetchone()[0]
         
         if result == "ok":
-            print(f"✓ {db_path} is healthy. Running VACUUM...")
+            print(f"✓ {db_path} is healthy.")
+            
+            # Check FTS integrity if it exists
+            try:
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%_fts';")
+                fts_tables = cursor.fetchall()
+                for (fts_table,) in fts_tables:
+                    print(f"Checking FTS integrity for {fts_table}...")
+                    cursor.execute(f"INSERT INTO {fts_table}({fts_table}) VALUES('integrity-check');")
+                print("✓ FTS integrity ok.")
+            except sqlite3.OperationalError as e:
+                if "no such table" not in str(e).lower():
+                    print(f"✗ FTS integrity error: {e}")
+                    print(f"Attempting FTS rebuild...")
+                    for (fts_table,) in fts_tables:
+                        cursor.execute(f"INSERT INTO {fts_table}({fts_table}) VALUES('rebuild');")
+                    print("✓ FTS rebuild complete.")
+
+            print("Running VACUUM...")
             cursor.execute("VACUUM;")
             print("✓ VACUUM complete.")
         else:
