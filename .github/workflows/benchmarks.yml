@@ -39,6 +39,7 @@ jobs:
         auto-push: false
         comment-on-alert: true
         summary-always: true
+        skip-fetch-gh-pages: true
         # gh-pages is common for benchmarks, but requires setup
         # For now, just keeping history in the job artifacts is done by upload-artifact
         # but this action helps with comparison.
