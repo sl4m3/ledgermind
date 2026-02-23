@@ -36,10 +36,10 @@ jobs:
         output-file-path: output.json
         fail-on-alert: true
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        auto-push: false
+        auto-push: true
         comment-on-alert: true
         summary-always: true
-        save-data-file: false
+        save-data-file: true
         # gh-pages is common for benchmarks, but requires setup
         # For now, just keeping history in the job artifacts is done by upload-artifact
         # but this action helps with comparison.
