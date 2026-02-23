@@ -23,12 +23,14 @@ Knowledge is never overwritten. When a decision changes, the old record gets
 `status=superseded` and a forward link (`superseded_by`) to its replacement. 
 The full graph of truth evolution is always preserved.
 
-**4. Crash Safety & PID-Aware Locking.**
+**4. Crash Safety & Thread-Local Isolation.**
 All semantic writes happen inside a `FileSystemLock` + `TransactionManager` 
-block. The lock uses `threading.RLock` for thread-safety and `fcntl` for 
-process-safety. The lock file contains the PID of the owner. If a process 
-crashes, the next operation verifies the PID; if the owner is dead, the stale 
-lock is automatically cleared.
+block. LedgerMind uses `threading.local()` to isolate transaction state 
+between threads, ensuring that concurrent operations within the same process 
+don't interfere with each other's SAVEPOINTS. The lock uses `threading.RLock` 
+for thread-safety and `fcntl` for process-safety. If a process crashes, the 
+next operation verifies the PID; if the owner is dead, the stale lock is 
+automatically cleared.
 
 ---
 
@@ -40,7 +42,7 @@ Memory (core/api/memory.py)
 ├── SemanticStore          Long-term structured knowledge (Markdown + Git)
 │   ├── GitAuditProvider   Every write = a Git commit
 │   ├── SemanticMetaStore  SQLite index with FTS5 and namespace support
-│   ├── TransactionManager Thread-safe FileSystemLock + Git rollback
+│   ├── TransactionManager ACID isolation using SAVEPOINT and threading.local()
 │   ├── IntegrityChecker   Pre/post-write ns-resolution invariant validation
 │   └── MemoryLoader       Frontmatter YAML + Markdown body parser
 │
@@ -87,23 +89,26 @@ record_decision(title, target, rationale)
         └─ No conflicts
                 │
                 ▼
-3. semantic.transaction()                   — acquire RLock + FileSystemLock
+3. semantic.transaction()                   — acquire RLock + start SAVEPOINT
         │
         ▼
-4. [Inside lock] deactivation               — mark old IDs as superseded
+4. [Inside lock] deactivation               — soft-deactivate old versions
 5. process_event(source="agent")            — route to "semantic"
         │
         ▼
-6. [Inside transaction] save()              — write .md + SQLite upsert
+6. Late-bind Conflict Detection             — final check for race conditions
         │
         ▼
-7. vector.add_documents()                   — index title + rationale
+7. [Inside transaction] save()              — write .md + SQLite upsert
         │
         ▼
-8. Git commit                               — coordinated atomic commit
+8. vector.add_documents()                   — index title + rationale
         │
         ▼
-9. Return MemoryDecision(should_persist=True)
+9. Git commit                               — coordinated atomic commit
+        │
+        ▼
+10. Return MemoryDecision(should_persist=True)
 ```
 
 ---

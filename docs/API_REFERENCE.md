@@ -1,4 +1,4 @@
-# API Reference (v2.7.1)
+# API Reference (v2.7.3)
 
 Complete reference for all public classes and methods in LedgerMind.
 
@@ -77,7 +77,7 @@ memory.supersede_decision(
 
 Explicitly replaces one or more existing decisions with a new one. The old decisions get `status=superseded` and a `superseded_by` backlink. The new decision gets a `supersedes` list.
 
-**New in v2.7.1:** Added `namespace` support. All IDs must belong to the same namespace.
+**Technical Note:** As of v2.7.3, this method delegates the deactivation of old records to `process_event()`, ensuring that all status changes happen atomically within a single transaction.
 
 **Raises:** `ConflictError` if any `old_decision_ids` is not currently active for the given `target`.
 
@@ -92,10 +92,13 @@ memory.process_event(
     content: str,
     context: Optional[Union[DecisionContent, ProposalContent, Dict]] = None,
     intent: Optional[ResolutionIntent] = None,
+    namespace: Optional[str] = None
 ) -> MemoryDecision
 ```
 
-Low-level method that all write operations ultimately call. Enforces the full pipeline: trust boundary check → duplicate detection → routing → conflict detection → atomic write → vector indexing → episodic linking.
+Low-level method that all write operations ultimately call. Enforces the full pipeline: trust boundary check → duplicate detection → routing → late-bind conflict detection → atomic write → vector indexing → episodic linking.
+
+**Note:** In v2.7.3, conflict detection is performed twice: once before starting the transaction and again inside the transaction block (late-bind) to prevent race conditions in highly concurrent environments.
 
 **`source`** must be one of: `user`, `agent`, `system`, `reflection_engine`, `bridge`
 
@@ -179,8 +182,6 @@ memory.search_decisions(
 
 Hybrid search: vector similarity first, keyword fallback. Results are boosted by their episodic evidence count (up to 2x multiplier).
 
-**New in v2.7.1:** Added `namespace` filtering and `offset` for pagination.
-
 **`mode`** options:
 - `strict` — only `status=active` records
 - `balanced` — active preferred, follows `superseded_by` chain to truth
@@ -239,7 +240,7 @@ Generates a Mermaid diagram string showing the knowledge evolution graph (supers
 
 `memory.events`
 
-**New in v2.7.1.** An internal event bus for real-time notifications.
+An internal event bus for real-time notifications.
 
 | Event Type | Data Payload | Description |
 |---|---|---|
