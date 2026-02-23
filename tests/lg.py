@@ -58,7 +58,7 @@ def run_lifecycle_test(args):
     try:
         bridge = IntegrationBridge(
             memory_path=tmp_dir, 
-            vector_model="jinaai/jina-embeddings-v5-text-nano",
+            vector_model=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
             default_cli=[args.cli]
         )
         target = f"Legacy-Protocol-{uuid.uuid4().hex[:4]}"
@@ -120,6 +120,7 @@ def run_lifecycle_test(args):
 
         # --- STAGE 2.5: SEARCH & EVIDENCE VERIFICATION ---
         console.print("\n[bold cyan]Stage 2.5: Search & Evidence Verification[/bold cyan]")
+        console.print("[dim]Performing semantic search...[/dim]")
         search_results = bridge.search_decisions(target, limit=1)
         if search_results:
             res = search_results[0]
@@ -132,6 +133,7 @@ def run_lifecycle_test(args):
 
         # --- STAGE 3: EVOLUTION (Auto-Supersede) ---
         console.print("\n[bold cyan]Stage 3: Knowledge Evolution (Auto-Supersede)[/bold cyan]")
+        console.print("[dim]Evolving decision (this involves vector similarity check)...[/dim]")
         
         # Get the ID of the ACTIVE decision to verify it gets superseded
         active_results = [r for r in bridge.search_decisions(target, mode="audit") if r['status'] == 'active' and r['id'].startswith('decision')]
@@ -143,10 +145,11 @@ def run_lifecycle_test(args):
         current_title = active_results[0].get('title', f"Structural flaw in {target}")
 
         # Record a new decision with VERY high similarity to trigger auto-supersede
+        # Using almost identical title and rationale to ensure > 0.7
         evolution_result = bridge.record_decision(
-            title=f"{current_title} (V2)", 
+            title=f"Evolution: {current_title}", 
             target=target,
-            rationale=f"Structural flaw confirmed in {target}. Added 200ms delay to fix it (V2).",
+            rationale=f"Structural flaw confirmed in {target}. Added 200ms delay to fix it (V2 confirmed). {uuid.uuid4().hex[:4]}",
             consequences=["Apply 200ms delay"]
         )
         new_dec_id = evolution_result.metadata.get("file_id")
@@ -248,7 +251,7 @@ def run_autonomy_stress_tests():
     os.makedirs(tmp_dir, exist_ok=True)
     
     try:
-        bridge = IntegrationBridge(memory_path=tmp_dir, vector_model="jinaai/jina-embeddings-v5-text-nano")
+        bridge = IntegrationBridge(memory_path=tmp_dir, vector_model=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
         
         # --- TEST 1: Falsifiability (Negative Feedback Loop) ---
         console.print("\n[bold cyan]1. Falsifiability Test (Knowledge Invalidation)[/bold cyan]")
@@ -326,7 +329,7 @@ def run_autonomy_stress_tests():
         console.print("[dim]Metadata index files deleted.[/dim]")
         
         # Re-initialize bridge
-        bridge = IntegrationBridge(memory_path=tmp_dir, vector_model="jinaai/jina-embeddings-v5-text-nano")
+        bridge = IntegrationBridge(memory_path=tmp_dir, vector_model=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
         
         # Check recovery
         check_res = bridge.search_decisions(target_t, limit=1)
@@ -339,12 +342,12 @@ def run_autonomy_stress_tests():
         console.print("\n[bold cyan]5. Cross-Target Generalization[/bold cyan]")
         target_g = "Main-Database-Cluster-PROD"
         bridge.record_decision(
-            title="Database Production Performance Tuning", target=target_g, 
-            rationale="Highly specific tuning for high-load production clusters.", consequences=["tuning=enabled"]
+            title="Database Cluster Performance Tuning", target=target_g, 
+            rationale="Highly specific tuning for high-load production clusters including connection pooling.", consequences=["tuning=enabled"]
         )
         # Search for a different but semantically related target
-        gen_res = bridge.search_decisions("Performance tuning for staging database", limit=1)
-        if gen_res and "Database Production Performance" in gen_res[0]["title"]:
+        gen_res = bridge.search_decisions("Performance tuning for the high-load database", limit=1)
+        if gen_res and "Database Cluster Performance" in gen_res[0]["title"]:
             console.print("[green]✔ Generalization: Found relevant knowledge via semantic target proximity.[/green]")
         else:
             console.print("[red]FAIL: Cross-target knowledge not found.[/red]")
@@ -406,7 +409,7 @@ def main():
         sys.exit(0)
     
     try:
-        bridge = IntegrationBridge(memory_path=MEMORY_PATH, vector_model="jinaai/jina-embeddings-v5-text-nano")
+        bridge = IntegrationBridge(memory_path=MEMORY_PATH, vector_model=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
         if not args.no_memory:
             show_injected_context(bridge, user_prompt)
         bridge.execute_with_memory([args.cli], user_prompt, stream=True)

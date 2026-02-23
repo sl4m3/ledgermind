@@ -26,7 +26,7 @@ class IntegrityChecker:
     @staticmethod
     def _get_state_hash(repo_path: str) -> int:
         """
-        Generates a hash of the current repository state based on filenames and mtimes.
+        Generates a hash of the current repository state based on filenames and mtimes (ns).
         """
         all_files = []
         for root, _, filenames in os.walk(repo_path):
@@ -40,8 +40,8 @@ class IntegrityChecker:
         state = []
         for f in files:
             try:
-                mtime = os.path.getmtime(os.path.join(repo_path, f))
-                state.append((f, mtime))
+                stat = os.stat(os.path.join(repo_path, f))
+                state.append((f, stat.st_mtime_ns))
             except OSError:
                 continue
         return hash(tuple(state))
@@ -50,17 +50,14 @@ class IntegrityChecker:
     def validate(repo_path: str, force: bool = False):
         """
         Scans the repository and ensures all integrity invariants are met.
-        
-        Specifically checks:
-        - I4: Single active decision per target.
-        - I3: Bidirectional supersede links.
-        - I5: Acyclic evolution graph.
-        
-        Raises IntegrityViolation if any invariant is broken.
         """
         current_hash = IntegrityChecker._get_state_hash(repo_path)
         if not force and IntegrityChecker._state_cache.get(repo_path) == current_hash:
             return
+
+        # Clear data cache if forced
+        if force:
+            IntegrityChecker._file_data_cache = {k: v for k, v in IntegrityChecker._file_data_cache.items() if not k.startswith(repo_path)}
 
         all_files = []
         for root, _, filenames in os.walk(repo_path):
@@ -77,10 +74,11 @@ class IntegrityChecker:
         for f in all_files:
             file_path = os.path.join(repo_path, f)
             try:
-                mtime = os.path.getmtime(file_path)
-                cached_mtime, cached_data = IntegrityChecker._file_data_cache.get(file_path, (0, None))
+                stat = os.stat(file_path)
+                mtime_ns = stat.st_mtime_ns
+                cached_mtime_ns, cached_data = IntegrityChecker._file_data_cache.get(file_path, (0, None))
                 
-                if cached_data and cached_mtime == mtime:
+                if cached_data and cached_mtime_ns == mtime_ns:
                     data = cached_data
                 else:
                     with open(file_path, 'r', encoding='utf-8') as stream:
@@ -90,15 +88,15 @@ class IntegrityChecker:
                             logger.error(f"Integrity check failed for {f}. Content length: {len(content)}")
                             logger.error(f"CONTENT START: {content[:200]}")
                             raise IntegrityViolation(f"Corrupted or empty frontmatter", fid=f)
-                        IntegrityChecker._file_data_cache[file_path] = (mtime, data)
+                        IntegrityChecker._file_data_cache[file_path] = (mtime_ns, data)
                 
                 decisions[f] = data
             except (OSError, IntegrityViolation) as e:
                 if isinstance(e, IntegrityViolation): raise
                 continue
 
-        # I4: Single active decision per target
-        active_targets: Dict[str, str] = {}
+        # I4: Single active decision per target per namespace
+        active_targets: Dict[tuple, str] = {}
         
         for fid, data in decisions.items():
             if not data or "context" not in data:
@@ -108,17 +106,22 @@ class IntegrityChecker:
             ctx = data["context"]
             target = ctx.get("target")
             status = ctx.get("status")
+            
+            # Determine namespace from directory structure if not explicitly in context
+            rel_dir = os.path.dirname(fid)
+            namespace = ctx.get("namespace") or (rel_dir if rel_dir else "default")
 
             # I4: Single active decision per target
             # ONLY for decisions, proposals are excluded from reality checks
             if kind == "decision" and status == "active" and target:
-                if target in active_targets:
+                key = (target, namespace)
+                if key in active_targets:
                     raise IntegrityViolation(
-                        f"I4 Violation: Multiple active decisions for target '{target}'",
+                        f"I4 Violation: Multiple active decisions for target '{target}' in namespace '{namespace}'",
                         fid=fid,
-                        details={"conflicting_file": active_targets[target]}
+                        details={"conflicting_file": active_targets[key]}
                     )
-                active_targets[target] = fid
+                active_targets[key] = fid
 
             # I3: Bidirectional Supersede
             superseded_by = ctx.get("superseded_by")
