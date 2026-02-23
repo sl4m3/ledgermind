@@ -14,7 +14,68 @@ try:
 except ImportError:
     EMBEDDING_AVAILABLE = False
 
+try:
+    from llama_cpp import Llama
+    LLAMA_AVAILABLE = True
+except ImportError:
+    LLAMA_AVAILABLE = False
+
 VECTOR_AVAILABLE = True # NumPy is always available
+
+class GGUFEmbeddingAdapter:
+    """Adapts llama-cpp-python to match SentenceTransformer's encode API."""
+    def __init__(self, model_path: str):
+        logger.info(f"Loading GGUF Model: {model_path}")
+        # Optimized for Termux/Mobile: 4 threads is usually the sweet spot for performance vs heat
+        self.client = Llama(
+            model_path=model_path, 
+            embedding=True, 
+            verbose=False, 
+            n_ctx=8192, 
+            n_gpu_layers=0,
+            n_threads=4,
+            n_batch=512,
+            pooling_type=1 
+        )
+        
+        # Robust dimension detection
+        try:
+            test_emb_res = self.client.create_embedding("test")
+            # Handle different response formats
+            data = test_emb_res.get('data', [])
+            if data and 'embedding' in data[0]:
+                raw_emb = data[0]['embedding']
+                self.dimension = len(raw_emb)
+            else:
+                # Fallback: some versions might return different structure
+                self.dimension = 1024 # Standard for Jina v5 Small
+            
+            logger.info(f"GGUF Model Initialized. Dimension: {self.dimension}")
+        except Exception as e:
+            logger.error(f"Failed to detect GGUF dimension: {e}")
+            self.dimension = 1024
+
+    def encode(self, sentences: Any, **kwargs) -> np.ndarray:
+        input_list = [sentences] if isinstance(sentences, str) else sentences
+        
+        embeddings = []
+        for text in input_list:
+            try:
+                res = self.client.create_embedding(text)
+                emb = res['data'][0]['embedding']
+                # If llama-cpp returns a scalar or malformed list, wrap it
+                if not isinstance(emb, list):
+                    emb = [emb]
+                embeddings.append(emb)
+            except Exception as e:
+                logger.error(f"GGUF Encoding failed for text: {e}")
+                # Return zero vector on failure to maintain shape
+                embeddings.append([0.0] * self.dimension)
+        
+        return np.array(embeddings).astype('float32')
+
+    def get_sentence_embedding_dimension(self):
+        return self.dimension
 
 # Module-level cache for models
 _MODEL_CACHE = {}
@@ -52,28 +113,42 @@ class VectorStore:
 
     @property
     def model(self):
-        if not EMBEDDING_AVAILABLE:
-            raise ImportError("Embedding model dependencies (sentence-transformers) not found.")
-        
         cache_key = self.model_name
         if cache_key not in _MODEL_CACHE:
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
             
-            # Special handling for Jina v5 models which require a 'task' parameter
+            # Scenario A: GGUF Model (4-bit efficient)
+            if self.model_name.lower().endswith(".gguf"):
+                if not LLAMA_AVAILABLE:
+                    raise ImportError("llama-cpp-python not found. Required for GGUF models. Run: pip install llama-cpp-python")
+                _MODEL_CACHE[cache_key] = GGUFEmbeddingAdapter(self.model_name)
+                logger.info(f"GGUF Vector Engine Initialized: {self.model_name}")
+                return _MODEL_CACHE[cache_key]
+
+            # Scenario B: Standard Transformers Model
+            if not EMBEDDING_AVAILABLE:
+                raise ImportError("sentence-transformers not found.")
+            
+            # Advanced model configuration
             model_kwargs = {}
+            
+            # Special handling for Jina v5 models
             if "jina-embeddings-v5" in self.model_name.lower():
-                model_kwargs["default_task"] = "retrieval"
+                model_kwargs["default_task"] = "text-matching"
             
-            # Enable trust_remote_code for Jina v5 and other modern models
-            model = SentenceTransformer(
-                self.model_name, 
-                trust_remote_code=True,
-                model_kwargs=model_kwargs
-            )
+            try:
+                model = SentenceTransformer(
+                    self.model_name, 
+                    trust_remote_code=True,
+                    model_kwargs=model_kwargs
+                )
+            except Exception as e:
+                logger.warning(f"Standard loading failed, trying fallback: {e}")
+                model = SentenceTransformer(self.model_name, trust_remote_code=True)
+
             model.show_progress_bar = False
-            
             dim = model.get_sentence_embedding_dimension()
-            logger.info(f"Vector Engine Initialized: {self.model_name} | Dimension: {dim}")
+            logger.info(f"Vector Engine Initialized: {self.model_name} | Dimension: {dim} | Task: {model_kwargs.get('default_task', 'auto')}")
             _MODEL_CACHE[cache_key] = model
             
         return _MODEL_CACHE[cache_key]
@@ -174,6 +249,14 @@ class VectorStore:
             
         new_embeddings = np.array(new_embeddings).astype('float32')
 
+        # Dimension check and adjustment
+        if self._vectors is not None:
+            if self._vectors.shape[1] != new_embeddings.shape[1]:
+                logger.warning(f"Vector dimension mismatch ({self._vectors.shape[1]} vs {new_embeddings.shape[1]}). Resetting index.")
+                self._vectors = None
+                self._doc_ids = []
+                self._dirty = True
+
         if self._vectors is None:
             self._vectors = new_embeddings
         else:
@@ -199,11 +282,19 @@ class VectorStore:
 
     def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         if self._vectors is None or len(self._vectors) == 0 or not EMBEDDING_AVAILABLE:
-            return []
+            if not (self.model_name.endswith(".gguf") and LLAMA_AVAILABLE):
+                return []
 
+        # Use the unified model property which handles GGUF or ST correctly
         query_vector = self.model.encode([query])[0].astype('float32')
         
-        # Calculate cosine similarity: (A dot B) / (|A| * |B|)
+        # Dimension check
+        if self._vectors is not None:
+            if self._vectors.shape[1] != query_vector.shape[0]:
+                logger.warning(f"Search dimension mismatch: index={self._vectors.shape[1]}, query={query_vector.shape[0]}. Skipping vector search.")
+                return []
+
+        # Calculate cosine similarity
         # Since sentence-transformers usually returns normalized vectors, 
         # it's just a dot product.
         norms = np.linalg.norm(self._vectors, axis=1)

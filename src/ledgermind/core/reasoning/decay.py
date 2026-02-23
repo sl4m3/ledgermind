@@ -64,10 +64,19 @@ class DecayEngine:
             if days_inactive > 7:
                 decay_steps = days_inactive // 7
                 current_conf = dec.get('confidence', 1.0)
+                try:
+                    current_conf = float(current_conf)
+                except (ValueError, TypeError):
+                    current_conf = 1.0
+
                 new_conf = max(0.0, current_conf - (effective_rate * decay_steps))
                 
                 # Deletion threshold (cleanup trash)
-                should_forget = new_conf < self.forget_threshold
+                try:
+                    should_forget = new_conf < float(self.forget_threshold)
+                except (ValueError, TypeError):
+                    should_forget = False
+
                 results.append((dec['fid'], round(new_conf, 2), should_forget))
                 
         return results

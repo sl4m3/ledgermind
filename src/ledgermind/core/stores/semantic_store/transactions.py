@@ -3,6 +3,7 @@ import shutil
 import sqlite3
 import logging
 import time
+import threading
 from typing import List, Optional, Any
 from contextlib import contextmanager
 
@@ -11,105 +12,114 @@ logger = logging.getLogger("ledgermind-core.transactions")
 class FileSystemLock:
     """
     Cross-platform file locking mechanism (using fcntl on Unix/Android).
+    Thread-safe and process-safe.
     """
+    _thread_lock = threading.RLock() # Class-level lock for all instances
+
     def __init__(self, lock_path: str, timeout: int = 60):
         self.lock_path = lock_path
         self.timeout = timeout
         self._fd = None
 
     def acquire(self, exclusive: bool = True, timeout: Optional[int] = None):
-        start_time = time.time()
-        flags = os.O_RDWR | os.O_CREAT
+        # 1. Acquire thread lock first
         effective_timeout = timeout if timeout is not None else self.timeout
-        
-        # Open file once
-        if self._fd is None:
-            self._fd = os.open(self.lock_path, flags)
+        if not self._thread_lock.acquire(timeout=effective_timeout):
+            raise TimeoutError(f"Could not acquire thread lock for {self.lock_path}")
 
-        while True:
-            # Check for stale semaphore/lock file
+        try:
+            start_time = time.time()
+            flags = os.O_RDWR | os.O_CREAT
+            
+            # Open file once
+            if self._fd is None:
+                self._fd = os.open(self.lock_path, flags)
+
+            while True:
+                # Check for stale semaphore/lock file
+                semaphore_path = self.lock_path + ".lock"
+                if os.path.exists(semaphore_path):
+                    try:
+                        with open(semaphore_path, 'r') as f:
+                            pid_str = f.read().strip()
+                            if pid_str:
+                                pid = int(pid_str)
+                                # Check if process is still alive
+                                try:
+                                    os.kill(pid, 0)
+                                except OSError:
+                                    # Process is dead, remove stale lock
+                                    logger.warning(f"Removing stale lock file for PID {pid}")
+                                    try:
+                                        os.remove(semaphore_path)
+                                    except OSError: pass
+                    except (ValueError, IOError, OSError):
+                        pass
+
+                try:
+                    import fcntl
+                    op = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
+                    # Try acquiring fcntl lock
+                    try:
+                        fcntl.flock(self._fd, op | fcntl.LOCK_NB)
+                        # Write PID for debugging
+                        os.ftruncate(self._fd, 0)
+                        os.write(self._fd, str(os.getpid()).encode())
+                        return True
+                    except (BlockingIOError, OSError) as e:
+                        # If it's just blocked (EAGAIN/EACCES), retry.
+                        import errno
+                        if isinstance(e, BlockingIOError) or e.errno in (errno.EAGAIN, errno.EACCES):
+                            if time.time() - start_time >= effective_timeout:
+                                if timeout == 0: return False
+                                raise TimeoutError(f"Could not acquire fcntl lock on {self.lock_path} after {effective_timeout}s")
+                            time.sleep(0.1)
+                            continue
+                        raise
+                except (ImportError, Exception) as ie:
+                    if isinstance(ie, TimeoutError):
+                        raise
+                    
+                    # Fallback for systems without fcntl or generic errors
+                    semaphore_path = self.lock_path + ".lock"
+                    try:
+                        fd = os.open(semaphore_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                        with os.fdopen(fd, 'w') as f:
+                            f.write(str(os.getpid()))
+                        return True
+                    except FileExistsError:
+                        if time.time() - start_time >= effective_timeout:
+                            if timeout == 0: return False
+                            raise TimeoutError(f"Could not acquire semaphore lock on {self.lock_path} after {effective_timeout}s")
+                        time.sleep(0.1)
+        except Exception:
+            # If any error happens during acquisition, release the thread lock
+            self._thread_lock.release()
+            raise
+
+    def release(self):
+        try:
+            if self._fd:
+                try:
+                    import fcntl
+                    fcntl.flock(self._fd, fcntl.LOCK_UN)
+                except (ImportError, OSError): pass
+                
+                # Close FD to release resources
+                try:
+                    os.close(self._fd)
+                except OSError: pass
+                self._fd = None
+                
+            # Clean up semaphore if it exists
             semaphore_path = self.lock_path + ".lock"
             if os.path.exists(semaphore_path):
                 try:
-                    with open(semaphore_path, 'r') as f:
-                        pid = int(f.read().strip())
-                    
-                    # Check if process is still alive
-                    try:
-                        os.kill(pid, 0)
-                    except OSError:
-                        # Process is dead, remove stale lock
-                        logger.warning(f"Removing stale lock file for PID {pid}")
-                        try:
-                            os.remove(semaphore_path)
-                        except OSError: pass
-                except (ValueError, IOError):
-                    pass
-
-            try:
-                import fcntl
-                op = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
-                # Try acquiring fcntl lock
-                try:
-                    fcntl.flock(self._fd, op | fcntl.LOCK_NB)
-                    # Write PID for debugging
-                    os.ftruncate(self._fd, 0)
-                    os.write(self._fd, str(os.getpid()).encode())
-                    return True
-                except (BlockingIOError, OSError) as e:
-                    # If it's a real error (like ENOSYS), fall back. 
-                    # If it's just blocked (EAGAIN/EACCES), retry.
-                    import errno
-                    if isinstance(e, BlockingIOError) or e.errno in (errno.EAGAIN, errno.EACCES):
-                        if time.time() - start_time >= effective_timeout:
-                            if timeout == 0: return False # Immediate return if timeout is 0
-                            raise TimeoutError(f"Could not acquire fcntl lock on {self.lock_path} after {effective_timeout}s")
-                        time.sleep(0.1)
-                        continue
-                    raise # Fall back to semaphore for other OSErrors
-            except (ImportError, Exception) as ie:
-                if isinstance(ie, TimeoutError) or (isinstance(ie, OSError) and ie.errno in (11, 13)):
-                    # These are expected lock failures, handle them
-                    if time.time() - start_time >= effective_timeout:
-                        if timeout == 0: return False
-                        raise TimeoutError(f"Could not acquire lock on {self.lock_path} after {effective_timeout}s")
-                
-                # Fallback for Windows or systems without fcntl
-                # Try to create a secondary lock file as a semaphore
-                semaphore_path = self.lock_path + ".lock"
-                try:
-                    # O_EXCL ensures atomic creation
-                    fd = os.open(semaphore_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-                    with os.fdopen(fd, 'w') as f:
-                        f.write(str(os.getpid()))
-                    return True
-                except FileExistsError:
-                    if time.time() - start_time >= effective_timeout:
-                        if timeout == 0: return False
-                        raise TimeoutError(f"Could not acquire semaphore lock on {self.lock_path} after {effective_timeout}s")
-                    time.sleep(0.1)
-
-    def release(self):
-        if self._fd:
-            try:
-                import fcntl
-                fcntl.flock(self._fd, fcntl.LOCK_UN)
-            except (ImportError, OSError): pass
-            
-            # Close FD to release resources
-            try:
-                os.close(self._fd)
-            except OSError: pass
-            self._fd = None
-            
-        # Clean up semaphore if it exists
-        semaphore_path = self.lock_path + ".lock"
-        if os.path.exists(semaphore_path):
-            try:
-                # Check if we are the owner before deleting? 
-                # For simplicity, just delete if we are releasing.
-                os.remove(semaphore_path)
-            except OSError: pass
+                    os.remove(semaphore_path)
+                except OSError: pass
+        finally:
+            # Always release thread lock
+            self._thread_lock.release()
 
 class TransactionManager:
     """

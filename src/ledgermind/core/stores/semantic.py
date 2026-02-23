@@ -346,7 +346,7 @@ class SemanticStore:
                 import json
                 self.meta.upsert(
                     fid=filename,
-                    target=ctx.get("target"),
+                    target=ctx.get("target") or old_data.get("context", {}).get("target"),
                     title=ctx.get("title", ""),
                     status=ctx.get("status"),
                     kind=new_data.get("kind"),

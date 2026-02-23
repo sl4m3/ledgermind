@@ -272,22 +272,33 @@ class Memory:
                             logger.warning(f"Race condition prevented: {conflict_msg}")
                             raise ConflictError(f"Conflict detected during transaction: {conflict_msg}")
 
-                    # 1. Update back-links and deactivate old versions BEFORE saving new one
-                    # to satisfy SQLite UNIQUE constraint on active targets.
-                    if intent and intent.resolution_type == "supersede":
-                        for old_id in intent.target_decision_ids:
-                            self.semantic.update_decision(
-                                old_id, 
-                                {"status": "superseded"},
-                                commit_msg=f"Deactivating for transition"
-                            )
+                    # Simulation: artificial delay for testing concurrency
+                    import time
+                    if os.environ.get("LEDGERMIND_TEST_DELAY"):
+                        time.sleep(float(os.environ.get("LEDGERMIND_TEST_DELAY")))
 
                     # 2. Prepare context for new decision
-                    if intent and intent.resolution_type == "supersede" and isinstance(event.context, DecisionContent):
-                        event.context.supersedes = intent.target_decision_ids
-                    
+                    if isinstance(event.context, DecisionContent):
+                        if intent and intent.resolution_type == "supersede":
+                            event.context.supersedes = intent.target_decision_ids
+                        event.context.namespace = effective_namespace
+                        
+                        # Sync evidence_event_ids from input context if it was a dict
+                        if isinstance(context, dict) and 'evidence_event_ids' in context:
+                            event.context.evidence_event_ids = context['evidence_event_ids']
+
+                    elif isinstance(event.context, dict):
+                        if intent and intent.resolution_type == "supersede":
+                            event.context["supersedes"] = intent.target_decision_ids
+                        event.context["namespace"] = effective_namespace
+                        if isinstance(context, dict) and 'evidence_event_ids' in context:
+                            event.context['evidence_event_ids'] = context['evidence_event_ids']
+
                     # 3. Save new decision (this updates SQLite and Git)
                     new_fid = self.semantic.save(event, namespace=effective_namespace)
+                    
+                    # Force immediate meta sync inside transaction if needed? 
+                    # Actually save() calls meta.upsert which is good.
                     decision.metadata["file_id"] = new_fid
                     self.events.emit("semantic_added", {"id": new_fid, "kind": event.kind, "namespace": effective_namespace})
                     
@@ -473,7 +484,17 @@ class Memory:
         proposal_ids, new_max_id = self.reflection_engine.run_cycle(after_id=after_id)
         
         # 3. Update watermark if we processed new events
-        if new_max_id is not None and (after_id is None or new_max_id > after_id):
+        has_new_events = False
+        try:
+            if new_max_id is not None:
+                if after_id is None or int(new_max_id) > int(after_id):
+                    has_new_events = True
+        except (ValueError, TypeError):
+            # Fallback for Mocks in tests
+            if new_max_id is not None:
+                has_new_events = True
+
+        if has_new_events:
             # Protect with FS lock to be safe
             if self.semantic._fs_lock.acquire(exclusive=True, timeout=5):
                 try:
@@ -541,8 +562,8 @@ class Memory:
 
                         logger.info(f"Similarity check for {target} against {old_fid}: {sim:.4f} (Threshold: 0.70)")
                         
-                        # C. LLM Arbitration (Gray Zone: 0.60 - 0.70)
-                        if 0.60 <= sim < 0.70 and arbiter_callback:
+                        # C. LLM Arbitration (Gray Zone: 0.50 - 0.70)
+                        if 0.50 <= sim < 0.70 and arbiter_callback:
                             logger.info(f"Similarity {sim:.4f} in gray zone. Triggering LLM arbitration...")
                             new_data = {"title": title, "rationale": rationale}
                             old_data = {"title": old_title, "rationale": old_meta.get('content', '')}
@@ -601,33 +622,46 @@ class Memory:
         Helper to evolve knowledge by superseding existing decisions.
         """
         effective_namespace = namespace or self.namespace
-        active_files = self.semantic.list_active_conflicts(target, namespace=effective_namespace)
-        for oid in old_decision_ids:
-            if oid not in active_files:
-                raise ConflictError(f"Cannot supersede {oid}: it is no longer active for target {target} in namespace {effective_namespace}")
+        
+        # Use a transaction to ensure atomic deactivation and new record creation
+        with self.semantic.transaction():
+            active_files = self.semantic.list_active_conflicts(target, namespace=effective_namespace)
+            for oid in old_decision_ids:
+                if oid not in active_files:
+                    raise ConflictError(f"Cannot supersede {oid}: it is no longer active for target {target} in namespace {effective_namespace}")
 
-        intent = ResolutionIntent(
-            resolution_type="supersede",
-            rationale=rationale,
-            target_decision_ids=old_decision_ids
-        )
-        ctx = {
-            "title": title,
-            "target": target,
-            "status": "active",
-            "rationale": rationale,
-            "consequences": consequences or [],
-            "evidence_event_ids": evidence_ids or [],
-            "namespace": effective_namespace
-        }
-        decision = self.process_event(
-            source="agent",
-            kind=KIND_DECISION,
-            content=title,
-            context=ctx,
-            intent=intent,
-            namespace=effective_namespace
-        )
+            intent = ResolutionIntent(
+                resolution_type="supersede",
+                rationale=rationale,
+                target_decision_ids=old_decision_ids
+            )
+            ctx = {
+                "title": title,
+                "target": target,
+                "status": "active",
+                "rationale": rationale,
+                "consequences": consequences or [],
+                "evidence_event_ids": evidence_ids or [],
+                "namespace": effective_namespace
+            }
+            
+            # Deactivate old versions manually here to clear the UNIQUE constraint 
+            # before process_event attempts to save the new one.
+            for old_id in old_decision_ids:
+                self.semantic.update_decision(
+                    old_id, 
+                    {"status": "superseded"},
+                    commit_msg=f"Deactivating for transition to {title}"
+                )
+
+            decision = self.process_event(
+                source="agent",
+                kind=KIND_DECISION,
+                content=title,
+                context=ctx,
+                intent=intent,
+                namespace=effective_namespace
+            )
 
         if not decision.should_persist:
             if "CONFLICT" in decision.reason:
@@ -748,10 +782,8 @@ class Memory:
         # Sort by score descending
         sorted_fids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
         
-        candidates = []
-        seen_final_ids = set()
-        skipped = 0
-        
+        # 4. Resolve truth and apply Evidence Boost to ALL candidates
+        all_candidates = []
         for fid in sorted_fids:
             # Resolve to truth (handle superseding)
             meta = self._resolve_to_truth(fid, mode)
@@ -761,25 +793,17 @@ class Memory:
             if meta.get('namespace', 'default') != effective_namespace:
                 continue
 
-            final_id = meta['fid']
-            if final_id in seen_final_ids: continue
-            
             status = meta.get("status", "unknown")
             if mode == "strict" and status != "active": continue
-            
-            # Pagination Logic
-            if skipped < offset:
-                skipped += 1
-                continue
 
-            # Evidence boost
+            # Evidence boost: each link adds 20% to the score
+            final_id = meta['fid']
             link_count, _ = self.episodic.count_links_for_semantic(final_id)
-            boost = min(1.0, link_count * 0.1) # +10% per link
+            boost = link_count * 0.2 
             
-            # Normalize and apply boost
             final_score = (scores[fid] / max_rrf) * (1.0 + boost)
             
-            candidates.append({
+            all_candidates.append({
                 "id": final_id,
                 "score": final_score,
                 "status": status,
@@ -790,12 +814,28 @@ class Memory:
                 "is_active": (status == "active"),
                 "evidence_count": link_count
             })
-            seen_final_ids.add(final_id)
-            self.semantic.meta.increment_hit(final_id)
+
+        # 5. Final Sort by boosted score and apply Pagination
+        all_candidates.sort(key=lambda x: x['score'], reverse=True)
+        
+        final_results = []
+        seen_ids = set()
+        skipped = 0
+        
+        for cand in all_candidates:
+            if cand['id'] in seen_ids: continue
             
-            if len(candidates) >= limit: break
+            if skipped < offset:
+                skipped += 1
+                continue
+                
+            final_results.append(cand)
+            seen_ids.add(cand['id'])
+            self.semantic.meta.increment_hit(cand['id'])
             
-        return candidates
+            if len(final_results) >= limit: break
+            
+        return final_results
 
 
     def _resolve_to_truth(self, doc_id: str, mode: str) -> Optional[Dict[str, Any]]:

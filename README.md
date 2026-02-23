@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.7.1** · Autonomous Memory Management System for AI Agents
+**v2.7.2** · Autonomous Memory Management System for AI Agents
 
 > *LedgerMind is not a memory store — it is a living knowledge core that thinks,
 > heals itself, and evolves without human intervention.*
@@ -28,12 +28,12 @@ without any intervention from the developer or the agent.
 | Capability | Description |
 |---|---|
 | **Autonomous Heartbeat** | A background worker runs every 5 minutes: Git sync, reflection, decay, self-healing. |
-| **Intelligent Conflict Resolution** | Vector similarity analysis automatically supersedes outdated decisions (threshold: 85%). |
+| **Intelligent Conflict Resolution** | Vector similarity analysis automatically supersedes outdated decisions (threshold: 70%). |
 | **Multi-agent Namespacing** | Logical partitioning of memory for multiple agents within a single project. |
+| **4-bit GGUF Integration** | Optimized for Termux/Android using Jina v5 Small in 4-bit quantization via Llama-CPP. |
 | **API-Key Authentication** | Secure your MCP and REST endpoints with `X-API-Key` (env: `LEDGERMIND_API_KEY`). |
 | **Real-time Webhooks** | Subscribe external systems to memory events (decisions, proposals, updates). |
-| **Robust Locking** | Stale lock detection with PID verification for reliable multi-process operations. |
-| **Jina v5 Nano Integration** | Standardized on Jina v5 for high-precision semantic search in constrained environments. |
+| **Robust Locking** | Thread-safe and PID-aware locking with nanosecond resolution for reliable operations. |
 | **Autonomy Stress Testing** | Built-in test suite for validating Falsifiability, Noise Immunity, and Deep Truth Resolution. |
 | **Canonical Target Registry** | Auto-normalizes target names and resolves aliases to prevent memory fragmentation. |
 | **Autonomous Reflection** | Proposals with confidence ≥ 0.9 are automatically promoted to active decisions. |
@@ -58,7 +58,7 @@ graph TD
         subgraph Stores ["Storage Layer"]
             Semantic["Semantic Store (Git + MD)"]
             Episodic["Episodic Store (SQLite)"]
-            Vector["Vector Index (NumPy/Jina v5)"]
+            Vector["Vector Index (NumPy/Jina v5 GGUF)"]
         end
         
         Memory --> Semantic
@@ -93,11 +93,10 @@ graph TD
 # Basic install
 pip install ledgermind
 
-# With vector search (recommended — enables semantic conflict resolution)
+# With 4-bit vector search (recommended for CPU/Mobile)
+pkg install clang cmake ninja
+pip install llama-cpp-python
 pip install ledgermind[vector]
-
-# Development setup
-pip install -e .[dev]
 ```
 
 **Requirements:** Python 3.10+, Git installed and configured in PATH.
@@ -111,13 +110,13 @@ pip install -e .[dev]
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
 
-# Using Jina v5 Nano for best accuracy/performance trade-off
+# Using Jina v5 Small 4-bit GGUF for best accuracy on CPU
 bridge = IntegrationBridge(
     memory_path="./memory", 
-    vector_model="jinaai/jina-embeddings-v5-text-nano"
+    vector_model=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf"
 )
 
-# Inject relevant context into your agent's prompt for a specific namespace
+# Inject relevant context into your agent's prompt
 context = bridge.memory.search_decisions("database migrations", namespace="prod_agent")
 
 # Record a structured decision with namespacing
@@ -139,22 +138,6 @@ export LEDGERMIND_API_KEY="your-secure-key"
 ledgermind-mcp run --path ./memory
 ```
 
-Then add to your Claude Desktop / Gemini CLI MCP configuration:
-
-```json
-{
-  "mcpServers": {
-    "ledgermind": {
-      "command": "ledgermind-mcp",
-      "args": ["run", "--path", "./memory"],
-      "env": {
-        "LEDGERMIND_API_KEY": "your-secure-key"
-      }
-    }
-  }
-}
-```
-
 ---
 
 ## Key Workflows
@@ -172,21 +155,11 @@ memory.record_decision(title="Use MongoDB", target="db", namespace="agent_b")
 memory.search_decisions("db", namespace="agent_a") # -> Returns PostgreSQL
 ```
 
-### Workflow 2: Self-Healing — PID-Aware Locking
+### Workflow 2: Hybrid Search & Evidence Boost
 
-```
-1. Process crashes → leaves .lock file
-2. [Background Worker] Checks .lock file PID
-3. [Self-Healing] If process with PID is dead, lock is cleared instantly.
-```
-
-### Workflow 3: Real-time Notifications — Webhooks
-
-```bash
-# Start server with webhooks enabled
-ledgermind-mcp run --path ./memory --webhooks http://my-api.com/notify
-```
-✓ Every new decision or proposal triggers an async POST request to your URL.
+LedgerMind uses Reciprocal Rank Fusion (RRF) to combine Keyword and Vector
+search. Decisions with more "Evidence Links" (episodic events) receive a
+**+20% boost per link** to their final relevance score.
 
 ---
 
@@ -202,33 +175,18 @@ ledgermind-mcp run --path ./memory --webhooks http://my-api.com/notify
 
 ---
 
-## Benchmarks (February 23, 2026, v2.7.1)
+## Benchmarks (February 23, 2026, v2.7.2)
 
-LedgerMind (v2.7.1) is optimized for high-speed autonomous operation on both
-high-end servers and constrained environments like **Android/Termux**.
+LedgerMind (v2.7.2) is optimized for high-speed operation on **Android/Termux**
+using 4-bit quantization.
 
-### Retrieval Performance
+### Retrieval Performance (Jina v5 Small Q4_K_M)
 
-| Metric | Mean (v2.7.1) | Note |
+| Metric | Mean (v2.7.2) | Note |
 | :--- | :---: | :--- |
-| **Search p95 (ms)** | **44.4 ms** | Hybrid RRF (Vector + Keyword) |
-| **Write p95 (ms)** | **229.8 ms** | Includes Git commit & Vector encoding |
-| **Memory OPS** | **4.3 ops/s** | Sequential write throughput |
-
-**Key Takeaways (v2.7.1):**
-- **Security Overhead:** API-key authentication adds < 2ms latency per request.
-- **Reliability:** Concurrent write errors reduced by **98%** via new SQLite locking.
-- **Namespacing:** Partitioned search shows zero latency penalty over global search.
-
-## CLI Reference
-
-```bash
-ledgermind-mcp init --path ./memory                    # Initialize project
-ledgermind-mcp run  --path ./memory \
-                    --webhooks http://api.com/hook \    # Webhook support
-                    --rest-port 8080                    # REST API gateway
-ledgermind-mcp check --path ./memory                   # Run diagnostics
-```
+| **Search p95 (ms)** | **30.1 ms** | Hybrid RRF (Vector + Keyword) |
+| **Write p95 (ms)** | **126.4 ms** | Includes Git, SQLite & 4-bit Encoding |
+| **Memory OPS** | **7.9 ops/s** | Sequential write throughput |
 
 ---
 
@@ -236,11 +194,6 @@ ledgermind-mcp check --path ./memory                   # Run diagnostics
 
 LedgerMind is distributed under the **Non-Commercial Source Available License
 (NCSA)**.
-
-- **Individuals:** Free for personal, educational, and experimental use.
-- **NGOs & Academia:** Permitted for academic and non-profit purposes.
-
-For commercial licensing, contact the author: **Stanislav Zotov**.
 
 ---
 

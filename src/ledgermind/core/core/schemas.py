@@ -45,6 +45,7 @@ class ProposalContent(BaseModel):
     target: TargetStr
     status: ProposalStatus = ProposalStatus.DRAFT
     rationale: RationaleStr
+    namespace: str = "default"
     confidence: float = Field(ge=0.0, le=1.0)
     
     # Epistemic Model Fields
@@ -74,6 +75,8 @@ class DecisionContent(BaseModel):
     target: TargetStr
     status: Literal["active", "deprecated", "superseded"] = "active"
     rationale: RationaleStr
+    namespace: str = "default"
+    evidence_event_ids: List[int] = Field(default_factory=list)
     consequences: List[str] = Field(default_factory=list)
     supersedes: List[str] = Field(default_factory=list)
     superseded_by: Optional[str] = None
@@ -130,7 +133,7 @@ class LedgermindConfig(BaseModel):
     ttl_days: int = Field(default=30, ge=1)
     trust_boundary: TrustBoundary = Field(default=TrustBoundary.AGENT_WITH_INTENT)
     namespace: str = Field(default="default")
-    vector_model: str = Field(default="jinaai/jina-embeddings-v5-text-nano")
+    vector_model: str = Field(default=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
     vector_workers: int = Field(default=0, ge=0, description="Number of workers for multi-process encoding. 0 for auto-detection.")
     enable_git: bool = Field(default=True)
     relevance_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
