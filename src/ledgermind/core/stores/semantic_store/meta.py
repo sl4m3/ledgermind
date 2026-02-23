@@ -76,51 +76,47 @@ class SemanticMetaStore:
 
             # FTS5 Full Text Search
             try:
-                # Use External Content Table pattern for reliable synchronization
-                # Drop triggers and table to ensure clean schema update
-                self._conn.execute("DROP TRIGGER IF EXISTS semantic_ai")
-                self._conn.execute("DROP TRIGGER IF EXISTS semantic_ad")
-                self._conn.execute("DROP TRIGGER IF EXISTS semantic_au")
-                self._conn.execute("DROP TABLE IF EXISTS semantic_fts")
+                # Check if FTS table exists
+                cursor = self._conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_fts'")
+                exists = cursor.fetchone()
                 
-                # Create FTS5 table linked to semantic_meta
-                self._conn.execute("""
-                    CREATE VIRTUAL TABLE semantic_fts USING fts5(
-                        fid, title, target, content, 
-                        content='semantic_meta', 
-                        content_rowid='rowid'
-                    )
-                """)
-                
-                # Triggers are required for External Content Tables to keep index in sync
-                self._conn.execute("""
-                    CREATE TRIGGER semantic_ai AFTER INSERT ON semantic_meta BEGIN
-                        INSERT INTO semantic_fts(rowid, fid, title, target, content) VALUES (new.rowid, new.fid, new.title, new.target, new.content);
-                    END;
-                """)
-                self._conn.execute("""
-                    CREATE TRIGGER semantic_ad AFTER DELETE ON semantic_meta BEGIN
-                        INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content);
-                    END;
-                """)
-                self._conn.execute("""
-                    CREATE TRIGGER semantic_au AFTER UPDATE ON semantic_meta BEGIN
-                        INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content);
-                        INSERT INTO semantic_fts(rowid, fid, title, target, content) VALUES (new.rowid, new.fid, new.title, new.target, new.content);
-                    END;
-                """)
-                
-                # Check if index needs rebuild (e.g. empty)
-                # For External Content tables, querying count(*) might query the backing table?
-                # Let's just run rebuild if the FTS is empty but meta is not.
-                # Actually, 'rebuild' is safe to run.
-                fts_count = self._conn.execute("SELECT count(*) FROM semantic_fts").fetchone()[0]
-                meta_count = self._conn.execute("SELECT count(*) FROM semantic_meta").fetchone()[0]
-                
-                if fts_count == 0 and meta_count > 0:
-                    logger.info("Rebuilding FTS index...")
-                    self._conn.execute("INSERT INTO semantic_fts(semantic_fts) VALUES('rebuild')")
+                if not exists:
+                    logger.info("Creating FTS5 index table...")
+                    # Create FTS5 table linked to semantic_meta
+                    self._conn.execute("""
+                        CREATE VIRTUAL TABLE semantic_fts USING fts5(
+                            fid, title, target, content, 
+                            content='semantic_meta', 
+                            content_rowid='rowid'
+                        )
+                    """)
                     
+                    # Triggers are required for External Content Tables to keep index in sync
+                    self._conn.execute("""
+                        CREATE TRIGGER semantic_ai AFTER INSERT ON semantic_meta BEGIN
+                            INSERT INTO semantic_fts(rowid, fid, title, target, content) VALUES (new.rowid, new.fid, new.title, new.target, new.content);
+                        END;
+                    """)
+                    self._conn.execute("""
+                        CREATE TRIGGER semantic_ad AFTER DELETE ON semantic_meta BEGIN
+                            INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content);
+                        END;
+                    """)
+                    self._conn.execute("""
+                        CREATE TRIGGER semantic_au AFTER UPDATE ON semantic_meta BEGIN
+                            INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content);
+                            INSERT INTO semantic_fts(rowid, fid, title, target, content) VALUES (new.rowid, new.fid, new.title, new.target, new.content);
+                        END;
+                    """)
+                    
+                    # Initial rebuild
+                    self._conn.execute("INSERT INTO semantic_fts(semantic_fts) VALUES('rebuild')")
+                else:
+                    # Ensure triggers exist (migration for old versions)
+                    self._conn.execute("CREATE TRIGGER IF NOT EXISTS semantic_ai AFTER INSERT ON semantic_meta BEGIN INSERT INTO semantic_fts(rowid, fid, title, target, content) VALUES (new.rowid, new.fid, new.title, new.target, new.content); END;")
+                    self._conn.execute("CREATE TRIGGER IF NOT EXISTS semantic_ad AFTER DELETE ON semantic_meta BEGIN INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content); END;")
+                    self._conn.execute("CREATE TRIGGER IF NOT EXISTS semantic_au AFTER UPDATE ON semantic_meta BEGIN INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content); INSERT INTO semantic_fts(rowid, fid, title, target, content) VALUES (new.rowid, new.fid, new.title, new.target, new.content); END;")
+
             except sqlite3.OperationalError as e:
                 logger.warning(f"FTS5 setup failed: {e}. Keyword search will be limited.")
             
