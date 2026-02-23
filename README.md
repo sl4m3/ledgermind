@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.7.3** · Autonomous Memory Management System for AI Agents
+**v2.7.4** · Autonomous Memory Management System for AI Agents
 
 > *LedgerMind is not a memory store — it is a living knowledge core that thinks,
 > heals itself, and evolves without human intervention.*
@@ -40,6 +40,7 @@ without any intervention from the developer or the agent.
 | **Hybrid Storage** | SQLite for fast queries + Git for cryptographic audit and version history. |
 | **MCP Server** | 15 tools with namespacing and pagination support for any compatible client. |
 | **REST Gateway** | FastAPI endpoints + Server-Sent Events + WebSocket for real-time updates. |
+| **Git Evolution** | Automatically generates "Evolving Pattern" proposals based on code changes (minimum 2 commits). |
 
 ---
 
