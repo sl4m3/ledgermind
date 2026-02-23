@@ -133,6 +133,7 @@ def main():
                 return
 
         from ledgermind.core.core.schemas import TrustBoundary
+        from ledgermind.core.api.memory import Memory
         import signal
         import sys
         
