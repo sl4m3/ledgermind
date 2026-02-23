@@ -62,9 +62,10 @@ class FileSystemLock:
                     # Try acquiring fcntl lock
                     try:
                         fcntl.flock(self._fd, op | fcntl.LOCK_NB)
-                        # Write PID for debugging
-                        os.ftruncate(self._fd, 0)
-                        os.write(self._fd, str(os.getpid()).encode())
+                        # Write PID once
+                        if os.fstat(self._fd).st_size == 0:
+                            os.ftruncate(self._fd, 0)
+                            os.write(self._fd, str(os.getpid()).encode())
                         return True
                     except (BlockingIOError, OSError) as e:
                         # If it's just blocked (EAGAIN/EACCES), retry.
@@ -149,10 +150,12 @@ class TransactionManager:
         if db_conn:
             db_conn.execute("SAVEPOINT ledgermind_tx")
 
-        # Ensure clean state
-        if os.path.exists(self.backup_dir):
-            shutil.rmtree(self.backup_dir)
-        os.makedirs(self.backup_dir)
+        # Ensure clean state but avoid redundant OS calls if directory is already empty
+        if not os.path.exists(self.backup_dir):
+            os.makedirs(self.backup_dir)
+        elif os.listdir(self.backup_dir):
+            for item in os.listdir(self.backup_dir):
+                shutil.rmtree(os.path.join(self.backup_dir, item)) if os.path.isdir(os.path.join(self.backup_dir, item)) else os.remove(os.path.join(self.backup_dir, item))
         
         try:
             yield self

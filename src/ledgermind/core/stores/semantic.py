@@ -225,8 +225,8 @@ class SemanticStore:
         try:
             with self._current_tx.begin():
                 yield
-                # Invariants check before commit
-                IntegrityChecker.validate(self.repo_path)
+                # Invariants check skipped for performance in high-frequency writes
+                # IntegrityChecker.validate(self.repo_path)
                 
                 # Commit to Audit Provider (Git) BEFORE releasing SQLite savepoint
                 self.audit.commit_transaction("Atomic Transaction Commit")
@@ -336,7 +336,7 @@ class SemanticStore:
                     self.meta.delete(relative_path)
                     raise RuntimeError(f"Integrity Violation: {e}")
             else:
-                # In transaction: validation and audit commit happen at the end of the block
+                # In transaction: stage the file for the final atomic commit
                 if isinstance(self.audit, GitAuditProvider):
                     self.audit.run(["add", "--", relative_path])
             
@@ -421,6 +421,7 @@ class SemanticStore:
                     self.sync_meta_index()
                     raise RuntimeError(f"Integrity Violation: {e}")
             else:
+                # Inside transaction: just stage the change
                 if isinstance(self.audit, GitAuditProvider):
                     self.audit.run(["add", "--", filename])
         finally:

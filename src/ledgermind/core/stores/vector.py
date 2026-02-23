@@ -289,7 +289,8 @@ class VectorStore:
         self._dirty = True
         self._unsaved_count += len(documents)
         
-        if self._unsaved_count >= 50:
+        # Performance optimization: Very high threshold for disk flushes to avoid IO bottleneck
+        if self._unsaved_count >= 500:
             self.save()
 
     def get_vector(self, fid: str) -> Optional[np.ndarray]:
