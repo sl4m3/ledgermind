@@ -282,10 +282,6 @@ class Memory:
                                 # We log it but proceed if the intent is clear.
                                 logger.info(f"Target {old_id} already superseded or missing during transition.")
 
-                    # CRITICAL: Force SQLite metadata index sync before checking for conflicts
-                    # to ensure we see deactivations from other processes that just finished.
-                    self.semantic.sync_meta_index(force=True)
-
                     # 2.7: Late-bind Conflict Detection (Inside Lock)
                     # This prevents race conditions where two agents check simultaneously
                     if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=effective_namespace):
