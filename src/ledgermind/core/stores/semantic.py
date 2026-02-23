@@ -26,7 +26,8 @@ class SemanticStore:
     """
     def __init__(self, repo_path: str, trust_boundary: TrustBoundary = TrustBoundary.AGENT_WITH_INTENT, 
                  meta_store: Optional[MetadataStore] = None,
-                 audit_store: Optional[AuditProvider] = None):
+                 audit_store: Optional[AuditProvider] = None,
+                 skip_validate: bool = True):
         self.repo_path = repo_path
         self.trust_boundary = trust_boundary
         self.lock_file = os.path.join(repo_path, ".lock")
@@ -70,7 +71,8 @@ class SemanticStore:
             self._fs_lock.release()
         
         self.reconcile_untracked()
-        IntegrityChecker.validate(self.repo_path)
+        if not skip_validate:
+            IntegrityChecker.validate(self.repo_path)
         self.sync_meta_index()
 
     def reconcile_untracked(self):
