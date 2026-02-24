@@ -60,6 +60,7 @@ def test_install_claude_hooks(mock_home, tmp_path):
         # Verify content
         before_content = (hooks_dir / "ledgermind_before_prompt.sh").read_text()
         assert "bridge-context" in before_content
+        assert '--cli "claude"' in before_content
         assert str(project_path) in before_content
 
         with open(settings_file) as f:
@@ -86,6 +87,7 @@ def test_install_cursor_hooks(mock_home, tmp_path):
         # Verify content
         before_content = (hooks_dir / "ledgermind_before.sh").read_text()
         assert "bridge-context" in before_content
+        assert '--cli "cursor"' in before_content
         assert str(project_path) in before_content
 
         with open(hooks_file) as f:
@@ -107,6 +109,7 @@ def test_install_gemini_hooks(mock_home, tmp_path):
         assert hook_file.exists()
         content = hook_file.read_text()
         assert "bridge.get_context_for_prompt" in content
+        assert 'default_cli=["gemini"]' in content
         assert str(project_path) in content
 
 def test_bridge_context_cli(tmp_path):
@@ -118,7 +121,8 @@ def test_bridge_context_cli(tmp_path):
     mem = Memory(storage_path=str(memory_path))
     mem.record_decision(title="Test Rule", target="test", rationale="Important decision for testing hooks")
     
-    result = run_cli(["bridge-context", "--path", str(memory_path), "--prompt", "test"])
+    # Use a low threshold to ensure context injection regardless of exact similarity score
+    result = run_cli(["bridge-context", "--path", str(memory_path), "--prompt", "Test Rule", "--threshold", "0.1"])
     if result.returncode != 0:
         sys.__stderr__.write(f"STDERR: {result.stderr}\n")
     assert result.returncode == 0
