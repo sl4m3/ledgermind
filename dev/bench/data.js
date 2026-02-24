@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771958572808,
+  "lastUpdate": 1771959251258,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -456,6 +456,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00018898354217235095",
             "extra": "mean: 4.136414360651602 msec\nrounds: 61"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "2c2425313fb5d7f9136925ec15f00b1c662751a4",
+          "message": "fix(cli): add missing import and support for threshold in bridge-context",
+          "timestamp": "2026-02-24T21:49:35+03:00",
+          "tree_id": "7b4c759f787fb66e641c0268a3ce37971209cbce",
+          "url": "https://github.com/sl4m3/ledgermind/commit/2c2425313fb5d7f9136925ec15f00b1c662751a4"
+        },
+        "date": 1771959250854,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 33.60619299224888,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0019733671836645018",
+            "extra": "mean: 29.756420200010325 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 246.03765274668893,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010324966722026333",
+            "extra": "mean: 4.0644185507230555 msec\nrounds: 69"
           }
         ]
       }
