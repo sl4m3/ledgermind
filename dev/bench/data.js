@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771946560963,
+  "lastUpdate": 1771952263749,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -342,6 +342,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010021110211028917",
             "extra": "mean: 4.092880651495362 msec\nrounds: 66"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "6d6964771b7e4145b742b51137e3964ef47db6f1",
+          "message": "feat: release v2.8.0 with Zero-Touch Automation and Client Hooks",
+          "timestamp": "2026-02-24T19:53:06+03:00",
+          "tree_id": "1ee26ffe1975445e77f7df1405eb2925c3f70d8b",
+          "url": "https://github.com/sl4m3/ledgermind/commit/6d6964771b7e4145b742b51137e3964ef47db6f1"
+        },
+        "date": 1771952262897,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 29.96305315841423,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004484432355431039",
+            "extra": "mean: 33.37443599999688 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 243.0996708304002,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000927144593040869",
+            "extra": "mean: 4.113539095236601 msec\nrounds: 63"
           }
         ]
       }
