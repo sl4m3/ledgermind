@@ -2,6 +2,7 @@ import argparse
 import os
 import json
 import logging
+from typing import Optional
 from ledgermind.server.server import MCPServer
 from ledgermind.core.utils.logging import setup_logging
 
@@ -69,13 +70,13 @@ def show_stats(path: str):
     except Exception as e:
         print(f"✗ Error fetching stats: {e}")
 
-def bridge_context(path: str, prompt: str, cli: Optional[str] = None):
+def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold: Optional[float] = None):
     """Bridge API: Returns context for a prompt without starting MCP server."""
     from ledgermind.core.api.bridge import IntegrationBridge
     import sys
     try:
         default_cli = [cli] if cli else None
-        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli)
+        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, relevance_threshold=threshold if threshold is not None else 0.65)
         ctx = bridge.get_context_for_prompt(prompt)
         sys.stdout.write(ctx)
     except Exception as e:
@@ -135,6 +136,7 @@ def main():
     bc_parser.add_argument("--path", default=".ledgermind", help="Path to memory storage")
     bc_parser.add_argument("--prompt", required=True, help="User prompt")
     bc_parser.add_argument("--cli", help="Default CLI for arbitration")
+    bc_parser.add_argument("--threshold", type=float, help="Relevance threshold")
 
     br_parser = subparsers.add_parser("bridge-record", help="Internal: record interaction")
     br_parser.add_argument("--path", default=".ledgermind", help="Path to memory storage")
@@ -164,7 +166,7 @@ def main():
         from ledgermind.server.installers import install_client
         install_client(args.client, args.path)
     elif args.command == "bridge-context":
-        bridge_context(args.path, args.prompt, args.cli)
+        bridge_context(args.path, args.prompt, args.cli, args.threshold)
     elif args.command == "bridge-record":
         bridge_record(args.path, args.prompt, args.response, args.success, args.metadata, args.cli)
     elif args.command == "init":
