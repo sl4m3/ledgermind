@@ -69,23 +69,25 @@ def show_stats(path: str):
     except Exception as e:
         print(f"✗ Error fetching stats: {e}")
 
-def bridge_context(path: str, prompt: str):
+def bridge_context(path: str, prompt: str, cli: Optional[str] = None):
     """Bridge API: Returns context for a prompt without starting MCP server."""
     from ledgermind.core.api.bridge import IntegrationBridge
     import sys
     try:
-        bridge = IntegrationBridge(memory_path=path)
+        default_cli = [cli] if cli else None
+        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli)
         ctx = bridge.get_context_for_prompt(prompt)
         sys.stdout.write(ctx)
     except Exception as e:
         sys.stderr.write(f"✗ Error fetching context: {e}\n")
 
-def bridge_record(path: str, prompt: str, response: str, success: bool, metadata: str):
+def bridge_record(path: str, prompt: str, response: str, success: bool, metadata: str, cli: Optional[str] = None):
     """Bridge API: Records interaction into episodic memory."""
     from ledgermind.core.api.bridge import IntegrationBridge
     import json
     try:
-        bridge = IntegrationBridge(memory_path=path)
+        default_cli = [cli] if cli else None
+        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli)
         meta = json.loads(metadata) if metadata else None
         bridge.record_interaction(prompt=prompt, response=response, success=success, metadata=meta)
     except Exception as e:
@@ -132,6 +134,7 @@ def main():
     bc_parser = subparsers.add_parser("bridge-context", help="Internal: get context")
     bc_parser.add_argument("--path", default=".ledgermind", help="Path to memory storage")
     bc_parser.add_argument("--prompt", required=True, help="User prompt")
+    bc_parser.add_argument("--cli", help="Default CLI for arbitration")
 
     br_parser = subparsers.add_parser("bridge-record", help="Internal: record interaction")
     br_parser.add_argument("--path", default=".ledgermind", help="Path to memory storage")
@@ -139,6 +142,7 @@ def main():
     br_parser.add_argument("--response", required=True, help="Agent response")
     br_parser.add_argument("--success", action="store_true", default=True, help="Was successful")
     br_parser.add_argument("--metadata", default=None, help="JSON metadata")
+    br_parser.add_argument("--cli", help="Default CLI for arbitration")
 
     # Default to 'run' if no command is provided, but we need to handle arguments
     # A simple way is to check sys.argv
@@ -160,9 +164,9 @@ def main():
         from ledgermind.server.installers import install_client
         install_client(args.client, args.path)
     elif args.command == "bridge-context":
-        bridge_context(args.path, args.prompt)
+        bridge_context(args.path, args.prompt, args.cli)
     elif args.command == "bridge-record":
-        bridge_record(args.path, args.prompt, args.response, args.success, args.metadata)
+        bridge_record(args.path, args.prompt, args.response, args.success, args.metadata, args.cli)
     elif args.command == "init":
         init_project(args.path)
     elif args.command == "check":
