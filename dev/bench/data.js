@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771969126833,
+  "lastUpdate": 1771970430170,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -570,6 +570,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009775313829590803",
             "extra": "mean: 4.137870222221423 msec\nrounds: 63"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "bb1203d4971cafb6c723844d6fc4230fa07fc093",
+          "message": "fix(memory): prevent duplicate events in episodic store with deep context comparison",
+          "timestamp": "2026-02-25T00:56:10+03:00",
+          "tree_id": "68cd8502dcfb5b1650205b8b777eee6c1708f130",
+          "url": "https://github.com/sl4m3/ledgermind/commit/bb1203d4971cafb6c723844d6fc4230fa07fc093"
+        },
+        "date": 1771970429454,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 28.13859095702615,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006859888881660692",
+            "extra": "mean: 35.53838219999079 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 244.77344170769027,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008286764980511002",
+            "extra": "mean: 4.085410545455358 msec\nrounds: 66"
           }
         ]
       }
