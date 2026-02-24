@@ -238,8 +238,8 @@ class Memory:
             parent_event_id=context.get('parent_event_id') if isinstance(context, dict) else getattr(context, 'parent_event_id', None)
         )
         
-        # 2.5: Prevent duplicate processing
-        if self.episodic.find_duplicate(event):
+        # 2.5: Prevent duplicate processing (Deep check including context, ignoring links)
+        if self.episodic.find_duplicate(event, ignore_links=True):
             return MemoryDecision(
                 should_persist=False,
                 store_type="none",
@@ -461,7 +461,8 @@ class Memory:
                         "rationale": commit_msg
                     }
                 )
-                self.episodic.append(event, linked_id=decision_id)
+                if not self.episodic.find_duplicate(event, linked_id=decision_id):
+                    self.episodic.append(event, linked_id=decision_id)
             
         return True
 
