@@ -151,3 +151,12 @@ class EpisodicStore:
         with self._get_conn() as conn:
             with conn:
                 conn.execute(f"DELETE FROM events WHERE id IN ({placeholders}) AND linked_id IS NULL", event_ids) # nosec B608
+
+    def count_events(self, status: Optional[str] = 'active') -> int:
+        """Returns the number of events with the given status."""
+        with self._get_conn() as conn:
+            if status:
+                row = conn.execute("SELECT COUNT(*) FROM events WHERE status = ?", (status,)).fetchone()
+            else:
+                row = conn.execute("SELECT COUNT(*) FROM events").fetchone()
+            return row[0] or 0
