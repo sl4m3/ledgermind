@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771895767957,
+  "lastUpdate": 1771946560963,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -304,6 +304,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010596838187839693",
             "extra": "mean: 4.112253106058867 msec\nrounds: 66"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "6d81e07831f215126c85fc3fcacfbdd19bfadd16",
+          "message": "docs: add social banner and comparison table to README",
+          "timestamp": "2026-02-24T18:18:22+03:00",
+          "tree_id": "02eede82956fe108eb454784d45b452593f86a69",
+          "url": "https://github.com/sl4m3/ledgermind/commit/6d81e07831f215126c85fc3fcacfbdd19bfadd16"
+        },
+        "date": 1771946560184,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 30.492319042760624,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004612764111030365",
+            "extra": "mean: 32.79514420000851 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 244.32669436247627,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010021110211028917",
+            "extra": "mean: 4.092880651495362 msec\nrounds: 66"
           }
         ]
       }
