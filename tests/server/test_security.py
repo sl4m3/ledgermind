@@ -18,9 +18,11 @@ def test_auth_disabled_by_default(client):
         res = client.get("/health")
         assert res.status_code == 200
         
-        res = client.get("/events")
-        # SSE returns a streaming response, status 200 means success starting it
-        assert res.status_code == 200
+        with patch("ledgermind.server.gateway.EventSourceResponse") as mock_sse:
+            from fastapi.responses import Response
+            mock_sse.return_value = Response(status_code=200)
+            res = client.get("/events")
+            assert res.status_code == 200
 
 def test_auth_protected_endpoints(client):
     """If LEDGERMIND_API_KEY is set, endpoints should require it."""
