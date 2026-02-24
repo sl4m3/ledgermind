@@ -1,4 +1,4 @@
-# LedgerMind Benchmarking Guide (v2.7.7)
+# LedgerMind Benchmarking Guide (v2.7.8)
 
 This guide describes the process for testing the performance and agentic
 capabilities of the LedgerMind system according to 2026 standards.
