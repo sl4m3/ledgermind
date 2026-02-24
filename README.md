@@ -2,7 +2,7 @@
 
 **v2.8.1** · Autonomous Memory Management System for AI Agents
 
-![Social Banner](assets/banner.png)
+![Banner](assets/banner.png)
 
 > *LedgerMind is not a memory store — it is a living knowledge core that thinks,
 > heals itself, and evolves without human intervention.*
