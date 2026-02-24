@@ -3,9 +3,6 @@ name: Publish Package to PyPI
 on:
   release:
     types: [published]
-  push:
-    tags:
-      - 'v*' # Trigger on version tags as well
 
 jobs:
   build-and-publish:

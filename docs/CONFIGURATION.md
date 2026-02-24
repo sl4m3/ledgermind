@@ -105,3 +105,58 @@ Ensure your Git identity is set up before using audit features:
 git config --global user.name "LedgerMind Agent"
 git config --global user.email "agent@example.com"
 ```
+
+---
+
+## Client Hooks Configuration
+
+LedgerMind supports Zero-Touch Automation through client-side hooks. These hooks automatically manage context injection (RAG) and episodic memory recording.
+
+### Automatic Installation
+
+Use the CLI to install hooks for supported clients:
+
+```bash
+ledgermind-mcp install [claude|cursor|gemini] --path /path/to/memory
+```
+
+### Manual Configuration (Gemini CLI)
+
+If you need to manually configure hooks for Gemini CLI (v0.29.7+), add the following to your `~/.gemini/settings.json`:
+
+```json
+{
+  "hooksConfig": {
+    "enabled": true,
+    "notifications": true
+  },
+  "hooks": {
+    "BeforeAgent": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "name": "ledgermind-context",
+            "type": "command",
+            "command": "python3 /path/to/ledgermind/hooks/ledgermind_hook.py before"
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "name": "ledgermind-record",
+            "type": "command",
+            "command": "python3 /path/to/ledgermind/hooks/ledgermind_hook.py after"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+> **Note:** The hook script must be able to import `ledgermind`. Ensure the project's `src` directory is in your `PYTHONPATH` or the package is installed in your environment.
