@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771952263749,
+  "lastUpdate": 1771955194109,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -380,6 +380,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000927144593040869",
             "extra": "mean: 4.113539095236601 msec\nrounds: 63"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "d0566ee350fffd06f9d9fa6443ca92b966c78804",
+          "message": "feat: release v2.8.1 with Zero-Touch Hook documentation and fixes",
+          "timestamp": "2026-02-24T20:40:37+03:00",
+          "tree_id": "f48021176113d9eacd015e6a18d76b71053aa80d",
+          "url": "https://github.com/sl4m3/ledgermind/commit/d0566ee350fffd06f9d9fa6443ca92b966c78804"
+        },
+        "date": 1771955193852,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 31.292252755437882,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0023028595971462625",
+            "extra": "mean: 31.956791599998272 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 241.75437976075185,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00017066302874934165",
+            "extra": "mean: 4.136429714281219 msec\nrounds: 63"
           }
         ]
       }
