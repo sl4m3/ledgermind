@@ -39,9 +39,13 @@ automatically cleared.
 ```
 Memory (core/api/memory.py)
 │
+├── Bridge API             Lightweight access for Hooks Pack (Zero-Touch)
+│   ├── bridge-context     Sub-millisecond prompt enrichment
+│   └── bridge-record      Asynchronous interaction logging
+│
 ├── SemanticStore          Long-term structured knowledge (Markdown + Git)
 │   ├── GitAuditProvider   Every write = a Git commit
-│   ├── SemanticMetaStore  SQLite index with FTS5 and namespace support (v2.7.8: Idempotent initialization)
+│   ├── SemanticMetaStore  SQLite index with FTS5 and namespace support (2.7.9: Idempotent initialization)
 │   ├── TransactionManager ACID isolation using SAVEPOINT and threading.local()
 │   ├── IntegrityChecker   Pre/post-write ns-resolution invariant validation
 │   └── MemoryLoader       Frontmatter YAML + Markdown body parser
@@ -52,7 +56,7 @@ Memory (core/api/memory.py)
 ├── VectorStore            Cosine similarity index (NumPy matrix)
 │   ├── GGUF Support       4-bit quantization via llama-cpp-python
 │   ├── Model Caching      Singleton pattern avoids redundant RAM usage
-│   └── Auto-Dimension     Dynamic detection (e.g. 1024 for Jina v5 Small)
+│   └── Auto-Dimension     Dynamic detection (e.g. 1024 for Jina 2.7.9 Small)
 │
 ├── ConflictEngine         Detects collisions within specific namespaces
 ├── Webhook Dispatcher     Async HTTP POST notifications for memory events

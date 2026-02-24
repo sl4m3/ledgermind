@@ -54,9 +54,9 @@ for r in results:
 
 # Just call record_decision again for the same target
 result = memory.record_decision(
-    title="Upgrade FastAPI: switch to Pydantic v2",
+    title="Upgrade FastAPI: switch to Pydantic 2.7.9",
     target="web_framework",
-    rationale="Pydantic v2 delivers a 5-10x validation speedup. "
+    rationale="Pydantic 2.7.9 delivers a 5-10x validation speedup. "
               "Migration is straightforward with the compatibility layer."
 )
 # ✓ No ConflictError raised — system handled it automatically
@@ -295,8 +295,8 @@ mermaid_db = memory.generate_knowledge_graph(target="database")
 
 print(mermaid_db)
 # graph LR
-#   A["decisions/database_v1.md<br/>Use PostgreSQL"] -->|superseded_by| B
-#   B["decisions/database_v2.md<br/>Use Aurora PostgreSQL"]
+#   A["decisions/database_2.7.9md<br/>Use PostgreSQL"] -->|superseded_by| B
+#   B["decisions/database_2.7.9md<br/>Use Aurora PostgreSQL"]
 #   E1([episodic:42]) -.->|evidence| A
 #   E2([episodic:87]) -.->|evidence| B
 ```
