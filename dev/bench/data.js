@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771888469195,
+  "lastUpdate": 1771891335568,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -76,6 +76,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009536979468797375",
             "extra": "mean: 4.140962953852068 msec\nrounds: 65"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "6ca039cabac0c0119255160244111fca12743308",
+          "message": "fix: prevent BackgroundWorker mock crashes in tests",
+          "timestamp": "2026-02-24T02:52:26+03:00",
+          "tree_id": "3528805d66aef0fb273ab0764d1634fb3fa49a0c",
+          "url": "https://github.com/sl4m3/ledgermind/commit/6ca039cabac0c0119255160244111fca12743308"
+        },
+        "date": 1771891335157,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 32.03122926979307,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003347203182765632",
+            "extra": "mean: 31.219532399995842 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 244.95371849892675,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008996017007200249",
+            "extra": "mean: 4.082403835826568 msec\nrounds: 67"
           }
         ]
       }
