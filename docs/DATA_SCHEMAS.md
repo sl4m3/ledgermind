@@ -1,6 +1,6 @@
 # Data Schemas
 
-All data models in LedgerMind use Pydantic 2.7.9 with strict validation.
+All data models in LedgerMind use Pydantic 2.12+ with strict validation.
 
 ---
 
@@ -14,13 +14,15 @@ Base type for all information flowing into `process_event()`.
 class MemoryEvent(BaseModel):
     schema_version: int = 1
     source: Literal["user", "agent", "system", "reflection_engine", "bridge"]
-    kind: Literal["decision", "error", "proposal", "commit_change", ...]
+    kind: Literal["decision", "error", "proposal", "commit_change", "task", "call", "prompt", "result"]
     content: str
     context: Union[DecisionContent, ProposalContent, Dict[str, Any]]
     timestamp: datetime
 ```
 
 ---
+
+## Knowledge Content Models
 
 ### DecisionContent
 
@@ -55,7 +57,26 @@ class ProposalContent(BaseModel):
     confidence: float
     evidence_event_ids: List[int] = []
     suggested_supersedes: List[str] = []
+    procedural: Optional[ProceduralContent] = None # Added in v2.8.2
     ready_for_review: bool = False
+```
+
+---
+
+### ProceduralContent
+
+Used by MemP (Memory-to-Procedure) distillation.
+
+```python
+class ProceduralStep(BaseModel):
+    action: str
+    rationale: Optional[str] = None
+    expected_outcome: Optional[str] = None
+
+class ProceduralContent(BaseModel):
+    steps: List[ProceduralStep]
+    target_task: str
+    success_evidence_ids: List[int]
 ```
 
 ---

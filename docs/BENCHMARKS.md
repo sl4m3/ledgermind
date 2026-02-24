@@ -1,4 +1,4 @@
-# LedgerMind Benchmarking Guide (2.8.1)
+# LedgerMind Benchmarking Guide (2.8.2)
 
 This guide describes the process for testing the performance and agentic
 capabilities of the LedgerMind system according to 2026 standards.

@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.8.1** · Autonomous Memory Management System for AI Agents
+**v2.8.2** · Autonomous Memory Management System for AI Agents
 
 ![Banner](assets/banner.png)
 
@@ -44,18 +44,16 @@ without any intervention from the developer or the agent.
 |---|---|
 | **Zero-Touch Automation** | `ledgermind install <client>` automatically injects hooks into Claude, Cursor, or Gemini CLI for 100% transparent memory operations without MCP tool calls. |
 | **Autonomous Heartbeat** | A background worker runs every 5 minutes: Git sync, reflection, decay, self-healing. |
+| **Probabilistic Reflection** | v2.8.2: Discover patterns using float success weights (0.0-1.0) and Target Inheritance for better clustering. |
+| **Procedural Distillation** | v2.8.2: Automatically converts successful trajectories into step-by-step instructions (`procedural.steps`). |
 | **Intelligent Conflict Resolution** | Vector similarity analysis automatically supersedes outdated decisions (threshold: 70%). |
 | **Multi-agent Namespacing** | Logical partitioning of memory for multiple agents within a single project. |
-| **4-bit GGUF Integration** | Optimized for Termux/Android using Jina v5 Small in 4-bit quantization via Llama-CPP. |
-| **API-Key Authentication** | Secure your MCP and REST endpoints with `X-API-Key` (env: `LEDGERMIND_API_KEY`). |
-| **Real-time Webhooks** | Subscribe external systems to memory events (decisions, proposals, updates). |
-| **Thread-Safe Transactions** | Thread-local transaction isolation and SQLite WAL mode for high concurrency. |
+| **4-bit GGUF Integration** | Optimized for Termux/Android with embedding caching for maximum stability. |
 | **Autonomy Stress Testing** | Built-in test suite for validating Falsifiability, Noise Immunity, and Deep Truth Resolution. |
 | **Canonical Target Registry** | Auto-normalizes target names and resolves aliases to prevent memory fragmentation. |
 | **Autonomous Reflection** | Proposals with confidence ≥ 0.9 are automatically promoted to active decisions. |
 | **Hybrid Storage** | SQLite for fast queries + Git for cryptographic audit and version history. |
 | **MCP Server** | 15 tools with namespacing and pagination support for any compatible client. |
-| **REST Gateway** | FastAPI endpoints + Server-Sent Events + WebSocket for real-time updates. |
 | **Git Evolution** | Automatically generates "Evolving Pattern" proposals based on code changes (minimum 2 commits). |
 
 ---
@@ -212,15 +210,15 @@ search. Decisions with more "Evidence Links" (episodic events) receive a
 
 ---
 
-## Benchmarks (February 24, 2Y, v2.8.1)
+## Benchmarks (February 25, 2Y, v2.8.2)
 
-LedgerMind (v2.8.1) is optimized for high-speed operation on **Android/Termux**
+LedgerMind (v2.8.2) is optimized for high-speed operation on **Android/Termux**
 as well as containerized environments. It includes built-in security for MCP and
 REST endpoints.
 
 ### Retrieval Performance (Jina v5 Small Q4_K_M)
 
-| Metric | Mean (v2.8.1) | Note |
+| Metric | Mean (v2.8.2) | Note |
 | :--- | :---: | :--- |
 | **Search p95 (ms)** | **29.2 ms** | Hybrid RRF (Vector + Keyword) |
 | **Write p95 (ms)** | **251.4 ms** | Optimized Metadata Indexing |

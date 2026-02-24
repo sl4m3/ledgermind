@@ -55,20 +55,31 @@ Memory (core/api/memory.py)
 │
 ├── VectorStore            Cosine similarity index (NumPy matrix)
 │   ├── GGUF Support       4-bit quantization via llama-cpp-python
+│   ├── Embedding Cache    Lru-style cache prevents redundant llama.cpp calls (v2.8.2)
 │   ├── Model Caching      Singleton pattern avoids redundant RAM usage
-│   └── Auto-Dimension     Dynamic detection (e.g. 1024 for Jina 2.7.9 Small)
+│   └── Auto-Dimension     Dynamic detection (e.g. 1024 for Jina v5 Small)
 │
 ├── ConflictEngine         Detects collisions within specific namespaces
 ├── Webhook Dispatcher     Async HTTP POST notifications for memory events
 ├── ResolutionEngine       Validates ResolutionIntent before supersede
-├── ReflectionEngine       Analyzes episodic clusters → generates Proposals
+├── ReflectionEngine       Incremental Knowledge Discovery (v2.8.2: Probabilistic)
 ├── DecayEngine            Manages TTL, confidence decay, and forgetting
 ├── MergeEngine            Scans for semantically identical active decisions
-├── DistillationEngine     Distills successful trajectories → ProceduralProposals
+├── DistillationEngine     Distills successful trajectories → ProceduralProposals (v2.8.2)
 ├── GitIndexer             Imports Git commits into episodic memory
 ├── TargetRegistry         Canonical names + alias resolution (targets.json)
 └── MemoryRouter           Routes MemoryEvent to the correct store
 ```
+
+---
+
+## Reflection and Knowledge Synthesis
+
+In v2.8.2, the `ReflectionEngine` moved from binary success/failure tracking to a **Probabilistic Model**:
+
+*   **Float Success Weights:** Interactions are scored from `0.0` (Hard Error) to `1.0` (Verified Success).
+*   **Target Inheritance:** `prompt` and `result` events automatically inherit the `target` from the preceding actions in a session, enabling better clustering.
+*   **Procedural Distillation:** Successful "trajectories" are automatically converted into пошаговые инструкции (`procedural.steps`) inside proposals.
 
 ---
 
