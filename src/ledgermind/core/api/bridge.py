@@ -14,7 +14,7 @@ class IntegrationBridge:
     Provides streamlined methods for context injection and interaction recording.
     """
     
-    def __init__(self, memory_path: str = ".ledgermind", relevance_threshold: float = 0.35, retention_turns: int = 5, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None):
+    def __init__(self, memory_path: str = ".ledgermind", relevance_threshold: float = 0.65, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None):
         self.memory_path = os.path.abspath(memory_path)
         try:
             self._memory = Memory(storage_path=self.memory_path, vector_model=vector_model)
@@ -138,22 +138,36 @@ class IntegrationBridge:
         """Proxies generate_knowledge_graph to memory core."""
         return self._memory.generate_knowledge_graph(target)
 
+    def _strip_knowledge(self, prompt: str) -> str:
+        """
+        Removes LedgerMind injected context from the prompt to ensure 
+        only the user's original query is stored in episodic memory.
+        """
+        if "[LEDGERMIND KNOWLEDGE BASE ACTIVE]" not in prompt:
+            return prompt
+            
+        # Match the header and the following JSON block
+        pattern = r"\[LEDGERMIND KNOWLEDGE BASE ACTIVE\]\n\{.*?\n\}\n+"
+        stripped = re.sub(pattern, "", prompt, flags=re.DOTALL)
+        return stripped.strip()
+
     def record_interaction(self, prompt: str, response: str, success: bool = True, metadata: Optional[Dict[str, Any]] = None):
         """
         Records a completed interaction (prompt and response) into episodic memory.
         
         Args:
-            prompt: The user's input.
+            prompt: The user's input (will be stripped of injected knowledge).
             response: The agent's output.
             success: Whether the interaction was successful.
             metadata: Optional additional context (e.g. model name, latency).
         """
         try:
+            clean_prompt = self._strip_knowledge(prompt)
             # Record prompt
             prompt_dec = self._memory.process_event(
                 source="user",
                 kind="prompt",
-                content=prompt,
+                content=clean_prompt,
                 context=metadata or {}
             )
             prompt_id = prompt_dec.metadata.get("event_id")
@@ -199,7 +213,7 @@ class IntegrationBridge:
             # We use a longer timeout for arbitration in Termux/mobile environments
             result = subprocess.run(
                 cli_command + [prompt], 
-                capture_output=True, text=True, encoding='utf-8', timeout=60
+                capture_output=True, text=True, encoding='utf-8', timeout=180
             )
             response = result.stdout.strip().upper()
             if "SUPERSEDE" in response: return "SUPERSEDE"
@@ -213,7 +227,7 @@ class IntegrationBridge:
         """
         High-level orchestration with SLIDING WINDOW CONTEXT DEDUPLICATION:
         1. Manages turn counter and prunes old context from cache.
-        2. Injects NEW context (excluding recently injected ones).
+        2. Injects NEW context (ONLY if previous context has exited the window).
         3. Executes external command.
         4. Records interaction.
         """
@@ -229,8 +243,10 @@ class IntegrationBridge:
         active_ids = {k for k, v in self._active_context_ids.items() if v > cutoff}
         self._active_context_ids = {k: v for k, v in self._active_context_ids.items() if k in active_ids}
         
-        # 1. Get Context (Only NEW memories not in active_ids)
-        memories = self._find_relevant_memories(user_prompt, exclude_ids=active_ids)
+        # 1. Get Context (Strict Window: only inject if context window is empty)
+        memories = []
+        if not active_ids:
+            memories = self._find_relevant_memories(user_prompt)
         
         context_str = ""
         if memories:

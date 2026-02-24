@@ -34,7 +34,7 @@ class ClaudeInstaller(BaseInstaller):
 # LedgerMind BeforeModel Hook
 # Injects context into the prompt
 PROMPT=$(cat)
-ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT"
+ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT" --cli "claude"
 """)
         os.chmod(before_script_path, 0o700)
 
@@ -45,7 +45,7 @@ ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT"
 # LedgerMind AfterModel Hook
 # Records the interaction (fire and forget)
 RESPONSE=$(cat)
-ledgermind-mcp bridge-record --path "{project_path}" --prompt "Automated tool execution" --response "$RESPONSE" &
+ledgermind-mcp bridge-record --path "{project_path}" --prompt "Automated tool execution" --response "$RESPONSE" --cli "claude" &
 """)
         os.chmod(after_script_path, 0o700)
 
@@ -86,7 +86,7 @@ class CursorInstaller(BaseInstaller):
             f.write(f"""#!/bin/bash
 # Cursor BeforeSubmitPrompt Hook
 PROMPT=$1
-ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT"
+ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT" --cli "cursor"
 """)
         os.chmod(before_script_path, 0o700)
 
@@ -95,7 +95,7 @@ ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT"
             f.write(f"""#!/bin/bash
 # Cursor AfterAgentResponse Hook
 RESPONSE=$1
-ledgermind-mcp bridge-record --path "{project_path}" --prompt "Agent interaction" --response "$RESPONSE" &
+ledgermind-mcp bridge-record --path "{project_path}" --prompt "Agent interaction" --response "$RESPONSE" --cli "cursor" &
 """)
         os.chmod(after_script_path, 0o700)
 
@@ -140,7 +140,7 @@ if os.path.exists(project_src) and project_src not in sys.path:
 
 try:
     from ledgermind.core.api.bridge import IntegrationBridge
-    bridge = IntegrationBridge(memory_path="{project_path}")
+    bridge = IntegrationBridge(memory_path="{project_path}", default_cli=["gemini"])
     
     def before_prompt(prompt):
         \"\"\"Injected before sending the prompt to the LLM.\"\"\"
