@@ -48,6 +48,11 @@ class EpisodicStore:
                     pass
 
     def append(self, event: MemoryEvent, linked_id: Optional[str] = None, link_strength: float = 1.0) -> int:
+        # Step 0: Last-resort duplicate check
+        existing_id = self.find_duplicate(event, linked_id=linked_id)
+        if existing_id:
+            return existing_id
+
         with self._get_conn() as conn:
             # Handle context serialization for Pydantic models
             context_data = event.context
@@ -134,13 +139,30 @@ class EpisodicStore:
             with conn:
                 conn.execute(f"UPDATE events SET status = 'archived' WHERE id IN ({placeholders})", event_ids) # nosec B608
 
-    def find_duplicate(self, event: MemoryEvent) -> Optional[int]:
-        """Checks if an identical event (source, kind, content) already exists."""
+    def find_duplicate(self, event: MemoryEvent, linked_id: Optional[str] = None, ignore_links: bool = False) -> Optional[int]:
+        """Checks if an identical event (source, kind, content, context) already exists."""
+        # Handle context serialization for comparison
+        context_data = event.context
+        if hasattr(context_data, 'model_dump'):
+            context_dict = context_data.model_dump(mode='json')
+        else:
+            context_dict = context_data
+        context_json = json.dumps(context_dict)
+
         with self._get_conn() as conn:
-            cursor = conn.execute(
-                "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? LIMIT 1",
-                (event.source, event.kind, event.content)
-            )
+            sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ?"
+            params = [event.source, event.kind, event.content, context_json]
+            
+            if not ignore_links:
+                if linked_id is not None:
+                    sql += " AND linked_id = ?"
+                    params.append(linked_id)
+                else:
+                    sql += " AND linked_id IS NULL"
+                
+            sql += " LIMIT 1"
+            
+            cursor = conn.execute(sql, params)
             row = cursor.fetchone()
             return row[0] if row else None
 
