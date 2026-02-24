@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771895253341,
+  "lastUpdate": 1771895767957,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -266,6 +266,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008691694938958002",
             "extra": "mean: 4.124765384611132 msec\nrounds: 65"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "f00b97466919f4339842e6731936a3ec7eaf208b",
+          "message": "ci: fix pip install command in publish workflow",
+          "timestamp": "2026-02-24T04:05:10+03:00",
+          "tree_id": "b2e5dac90263ba734265bac574386d9a5ec300c1",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f00b97466919f4339842e6731936a3ec7eaf208b"
+        },
+        "date": 1771895767574,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 33.75335239986576,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005302065114565592",
+            "extra": "mean: 29.626686799974777 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 243.17569327788476,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010596838187839693",
+            "extra": "mean: 4.112253106058867 msec\nrounds: 66"
           }
         ]
       }
