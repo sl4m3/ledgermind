@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.8.0** · Autonomous Memory Management System for AI Agents
+**v2.8.1** · Autonomous Memory Management System for AI Agents
 
 ![Social Banner](assets/banner.png)
 
@@ -126,9 +126,19 @@ pip install ledgermind[vector]
 
 The easiest way to use LedgerMind is to install the **LedgerMind Hooks Pack**. This automatically configures your LLM client to retrieve context before every prompt and record every interaction without the agent needing to manually call MCP tools.
 
+#### Client Compatibility Matrix
+
+| Client | Event Hooks | Status | Zero-Touch Level |
+| :--- | :--- | :---: | :--- |
+| **Claude Code** | `UserPromptSubmit`, `PostToolUse` | ✅ | **Full** (Auto-record + RAG) |
+| **Cursor** | `beforeSubmitPrompt`, `afterAgentResponse` | ✅ | **Full** (Auto-record + RAG) |
+| **Gemini CLI** | `BeforeAgent`, `AfterAgent` | ✅ | **Full** (Auto-record + RAG) |
+| **Claude Desktop** | *Coming Soon* | ⏳ | Manual MCP tools only |
+| **VS Code (Coprocess)**| *Under Development* | 🛠️ | Manual MCP tools only |
+
 ```bash
 # Install hooks for your preferred client (claude, cursor, or gemini)
-ledgermind-mcp install claude --path ./memory
+ledgermind-mcp install gemini --path ./memory
 ```
 *Now, simply use your client as usual. LedgerMind operates entirely in the background.*
 
@@ -202,15 +212,15 @@ search. Decisions with more "Evidence Links" (episodic events) receive a
 
 ---
 
-## Benchmarks (February 24, 2Y, v2.8.0)
+## Benchmarks (February 24, 2Y, v2.8.1)
 
-LedgerMind (v2.8.0) is optimized for high-speed operation on **Android/Termux**
+LedgerMind (v2.8.1) is optimized for high-speed operation on **Android/Termux**
 as well as containerized environments. It includes built-in security for MCP and
 REST endpoints.
 
 ### Retrieval Performance (Jina v5 Small Q4_K_M)
 
-| Metric | Mean (v2.8.0) | Note |
+| Metric | Mean (v2.8.1) | Note |
 | :--- | :---: | :--- |
 | **Search p95 (ms)** | **29.2 ms** | Hybrid RRF (Vector + Keyword) |
 | **Write p95 (ms)** | **251.4 ms** | Optimized Metadata Indexing |
