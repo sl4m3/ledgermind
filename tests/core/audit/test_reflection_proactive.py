@@ -11,7 +11,7 @@ def test_reflection_proactive_success():
     
     # Simulate 6 successes for the same target
     mock_episodic.query.return_value = [
-        {"id": i, "kind": "result", "content": "Success", "timestamp": datetime.now(), "context": {"target": "auth_flow"}}
+        {"id": i, "kind": "result", "content": "Success", "timestamp": datetime.now(), "context": {"target": "auth_flow", "success": True}}
         for i in range(6)
     ]
     
@@ -22,6 +22,7 @@ def test_reflection_proactive_success():
     # Mock distillation to return nothing for this test to isolate success proposal
     with patch("ledgermind.core.reasoning.reflection.DistillationEngine") as mock_dist_class:
         mock_dist_class.return_value.distill_trajectories.return_value = []
+        mock_dist_class.return_value._create_procedural_proposal.return_value = MagicMock(procedural=None)
         
         policy = ReflectionPolicy(success_threshold=5)
         engine = ReflectionEngine(mock_episodic, mock_semantic, policy=policy, processor=mock_processor)
@@ -60,6 +61,7 @@ def test_reflection_lower_error_threshold():
 
     with patch("ledgermind.core.reasoning.reflection.DistillationEngine") as mock_dist_class:
         mock_dist_class.return_value.distill_trajectories.return_value = []
+        mock_dist_class.return_value._create_procedural_proposal.return_value = MagicMock(procedural=None)
 
         policy = ReflectionPolicy(error_threshold=2)
         engine = ReflectionEngine(mock_episodic, mock_semantic, policy=policy, processor=mock_processor)

@@ -1,4 +1,4 @@
-# API Reference (2.8.1)
+# API Reference (2.8.2)
 
 Complete reference for all public classes and methods in LedgerMind.
 

@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Optional
 import logging
+import json
 from ledgermind.core.core.schemas import (
     MemoryEvent, ProceduralContent, ProceduralStep, 
     ProposalContent, ProposalStatus, KIND_RESULT, KIND_ERROR
@@ -49,16 +50,41 @@ class DistillationEngine:
         steps = []
         evidence_ids = []
         
+        def clean_content(content):
+            # Если это JSON (как в наших промптах), достаем только само сообщение
+            if content.strip().startswith('{'):
+                try:
+                    data = json.loads(content)
+                    return data.get('prompt') or data.get('prompt_response') or content
+                except: pass
+            return content
+
         for ev in trajectory:
-            # Нас интересуют действия, задачи и изменения кода
-            if ev.get('kind') in ['task', 'call', 'decision', 'commit_change']:
+            kind = ev.get('kind')
+            # Расширяем список учитываемых событий
+            if kind in ['task', 'call', 'decision', 'commit_change', 'prompt', 'result']:
+                content = clean_content(ev.get('content', ''))
+                if not content or len(content) < 5: continue
+
+                # Improved Rationale Extraction
+                raw_rationale = ev.get('context', {}).get('rationale') or ev.get('context', {}).get('full_message')
+                if not raw_rationale:
+                    if kind == 'prompt':
+                        raw_rationale = f"User initiative: {content[:100]}..."
+                    elif kind == 'result':
+                        raw_rationale = "System response/outcome of action"
+                    elif kind == 'commit_change':
+                        raw_rationale = content[:150]
+                    else:
+                        raw_rationale = f"Recorded {kind} event"
+
                 steps.append(ProceduralStep(
-                    action=ev.get('content', 'Action'),
-                    rationale=ev.get('context', {}).get('rationale') or ev.get('context', {}).get('full_message')
+                    action=f"[{kind.upper()}] {content[:200]}...",
+                    rationale=raw_rationale
                 ))
                 evidence_ids.append(ev.get('id', 0))
 
-        target = result_event.get('context', {}).get('target', 'general_task')
+        target = result_event.get('context', {}).get('target', 'unknown') or 'unknown'
         
         # Если шагов не нашлось, все равно добавим результат как улику
         evidence_ids.append(result_event.get('id', 0))

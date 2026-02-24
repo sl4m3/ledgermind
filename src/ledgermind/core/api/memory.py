@@ -409,6 +409,27 @@ class Memory:
         """
         self.semantic._validate_fid(decision_id)
         
+        # 0. Performance & Cleanliness Optimization: Skip if no actual changes
+        current_meta = self.semantic.meta.get_by_fid(decision_id)
+        if current_meta:
+            has_changes = False
+            import json
+            current_ctx = json.loads(current_meta.get('context_json', '{}'))
+            
+            for key, val in updates.items():
+                # Compare against metadata fields OR context fields
+                current_val = current_meta.get(key)
+                if current_val is None:
+                    current_val = current_ctx.get(key)
+                
+                if current_val != val:
+                    has_changes = True
+                    break
+            
+            if not has_changes:
+                logger.debug(f"Update skipped for {decision_id}: No changes detected.")
+                return True
+
         with self.semantic.transaction():
             # 1. Update Semantic Store (Filesystem + Metadata DB)
             self.semantic.update_decision(decision_id, updates, commit_msg)
