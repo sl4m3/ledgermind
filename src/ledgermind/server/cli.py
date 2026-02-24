@@ -69,6 +69,28 @@ def show_stats(path: str):
     except Exception as e:
         print(f"✗ Error fetching stats: {e}")
 
+def bridge_context(path: str, prompt: str):
+    """Bridge API: Returns context for a prompt without starting MCP server."""
+    from ledgermind.core.api.bridge import IntegrationBridge
+    import sys
+    try:
+        bridge = IntegrationBridge(memory_path=path)
+        ctx = bridge.get_context_for_prompt(prompt)
+        sys.stdout.write(ctx)
+    except Exception as e:
+        sys.stderr.write(f"✗ Error fetching context: {e}\n")
+
+def bridge_record(path: str, prompt: str, response: str, success: bool, metadata: str):
+    """Bridge API: Records interaction into episodic memory."""
+    from ledgermind.core.api.bridge import IntegrationBridge
+    import json
+    try:
+        bridge = IntegrationBridge(memory_path=path)
+        meta = json.loads(metadata) if metadata else None
+        bridge.record_interaction(prompt=prompt, response=response, success=success, metadata=meta)
+    except Exception as e:
+        print(f"✗ Error recording interaction: {e}")
+
 def main():
     parser = argparse.ArgumentParser(description="Ledgermind MCP Server Launcher")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -101,10 +123,27 @@ def main():
     # Export schema command
     subparsers.add_parser("export-schema", help="Export JSON schemas for API contracts")
     
+    # Install hooks command
+    install_parser = subparsers.add_parser("install", help="Install LedgerMind hooks into a client")
+    install_parser.add_argument("client", choices=["claude", "cursor", "gemini"], help="Target client to install hooks for")
+    install_parser.add_argument("--path", default=os.getcwd(), help="Current project path to bind hooks to")
+
+    # Bridge commands
+    bc_parser = subparsers.add_parser("bridge-context", help="Internal: get context")
+    bc_parser.add_argument("--path", default=".ledgermind", help="Path to memory storage")
+    bc_parser.add_argument("--prompt", required=True, help="User prompt")
+
+    br_parser = subparsers.add_parser("bridge-record", help="Internal: record interaction")
+    br_parser.add_argument("--path", default=".ledgermind", help="Path to memory storage")
+    br_parser.add_argument("--prompt", required=True, help="User prompt")
+    br_parser.add_argument("--response", required=True, help="Agent response")
+    br_parser.add_argument("--success", action="store_true", default=True, help="Was successful")
+    br_parser.add_argument("--metadata", default=None, help="JSON metadata")
+
     # Default to 'run' if no command is provided, but we need to handle arguments
     # A simple way is to check sys.argv
     import sys
-    known_commands = ["run", "init", "check", "stats", "export-schema", "-h", "--help", "--verbose", "-v", "--log-file"]
+    known_commands = ["run", "init", "check", "stats", "export-schema", "install", "bridge-context", "bridge-record", "-h", "--help", "--verbose", "-v", "--log-file"]
     if len(sys.argv) > 1 and sys.argv[1] not in known_commands:
         # Insert 'run' as the default command
         sys.argv.insert(1, "run")
@@ -117,6 +156,13 @@ def main():
     
     if args.command == "export-schema":
         export_schemas()
+    elif args.command == "install":
+        from ledgermind.server.installers import install_client
+        install_client(args.client, args.path)
+    elif args.command == "bridge-context":
+        bridge_context(args.path, args.prompt)
+    elif args.command == "bridge-record":
+        bridge_record(args.path, args.prompt, args.response, args.success, args.metadata)
     elif args.command == "init":
         init_project(args.path)
     elif args.command == "check":

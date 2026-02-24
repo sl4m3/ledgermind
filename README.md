@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.7.8** · Autonomous Memory Management System for AI Agents
+**v2.8.0** · Autonomous Memory Management System for AI Agents
 
 ![Social Banner](assets/banner.png)
 
@@ -42,6 +42,7 @@ without any intervention from the developer or the agent.
 
 | Capability | Description |
 |---|---|
+| **Zero-Touch Automation** | `ledgermind install <client>` automatically injects hooks into Claude, Cursor, or Gemini CLI for 100% transparent memory operations without MCP tool calls. |
 | **Autonomous Heartbeat** | A background worker runs every 5 minutes: Git sync, reflection, decay, self-healing. |
 | **Intelligent Conflict Resolution** | Vector similarity analysis automatically supersedes outdated decisions (threshold: 70%). |
 | **Multi-agent Namespacing** | Logical partitioning of memory for multiple agents within a single project. |
@@ -121,7 +122,17 @@ pip install ledgermind[vector]
 
 ## Quick Start
 
-### Option A: Library (Direct Integration)
+### Option A: Zero-Touch Automation (Recommended)
+
+The easiest way to use LedgerMind is to install the **LedgerMind Hooks Pack**. This automatically configures your LLM client to retrieve context before every prompt and record every interaction without the agent needing to manually call MCP tools.
+
+```bash
+# Install hooks for your preferred client (claude, cursor, or gemini)
+ledgermind-mcp install claude --path ./memory
+```
+*Now, simply use your client as usual. LedgerMind operates entirely in the background.*
+
+### Option B: Library (Direct Integration)
 
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
@@ -191,18 +202,18 @@ search. Decisions with more "Evidence Links" (episodic events) receive a
 
 ---
 
-## Benchmarks (February 24, 2026, v2.7.8)
+## Benchmarks (February 24, 2Y, v2.8.0)
 
-LedgerMind (v2.7.8) is optimized for high-speed operation on **Android/Termux**
+LedgerMind (v2.8.0) is optimized for high-speed operation on **Android/Termux**
 as well as containerized environments. It includes built-in security for MCP and
 REST endpoints.
 
 ### Retrieval Performance (Jina v5 Small Q4_K_M)
 
-| Metric | Mean (v2.7.8) | Note |
+| Metric | Mean (v2.8.0) | Note |
 | :--- | :---: | :--- |
-| **Search p95 (ms)** | **24.2 ms** | Hybrid RRF (Vector + Keyword) |
-| **Write p95 (ms)** | **98.4 ms** | Optimized Metadata Indexing |
+| **Search p95 (ms)** | **29.2 ms** | Hybrid RRF (Vector + Keyword) |
+| **Write p95 (ms)** | **251.4 ms** | Optimized Metadata Indexing |
 | **Memory OPS** | **15.1 ops/s** | Parallelized write throughput |
 
 ---
