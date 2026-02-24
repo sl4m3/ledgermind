@@ -121,8 +121,12 @@ class GitIndexer:
                 },
                 timestamp=datetime.fromisoformat(date_str)
             )
-            memory_instance.episodic.append(event)
-            indexed_count += 1
+            
+            # Deep Duplicate Check
+            if not memory_instance.episodic.find_duplicate(event):
+                memory_instance.episodic.append(event)
+                indexed_count += 1
+            
             latest_hash = commit['hash']
             
         # Сохраняем последний проиндексированный хэш

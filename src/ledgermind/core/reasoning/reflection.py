@@ -412,7 +412,7 @@ class ReflectionEngine:
 
     def _apply_decay(self, fid: str, data: Dict[str, Any]):
         ctx = data['context']
-        new_conf = max(0.0, ctx.get('confidence', 0.0) - self.policy.decay_rate)
+        new_conf = round(max(0.0, ctx.get('confidence', 0.0) - self.policy.decay_rate), 2)
         if new_conf < self.policy.min_confidence:
             self.processor.update_decision(fid, {"status": ProposalStatus.REJECTED, "confidence": new_conf}, 
                                           commit_msg="Reflection: Hypothesis rejected (decay).")
