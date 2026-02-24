@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771891335568,
+  "lastUpdate": 1771893588338,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -114,6 +114,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008996017007200249",
             "extra": "mean: 4.082403835826568 msec\nrounds: 67"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "36a8063ec49d7d663f75b1de7d278c1b23bb1396",
+          "message": "fix: mock EventSourceResponse to prevent SSE test from hanging in test_auth_disabled_by_default",
+          "timestamp": "2026-02-24T03:35:09+03:00",
+          "tree_id": "a6281691fed94fc49ae16a401c569f637eb65cc0",
+          "url": "https://github.com/sl4m3/ledgermind/commit/36a8063ec49d7d663f75b1de7d278c1b23bb1396"
+        },
+        "date": 1771893588040,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 30.249171744415413,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0032982600460632816",
+            "extra": "mean: 33.05875639998703 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 245.76015459013854,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009433588097852553",
+            "extra": "mean: 4.069007857143196 msec\nrounds: 56"
           }
         ]
       }
