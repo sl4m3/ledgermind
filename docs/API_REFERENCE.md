@@ -1,4 +1,4 @@
-# API Reference (v2.7.6)
+# API Reference (v2.7.7)
 
 Complete reference for all public classes and methods in LedgerMind.
 
@@ -77,7 +77,7 @@ memory.supersede_decision(
 
 Explicitly replaces one or more existing decisions with a new one. The old decisions get `status=superseded` and a `superseded_by` backlink. The new decision gets a `supersedes` list.
 
-**Technical Note:** As of v2.7.6, this method delegates the deactivation of old records to `process_event()`, ensuring that all status changes happen atomically within a single transaction.
+**Technical Note:** As of v2.7.7, this method delegates the deactivation of old records to `process_event()`, ensuring that all status changes happen atomically within a single transaction.
 
 **Raises:** `ConflictError` if any `old_decision_ids` is not currently active for the given `target`.
 
@@ -98,7 +98,7 @@ memory.process_event(
 
 Low-level method that all write operations ultimately call. Enforces the full pipeline: trust boundary check → duplicate detection → routing → late-bind conflict detection → atomic write → vector indexing → episodic linking.
 
-**Note:** In v2.7.6, conflict detection is performed twice: once before starting the transaction and again inside the transaction block (late-bind) to prevent race conditions in highly concurrent environments.
+**Note:** In v2.7.7, conflict detection is performed twice: once before starting the transaction and again inside the transaction block (late-bind) to prevent race conditions in highly concurrent environments.
 
 **`source`** must be one of: `user`, `agent`, `system`, `reflection_engine`, `bridge`
 
