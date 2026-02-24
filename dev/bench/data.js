@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771961141258,
+  "lastUpdate": 1771969126833,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -532,6 +532,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007931765120786624",
             "extra": "mean: 4.100222112901791 msec\nrounds: 62"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "559a994c31108e4947ad0207d731c27952be4930",
+          "message": "feat: release v2.8.2 with probabilistic reflection and procedural distillation",
+          "timestamp": "2026-02-25T00:34:35+03:00",
+          "tree_id": "536df0929a1d3f6af04caa24214b6832c0e878a1",
+          "url": "https://github.com/sl4m3/ledgermind/commit/559a994c31108e4947ad0207d731c27952be4930"
+        },
+        "date": 1771969126296,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 29.22847841953624,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003417665760929151",
+            "extra": "mean: 34.21320760000981 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 241.67021832384782,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009775313829590803",
+            "extra": "mean: 4.137870222221423 msec\nrounds: 63"
           }
         ]
       }
