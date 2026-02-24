@@ -159,6 +159,17 @@ class ReflectionEngine:
         return self.semantic.meta.list_active_targets()
 
     def _generate_success_proposal(self, target: str, stats: Dict[str, Any]) -> str:
+        # 2.9: Try to distill procedural steps for this success
+        distiller = DistillationEngine(self.episodic)
+        # Mocking events for distiller to extract steps
+        recent_events = self.episodic.query(limit=100, after_id=min(stats['all_ids'])-1 if stats['all_ids'] else 0, order='ASC')
+        target_events = [e for e in recent_events if e['id'] in stats['all_ids']]
+        
+        procedural = None
+        if target_events:
+            temp_prop = distiller._create_procedural_proposal(target_events[:-1], target_events[-1])
+            procedural = temp_prop.procedural
+
         h = ProposalContent(
             title=f"Best Practice for {target}",
             target=target,
@@ -166,6 +177,7 @@ class ReflectionEngine:
             confidence=0.6,
             strengths=["Based on verified positive outcomes", "Codifies successful workflow"],
             evidence_event_ids=stats['all_ids'],
+            procedural=procedural, # Добавляем дистиллированные шаги
             first_observed_at=datetime.now()
         )
         if self.processor:
@@ -174,8 +186,22 @@ class ReflectionEngine:
         return ""
 
     def _generate_evolution_proposal(self, target: str, stats: Dict[str, Any]) -> str:
-        messages = [e.get('context', {}).get('full_message', '').split('\n')[0] for e in stats['commit_events']]
+        messages = []
+        for e in stats['commit_events']:
+            msg = e.get('context', {}).get('full_message', '')
+            if not msg:
+                msg = e.get('content', '')
+            if msg:
+                messages.append(msg.split('\n')[0])
+        
         summary = "; ".join(messages[:3])
+
+        # Try to distill steps from commits
+        distiller = DistillationEngine(self.episodic)
+        procedural = None
+        if stats['commit_events']:
+             temp_prop = distiller._create_procedural_proposal(stats['commit_events'], stats['commit_events'][-1])
+             procedural = temp_prop.procedural
         
         h = ProposalContent(
             title=f"Evolving Pattern in {target}",
@@ -184,6 +210,7 @@ class ReflectionEngine:
             confidence=0.5,
             strengths=["Reflects actual code changes", "Keeps memory in sync with codebase"],
             evidence_event_ids=stats['all_ids'],
+            procedural=procedural, # Добавляем шаги (в данном случае - коммиты)
             first_observed_at=datetime.now()
         )
         if self.processor:
@@ -193,26 +220,34 @@ class ReflectionEngine:
 
     def _cluster_evidence(self, events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         clusters = {}
+        last_valid_target = None
         for ev in events:
             ctx = ev.get('context', {})
             target = ctx.get('target')
             
-            if ev['kind'] == 'commit_change':
+            if ev['kind'] == 'commit_change' and (not target or target in self.BLACKLISTED_TARGETS or len(target) < 3):
                 msg = ev.get('content', '')
                 import re
-                # Improved regex: require word-like characters and potentially exclude 'ci'
-                # Or just let it capture and filter later by length.
                 match = re.search(r'\(([^)]+)\):', msg)
-                target = match.group(1) if match else "general_development"
+                target = match.group(1) if match else target or "general_development"
+
+            # Inheritance: if target is missing and it's a prompt/result/decision, use last seen target
+            if not target and ev['kind'] in ('prompt', 'result', 'decision'):
+                target = last_valid_target
 
             target = target or "general"
+            
+            # Update last valid target if this one is good
+            if target not in self.BLACKLISTED_TARGETS and target.lower() != "general" and len(target) >= 3:
+                last_valid_target = target
+            
             # Strict validation for target length (Pydantic requires >= 3)
             if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general") or len(target) < 3:
                 continue
             
             if target not in clusters:
                 clusters[target] = {
-                    'errors': 0, 'successes': 0, 'commits': 0,
+                    'errors': 0.0, 'successes': 0.0, 'commits': 0,
                     'error_events': [], 'success_events': [], 'commit_events': [],
                     'all_ids': [],
                     'last_seen': ev['timestamp']
@@ -222,11 +257,23 @@ class ReflectionEngine:
             clusters[target]['all_ids'].append(ev['id'])
             
             if ev['kind'] == KIND_ERROR:
-                clusters[target]['errors'] += 1
+                clusters[target]['errors'] += 1.0
                 clusters[target]['error_events'].append(ev)
             elif ev['kind'] == KIND_RESULT:
-                clusters[target]['successes'] += 1
-                clusters[target]['success_events'].append(ev)
+                # Use float success score [0, 1]
+                score = ctx.get('success')
+                # Handle legacy boolean or missing values
+                if score is True: score = 1.0
+                elif score is False: score = 0.0
+                elif score is None: score = 0.5 # Neutral
+                
+                clusters[target]['successes'] += float(score)
+                clusters[target]['errors'] += (1.0 - float(score))
+                
+                if score >= 0.5:
+                    clusters[target]['success_events'].append(ev)
+                else:
+                    clusters[target]['error_events'].append(ev)
             elif ev['kind'] == 'commit_change':
                 clusters[target]['commits'] += 1
                 clusters[target]['commit_events'].append(ev)
@@ -271,7 +318,28 @@ class ReflectionEngine:
                  (last_seen - first_seen) >= self.policy.observation_window and
                  len(objections) < 2)
 
+        # 2.8: Generative Rationale (Pre-LLM Synthesis)
+        success_rate = (new_successes / total_observations) * 100 if total_observations > 0 else 0
+        stability = "stable" if confidence > 0.7 else "emerging" if confidence > 0.3 else "volatile"
+        
         new_evidence_ids = list(set(ctx.get('evidence_event_ids', []) + stats['all_ids']))
+        
+        factual_rationale = (
+            f"Pattern recognized in {data['context'].get('target', 'unknown')}. "
+            f"Success rate: {success_rate:.1f}% over {total_observations:.0f} observations. "
+            f"Current state is {stability} with confidence {confidence:.2f}. "
+            f"Evidence backed by {len(new_evidence_ids)} episodic events."
+        )
+
+        # Try to update procedural steps if they are missing
+        new_procedural = ctx.get('procedural')
+        if not new_procedural or not new_procedural.get('steps'):
+             distiller = DistillationEngine(self.episodic)
+             recent_events = self.episodic.query(limit=100, after_id=min(stats['all_ids'])-1 if stats['all_ids'] else 0, order='ASC')
+             target_events = [e for e in recent_events if e['id'] in stats['all_ids']]
+             if target_events:
+                  temp_prop = distiller._create_procedural_proposal(target_events[:-1], target_events[-1])
+                  new_procedural = temp_prop.procedural.model_dump() if hasattr(temp_prop.procedural, 'model_dump') else temp_prop.procedural
 
         self.processor.update_decision(fid, {
             "confidence": round(confidence, 2),
@@ -279,11 +347,23 @@ class ReflectionEngine:
             "miss_count": new_successes,
             "objections": list(set(objections)),
             "ready_for_review": ready,
+            "rationale": factual_rationale,
+            "procedural": new_procedural, # ОБНОВЛЯЕМ ШАГИ
             "evidence_event_ids": new_evidence_ids,
             "counter_evidence_event_ids": list(set(ctx.get('counter_evidence_event_ids', []) + [e['id'] for e in stats['success_events']]))
         }, commit_msg=f"Reflection: Epistemic update. Confidence: {confidence:.2f}")
 
     def _generate_competing_hypotheses(self, target: str, stats: Dict[str, Any]) -> List[str]:
+        # 2.9.5: Try to distill procedural steps for these hypotheses
+        distiller = DistillationEngine(self.episodic)
+        recent_events = self.episodic.query(limit=100, after_id=min(stats['all_ids'])-1 if stats['all_ids'] else 0, order='ASC')
+        target_events = [e for e in recent_events if e['id'] in stats['all_ids']]
+        
+        procedural = None
+        if target_events:
+            temp_prop = distiller._create_procedural_proposal(target_events[:-1], target_events[-1])
+            procedural = temp_prop.procedural
+
         h1 = ProposalContent(
             title=f"Structural flaw in {target}",
             target=target,
@@ -291,6 +371,7 @@ class ReflectionEngine:
             confidence=0.5,
             strengths=["Explains repeated errors"],
             evidence_event_ids=stats['all_ids'],
+            procedural=procedural, # Добавляем шаги
             first_observed_at=datetime.now()
         )
         h2 = ProposalContent(
@@ -300,6 +381,7 @@ class ReflectionEngine:
             confidence=0.4,
             strengths=["More conservative"],
             evidence_event_ids=stats['all_ids'],
+            procedural=procedural, # Добавляем шаги
             first_observed_at=datetime.now()
         )
         fids = []

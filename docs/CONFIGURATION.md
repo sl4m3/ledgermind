@@ -17,7 +17,7 @@ config = LedgermindConfig(
     ttl_days=30,
     trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
     namespace="default",
-    vector_model=".ledgermind/models/2.7.9-small-text-matching-Q4_K_M.gguf",
+    vector_model=".ledgermind/models/2.8.2-small-text-matching-Q4_K_M.gguf",
     vector_workers=0, # Auto-detect for multiprocessing
     relevance_threshold=0.35,
 )
@@ -91,9 +91,9 @@ ledgermind-mcp run --capabilities '{"read":true,"propose":true,"supersede":true}
 
 | Model | Dimensions | Size | Notes |
 |---|---|---|---|
-| **Jina 2.7.9 Small GGUF** | **1024** | **~400MB** | **Recommended.** Best CPU performance. |
-| `all-MiniLM-L6-2.7.9` | 384 | 80MB | Legacy default. Very fast. |
-| `all-mpnet-base-2.7.9` | 768 | 420MB | Higher quality, slower. |
+| **Jina v5 Small GGUF** | **1024** | **~400MB** | **Recommended.** Best CPU performance. |
+| `all-MiniLM-L6-2.8.2` | 384 | 80MB | Legacy default. Very fast. |
+| `all-mpnet-base-2.8.2` | 768 | 420MB | Higher quality, slower. |
 
 ---
 
@@ -122,7 +122,7 @@ ledgermind-mcp install [claude|cursor|gemini] --path /path/to/memory
 
 ### Manual Configuration (Gemini CLI)
 
-If you need to manually configure hooks for Gemini CLI (v0.29.7+), add the following to your `~/.gemini/settings.json`:
+If you need to manually configure hooks for Gemini CLI (2.8.2+), add the following to your `~/.gemini/settings.json`:
 
 ```json
 {
