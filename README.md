@@ -2,12 +2,27 @@
 
 **v2.7.8** · Autonomous Memory Management System for AI Agents
 
+![Social Banner](assets/banner.png)
+
 > *LedgerMind is not a memory store — it is a living knowledge core that thinks,
 > heals itself, and evolves without human intervention.*
 
 [![License: NCSA](https://img.shields.io/badge/License-NCSA-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)](https://python.org)
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green)](https://modelcontextprotocol.io)
+[![PyPI](https://img.shields.io/pypi/v/ledgermind)](https://pypi.org/project/ledgermind/)
+[![Stars](https://img.shields.io/github/stars/sl4m3/ledgermind)](https://github.com/sl4m3/ledgermind/stargazers)
+
+---
+
+## ✨ Why LedgerMind?
+
+| Feature                 | Mem0 / LangGraph | LedgerMind          |
+|-------------------------|------------------|---------------------|
+| Autonomous healing      | ❌               | ✅ (every 5 min)    |
+| Git-audit + versioning  | ❌               | ✅                  |
+| 4-bit on-device         | ❌               | ✅                  |
+| Multi-agent namespacing | Partial          | ✅ Full             |
 
 ---
 
