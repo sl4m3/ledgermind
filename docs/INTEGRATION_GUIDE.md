@@ -6,13 +6,44 @@ LedgerMind supports two integration modes: **direct library embedding** and **MC
 
 ## Choosing an Integration Mode
 
-| Criterion | Library Mode | MCP Server |
-|---|---|---|
-| Deployment | Embedded in your agent process | Separate process |
-| Agent compatibility | Python only | Any MCP client (Claude, Gemini CLI, etc.) |
-| Background autonomy | Manual (`run_maintenance()`) | Automatic (BackgroundWorker) |
-| Latency | Sub-millisecond | Network round-trip |
-| Best for | Fully autonomous Python agents | Multi-client setups, Claude Desktop |
+| Criterion | Client Hooks (Zero-Touch) | MCP Server | Library Mode |
+|---|---|---|---|
+| Deployment | Native client hooks | Separate process | Embedded in your agent process |
+| Agent compatibility | Claude, Cursor, Gemini CLI | Any MCP client | Python only |
+| Agent Effort | **None** (Automatic) | Manual Tool Calls | Manual Code |
+| Best for | Daily coding, Chat interfaces | Complex multi-agent setups | Fully autonomous Python agents |
+
+---
+
+## Zero-Touch Automation (Client Hooks)
+
+The easiest and most powerful way to use LedgerMind is via the **LedgerMind Hooks Pack**. This feature injects lightweight scripts into your favorite LLM clients (Claude Desktop, Cursor, Gemini CLI). 
+
+Once installed, LedgerMind automatically:
+1. Retrieves project context and rules *before* every prompt you send.
+2. Records every interaction, tool execution, and agent thought *after* it happens.
+3. Completely frees the LLM from spending tokens on manual MCP tool calls.
+
+### Installation
+
+Run the installer from your project directory (where you want the memory to live):
+
+```bash
+# For Claude Desktop / Claude Code
+ledgermind-mcp install claude
+
+# For Cursor IDE
+ledgermind-mcp install cursor
+
+# For Gemini CLI
+ledgermind-mcp install gemini
+```
+
+### How it Works Under the Hood
+
+The installer configures native client hooks (e.g., `UserPromptSubmit` in Claude, `beforeSubmitPrompt` in Cursor, or `ledgermind_hook.py` in Gemini).
+
+These hooks call the lightweight **Bridge API** via CLI (`bridge-context` and `bridge-record`). This approach bypasses the need for a running MCP server and executes memory operations in milliseconds directly against the SQLite/Git stores.
 
 ---
 
@@ -83,7 +114,7 @@ config = LedgermindConfig(
     storage_path="./memory",
     ttl_days=60,
     trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
-    namespace="my_agent_v2",
+    namespace="my_agent_2.7.9",
 )
 memory = Memory(config=config)
 
@@ -91,7 +122,7 @@ memory = Memory(config=config)
 memory.record_decision(
     title="Always validate input with Pydantic",
     target="input_validation",
-    rationale="Pydantic v2 provides fast, type-safe validation with clear error messages."
+    rationale="Pydantic 2.7.9 provides fast, type-safe validation with clear error messages."
 )
 
 # Search
