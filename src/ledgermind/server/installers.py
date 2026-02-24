@@ -36,7 +36,7 @@ class ClaudeInstaller(BaseInstaller):
 PROMPT=$(cat)
 ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT"
 """)
-        os.chmod(before_script_path, 0o755)
+        os.chmod(before_script_path, 0o700)
 
         # 2. Create PostToolUse / AfterModel script
         after_script_path = os.path.join(self.hooks_dir, "ledgermind_after_interaction.sh")
@@ -47,7 +47,7 @@ ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT"
 RESPONSE=$(cat)
 ledgermind-mcp bridge-record --path "{project_path}" --prompt "Automated tool execution" --response "$RESPONSE" &
 """)
-        os.chmod(after_script_path, 0o755)
+        os.chmod(after_script_path, 0o700)
 
         # 3. Update settings.json
         settings = {}
@@ -88,7 +88,7 @@ class CursorInstaller(BaseInstaller):
 PROMPT=$1
 ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT"
 """)
-        os.chmod(before_script_path, 0o755)
+        os.chmod(before_script_path, 0o700)
 
         after_script_path = os.path.join(self.hooks_dir, "ledgermind_after.sh")
         with open(after_script_path, "w") as f:
@@ -97,7 +97,7 @@ ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT"
 RESPONSE=$1
 ledgermind-mcp bridge-record --path "{project_path}" --prompt "Agent interaction" --response "$RESPONSE" &
 """)
-        os.chmod(after_script_path, 0o755)
+        os.chmod(after_script_path, 0o700)
 
         hooks_config = {}
         if os.path.exists(self.hooks_file):
