@@ -37,6 +37,8 @@ class GGUFEmbeddingAdapter:
             n_batch=512,
             pooling_type=1 
         )
+        self._cache = {}
+        self._max_cache = 100
         
         # Robust dimension detection
         try:
@@ -61,12 +63,23 @@ class GGUFEmbeddingAdapter:
         
         embeddings = []
         for text in input_list:
+            if text in self._cache:
+                embeddings.append(self._cache[text])
+                continue
+                
             try:
                 res = self.client.create_embedding(text)
                 emb = res['data'][0]['embedding']
                 # If llama-cpp returns a scalar or malformed list, wrap it
                 if not isinstance(emb, list):
                     emb = [emb]
+                
+                # Update cache
+                if len(self._cache) >= self._max_cache:
+                    # Basic eviction
+                    self._cache.pop(next(iter(self._cache)))
+                self._cache[text] = emb
+                
                 embeddings.append(emb)
             except Exception as e:
                 logger.error(f"GGUF Encoding failed for text: {e}")

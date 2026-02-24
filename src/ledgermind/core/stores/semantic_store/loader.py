@@ -41,7 +41,6 @@ class MemoryLoader:
         """
         Serializes metadata and body into a single Markdown string with frontmatter.
         """
-        # Optimized: only do the complex cleaning if absolutely necessary
-        # Most our data is already YAML-safe simple types
-        yaml_str = yaml.dump(data, allow_unicode=True, sort_keys=False, default_flow_style=False).strip()
+        # Use safe_dump to ensure no python-specific tags are included
+        yaml_str = yaml.safe_dump(data, allow_unicode=True, sort_keys=False, default_flow_style=False).strip()
         return f"---\n{yaml_str}\n---\n\n{body}"
