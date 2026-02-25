@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772038210888,
+  "lastUpdate": 1772060532410,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1330,6 +1330,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0007127636514386525",
             "extra": "mean: 4.824501075465575 msec\nrounds: 53"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "e1fdaeaf119bc88476b9d67a3914db9546324af4",
+          "message": "release: version 2.8.4\n\n- Bump version to 2.8.4 in pyproject.toml and VERSION.\n- Update README with new capabilities: Deep Truth Resolution and Self-Healing Index.\n- Enhance Gemini CLI hooks to support structured event recording and tool call separation.\n- Update Architecture docs with autonomous maintenance and multiprocess safety details.\n- Fix API specification tests for version 2.8.4.",
+          "timestamp": "2026-02-26T01:57:44+03:00",
+          "tree_id": "8d71408d719245b08c9057ccd8fd29ec7e3c55fd",
+          "url": "https://github.com/sl4m3/ledgermind/commit/e1fdaeaf119bc88476b9d67a3914db9546324af4"
+        },
+        "date": 1772060531423,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 30.08297299096933,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012509081786279146",
+            "extra": "mean: 33.24139539998896 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 220.15720356577907,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004732982987761984",
+            "extra": "mean: 4.542208857141564 msec\nrounds: 63"
           }
         ]
       }
