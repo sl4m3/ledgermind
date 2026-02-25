@@ -43,6 +43,10 @@
 - Gemini CLI (100% zero-touch, fully stable)
 - Claude Desktop & Cursor (support rolling out now)
 
+**Featured & Published:**
+- New article on **Dev.to**: ["True Zero-Touch Autonomus Memory for AI Agents"](https://dev.to/sl4m3/ledgermind-zero-touch-memory-that-survives-real-agent-work-46lh)
+- Automaticaly accepted to **PitchHut** directory
+
 ---
 
 ## ✨ Why LedgerMind?
