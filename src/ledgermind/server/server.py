@@ -58,6 +58,10 @@ class MCPServer:
 
         self.env_context = EnvironmentContext(memory)
         self.audit_logger = AuditLogger(storage_path)
+
+        # Initialize shared Bridge for context/telemetry
+        from ledgermind.core.api.bridge import IntegrationBridge
+        self.bridge = IntegrationBridge(memory_path=storage_path, memory_instance=self.memory)
         
         # Security Configuration
         self.api_key = os.environ.get("LEDGERMIND_API_KEY")
@@ -382,16 +386,12 @@ class MCPServer:
         @self.mcp.tool()
         def get_relevant_context(prompt: str, limit: int = 3) -> str:
             """Retrieves and formats relevant context for a given user prompt (Bridge Tool)."""
-            from ledgermind.core.api.bridge import IntegrationBridge
-            bridge = IntegrationBridge(memory_path=self.memory.storage_path)
-            return bridge.get_context_for_prompt(prompt, limit=limit)
+            return self.bridge.get_context_for_prompt(prompt, limit=limit)
 
         @self.mcp.tool()
         def record_interaction(prompt: str, response: str, success: bool = True) -> str:
             """Records a completed interaction (prompt and response) into episodic memory (Bridge Tool)."""
-            from ledgermind.core.api.bridge import IntegrationBridge
-            bridge = IntegrationBridge(memory_path=self.memory.storage_path)
-            bridge.record_interaction(prompt, response, success=success)
+            self.bridge.record_interaction(prompt, response, success=success)
             return json.dumps({"status": "success"})
 
         @self.mcp.tool()

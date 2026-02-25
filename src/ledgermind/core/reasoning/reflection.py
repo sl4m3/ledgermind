@@ -21,7 +21,8 @@ class ReflectionPolicy:
                  observation_window_hours: int = 1,
                  decay_rate: float = 0.05,
                  ready_threshold: float = 0.6,
-                 auto_accept_threshold: float = 0.9):
+                 auto_accept_threshold: float = 0.9,
+                 distillation_window_size: int = 5):
         self.error_threshold = error_threshold
         self.success_threshold = success_threshold
         self.min_confidence = min_confidence
@@ -29,6 +30,7 @@ class ReflectionPolicy:
         self.decay_rate = decay_rate
         self.ready_threshold = ready_threshold
         self.auto_accept_threshold = auto_accept_threshold
+        self.distillation_window_size = distillation_window_size
 
 class ReflectionEngine:
     """
@@ -61,7 +63,7 @@ class ReflectionEngine:
         
         with self.semantic.transaction():
             # 0. Distillation (Procedural Patterns)
-            distiller = DistillationEngine(self.episodic)
+            distiller = DistillationEngine(self.episodic, window_size=self.policy.distillation_window_size)
             procedural_proposals = distiller.distill_trajectories(after_id=after_id)
             
             for prop in procedural_proposals:
@@ -160,7 +162,7 @@ class ReflectionEngine:
 
     def _generate_success_proposal(self, target: str, stats: Dict[str, Any]) -> str:
         # 2.9: Try to distill procedural steps for this success
-        distiller = DistillationEngine(self.episodic)
+        distiller = DistillationEngine(self.episodic, window_size=self.policy.distillation_window_size)
         # Mocking events for distiller to extract steps
         recent_events = self.episodic.query(limit=100, after_id=min(stats['all_ids'])-1 if stats['all_ids'] else 0, order='ASC')
         target_events = [e for e in recent_events if e['id'] in stats['all_ids']]
@@ -197,7 +199,7 @@ class ReflectionEngine:
         summary = "; ".join(messages[:3])
 
         # Try to distill steps from commits
-        distiller = DistillationEngine(self.episodic)
+        distiller = DistillationEngine(self.episodic, window_size=self.policy.distillation_window_size)
         procedural = None
         if stats['commit_events']:
              temp_prop = distiller._create_procedural_proposal(stats['commit_events'], stats['commit_events'][-1])
@@ -222,6 +224,10 @@ class ReflectionEngine:
         clusters = {}
         last_valid_target = None
         for ev in events:
+            # Skip self-generated events to avoid infinite loops
+            if ev.get('source') == 'reflection_engine':
+                continue
+
             ctx = ev.get('context', {})
             target = ctx.get('target')
             
@@ -231,15 +237,18 @@ class ReflectionEngine:
                 match = re.search(r'\(([^)]+)\):', msg)
                 target = match.group(1) if match else target or "general_development"
 
-            # Inheritance: if target is missing and it's a prompt/result/decision, use last seen target
-            if not target and ev['kind'] in ('prompt', 'result', 'decision'):
+            # Inheritance: only for results that don't have their own target
+            if not target and ev['kind'] == KIND_RESULT:
                 target = last_valid_target
 
             target = target or "general"
             
-            # Update last valid target if this one is good
+            # Update last valid target if this one is good, otherwise RESET it if it's a new prompt/decision
             if target not in self.BLACKLISTED_TARGETS and target.lower() != "general" and len(target) >= 3:
                 last_valid_target = target
+            elif ev['kind'] in ('prompt', 'decision', 'task'):
+                # Reset inheritance chain when a new top-level event occurs without a valid target
+                last_valid_target = None
             
             # Strict validation for target length (Pydantic requires >= 3)
             if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general") or len(target) < 3:
@@ -285,8 +294,9 @@ class ReflectionEngine:
 
     def _evaluate_hypothesis(self, fid: str, data: Dict[str, Any], stats: Dict[str, Any]):
         ctx = data['context']
-        new_errors = ctx.get('hit_count', 0) + stats['errors']
-        new_successes = ctx.get('miss_count', 0) + stats['successes']
+        # Fix semantic inversion: hit_count should track successes, miss_count should track errors
+        new_successes = ctx.get('hit_count', 0) + stats['successes']
+        new_errors = ctx.get('miss_count', 0) + stats['errors']
         
         objections = list(set(ctx.get('objections', [])))
         if stats['successes'] > 0:
@@ -301,8 +311,10 @@ class ReflectionEngine:
         
         if confidence <= 0.05 and new_successes > new_errors:
             self.processor.update_decision(fid, {
-                "status": ProposalStatus.FALSIFIED,
+                "status": ProposalStatus.FALSIFIED.value,
                 "confidence": 0.0,
+                "hit_count": new_successes,
+                "miss_count": new_errors,
                 "objections": objections + ["Hypothesis failed to explain high success rate."]
             }, commit_msg="Reflection: Hypothesis falsified.")
             return
@@ -334,7 +346,7 @@ class ReflectionEngine:
         # Try to update procedural steps if they are missing
         new_procedural = ctx.get('procedural')
         if not new_procedural or not new_procedural.get('steps'):
-             distiller = DistillationEngine(self.episodic)
+             distiller = DistillationEngine(self.episodic, window_size=self.policy.distillation_window_size)
              recent_events = self.episodic.query(limit=100, after_id=min(stats['all_ids'])-1 if stats['all_ids'] else 0, order='ASC')
              target_events = [e for e in recent_events if e['id'] in stats['all_ids']]
              if target_events:
@@ -343,8 +355,8 @@ class ReflectionEngine:
 
         self.processor.update_decision(fid, {
             "confidence": round(confidence, 2),
-            "hit_count": new_errors,
-            "miss_count": new_successes,
+            "hit_count": new_successes,
+            "miss_count": new_errors,
             "objections": list(set(objections)),
             "ready_for_review": ready,
             "rationale": factual_rationale,
@@ -355,7 +367,7 @@ class ReflectionEngine:
 
     def _generate_competing_hypotheses(self, target: str, stats: Dict[str, Any]) -> List[str]:
         # 2.9.5: Try to distill procedural steps for these hypotheses
-        distiller = DistillationEngine(self.episodic)
+        distiller = DistillationEngine(self.episodic, window_size=self.policy.distillation_window_size)
         recent_events = self.episodic.query(limit=100, after_id=min(stats['all_ids'])-1 if stats['all_ids'] else 0, order='ASC')
         target_events = [e for e in recent_events if e['id'] in stats['all_ids']]
         
@@ -371,7 +383,7 @@ class ReflectionEngine:
             confidence=0.5,
             strengths=["Explains repeated errors"],
             evidence_event_ids=stats['all_ids'],
-            procedural=procedural, # Добавляем шаги
+            procedural=procedural.model_copy(deep=True) if procedural else None, # Глубокая копия
             first_observed_at=datetime.now()
         )
         h2 = ProposalContent(
@@ -381,7 +393,7 @@ class ReflectionEngine:
             confidence=0.4,
             strengths=["More conservative"],
             evidence_event_ids=stats['all_ids'],
-            procedural=procedural, # Добавляем шаги
+            procedural=procedural.model_copy(deep=True) if procedural else None, # Глубокая копия
             first_observed_at=datetime.now()
         )
         fids = []
@@ -414,7 +426,7 @@ class ReflectionEngine:
         ctx = data['context']
         new_conf = round(max(0.0, ctx.get('confidence', 0.0) - self.policy.decay_rate), 2)
         if new_conf < self.policy.min_confidence:
-            self.processor.update_decision(fid, {"status": ProposalStatus.REJECTED, "confidence": new_conf}, 
+            self.processor.update_decision(fid, {"status": ProposalStatus.REJECTED.value, "confidence": new_conf}, 
                                           commit_msg="Reflection: Hypothesis rejected (decay).")
         else:
             self.processor.update_decision(fid, {"confidence": new_conf}, commit_msg="Reflection: Applied decay.")

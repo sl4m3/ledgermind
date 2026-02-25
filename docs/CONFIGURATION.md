@@ -17,7 +17,7 @@ config = LedgermindConfig(
     ttl_days=30,
     trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
     namespace="default",
-    vector_model=".ledgermind/models/2.8.2-small-text-matching-Q4_K_M.gguf",
+    vector_model=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
     vector_workers=0, # Auto-detect for multiprocessing
     relevance_threshold=0.35,
 )

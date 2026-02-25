@@ -14,13 +14,16 @@ class IntegrationBridge:
     Provides streamlined methods for context injection and interaction recording.
     """
     
-    def __init__(self, memory_path: str = ".ledgermind", relevance_threshold: float = 0.45, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None):
+    def __init__(self, memory_path: str = ".ledgermind", relevance_threshold: float = 0.45, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None, memory_instance: Optional[Memory] = None):
         self.memory_path = os.path.abspath(memory_path)
-        try:
-            self._memory = Memory(storage_path=self.memory_path, vector_model=vector_model)
-        except Exception as e:
-            logger.critical(f"Failed to initialize LedgerMind Core: {e}")
-            raise RuntimeError(f"Memory initialization failed. Check permissions for {memory_path}")
+        if memory_instance:
+            self._memory = memory_instance
+        else:
+            try:
+                self._memory = Memory(storage_path=self.memory_path, vector_model=vector_model)
+            except Exception as e:
+                logger.critical(f"Failed to initialize LedgerMind Core: {e}")
+                raise RuntimeError(f"Memory initialization failed. Check permissions for {memory_path}")
             
         self.relevance_threshold = relevance_threshold
         self.retention_turns = retention_turns

@@ -19,7 +19,7 @@ class SemanticMetaStore:
 
     def _init_db(self):
         self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute("PRAGMA synchronous=OFF")
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.execute("PRAGMA busy_timeout=30000")
         self._conn.execute("PRAGMA cache_size=-64000") # 64MB cache
         self._conn.execute("PRAGMA temp_store=MEMORY")
@@ -229,7 +229,7 @@ class SemanticMetaStore:
     def list_all(self) -> List[Dict[str, Any]]:
         self._conn.row_factory = sqlite3.Row
         cursor = self._conn.cursor()
-        cursor.execute("SELECT * FROM semantic_meta")
+        cursor.execute("SELECT * FROM semantic_meta ORDER BY timestamp DESC")
         return [dict(row) for row in cursor.fetchall()]
 
     def list_draft_proposals(self) -> List[Dict[str, Any]]:
@@ -250,12 +250,18 @@ class SemanticMetaStore:
         return {row[0] for row in cursor.fetchall()}
 
     def increment_hit(self, fid: str):
-        self._conn.execute("""
-            UPDATE semantic_meta 
-            SET hit_count = hit_count + 1, 
-                last_hit_at = ? 
-            WHERE fid = ?
-        """, (datetime.now().isoformat(), fid))
+        try:
+            self._conn.execute("""
+                UPDATE semantic_meta 
+                SET hit_count = hit_count + 1, 
+                    last_hit_at = ? 
+                WHERE fid = ?
+            """, (datetime.now().isoformat(), fid))
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e):
+                logger.debug(f"Telemetry update skipped (DB locked): {fid}")
+            else:
+                raise
 
     def delete(self, fid: str):
         self._conn.execute("DELETE FROM semantic_meta WHERE fid = ?", (fid,))
