@@ -25,6 +25,10 @@
   <a href="https://www.agenthunter.io?utm_source=badge&utm_medium=embed&utm_campaign=LedgerMind" target="_blank" rel="noopener noreferrer">
     <img src="./assets/agent.svg" height="52" alt="LedgerMind - Featured on AgentHunter">
   </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://findyouragent.ai" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+    <img src="https://findyouragent.ai/embed-badge-gradient.svg" alt="FindYourAgent Logo" height="52" style="width: auto;" />
+  </a>
 </p>
 
 ---
