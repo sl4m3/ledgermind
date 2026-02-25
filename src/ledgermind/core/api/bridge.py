@@ -14,7 +14,7 @@ class IntegrationBridge:
     Provides streamlined methods for context injection and interaction recording.
     """
     
-    def __init__(self, memory_path: str = ".ledgermind", relevance_threshold: float = 0.65, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None):
+    def __init__(self, memory_path: str = ".ledgermind", relevance_threshold: float = 0.45, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None):
         self.memory_path = os.path.abspath(memory_path)
         try:
             self._memory = Memory(storage_path=self.memory_path, vector_model=vector_model)
@@ -167,13 +167,17 @@ class IntegrationBridge:
             prompt_dec = self._memory.process_event(
                 source="user",
                 kind="prompt",
-                content=clean_prompt,
+                content=clean_prompt or "(empty prompt)",
                 context=metadata or {}
             )
             prompt_id = prompt_dec.metadata.get("event_id")
             
-            # Record response
-            is_error = not success or any(kw in response.lower() for kw in ["error", "failed", "exception", "traceback", "fatal"])
+            # Record response (handle empty content to satisfy Pydantic min_length=1)
+            safe_response = response.strip() if response else ""
+            if not safe_response:
+                safe_response = "[SUCCESSFUL EXECUTION WITH NO OUTPUT]" if success else "[FAILED EXECUTION WITH NO OUTPUT]"
+
+            is_error = not success or any(kw in safe_response.lower() for kw in ["error", "failed", "exception", "traceback", "fatal"])
             
             ctx = {
                 "layer": "cli_integration",
@@ -186,7 +190,7 @@ class IntegrationBridge:
             self._memory.process_event(
                 source="agent",
                 kind="result",
-                content=response,
+                content=safe_response,
                 context=ctx
             )
         except Exception as e:

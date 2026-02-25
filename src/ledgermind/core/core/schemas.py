@@ -136,5 +136,5 @@ class LedgermindConfig(BaseModel):
     vector_model: str = Field(default=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
     vector_workers: int = Field(default=0, ge=0, description="Number of workers for multi-process encoding. 0 for auto-detection.")
     enable_git: bool = Field(default=True)
-    relevance_threshold: float = Field(default=0.35, ge=0.0, le=1.0)
+    relevance_threshold: float = Field(default=0.45, ge=0.0, le=1.0)
 
