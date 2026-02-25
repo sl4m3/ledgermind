@@ -182,6 +182,8 @@ memory.run_reflection() -> List[str]
 
 Manually triggers a full `ReflectionEngine` cycle. Returns a list of created/updated proposal file IDs. In MCP mode, this runs automatically in the background every 4 hours.
 
+**Git Evolution:** When `enable_git` is active, the reflection engine analyzes recent commits indexed into episodic memory. If it detects a pattern of changes (minimum 2 commits) related to a specific target, it automatically generates an "Evolving Pattern" proposal to capture the emerging knowledge.
+
 ---
 
 ### Searching
