@@ -1,0 +1,36 @@
+{
+  "name": "ledgermind-vscode",
+  "displayName": "LedgerMind Zero-Touch",
+  "description": "Invisible autonomous memory bridge for LedgerMind",
+  "version": "1.0.0",
+  "publisher": "ledgermind",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "chatVariables": [
+      {
+        "name": "ledgermind",
+        "description": "Inject relevant context from LedgerMind autonomous memory"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^18.x",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.x"
+  }
+}

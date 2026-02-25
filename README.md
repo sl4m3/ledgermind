@@ -76,7 +76,9 @@ without any intervention from the developer or the agent.
 
 | Capability | Description |
 |---|---|
-| **Zero-Touch Automation** | `ledgermind install <client>` automatically injects hooks into Claude, Cursor, or Gemini CLI for 100% transparent memory operations without MCP tool calls. |
+| **Zero-Touch Automation** | `ledgermind install <client>` automatically injects hooks into Claude Code, Cursor, or Gemini CLI for 100% transparent memory operations without MCP tool calls. |
+| **VS Code Hardcore Mode** | Dedicated VS Code extension for proactive context injection, terminal monitoring, and automated conversation logging without manual tool calls. |
+| **Project Bootstrapping** | `bootstrap_project_context` tool for deep analysis of project structure and automatic initialization of the agent's knowledge base. |
 | **Autonomous Heartbeat** | A background worker runs every 5 minutes: Git sync, reflection, decay, self-healing. |
 | **Probabilistic Reflection** | Discover patterns using float success weights (0.0-1.0) and Target Inheritance for better clustering. |
 | **Procedural Distillation** | Automatically converts successful trajectories into step-by-step instructions (`procedural.steps`). |
@@ -162,15 +164,15 @@ The easiest way to use LedgerMind is to install the **LedgerMind Hooks Pack**. T
 
 | Client | Event Hooks | Status | Zero-Touch Level |
 | :--- | :--- | :---: | :--- |
+| **VS Code** | `onDidSave`, `ChatParticipant`, `TerminalData` | ✅ | **Hardcore** (Shadow Context) |
 | **Claude Code** | `UserPromptSubmit`, `PostToolUse` | ✅ | **Full** (Auto-record + RAG) |
 | **Cursor** | `beforeSubmitPrompt`, `afterAgentResponse` | ✅ | **Full** (Auto-record + RAG) |
 | **Gemini CLI** | `BeforeAgent`, `AfterAgent` | ✅ | **Full** (Auto-record + RAG) |
-| **Claude Desktop** | *Coming Soon* | ⏳ | Manual MCP tools only |
-| **VS Code (Coprocess)**| *Under Development* | 🛠️ | Manual MCP tools only |
+| **Claude Desktop** | *Zero-Touch not available* | ⏳ | Manual MCP tools only |
 
 ```bash
-# Install hooks for your preferred client (claude, cursor, or gemini)
-ledgermind-mcp install gemini --path ./memory
+# Install hooks for your preferred client (vscode, claude, cursor, or gemini)
+ledgermind install vscode --path ./memory
 ```
 *Now, simply use your client as usual. LedgerMind operates entirely in the background.*
 

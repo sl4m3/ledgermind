@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import platform
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -157,11 +158,130 @@ except ImportError:
         print(f"✓ Installed Gemini CLI hooks successfully.")
 
 
+class VSCodeInstaller(BaseInstaller):
+    def __init__(self):
+        super().__init__("vscode")
+        if platform.system() == "Darwin": # macOS
+            self.global_storage = os.path.expanduser("~/Library/Application Support/Code/User/globalStorage")
+            self.extensions_dir = os.path.expanduser("~/.vscode/extensions")
+        elif platform.system() == "Windows":
+            self.global_storage = os.path.join(os.environ.get("APPDATA", ""), "Code", "User", "globalStorage")
+            self.extensions_dir = os.path.join(os.environ.get("USERPROFILE", ""), ".vscode", "extensions")
+        else: # Linux / Termux
+            self.global_storage = os.path.expanduser("~/.config/Code/User/globalStorage")
+            self.extensions_dir = os.path.expanduser("~/.vscode/extensions")
+
+    def install(self, project_path: str):
+        # 1. Физическая установка расширения LedgerMind
+        self._install_extension_files(project_path)
+
+        # 2. Roo Code (Cline) - settings path
+        roo_path = os.path.join(self.global_storage, "saoudrizwan.claude-dev", "settings", "cline_mcp_settings.json")
+        self._inject_mcp_config(roo_path, project_path, "Roo Code (Cline)")
+
+        # 3. Hardcore Zero-Touch: Добавляем системную инструкцию для автоматического чтения контекста
+        # Путь к кастомным инструкциям Roo Code
+        roo_instructions_path = os.path.join(self.global_storage, "saoudrizwan.claude-dev", "settings", "custom_instructions.json")
+        self._inject_custom_instructions(roo_instructions_path)
+
+        # 4. Continue.dev
+        continue_config = os.path.expanduser("~/.continue/config.json")
+        if os.path.exists(continue_config):
+            print(f"! Continue.dev detected. Manual integration recommended in {continue_config}")
+
+        print(f"✓ VS Code environment prepared for Hardcore Zero-Touch.")
+
+    def _install_extension_files(self, project_path: str):
+        import shutil
+        import subprocess
+
+        ext_src = os.path.join(project_path, "src", "ledgermind", "vscode")
+        ext_dest = os.path.join(self.extensions_dir, "ledgermind.ledgermind-vscode")
+
+        if not os.path.exists(ext_src):
+            print(f"✗ Extension source not found at {ext_src}")
+            return
+
+        print(f"  → Installing LedgerMind VS Code extension to {ext_dest}...")
+        
+        # 1. Подготовка папки
+        if os.path.exists(ext_dest):
+            shutil.rmtree(ext_dest)
+        os.makedirs(ext_dest, exist_ok=True)
+
+        # 2. Попытка сборки (нужен npm и tsc)
+        try:
+            print("  → Compiling extension (npm install & tsc)...")
+            subprocess.run(["npm", "install"], cwd=ext_src, check=True, capture_output=True)
+            subprocess.run(["npm", "run", "compile"], cwd=ext_src, check=True, capture_output=True)
+        except Exception as e:
+            print(f"! Compilation failed: {e}. You may need to run 'npm install && npm run compile' in {ext_src} manually.")
+
+        # 3. Копирование файлов
+        try:
+            shutil.copy(os.path.join(ext_src, "package.json"), ext_dest)
+            dist_path = os.path.join(ext_src, "dist")
+            if os.path.exists(dist_path):
+                shutil.copytree(dist_path, os.path.join(ext_dest, "dist"))
+            else:
+                # Если dist нет, копируем src (для разработки)
+                shutil.copytree(os.path.join(ext_src, "src"), os.path.join(ext_dest, "src"))
+            print(f"  → Extension files copied successfully.")
+        except Exception as e:
+            print(f"✗ Failed to copy extension files: {e}")
+
+    def _inject_custom_instructions(self, path: str):
+        instructions = "Always check for the existence of '.ledgermind_context.md' in the project root. If it exists, read it at the beginning of every task to synchronize with the autonomous memory and previous decisions."
+        
+        data = {}
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f: data = json.load(f)
+            except: data = {}
+
+        # Добавляем или обновляем инструкцию
+        if "global" not in data: data["global"] = ""
+        if instructions not in data["global"]:
+            data["global"] = (data["global"] + "\n\n" + instructions).strip()
+            
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2)
+        print(f"  → Injected Hardcore Memory Policy into Custom Instructions.")
+
+    def _inject_mcp_config(self, config_path: str, project_path: str, ext_name: str):
+        config_dir = os.path.dirname(config_path)
+        if not os.path.exists(config_dir):
+            return
+
+        config = {"mcpServers": {}}
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+            except json.JSONDecodeError:
+                config = {"mcpServers": {}}
+
+        if "mcpServers" not in config:
+            config["mcpServers"] = {}
+
+        config["mcpServers"]["ledgermind"] = {
+            "command": "ledgermind-mcp",
+            "args": ["run", "--path", os.path.abspath(project_path)],
+            "disabled": False
+        }
+
+        with open(config_path, "w") as f:
+            json.dump(config, f, indent=2)
+        print(f"  → Injected LedgerMind MCP into {ext_name} settings.")
+
+
 def install_client(client_name: str, project_path: str):
     installers = {
         "claude": ClaudeInstaller,
         "cursor": CursorInstaller,
         "gemini": GeminiInstaller,
+        "vscode": VSCodeInstaller,
     }
     
     if client_name not in installers:

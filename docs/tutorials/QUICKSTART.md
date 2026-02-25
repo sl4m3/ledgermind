@@ -39,6 +39,22 @@ ledgermind-mcp init --path ./project_memory
 
 ---
 
+## Step 2.5: Bootstrap Your Knowledge (Recommended for Agents)
+
+If you are an agent entering a new project, use the **Deep Scan** tool to automatically discover the project structure and key configuration files. This report includes a **Memory Storage Policy** that ensures you record decisions correctly.
+
+Via MCP (JSON request):
+```json
+{
+  "tool": "bootstrap_project_context",
+  "path": "."
+}
+```
+
+This will provide you with a comprehensive report of the project, including a tree structure (up to 7 levels deep) and the content of all relevant `.md` and configuration files.
+
+---
+
 ## Step 3: Record Your First Decision
 
 ```python
