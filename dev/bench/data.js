@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771970430170,
+  "lastUpdate": 1771985310049,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -608,6 +608,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008286764980511002",
             "extra": "mean: 4.085410545455358 msec\nrounds: 66"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "f49be685037a8fa6315e93a3d3054f9eba357114",
+          "message": "feat: optimize Jina v5 retrieval, update thresholds, and harden episodic recording",
+          "timestamp": "2026-02-25T05:04:06+03:00",
+          "tree_id": "bc6cc7fd79670697578d6664e48fe5f710ca4349",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f49be685037a8fa6315e93a3d3054f9eba357114"
+        },
+        "date": 1771985309251,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 29.14818266240585,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0041149858257539485",
+            "extra": "mean: 34.30745619999698 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 244.18988705656022,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009448976164309294",
+            "extra": "mean: 4.095173686567847 msec\nrounds: 67"
           }
         ]
       }
