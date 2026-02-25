@@ -17,22 +17,15 @@
 
 ## Featured On
 
-<!-- AI Agents Directory badge (из предыдущего сообщения) -->
-[![LedgerMind - Featured AI Agent on AI Agents Directory](https://aiagentsdirectory.com/featured-badge.svg?v=2024)](https://aiagentsdirectory.com/agent/ledgermind?utm_source=badge&utm_medium=referral&utm_campaign=free_listing&utm_content=ledgermind)
-
-<!-- AgentHunter badge -->
-<a href="https://www.agenthunter.io?utm_source=badge&utm_medium=embed&utm_campaign=LedgerMind" 
-   target="_blank" 
-   rel="noopener noreferrer" 
-   style="display: inline-flex; align-items: center; gap: 0.5rem; background-color: #111827; border: 1px solid #374151; padding: 0.5rem 0.75rem; border-radius: 0.5rem; text-decoration: none; font-family: sans-serif; transition: all 0.2s;">
-  <img src="https://www.agenthunter.io/logo-dark.svg" 
-       alt="AgentHunter Badge" 
-       style="height: 2.5rem; width: 2.5rem;"/>
-  <div style="display: flex; flex-direction: column;">
-    <p style="margin: 0; font-size: 0.75rem; color: #9ca3af;">AgentHunter</p>
-    <p style="margin: 0; font-size: 0.875rem; color: #f9fafb; font-weight: 600;">Featured AI Agent</p>
-  </div>
-</a>
+<p align="center">
+  <a href="https://aiagentsdirectory.com/agent/ledgermind?utm_source=badge&utm_medium=referral&utm_campaign=free_listing&utm_content=ledgermind" target="_blank" rel="noopener noreferrer">
+    <img src="https://aiagentsdirectory.com/featured-badge.svg?v=2024" height="57" alt="LedgerMind - Featured on AI Agents Directory">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.agenthunter.io?utm_source=badge&utm_medium=embed&utm_campaign=LedgerMind" target="_blank" rel="noopener noreferrer">
+    <img src="./assets/agent.svg" height="52" alt="LedgerMind - Featured on AgentHunter">
+  </a>
+</p>
 
 ---
 
