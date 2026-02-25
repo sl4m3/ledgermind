@@ -33,6 +33,18 @@
 
 ---
 
+## 📈 Recent Activity
+
+**Last 14 days:**
+- **2,054 Git clones** (547 unique cloners)
+- Strong PyPI growth (hundreds of downloads in recent days)
+
+**Installed & used in:**
+- Gemini CLI (100% zero-touch, fully stable)
+- Claude Desktop & Cursor (support rolling out now)
+
+---
+
 ## ✨ Why LedgerMind?
 
 | Feature                 | Mem0 / LangGraph | LedgerMind          |
