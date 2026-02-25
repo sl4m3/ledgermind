@@ -45,7 +45,7 @@ Memory (core/api/memory.py)
 │
 ├── SemanticStore          Long-term structured knowledge (Markdown + Git)
 │   ├── GitAuditProvider   Every write = a Git commit
-│   ├── SemanticMetaStore  SQLite index with FTS5 and namespace support (2.7.9: Idempotent initialization)
+│   ├── SemanticMetaStore  SQLite index with FTS5 and namespace support (Idempotent initialization)
 │   ├── TransactionManager ACID isolation using SAVEPOINT and threading.local()
 │   ├── IntegrityChecker   Pre/post-write ns-resolution invariant validation
 │   └── MemoryLoader       Frontmatter YAML + Markdown body parser
@@ -55,17 +55,17 @@ Memory (core/api/memory.py)
 │
 ├── VectorStore            Cosine similarity index (NumPy matrix)
 │   ├── GGUF Support       4-bit quantization via llama-cpp-python
-│   ├── Embedding Cache    Lru-style cache prevents redundant llama.cpp calls (v2.8.2)
+│   ├── Embedding Cache    Lru-style cache prevents redundant llama.cpp calls
 │   ├── Model Caching      Singleton pattern avoids redundant RAM usage
 │   └── Auto-Dimension     Dynamic detection (e.g. 1024 for Jina v5 Small)
 │
 ├── ConflictEngine         Detects collisions within specific namespaces
 ├── Webhook Dispatcher     Async HTTP POST notifications for memory events
 ├── ResolutionEngine       Validates ResolutionIntent before supersede
-├── ReflectionEngine       Incremental Knowledge Discovery (v2.8.2: Probabilistic)
+├── ReflectionEngine       Incremental Knowledge Discovery (Probabilistic)
 ├── DecayEngine            Manages TTL, confidence decay, and forgetting
 ├── MergeEngine            Scans for semantically identical active decisions
-├── DistillationEngine     Distills successful trajectories → ProceduralProposals (v2.8.2)
+├── DistillationEngine     Distills successful trajectories → ProceduralProposals
 ├── GitIndexer             Imports Git commits into episodic memory
 ├── TargetRegistry         Canonical names + alias resolution (targets.json)
 └── MemoryRouter           Routes MemoryEvent to the correct store
@@ -75,7 +75,7 @@ Memory (core/api/memory.py)
 
 ## Reflection and Knowledge Synthesis
 
-In v2.8.2, the `ReflectionEngine` moved from binary success/failure tracking to a **Probabilistic Model**:
+The `ReflectionEngine` moved from binary success/failure tracking to a **Probabilistic Model**:
 
 *   **Float Success Weights:** Interactions are scored from `0.0` (Hard Error) to `1.0` (Verified Success).
 *   **Target Inheritance:** `prompt` and `result` events automatically inherit the `target` from the preceding actions in a session, enabling better clustering.
