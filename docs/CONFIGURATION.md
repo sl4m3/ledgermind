@@ -30,6 +30,23 @@ memory = Memory(config=config)
 | `ttl_days` | `int ≥ 1` | `30` | Days before episodic events are archived. |
 | `trust_boundary` | `Enum` | `AGENT_WITH_INTENT` | Who can write to semantic memory. |
 | `namespace` | `str` | `default` | Logical partition for multi-tenant isolation. |
+| `flat_storage` | `bool` | `False` | (Internal) Keep all MD files in root semantic folder. |
+
+---
+
+## Client-Specific Configuration
+
+### VS Code (Hardcore Mode)
+
+The VS Code integration uses a "Shadow File" strategy. 
+
+- **Shadow File:** `.ledgermind_context.md` (created in project root).
+- **Extension Path:** `~/.vscode/extensions/ledgermind.ledgermind-vscode`.
+- **Roo Code Instructions:** Stored in `globalStorage/saoudrizwan.claude-dev/settings/custom_instructions.json`.
+
+You can modify the "Custom Instructions" to change how the agent interacts
+with the shadow file. We recommend the default: *"Always read 
+.ledgermind_context.md at the beginning of every task."*
 | `vector_model` | `str` | *path* | Local path to `.gguf` file or HF model ID. |
 | `vector_workers` | `int` | `0` | Workers for multi-process encoding (0=auto). |
 | `relevance_threshold` | `float` | `0.35` | Minimum score for RAG context injection. |

@@ -333,6 +333,31 @@ class MCPServer:
                 TOOL_LATENCY.labels(tool="get_memory_stats").observe(time.time() - start_time)
 
         @self.mcp.tool()
+        def bootstrap_project_context(path: str = ".") -> str:
+            """
+            Analyzes the project structure and key files. 
+            The agent MUST use the returned information to call `record_decision` 
+            separately for different semantic areas (e.g. one for 'Architecture', 
+            one for 'Dependencies', one for 'File Structure'). Do not cram everything into one decision.
+            """
+            start_time = time.time()
+            try:
+                self._check_capability("read")
+                self._check_capability("propose")
+                from ledgermind.server.tools.scanner import ProjectScanner
+                scanner = ProjectScanner(path)
+                result = scanner.scan()
+                self.audit_logger.log_access("agent", "bootstrap_project_context", {"path": path}, True)
+                TOOL_CALLS.labels(tool="bootstrap_project_context", status="success").inc()
+                return result
+            except Exception as e:
+                self.audit_logger.log_access("agent", "bootstrap_project_context", {"path": path}, False, error=str(e))
+                TOOL_CALLS.labels(tool="bootstrap_project_context", status="error").inc()
+                return json.dumps({"status": "error", "message": str(e)})
+            finally:
+                TOOL_LATENCY.labels(tool="bootstrap_project_context").observe(time.time() - start_time)
+
+        @self.mcp.tool()
         def get_environment_health() -> str:
             """Returns diagnostic information about the system environment (disk, git, python)."""
             start_time = time.time()
