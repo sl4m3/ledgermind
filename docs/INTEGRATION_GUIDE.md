@@ -8,8 +8,8 @@ LedgerMind supports two integration modes: **direct library embedding** and **MC
 
 | Criterion | Client Hooks (Zero-Touch) | MCP Server | Library Mode |
 |---|---|---|---|
-| Deployment | Native client hooks | Separate process | Embedded in your agent process |
-| Agent compatibility | Claude, Cursor, Gemini CLI | Any MCP client | Python only |
+| Deployment | Native hooks / Extension | Separate process | Embedded in your agent process |
+| Agent compatibility | VS Code, Claude, Cursor, Gemini | Any MCP client | Python only |
 | Agent Effort | **None** (Automatic) | Manual Tool Calls | Manual Code |
 | Best for | Daily coding, Chat interfaces | Complex multi-agent setups | Fully autonomous Python agents |
 
@@ -17,7 +17,7 @@ LedgerMind supports two integration modes: **direct library embedding** and **MC
 
 ## Zero-Touch Automation (Client Hooks)
 
-The easiest and most powerful way to use LedgerMind is via the **LedgerMind Hooks Pack**. This feature injects lightweight scripts into your favorite LLM clients (Claude Desktop, Cursor, Gemini CLI). 
+The easiest and most powerful way to use LedgerMind is via the **LedgerMind Hooks Pack**. This feature injects lightweight scripts or extensions into your favorite LLM clients (VS Code, Cursor, Gemini CLI, Claude Code). 
 
 Once installed, LedgerMind automatically:
 1. Retrieves project context and rules *before* every prompt you send.
@@ -29,19 +29,23 @@ Once installed, LedgerMind automatically:
 Run the installer from your project directory (where you want the memory to live):
 
 ```bash
-# For Claude Desktop / Claude Code
-ledgermind-mcp install claude
+# For VS Code (Hardcore Zero-Touch)
+ledgermind install vscode
+
+# For Claude Code (CLI)
+ledgermind install claude
 
 # For Cursor IDE
-ledgermind-mcp install cursor
+ledgermind install cursor
 
 # For Gemini CLI
-ledgermind-mcp install gemini
+ledgermind install gemini
 ```
 
 ### How it Works Under the Hood
 
-The installer configures native client hooks (e.g., `UserPromptSubmit` in Claude, `beforeSubmitPrompt` in Cursor, or `ledgermind_hook.py` in Gemini).
+- **VS Code (Hardcore):** Installs a background extension that monitors file saves, terminal data, and chat interactions. It maintains a `.ledgermind_context.md` "shadow file" for proactive context injection.
+- **Claude/Cursor/Gemini:** Injects native client hooks (e.g., `UserPromptSubmit` in Claude, `beforeSubmitPrompt` in Cursor, or `ledgermind_hook.py` in Gemini).
 
 These hooks call the lightweight **Bridge API** via CLI (`bridge-context` and `bridge-record`). This approach bypasses the need for a running MCP server and executes memory operations in milliseconds directly against the SQLite/Git stores.
 

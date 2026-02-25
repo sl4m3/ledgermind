@@ -331,6 +331,18 @@ Returns `semantic_decisions` (count), `namespace`, `storage_path`.
 
 ---
 
+#### `bootstrap_project_context()`
+
+```python
+memory.bootstrap_project_context(path: str = ".") -> str
+```
+
+(Available via MCP) Performs a deep scan of the project at the given `path`. It analyzes the directory tree (up to 7 levels), identifies key configuration files, and reads all `.md` files. 
+
+Returns a formatted Markdown report designed to be consumed by an AI agent, including a specific **Memory Storage Policy** for maintaining a flat memory structure.
+
+---
+
 ---
 
 ## IntegrationBridge
