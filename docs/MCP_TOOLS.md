@@ -38,9 +38,61 @@ Each capability maps to one or more tools. If a tool's required capability is di
 
 ---
 
+## Installation & Setup
+
+Before using tools, you can automate the integration using the LedgerMind CLI:
+
+```bash
+ledgermind install vscode --path .
+```
+
+Supported clients: `vscode` (Hardcore Mode), `claude` (CLI), `cursor`, `gemini`.
+
+---
+
 ## Tools
 
-### `record_decision`
+### `bootstrap_project_context`
+
+Analyzes the project structure and key files to initialize base knowledge in the agent's memory.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `path` | string | `.` | Absolute path to the project directory |
+
+**Returns:** A structured report containing:
+- **Directory Structure:** A tree-like representation of the project (depth 7, up to 1000 entries).
+- **MEMORY STORAGE POLICY:** Critical instructions on how to record decisions (Flat Structure rule).
+- **Key Files Content:** The content of identified configuration and documentation files (README, ARCHITECTURE, Makefile, etc.).
+
+**Capability required:** `read`
+
+**Behavior:** This is the recommended entry point for an agent entering a new project. It performs a **Deep Scan** of all `.md` files and configuration files. It also provides a specific prompt to the agent on how to correctly use `record_decision` to maintain a flat memory structure in `.ledgermind/semantic/`.
+
+**Example:**
+```json
+{
+  "tool": "bootstrap_project_context",
+  "path": "."
+}
+```
+
+---
+
+### `install` (CLI only)
+
+Installs hooks and extensions for a specific client to enable Zero-Touch operations.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `client` | string | ✓ | `claude` (CLI), `cursor`, `gemini`, `vscode` |
+| `path` | string | ✓ | Project path for memory synchronization |
+
+**Behavior per client:**
+- **`vscode`**: Performs a **Hardcore** installation. It installs the LedgerMind VS Code extension, configures Roo Code (Cline) to use the MCP server, and injects a policy to always read the `.ledgermind_context.md` shadow file for proactive knowledge injection.
+- **`claude`**: Injects shell hooks into `~/.claude/settings.json` for prompt enrichment and interaction logging in the Claude CLI.
+- **`cursor`**: Configures `hooks.json` to call LedgerMind before and after agent actions.
+- **`gemini`**: Injects Python hooks for the Gemini CLI.
 
 Records a strategic decision into semantic memory.
 
