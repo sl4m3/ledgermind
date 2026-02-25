@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772025159537,
+  "lastUpdate": 1772033212138,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1216,6 +1216,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0001032998263941315",
             "extra": "mean: 2.72075940230265 msec\nrounds: 87"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "86e8c872d67e0798553d4c18375a363ac9beeb15",
+          "message": "chore: bump version to 2.8.3 and fix DB locking in search",
+          "timestamp": "2026-02-25T18:22:08+03:00",
+          "tree_id": "4861437cdef1db3d21afed3f30de92172bd1420a",
+          "url": "https://github.com/sl4m3/ledgermind/commit/86e8c872d67e0798553d4c18375a363ac9beeb15"
+        },
+        "date": 1772033211272,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 27.501232715265772,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0010358291832729199",
+            "extra": "mean: 36.36200639998606 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 241.2627400720913,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005257476130661957",
+            "extra": "mean: 4.144858836060602 msec\nrounds: 61"
           }
         ]
       }
