@@ -39,6 +39,7 @@ class GGUFEmbeddingAdapter:
         )
         self._cache = {}
         self._max_cache = 100
+        self.model_path = model_path.lower()
         
         # Robust dimension detection
         try:
@@ -61,6 +62,11 @@ class GGUFEmbeddingAdapter:
         is_single = isinstance(sentences, str)
         input_list = [sentences] if is_single else sentences
         
+        # Task-specific prefix for Jina v5
+        prefix = ""
+        if "jina-embeddings-v5" in self.model_path:
+            prefix = "text-matching: "
+
         embeddings = []
         for text in input_list:
             if text in self._cache:
@@ -68,7 +74,9 @@ class GGUFEmbeddingAdapter:
                 continue
                 
             try:
-                res = self.client.create_embedding(text)
+                # Apply prefix if needed
+                processed_text = f"{prefix}{text}" if prefix else text
+                res = self.client.create_embedding(processed_text)
                 emb = res['data'][0]['embedding']
                 # If llama-cpp returns a scalar or malformed list, wrap it
                 if not isinstance(emb, list):
