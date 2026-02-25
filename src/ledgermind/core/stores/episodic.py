@@ -81,6 +81,12 @@ class EpisodicStore:
             with conn:
                 conn.execute("UPDATE events SET linked_id = ?, link_strength = ? WHERE id = ?", (semantic_id, strength, event_id))
 
+    def unlink_all_for_semantic(self, semantic_id: str):
+        """Clears linked_id for all events pointing to this semantic decision."""
+        with self._get_conn() as conn:
+            with conn:
+                conn.execute("UPDATE events SET linked_id = NULL WHERE linked_id = ?", (semantic_id,))
+
     def query(self, limit: int = 100, status: Optional[str] = 'active', after_id: Optional[int] = None, order: str = 'DESC') -> List[Dict[str, Any]]:
         with self._get_conn() as conn:
             query_parts = []

@@ -449,7 +449,7 @@ class Memory:
             
             # 3. Create episodic event to log the update
             meta = self.semantic.meta.get_by_fid(decision_id)
-            if meta:
+            if meta and meta.get('kind') != KIND_PROPOSAL:
                 event = MemoryEvent(
                     source="system",
                     kind="commit_change",
@@ -776,7 +776,12 @@ class Memory:
         
         # 1. Execute Searches
         k = 60 # RRF constant
-        search_limit = (offset + limit) * 3
+        
+        # Aggressive limit for namespace filtering to avoid starvation
+        if namespace:
+            search_limit = max(200, (offset + limit) * 10)
+        else:
+            search_limit = (offset + limit) * 3
         
         # Vector Search
         vec_results = []
@@ -820,10 +825,10 @@ class Memory:
             status = meta.get("status", "unknown")
             if mode == "strict" and status != "active": continue
 
-            # Evidence boost: each link adds 20% to the score
+            # Evidence boost: each link adds 20% to the score. Capped at 1.0 (max 2x multiplier)
             final_id = meta['fid']
             link_count, _ = self.episodic.count_links_for_semantic(final_id)
-            boost = link_count * 0.2 
+            boost = min(link_count * 0.2, 1.0) 
             
             final_score = (scores[fid] / max_rrf) * (1.0 + boost)
             
@@ -855,7 +860,12 @@ class Memory:
                 
             final_results.append(cand)
             seen_ids.add(cand['id'])
-            self.semantic.meta.increment_hit(cand['id'])
+            
+            try:
+                self.semantic.meta.increment_hit(cand['id'])
+            except Exception as e:
+                # Non-fatal: search should proceed even if hit count update fails due to locks
+                logger.debug(f"Failed to increment hit count for {cand['id']}: {e}")
             
             if len(final_results) >= limit: break
             
@@ -867,7 +877,7 @@ class Memory:
         self.semantic._validate_fid(doc_id)
         current_id = doc_id
         depth = 0
-        while depth < 5:
+        while depth < 20:
             meta = self.semantic.meta.get_by_fid(current_id)
             if not meta: return None
             
@@ -879,6 +889,8 @@ class Memory:
                 
             current_id = successor
             depth += 1
+            
+        logger.warning(f"Recursive truth resolution depth limit (20) reached for {doc_id}. Possible circularity or long evolution chain.")
         return None
 
     def generate_knowledge_graph(self, target: Optional[str] = None) -> str:
@@ -921,6 +933,9 @@ class Memory:
     def forget(self, decision_id: str):
         """Hard-deletes a memory from filesystem and metadata."""
         self.semantic._validate_fid(decision_id)
+        # Clean up episodic links before purging semantic record
+        self.episodic.unlink_all_for_semantic(decision_id)
+        
         self.semantic.purge_memory(decision_id)
         self.vector.remove_id(decision_id)
         logger.info(f"Memory {decision_id} forgotten across systems.")
