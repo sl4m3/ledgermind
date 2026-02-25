@@ -40,8 +40,8 @@
 - Strong PyPI growth (hundreds of downloads in recent days)
 
 **Installed & used in:**
-- Gemini CLI (100% zero-touch, fully stable)
-- Claude Desktop & Cursor (support rolling out now)
+- Gemini CLI (100% zero-touch, fully stable), Claude Code, Cursor
+- Claude Desktop & VS Code (support rolling out now)
 
 **Featured & Published:**
 - New article on **Dev.to**: ["True Zero-Touch Autonomus Memory for AI Agents"](https://dev.to/sl4m3/ledgermind-zero-touch-memory-that-survives-real-agent-work-46lh)
