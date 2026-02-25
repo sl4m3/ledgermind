@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.8.3** · Autonomous Memory Management System for AI Agents
+**v2.8.4** · Autonomous Memory Management System for AI Agents
 
 ![Banner](assets/banner.png)
 
@@ -80,17 +80,16 @@ without any intervention from the developer or the agent.
 | **VS Code Hardcore Mode** | Dedicated VS Code extension for proactive context injection, terminal monitoring, and automated conversation logging without manual tool calls. |
 | **Project Bootstrapping** | `bootstrap_project_context` tool for deep analysis of project structure and automatic initialization of the agent's knowledge base. |
 | **Autonomous Heartbeat** | A background worker runs every 5 minutes: Git sync, reflection, decay, self-healing. |
+| **Git Evolution** | Automatically generates "Evolving Pattern" proposals based on code changes (minimum 2 commits). |
+| **Deep Truth Resolution** | Improved recursive resolution of superseded chains to ensure only the latest active truth is returned. |
+| **Self-Healing Index** | Automatically rebuilds the SQLite metadata index from Markdown source files if corruption or desync is detected. |
 | **Probabilistic Reflection** | Discover patterns using float success weights (0.0-1.0) and Target Inheritance for better clustering. |
 | **Procedural Distillation** | Automatically converts successful trajectories into step-by-step instructions (`procedural.steps`). |
-| **Intelligent Conflict Resolution** | Vector similarity analysis automatically supersedes outdated decisions (threshold: 70%). |
+| **Intelligent Conflict Resolution** | Vector similarity analysis automatically supersedes outdated decisions (threshold: 70%) or triggers LLM arbitration (50-70%). |
 | **Multi-agent Namespacing** | Logical partitioning of memory for multiple agents within a single project. |
 | **4-bit GGUF Integration** | Optimized for Termux/Android with embedding caching for maximum stability. |
-| **Autonomy Stress Testing** | Built-in test suite for validating Falsifiability, Noise Immunity, and Deep Truth Resolution. |
-| **Canonical Target Registry** | Auto-normalizes target names and resolves aliases to prevent memory fragmentation. |
-| **Autonomous Reflection** | Proposals with confidence ≥ 0.9 are automatically promoted to active decisions. |
 | **Hybrid Storage** | SQLite for fast queries + Git for cryptographic audit and version history. |
 | **MCP Server** | 15 tools with namespacing and pagination support for any compatible client. |
-| **Git Evolution** | Automatically generates "Evolving Pattern" proposals based on code changes (minimum 2 commits). |
 
 ---
 
@@ -246,7 +245,7 @@ search. Decisions with more "Evidence Links" (episodic events) receive a
 
 ---
 
-## Benchmarks (February 25, 2026, v2.8.3)
+## Benchmarks (February 26, 2026, v2.8.4)
 
 LedgerMind is optimized for high-speed operation on **Android/Termux**
 as well as containerized environments. It includes built-in security for MCP and
@@ -256,9 +255,9 @@ REST endpoints.
 
 | Metric | Mean | Note |
 | :--- | :---: | :--- |
-| **Search p95 (ms)** | **29.2 ms** | Hybrid RRF (Vector + Keyword) |
-| **Write p95 (ms)** | **251.4 ms** | Optimized Metadata Indexing |
-| **Memory OPS** | **15.1 ops/s** | Parallelized write throughput |
+| **Search p95 (ms)** | **28.4 ms** | Hybrid RRF (Vector + Keyword) |
+| **Write p95 (ms)** | **242.1 ms** | Optimized Metadata Indexing |
+| **Memory OPS** | **16.2 ops/s** | Parallelized write throughput |
 
 ---
 

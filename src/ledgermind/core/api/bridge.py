@@ -190,6 +190,48 @@ class IntegrationBridge:
             if metadata:
                 ctx.update(metadata)
 
+            # Try to parse as JSON and extract separated events
+            try:
+                import json
+                import os
+                if safe_response.startswith("{") or safe_response.startswith("["):
+                    data = json.loads(safe_response)
+                    # Support for structured payloads containing transcript paths
+                    if isinstance(data, dict) and "transcript_path" in data and os.path.exists(data["transcript_path"]):
+                        with open(data["transcript_path"], 'r', encoding='utf-8') as f:
+                            transcript = json.load(f)
+                        turns = transcript.get("messages", transcript.get("turns", []))
+                        last_user_idx = -1
+                        for i in range(len(turns) - 1, -1, -1):
+                            if turns[i].get("type") == "user" or turns[i].get("role") == "user":
+                                last_user_idx = i
+                                break
+                        agent_turns = turns[last_user_idx + 1:] if last_user_idx != -1 else ([turns[-1]] if turns else [])
+                        
+                        events_recorded = 0
+                        for t in agent_turns:
+                            if t.get("type") in ["gemini", "agent", "assistant"] or t.get("role") in ["assistant", "agent", "gemini"]:
+                                text_c = t.get("content", "").strip()
+                                if text_c:
+                                    self._memory.process_event(source="agent", kind="result", content=text_c, context=ctx)
+                                    events_recorded += 1
+                                for tc in t.get("toolCalls", []) + t.get("tool_calls", []):
+                                    name = tc.get("name", "unknown")
+                                    status = tc.get("status", "unknown")
+                                    args_str = json.dumps(tc.get("args", {}), ensure_ascii=False)
+                                    res_str = tc.get("resultDisplay", "")
+                                    if not res_str and tc.get("result"):
+                                        res_str = json.dumps(tc.get("result"), ensure_ascii=False)
+                                    tc_content = f"Tool: {name}\\nStatus: {status}\\nArgs: {args_str}\\nResult:\\n{res_str}"
+                                    self._memory.process_event(source="agent", kind="call", content=tc_content, context=ctx)
+                                    events_recorded += 1
+                        
+                        if events_recorded > 0:
+                            return  # Successfully separated events, skip raw recording
+
+            except Exception as e:
+                logger.debug(f"Could not parse response as structured events: {e}")
+
             self._memory.process_event(
                 source="agent",
                 kind="result",

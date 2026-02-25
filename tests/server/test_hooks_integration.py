@@ -109,7 +109,7 @@ def test_install_gemini_hooks(mock_home, tmp_path):
         assert hook_file.exists()
         content = hook_file.read_text()
         assert "bridge.get_context_for_prompt" in content
-        assert 'default_cli=["gemini"]' in content
+        assert "IntegrationBridge(memory_path=os.path.join(PROJECT_PATH, '.ledgermind'))" in content
         assert str(project_path) in content
 
 def test_bridge_context_cli(tmp_path):

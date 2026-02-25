@@ -30,7 +30,10 @@ memory = Memory(config=config)
 | `ttl_days` | `int ≥ 1` | `30` | Days before episodic events are archived. |
 | `trust_boundary` | `Enum` | `AGENT_WITH_INTENT` | Who can write to semantic memory. |
 | `namespace` | `str` | `default` | Logical partition for multi-tenant isolation. |
-| `flat_storage` | `bool` | `False` | (Internal) Keep all MD files in root semantic folder. |
+| `vector_model` | `str` | *path* | Local path to `.gguf` file or HF model ID. |
+| `vector_workers` | `int` | `0` | Workers for multi-process encoding (0=auto). |
+| `enable_git` | `bool` | `True` | Enable Git-based audit log and versioning. |
+| `relevance_threshold` | `float` | `0.45` | Minimum score for RAG context injection. |
 
 ---
 
@@ -47,9 +50,6 @@ The VS Code integration uses a "Shadow File" strategy.
 You can modify the "Custom Instructions" to change how the agent interacts
 with the shadow file. We recommend the default: *"Always read 
 .ledgermind_context.md at the beginning of every task."*
-| `vector_model` | `str` | *path* | Local path to `.gguf` file or HF model ID. |
-| `vector_workers` | `int` | `0` | Workers for multi-process encoding (0=auto). |
-| `relevance_threshold` | `float` | `0.35` | Minimum score for RAG context injection. |
 
 ---
 

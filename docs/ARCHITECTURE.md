@@ -186,6 +186,32 @@ resolution** for file modification times to prevent cache collisions.
 
 ---
 
+## Autonomous Maintenance & Self-Healing
+
+LedgerMind is designed to survive in unpredictable environments (like Termux 
+or intermittent CI runners).
+
+**1. Self-Healing Index**
+If the SQLite metadata index (`semantic_meta.db`) is deleted or becomes 
+corrupted, the system automatically triggers a `sync_meta_index()` during 
+initialization. It crawls the filesystem, parses all `.md` files, and 
+reconstructs the relational index and FTS5 search tables from the 
+ground truth on disk.
+
+**2. Deep Truth Resolution**
+When searching in `balanced` mode, LedgerMind doesn't just return the 
+most relevant record. It recursively follows the `superseded_by` chain for 
+every candidate to ensure that if a newer "truth" exists, it is the one 
+provided as context to the agent.
+
+**3. Multiprocess Safety**
+The `FileSystemLock` combines `threading.RLock` with Unix `fcntl` advisory 
+locking. This ensures that a background worker and an active agent process 
+can safely share the same memory directory without corrupting the Git 
+repository or SQLite databases.
+
+---
+
 ## Trust Boundaries
 
 | Mode | Effect |
