@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771987062666,
+  "lastUpdate": 1771987229438,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -988,6 +988,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00011272373660298737",
             "extra": "mean: 4.121104569218494 msec\nrounds: 65"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "f0c69ad9b7b9e2d1ee76de06d06e512565df2eb1",
+          "message": "Update README",
+          "timestamp": "2026-02-25T05:36:05+03:00",
+          "tree_id": "0742abd4d19f817f7bff68549f223e7580ba19d7",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f0c69ad9b7b9e2d1ee76de06d06e512565df2eb1"
+        },
+        "date": 1771987228471,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 31.10205375071564,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0029171642928800135",
+            "extra": "mean: 32.15221760000304 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 248.89272810517542,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009903611264647521",
+            "extra": "mean: 4.017795166668858 msec\nrounds: 66"
           }
         ]
       }
