@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.8.2** · Autonomous Memory Management System for AI Agents
+**v2.8.3** · Autonomous Memory Management System for AI Agents
 
 ![Banner](assets/banner.png)
 
@@ -74,8 +74,8 @@ without any intervention from the developer or the agent.
 |---|---|
 | **Zero-Touch Automation** | `ledgermind install <client>` automatically injects hooks into Claude, Cursor, or Gemini CLI for 100% transparent memory operations without MCP tool calls. |
 | **Autonomous Heartbeat** | A background worker runs every 5 minutes: Git sync, reflection, decay, self-healing. |
-| **Probabilistic Reflection** | v2.8.2: Discover patterns using float success weights (0.0-1.0) and Target Inheritance for better clustering. |
-| **Procedural Distillation** | v2.8.2: Automatically converts successful trajectories into step-by-step instructions (`procedural.steps`). |
+| **Probabilistic Reflection** | Discover patterns using float success weights (0.0-1.0) and Target Inheritance for better clustering. |
+| **Procedural Distillation** | Automatically converts successful trajectories into step-by-step instructions (`procedural.steps`). |
 | **Intelligent Conflict Resolution** | Vector similarity analysis automatically supersedes outdated decisions (threshold: 70%). |
 | **Multi-agent Namespacing** | Logical partitioning of memory for multiple agents within a single project. |
 | **4-bit GGUF Integration** | Optimized for Termux/Android with embedding caching for maximum stability. |
@@ -240,15 +240,15 @@ search. Decisions with more "Evidence Links" (episodic events) receive a
 
 ---
 
-## Benchmarks (February 25, 2Y, v2.8.2)
+## Benchmarks (February 25, 2026, v2.8.3)
 
-LedgerMind (v2.8.2) is optimized for high-speed operation on **Android/Termux**
+LedgerMind is optimized for high-speed operation on **Android/Termux**
 as well as containerized environments. It includes built-in security for MCP and
 REST endpoints.
 
 ### Retrieval Performance (Jina v5 Small Q4_K_M)
 
-| Metric | Mean (v2.8.2) | Note |
+| Metric | Mean | Note |
 | :--- | :---: | :--- |
 | **Search p95 (ms)** | **29.2 ms** | Hybrid RRF (Vector + Keyword) |
 | **Write p95 (ms)** | **251.4 ms** | Optimized Metadata Indexing |

@@ -130,10 +130,10 @@ print(f"Generated {len(proposal_ids)} proposals")
 
 **What the ReflectionEngine does:**
 1. Clusters events by `target` — errors targeting "redis" form a cluster.
-2. **Target Inheritance (v2.8.2):** Prompts and results inherit the "redis" target from nearby actions.
-3. **Probabilistic Scoring (v2.8.2):** `success` is measured as a float (e.g. 0.8 success weight).
+2. **Target Inheritance:** Prompts and results inherit the "redis" target from nearby actions.
+3. **Probabilistic Scoring:** `success` is measured as a float (e.g. 0.8 success weight).
 4. `errors (3) >= error_threshold (1)` → triggers hypothesis generation.
-5. **Procedural Distillation (v2.8.2):** The engine extracts the "golden path" of actions that led to success and populates `procedural.steps`.
+5. **Procedural Distillation:** The engine extracts the "golden path" of actions that led to success and populates `procedural.steps`.
 6. Two competing proposals are created:
    - **H1 "Structural flaw in redis"** — `confidence=0.5`, posits a logical config error
    - **H2 "Environmental noise in redis"** — `confidence=0.4`, posits transient failures

@@ -57,7 +57,7 @@ class ProposalContent(BaseModel):
     confidence: float
     evidence_event_ids: List[int] = []
     suggested_supersedes: List[str] = []
-    procedural: Optional[ProceduralContent] = None # Added in v2.8.2
+    procedural: Optional[ProceduralContent] = None
     ready_for_review: bool = False
 ```
 
