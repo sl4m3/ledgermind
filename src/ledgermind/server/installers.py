@@ -129,31 +129,115 @@ class GeminiInstaller(BaseInstaller):
         # For Gemini CLI, we create a Python hook that the CLI can import or call
         hook_file = os.path.join(self.hooks_dir, "ledgermind_hook.py")
         with open(hook_file, "w") as f:
-            f.write(f"""
-import os
+            f.write(f"""import os
 import sys
+import datetime
+import json
 
-# Add the project's src directory to sys.path if not already there
-# This ensures we can import ledgermind even if not installed globally
-project_src = os.path.join("{project_path}", "src")
-if os.path.exists(project_src) and project_src not in sys.path:
-    sys.path.insert(0, project_src)
+LOG_FILE = os.path.expanduser('~/.gemini/hooks/ledgermind_debug.log')
+PROJECT_PATH = '{project_path}'
 
-try:
-    from ledgermind.core.api.bridge import IntegrationBridge
-    bridge = IntegrationBridge(memory_path="{project_path}", default_cli=["gemini"])
+def log_debug(msg):
+    try:
+        os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
+        with open(LOG_FILE, 'a') as f:
+            f.write(f'{{datetime.datetime.now()}} - {{msg}}\\n')
+    except:
+        pass
+
+def main():
+    log_debug(f'--- Hook Execution Start ---')
+    log_debug(f'Args: {{sys.argv}}')
     
-    def before_prompt(prompt):
-        \"\"\"Injected before sending the prompt to the LLM.\"\"\"
-        return bridge.get_context_for_prompt(prompt)
+    stdin_data = ''
+    if not sys.stdin.isatty():
+        try:
+            stdin_data = sys.stdin.read()
+            log_debug(f'Captured stdin (length: {{len(stdin_data)}})')
+        except Exception as e:
+            log_debug(f'Error reading stdin: {{str(e)}}')
 
-    def after_interaction(prompt, response, success=True, metadata=None):
-        \"\"\"Injected after receiving the response from the LLM.\"\"\"
-        bridge.record_interaction(prompt=prompt, response=response, success=success, metadata=metadata)
+    project_src = os.path.join(PROJECT_PATH, 'src')
+    if os.path.exists(project_src) and project_src not in sys.path:
+        sys.path.insert(0, project_src)
+
+    try:
+        from ledgermind.core.api.bridge import IntegrationBridge
+        bridge = IntegrationBridge(memory_path=os.path.join(PROJECT_PATH, '.ledgermind'))
         
-except ImportError:
-    # Silent fail if ledgermind is not available to avoid breaking the CLI
-    pass
+        action = sys.argv[1] if len(sys.argv) > 1 else 'unknown'
+        
+        if action == 'before':
+            log_debug('Processing BeforeAgent')
+            if stdin_data:
+                bridge.memory.process_event(source='user', kind='prompt', content=stdin_data)
+                log_debug('Prompt recorded to episodic.db')
+                
+                context = bridge.get_context_for_prompt(stdin_data)
+                if context:
+                    sys.stdout.write(context + '\\n\\n')
+                    log_debug('Context injected to stdout')
+
+        elif action == 'after':
+            log_debug('Processing AfterAgent')
+            if stdin_data:
+                try:
+                    data = json.loads(stdin_data)
+                    transcript_path = data.get("transcript_path")
+                    if transcript_path and os.path.exists(transcript_path):
+                        with open(transcript_path, 'r', encoding='utf-8') as f:
+                            transcript = json.load(f)
+                        
+                        turns = transcript.get("messages", transcript.get("turns", []))
+                        last_user_idx = -1
+                        for i in range(len(turns) - 1, -1, -1):
+                            if turns[i].get("type") == "user" or turns[i].get("role") == "user":
+                                last_user_idx = i
+                                break
+                        
+                        gemini_turns = turns[last_user_idx + 1:] if last_user_idx != -1 else []
+                        if not gemini_turns and turns:
+                            gemini_turns = [turns[-1]]
+
+                        events_recorded = 0
+                        for t in gemini_turns:
+                            if t.get("type") in ["gemini", "agent", "assistant"] or t.get("role") in ["assistant", "agent", "gemini"]:
+                                text_content = t.get("content", "").strip()
+                                if text_content:
+                                    bridge.memory.process_event(source='agent', kind='result', content=text_content)
+                                    events_recorded += 1
+                                
+                                tool_calls = t.get("toolCalls", [])
+                                for tc in tool_calls:
+                                    tool_name = tc.get("name", "unknown")
+                                    status = tc.get("status", "unknown")
+                                    args_str = json.dumps(tc.get("args", {{}}), ensure_ascii=False)
+                                    
+                                    result_str = tc.get("resultDisplay", "")
+                                    if not result_str and tc.get("result"):
+                                        result_str = json.dumps(tc.get("result"), ensure_ascii=False)
+                                    
+                                    tool_event_content = f"Tool: {{tool_name}}\\nStatus: {{status}}\\nArgs: {{args_str}}\\nResult:\\n{{result_str}}"
+                                    bridge.memory.process_event(source='agent', kind='call', content=tool_event_content)
+                                    events_recorded += 1
+
+                        if events_recorded == 0:
+                            bridge.memory.process_event(source='agent', kind='result', content=stdin_data)
+                        
+                        log_debug(f'Separated {{events_recorded}} events recorded to episodic.db')
+                    else:
+                        bridge.memory.process_event(source='agent', kind='result', content=stdin_data)
+                        log_debug('Raw response recorded to episodic.db')
+
+                except Exception as e:
+                    bridge.memory.process_event(source='agent', kind='result', content=stdin_data)
+                    log_debug(f'Raw response recorded (fallback): {{e}}')
+
+    except Exception as e:
+        log_debug(f'Error in main: {{str(e)}}')
+
+if __name__ == '__main__':
+    main()
 """)
         print(f"✓ Installed Gemini CLI hooks successfully.")
 
