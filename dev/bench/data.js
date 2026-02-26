@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126478741,
+  "lastUpdate": 1772126539441,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2090,6 +2090,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0004779276680901805",
             "extra": "mean: 4.733356672132783 msec\nrounds: 61"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "676761f3f0b2b9002ed4733037f67134c0e1b21b",
+          "message": "feat(test): add tests for EventEmitter (#20)\n\nAdded a new test file `tests/core/utils/test_events.py` to test the `EventEmitter` class.\n- Tests `subscribe` method for adding callbacks and avoiding duplicates.\n- Tests `emit` method for synchronous and asynchronous callbacks.\n- Tests exception handling in callbacks.\n- Verified with `pytest`.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:16:52+03:00",
+          "tree_id": "9923aa540b9f0dca51e3e98f9064ee9963edf43b",
+          "url": "https://github.com/sl4m3/ledgermind/commit/676761f3f0b2b9002ed4733037f67134c0e1b21b"
+        },
+        "date": 1772126538435,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 30.224676401465015,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002174428976763742",
+            "extra": "mean: 33.08554860000186 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 212.84751515093689,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004560813754957968",
+            "extra": "mean: 4.698199080646389 msec\nrounds: 62"
           }
         ]
       }
