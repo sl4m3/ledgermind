@@ -158,7 +158,7 @@ class SemanticMetaStore:
         self._conn.row_factory = sqlite3.Row
         placeholders = ','.join('?' for _ in fids)
         cursor = self._conn.cursor()
-        cursor.execute(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", fids)
+        cursor.execute(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", fids) # nosec B608
         return [dict(row) for row in cursor.fetchall()]
 
     def get_active_fid(self, target: str, namespace: str = "default") -> Optional[str]:
