@@ -196,7 +196,9 @@ class VectorStore:
                 )
             except Exception as e:
                 logger.warning(f"Standard loading failed, trying fallback: {e}")
-                model = SentenceTransformer(self.model_name, trust_remote_code=True)
+                # Use module import to avoid UnboundLocalError if shadowing global class
+                import sentence_transformers
+                model = sentence_transformers.SentenceTransformer(self.model_name, trust_remote_code=True)
 
             model.show_progress_bar = False
             dim = model.get_sentence_embedding_dimension()

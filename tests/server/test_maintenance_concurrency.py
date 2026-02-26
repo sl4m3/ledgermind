@@ -3,12 +3,14 @@ import threading
 from unittest.mock import MagicMock, patch
 from ledgermind.server.server import MCPServer
 from ledgermind.core.api.memory import Memory
+from ledgermind.server.background import BackgroundWorker
 
 def test_maintenance_thread_singleton():
     """Verify that BackgroundWorker initializes correctly and only once per server."""
     mock_memory = MagicMock(spec=Memory)
     
-    with patch("ledgermind.server.background.BackgroundWorker.start") as mock_start:
+    # Use patch.object to avoid import path resolution issues
+    with patch.object(BackgroundWorker, "start") as mock_start:
         server1 = MCPServer(memory=mock_memory)
         # Check if worker was created
         assert hasattr(server1, 'worker')
