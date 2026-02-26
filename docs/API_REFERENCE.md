@@ -358,7 +358,7 @@ High-level facade designed for embedding LedgerMind into CLI tools and agents. W
 ```python
 IntegrationBridge(
     memory_path: str = ".ledgermind",
-    relevance_threshold: float = 0.5,
+    relevance_threshold: float = 0.7,
 )
 ```
 

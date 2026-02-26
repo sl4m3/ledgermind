@@ -57,7 +57,7 @@ Memory (core/api/memory.py)
 │   ├── GGUF Support       4-bit quantization via llama-cpp-python
 │   ├── Embedding Cache    Lru-style cache prevents redundant llama.cpp calls
 │   ├── Model Caching      Singleton pattern avoids redundant RAM usage
-│   └── Auto-Dimension     Dynamic detection (e.g. 1024 for Jina v5 Small)
+│   └── Auto-Dimension     Dynamic detection (e.g. 1024 for Jina 2.8.5 Small)
 │
 ├── ConflictEngine         Detects collisions within specific namespaces
 ├── Webhook Dispatcher     Async HTTP POST notifications for memory events

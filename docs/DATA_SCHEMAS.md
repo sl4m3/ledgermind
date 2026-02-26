@@ -109,7 +109,7 @@ class LedgermindConfig(BaseModel):
     namespace: str = "default"
     vector_model: str = ".ledgermind/models/2.7.9-small-text-matching-Q4_K_M.gguf"
     vector_workers: int = 0
-    relevance_threshold: float = 0.35
+    relevance_threshold: float = 0.7
 ```
 
 ---
