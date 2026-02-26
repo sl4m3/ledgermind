@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772075114301,
+  "lastUpdate": 1772075387767,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1482,6 +1482,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005501222757132618",
             "extra": "mean: 4.465336156246558 msec\nrounds: 64"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "ef1b87d95d714c9d573440b617cc8d56fc58b771",
+          "message": "refactor: update documentation, core logic and server components",
+          "timestamp": "2026-02-26T06:05:30+03:00",
+          "tree_id": "b478de8b4254bc63478bb78117f5eebe0ee9fba8",
+          "url": "https://github.com/sl4m3/ledgermind/commit/ef1b87d95d714c9d573440b617cc8d56fc58b771"
+        },
+        "date": 1772075387360,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 26.830696667365295,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0030457234294918177",
+            "extra": "mean: 37.27074299998776 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 225.1487984285796,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00044360773687831834",
+            "extra": "mean: 4.441507158730026 msec\nrounds: 63"
           }
         ]
       }
