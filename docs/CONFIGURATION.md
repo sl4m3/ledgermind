@@ -17,7 +17,7 @@ config = LedgermindConfig(
     ttl_days=30,
     trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
     namespace="default",
-    vector_model="../.ledgermind/models/2.8.5-small-text-matching-Q4_K_M.gguf",
+    vector_model="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
     vector_workers=0, # Auto-detect for multiprocessing
     relevance_threshold=0.7,
 )
@@ -111,7 +111,7 @@ ledgermind-mcp run --capabilities '{"read":true,"propose":true,"supersede":true}
 
 | Model | Dimensions | Size | Notes |
 |---|---|---|---|
-| **Jina 2.8.5 Small GGUF** | **1024** | **~400MB** | **Recommended.** Best CPU performance. |
+| **Jina v5 Small GGUF** | **1024** | **~400MB** | **Recommended.** Best CPU performance. |
 | `all-MiniLM-L6-2.8.2` | 384 | 80MB | Legacy default. Very fast. |
 | `all-mpnet-base-2.8.2` | 768 | 420MB | Higher quality, slower. |
 

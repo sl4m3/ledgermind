@@ -54,8 +54,13 @@ class IntegrationBridge:
                     memories.append({
                         "id": fid,
                         "title": item.get('title'),
+                        "target": item.get('target'),
+                        "status": item.get('status'),
                         "path": os.path.join(self.memory_path, "semantic", fid),
-                        "content": item.get('preview')
+                        "content": item.get('content'),
+                        "rationale": item.get('rationale'),
+                        "consequences": item.get('consequences'),
+                        "expected_outcome": item.get('expected_outcome')
                     })
             return memories
         except Exception as e:
@@ -82,7 +87,7 @@ class IntegrationBridge:
         
         # Add instruction for the agent on how to use paths
         for m in memories:
-            m["instruction"] = f"CRITICAL: MUST use 'cat {m['path']}' to read this record. DO NOT use 'read_file' as it is restricted from accessing this knowledge directory."
+            m["instruction"] = f"CRITICAL: Key fields (rationale, consequences, expected_outcome, content) are already injected for your convenience. Use 'cat {m['path']}' ONLY if you need to see the raw YAML frontmatter or full history of this record."
 
         json_data = json.dumps({
             "source": "ledgermind",
