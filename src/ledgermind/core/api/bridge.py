@@ -14,7 +14,7 @@ class IntegrationBridge:
     Provides streamlined methods for context injection and interaction recording.
     """
     
-    def __init__(self, memory_path: str = ".ledgermind", relevance_threshold: float = 0.7, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None, memory_instance: Optional[Memory] = None):
+    def __init__(self, memory_path: str = "ledgermind", relevance_threshold: float = 0.7, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None, memory_instance: Optional[Memory] = None):
         self.memory_path = os.path.abspath(memory_path)
         if memory_instance:
             self._memory = memory_instance

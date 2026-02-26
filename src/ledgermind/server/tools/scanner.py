@@ -9,7 +9,7 @@ class ProjectScanner:
         self.root_path = root_path
         self.ignore_dirs = {
             ".git", "node_modules", "venv", ".venv", "__pycache__", 
-            ".pytest_cache", ".ledgermind", "build", "dist", ".idea", ".vscode", "target"
+            ".pytest_cache", "ledgermind", "build", "dist", ".idea", ".vscode", "target"
         }
         self.target_files = {
             "README.md", "ARCHITECTURE.md", "pyproject.toml", "package.json", 

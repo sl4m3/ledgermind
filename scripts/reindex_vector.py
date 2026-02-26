@@ -1,7 +1,7 @@
 from ledgermind.core.api.memory import Memory
 
 def reindex_vector_store():
-    m = Memory(storage_path=".ledgermind")
+    m = Memory(storage_path="ledgermind")
     print("Clearing vector store...")
     m.vector._vectors = None
     m.vector._doc_ids = []
