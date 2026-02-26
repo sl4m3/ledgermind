@@ -827,10 +827,32 @@ class Memory:
         sorted_fids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
         
         # 4. Resolve truth and apply Evidence Boost to ALL candidates
+
+        # Batch Fetch Optimization
+        # Fetch initial candidates
+        candidates_meta = self.semantic.meta.get_batch_by_fids(sorted_fids)
+        request_cache = {m['fid']: m for m in candidates_meta}
+
+        # Iteratively fetch superseded documents
+        current_layer_ids = [m['superseded_by'] for m in candidates_meta if m.get('superseded_by')]
+        # Filter out what we already have
+        current_layer_ids = [fid for fid in current_layer_ids if fid and fid not in request_cache]
+
+        iteration = 0
+        while current_layer_ids and iteration < 5:
+            new_batch = self.semantic.meta.get_batch_by_fids(current_layer_ids)
+            for m in new_batch:
+                request_cache[m['fid']] = m
+
+            # Prepare next layer
+            current_layer_ids = [m['superseded_by'] for m in new_batch if m.get('superseded_by')]
+            current_layer_ids = [fid for fid in current_layer_ids if fid and fid not in request_cache]
+            iteration += 1
+
         all_candidates = []
         for fid in sorted_fids:
             # Resolve to truth (handle superseding)
-            meta = self._resolve_to_truth(fid, mode)
+            meta = self._resolve_to_truth(fid, mode, cache=request_cache)
             if not meta: continue
             
             # Namespace Filter
@@ -908,13 +930,19 @@ class Memory:
         return final_results
 
 
-    def _resolve_to_truth(self, doc_id: str, mode: str) -> Optional[Dict[str, Any]]:
+    def _resolve_to_truth(self, doc_id: str, mode: str, cache: Optional[Dict[str, Dict[str, Any]]] = None) -> Optional[Dict[str, Any]]:
         """Recursively follows 'superseded_by' links using Metadata Store."""
         self.semantic._validate_fid(doc_id)
         current_id = doc_id
         depth = 0
         while depth < 20:
-            meta = self.semantic.meta.get_by_fid(current_id)
+            if cache and current_id in cache:
+                meta = cache[current_id]
+            else:
+                meta = self.semantic.meta.get_by_fid(current_id)
+                if cache is not None and meta:
+                    cache[current_id] = meta
+
             if not meta: return None
             
             status = meta.get("status")
