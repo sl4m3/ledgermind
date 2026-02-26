@@ -11,13 +11,13 @@ These commands are used by the **Hooks Pack** to interact with LedgerMind withou
 #### `bridge-context`
 Returns formatted context for a prompt.
 ```bash
-ledgermind-mcp bridge-context --path ./memory --prompt "User request"
+ledgermind-mcp bridge-context --path ledgermind --prompt "User request"
 ```
 
 #### `bridge-record`
 Records interaction in the background.
 ```bash
-ledgermind-mcp bridge-record --path ./memory --prompt "t" --response "r" --success
+ledgermind-mcp bridge-record --path ledgermind --prompt "t" --response "r" --success
 ```
 
 ---
@@ -32,7 +32,7 @@ The main entry point for LedgerMind. Initializes and orchestrates all subsystems
 
 ```python
 Memory(
-    storage_path: str = "./memory",
+    storage_path: str = "ledgermind",
     config: Optional[LedgermindConfig] = None,
     ttl_days: Optional[int] = None,
     trust_boundary: Optional[TrustBoundary] = None,
@@ -357,7 +357,7 @@ High-level facade designed for embedding LedgerMind into CLI tools and agents. W
 
 ```python
 IntegrationBridge(
-    memory_path: str = ".ledgermind",
+    memory_path: str = "ledgermind",
     relevance_threshold: float = 0.7,
 )
 ```

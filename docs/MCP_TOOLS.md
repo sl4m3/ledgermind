@@ -67,7 +67,7 @@ Analyzes the project structure and key files to initialize base knowledge in the
 
 **Capability required:** `read`
 
-**Behavior:** This is the recommended entry point for an agent entering a new project. It performs a **Deep Scan** of all `.md` files and configuration files. It also provides a specific prompt to the agent on how to correctly use `record_decision` to maintain a flat memory structure in `.ledgermind/semantic/`.
+**Behavior:** This is the recommended entry point for an agent entering a new project. It performs a **Deep Scan** of all `.md` files and configuration files. It also provides a specific prompt to the agent on how to correctly use `record_decision` to maintain a flat memory structure in `ledgermind/semantic/`.
 
 **Example:**
 ```json
@@ -89,7 +89,7 @@ Installs hooks and extensions for a specific client to enable Zero-Touch operati
 | `path` | string | ✓ | Project path for memory synchronization |
 
 **Behavior per client:**
-- **`vscode`**: Performs a **Hardcore** installation. It installs the LedgerMind VS Code extension, configures Roo Code (Cline) to use the MCP server, and injects a policy to always read the `.ledgermind_context.md` shadow file for proactive knowledge injection.
+- **`vscode`**: Performs a **Hardcore** installation. It installs the LedgerMind VS Code extension, configures Roo Code (Cline) to use the MCP server, and injects a policy to always read the `ledgermind_context.md` shadow file for proactive knowledge injection.
 - **`claude`**: Injects shell hooks into `~/.claude/settings.json` for prompt enrichment and interaction logging in the Claude CLI.
 - **`cursor`**: Configures `hooks.json` to call LedgerMind before and after agent actions.
 - **`gemini`**: Injects Python hooks for the Gemini CLI.

@@ -36,7 +36,7 @@ class MCPServer:
     def __init__(self, 
                  memory: Memory, 
                  server_name: str = "Ledgermind", 
-                 storage_path: str = ".ledgermind",
+                 storage_path: str = "ledgermind",
                  capabilities: Optional[Dict[str, bool]] = None,
                  metrics_port: Optional[int] = None,
                  rest_port: Optional[int] = None,
@@ -465,7 +465,7 @@ class MCPServer:
 
     @classmethod
     def serve(cls, 
-              storage_path: str = ".ledgermind", 
+              storage_path: str = "ledgermind", 
               server_name: str = "Ledgermind",
               capabilities: Optional[Dict[str, bool]] = None,
               metrics_port: Optional[int] = None,
