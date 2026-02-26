@@ -1,5 +1,6 @@
 import os
 import yaml
+import json
 import logging
 import shutil
 import subprocess
@@ -855,10 +856,6 @@ class Memory:
             
             final_score = (scores[fid] / max_rrf) * (1.0 + boost) * status_multiplier
             
-            # Extract Rationale and Consequences from context_json
-            import json
-            ctx = json.loads(meta.get('context_json', '{}'))
-            
             all_candidates.append({
                 "id": final_id,
                 "score": final_score,
@@ -867,9 +864,7 @@ class Memory:
                 "preview": meta.get("title", "unknown"),
                 "target": meta.get("target", "unknown"),
                 "content": meta.get("content", ""),
-                "rationale": ctx.get("rationale"),
-                "consequences": ctx.get("consequences"),
-                "expected_outcome": ctx.get("expected_outcome"),
+                "context_json": meta.get('context_json', '{}'),
                 "kind": meta.get("kind"),
                 "is_active": (status == "active"),
                 "evidence_count": link_count
@@ -888,6 +883,16 @@ class Memory:
             if skipped < offset:
                 skipped += 1
                 continue
+            
+            # Extract Rationale and Consequences from context_json only for final results
+            try:
+                ctx = json.loads(cand.pop('context_json'))
+            except Exception:
+                ctx = {}
+                
+            cand["rationale"] = ctx.get("rationale")
+            cand["consequences"] = ctx.get("consequences")
+            cand["expected_outcome"] = ctx.get("expected_outcome")
                 
             final_results.append(cand)
             seen_ids.add(cand['id'])
