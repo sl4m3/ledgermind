@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126829625,
+  "lastUpdate": 1772126896666,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2356,6 +2356,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0004413584223011655",
             "extra": "mean: 4.63451350000293 msec\nrounds: 66"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6e9ffee1b448eb98f5b31c91bd2b29e9172ebf56",
+          "message": "feat(tests): add comprehensive tests for ProjectScanner (#12)\n\n- Implement `tests/server/test_scanner.py` using `unittest` and `tempfile`.\n- Cover scenarios: basic structure, ignored directories, max depth, file size limit, content truncation, and empty directory.\n- Verify `scan()` method output structure and content.\n- Improve test coverage for `ledgermind.server.tools.scanner`.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:23:28+03:00",
+          "tree_id": "8807fcadde031d5c23ffcea063cd1afb4957a951",
+          "url": "https://github.com/sl4m3/ledgermind/commit/6e9ffee1b448eb98f5b31c91bd2b29e9172ebf56"
+        },
+        "date": 1772126895616,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 28.59171022361442,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002303125525694381",
+            "extra": "mean: 34.97517259999654 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 215.60377240935122,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005206281990413516",
+            "extra": "mean: 4.638137769228697 msec\nrounds: 52"
           }
         ]
       }
