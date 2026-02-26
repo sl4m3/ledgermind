@@ -36,12 +36,14 @@
 ## 📈 Recent Activity
 
 **Last 14 days:**
-- **2,054 Git clones** (547 unique cloners)
+- **2,353 Git clones** (647 unique cloners)
 - Strong PyPI growth (hundreds of downloads in recent days)
 
 **Installed & used in:**
-- Gemini CLI (100% zero-touch, fully stable), Claude Code, Cursor
-- Claude Desktop & VS Code (support rolling out now)
+- Gemini CLI (100% zero-touch, fully stable)
+- Claude Code
+- Cursor
+- VS Code
 
 **Featured & Published:**
 - New article on **Dev.to**: ["True Zero-Touch Autonomus Memory for AI Agents"](https://dev.to/sl4m3/ledgermind-zero-touch-memory-that-survives-real-agent-work-46lh)
@@ -97,41 +99,49 @@ without any intervention from the developer or the agent.
 
 ```mermaid
 graph TD
-    subgraph Core ["LedgerMind Core"]
-        Bridge["Integration Bridge"]
-        Memory["Memory (Main API)"]
-        Server["MCP / REST Server"]
-        
-        Bridge --> Memory
-        Server <--> Memory
-        
-        subgraph Stores ["Storage Layer"]
-            Semantic["Semantic Store (Git + MD)"]
-            Episodic["Episodic Store (SQLite)"]
-            Vector["Vector Index (NumPy/Jina v5 GGUF)"]
-        end
-        
-        Memory --> Semantic
-        Memory --> Episodic
-        Memory --> Vector
-        
-        subgraph Reasoning ["Reasoning Layer"]
-            Conflict["Conflict Engine"]
-            Reflection["Reflection Engine"]
-            Decay["Decay Engine"]
-            Merge["Merge Engine"]
-            Distillation["Distillation Engine"]
-        end
-        
-        Memory -.-> Reasoning
+    subgraph Clients ["Client Layer (Zero-Touch)"]
+        Hooks["Hooks Pack (Gemini, Claude, Cursor, VS Code)"]
+        MCP["MCP Clients / CLI"]
     end
 
-    subgraph Background ["Background Process"]
-        Worker["Background Worker (Heartbeat)"]
-        Worker --- WorkerAction["Health Check | Git Sync | Reflection | Decay"]
-        Worker -.-> Webhooks["HTTP Webhooks"]
+    subgraph Core ["LedgerMind Core (Orchestrator)"]
+        Bridge["Integration Bridge"]
+        Memory["Memory API"]
+        Router["Memory Router"]
+        Registry["Target Registry"]
+        
+        Hooks --> Bridge
+        MCP <--> Memory
+        Bridge --> Memory
+        Memory --> Router
+        Router --> Registry
     end
+
+    subgraph Stores ["Hybrid Storage Layer"]
+        Semantic["<b>Semantic Store</b><br/>Markdown Files<br/>Git Audit Log<br/>SQLite Metadata"]
+        Episodic["<b>Episodic Store</b><br/>SQLite WAL<br/>Interaction Journal"]
+        Vector["<b>Vector Store</b><br/>NumPy / Jina v5<br/>Embedding Cache"]
+    end
+
+    Router --> Semantic
+    Router --> Episodic
+    Router --> Vector
+
+    subgraph Reasoning ["Reasoning & Evolution"]
+        Conflict["Conflict Engine"]
+        Reflection["Reflection Engine"]
+        Distillation["Distillation Engine"]
+        Decay["Decay Engine"]
+    end
+
+    Memory -.-> Reasoning
     
+    subgraph Maintenance ["Autonomous Maintenance"]
+        Worker["Background Worker (Heartbeat)"]
+        WorkerAction["Self-Healing<br/>Git Sync<br/>Truth Resolution"]
+        Worker --- WorkerAction
+    end
+
     Worker -.-> Memory
 ```
 
