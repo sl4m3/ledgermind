@@ -97,53 +97,7 @@ without any intervention from the developer or the agent.
 
 ## Architecture at a Glance
 
-```mermaid
-graph TD
-    subgraph Clients ["Client Layer (Zero-Touch)"]
-        Hooks["Hooks Pack (Gemini, Claude, Cursor, VS Code)"]
-        MCP["MCP Clients / CLI"]
-    end
-
-    subgraph Core ["LedgerMind Core (Orchestrator)"]
-        Bridge["Integration Bridge"]
-        Memory["Memory API"]
-        Router["Memory Router"]
-        Registry["Target Registry"]
-        
-        Hooks --> Bridge
-        MCP <--> Memory
-        Bridge --> Memory
-        Memory --> Router
-        Router --> Registry
-    end
-
-    subgraph Stores ["Hybrid Storage Layer"]
-        Semantic["<b>Semantic Store</b><br/>Markdown Files<br/>Git Audit Log<br/>SQLite Metadata"]
-        Episodic["<b>Episodic Store</b><br/>SQLite WAL<br/>Interaction Journal"]
-        Vector["<b>Vector Store</b><br/>NumPy / Jina v5<br/>Embedding Cache"]
-    end
-
-    Router --> Semantic
-    Router --> Episodic
-    Router --> Vector
-
-    subgraph Reasoning ["Reasoning & Evolution"]
-        Conflict["Conflict Engine"]
-        Reflection["Reflection Engine"]
-        Distillation["Distillation Engine"]
-        Decay["Decay Engine"]
-    end
-
-    Memory -.-> Reasoning
-    
-    subgraph Maintenance ["Autonomous Maintenance"]
-        Worker["Background Worker (Heartbeat)"]
-        WorkerAction["Self-Healing<br/>Git Sync<br/>Truth Resolution"]
-        Worker --- WorkerAction
-    end
-
-    Worker -.-> Memory
-```
+![Architecture](assets/core-arc.svg)
 
 ---
 
