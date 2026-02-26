@@ -263,8 +263,10 @@ class Memory:
                 decision.metadata["event_id"] = ev_id
                 self.events.emit("episodic_added", {"id": ev_id, "kind": event.kind})
             elif decision.store_type == "semantic":
+                print("DEBUG: Starting semantic transaction...")
                 # Use Transaction for atomic save + status updates
                 with self.semantic.transaction():
+                    print("DEBUG: Inside transaction block...")
                     # 1. Update back-links and deactivate old versions BEFORE saving new one
                     # to satisfy SQLite UNIQUE constraint on active targets.
                     if intent and intent.resolution_type == "supersede":
@@ -272,6 +274,7 @@ class Memory:
                             # Verify it exists and is active before deactivating
                             old_meta = self.semantic.meta.get_by_fid(old_id)
                             if old_meta and old_meta.get('status') == 'active':
+                                print(f"DEBUG: Deactivating old decision {old_id}...")
                                 self.semantic.update_decision(
                                     old_id, 
                                     {"status": "superseded"},
@@ -311,7 +314,9 @@ class Memory:
                             event.context['evidence_event_ids'] = context['evidence_event_ids']
 
                     # 3. Save new decision (this updates SQLite and Git)
+                    print("DEBUG: Calling semantic.save()...")
                     new_fid = self.semantic.save(event, namespace=effective_namespace)
+                    print(f"DEBUG: Saved new_fid={new_fid}")
                     
                     decision.metadata["file_id"] = new_fid
                     self.events.emit("semantic_added", {"id": new_fid, "kind": event.kind, "namespace": effective_namespace})
@@ -319,6 +324,7 @@ class Memory:
                     # 4. Now that we have new_fid, update back-links properly
                     if intent and intent.resolution_type == "supersede":
                         for old_id in intent.target_decision_ids:
+                            print(f"DEBUG: Linking {old_id} to new {new_fid}...")
                             self.semantic.update_decision(
                                 old_id, 
                                 {"status": "superseded", "superseded_by": new_fid},
@@ -349,6 +355,7 @@ class Memory:
                             except Exception as le:
                                 logger.warning(f"Failed to link grounding evidence {ev_id} to {new_fid}: {le}")
 
+                print("DEBUG: Transaction committed. Now indexing in VectorStore...")
                 # 3.5: Index in VectorStore (OUTSIDE transaction for massive speed gain)
                 try:
                     # Combine content with rationale for better grounded search
@@ -363,10 +370,14 @@ class Memory:
                     if rationale_val:
                         indexed_content = f"{event.content}\n{rationale_val}"
 
+                    print(f"DEBUG: Adding documents to VectorStore (ID: {new_fid})...")
                     self.vector.add_documents([{
                         "id": new_fid,
                         "content": indexed_content
                     }])
+                    print("DEBUG: Vector indexing completed.")
+                except Exception as ve:
+                    logger.warning(f"Vector indexing failed for {new_fid}: {ve}")
                 except Exception as ve:
                     logger.warning(f"Vector indexing failed for {new_fid}: {ve}")
 
@@ -611,7 +622,8 @@ class Memory:
 
                         if sim > 0.70:
                             logger.info(f"Auto-resolving conflict for {target} (similarity {sim:.2f}) -> Superseding {old_fid}")
-                            return self.supersede_decision(
+                            print(f"DEBUG: Calling supersede_decision for {old_fid}...")
+                            res = self.supersede_decision(
                                 title=title,
                                 target=target,
                                 rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
@@ -620,6 +632,8 @@ class Memory:
                                 evidence_ids=evidence_ids,
                                 namespace=effective_namespace
                             )
+                            print(f"DEBUG: supersede_decision completed for {old_fid}.")
+                            return res
             except Exception as e:
                 logger.warning(f"Auto-resolution failed: {e}")
             

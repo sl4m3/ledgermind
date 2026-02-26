@@ -76,7 +76,7 @@ def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold:
     import sys
     try:
         default_cli = [cli] if cli else None
-        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, relevance_threshold=threshold if threshold is not None else 0.5)
+        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, relevance_threshold=threshold if threshold is not None else 0.7)
         ctx = bridge.get_context_for_prompt(prompt)
         sys.stdout.write(ctx)
     except Exception as e:
