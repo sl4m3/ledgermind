@@ -9,7 +9,7 @@ import threading
 import subprocess
 from datetime import datetime
 from typing import List, Optional, Any, Dict, Tuple
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from ledgermind.core.core.schemas import MemoryEvent, TrustBoundary
 from ledgermind.core.stores.interfaces import MetadataStore, AuditProvider
 from ledgermind.core.stores.audit_git import GitAuditProvider
@@ -202,8 +202,12 @@ class SemanticStore:
                 self._remove_orphans(meta_files - disk_files)
                 
                 # Add/Update missing or changed files
-                for f in disk_files:
-                    self._update_meta_for_file(f, force=force)
+                # Use batch_update if not already in a transaction
+                cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
+
+                with cm:
+                    for f in disk_files:
+                        self._update_meta_for_file(f, force=force)
         finally:
             if should_lock: self._fs_lock.release()
 
