@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126278880,
+  "lastUpdate": 1772126291568,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1862,6 +1862,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00045873718264040353",
             "extra": "mean: 4.459668535714302 msec\nrounds: 56"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "749a4393817fcb36b82a1451709df6c860cccc01",
+          "message": "Fix security vulnerability in GitIndexer: Validate repo_path is within CWD (#11)\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:14:06+03:00",
+          "tree_id": "3d45208d37fd762e452f558c578ed950b3da57ef",
+          "url": "https://github.com/sl4m3/ledgermind/commit/749a4393817fcb36b82a1451709df6c860cccc01"
+        },
+        "date": 1772126291289,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 30.1389133256809,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0030628758141795337",
+            "extra": "mean: 33.17969660000699 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 220.55412542280806,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005215596485569087",
+            "extra": "mean: 4.534034437501333 msec\nrounds: 64"
           }
         ]
       }
