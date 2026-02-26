@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import List, Dict
 
 class ProjectScanner:
@@ -6,7 +7,13 @@ class ProjectScanner:
     Сканирует структуру проекта и ключевые файлы для инициализации базовых знаний в памяти агента.
     """
     def __init__(self, root_path: str = "."):
-        self.root_path = root_path
+        cwd = Path.cwd().resolve()
+        target_path = (cwd / root_path).resolve()
+
+        if not target_path.is_relative_to(cwd):
+             raise ValueError(f"Access denied: path '{root_path}' traverses outside the current working directory.")
+
+        self.root_path = str(target_path)
         self.ignore_dirs = {
             ".git", "node_modules", "venv", ".venv", "__pycache__", 
             ".pytest_cache", "ledgermind", "build", "dist", ".idea", ".vscode", "target"
