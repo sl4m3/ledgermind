@@ -6,13 +6,15 @@ from ledgermind.server.tools.scanner import ProjectScanner
 
 class TestProjectScanner(unittest.TestCase):
     def setUp(self):
-        # Create a temporary directory for each test
-        self.test_dir = tempfile.mkdtemp()
+        # Create a temporary directory inside the current working directory
+        # to satisfy ProjectScanner's path validation
+        self.test_dir = tempfile.mkdtemp(dir=os.getcwd())
         self.scanner = ProjectScanner(root_path=self.test_dir)
 
     def tearDown(self):
         # Remove the directory after the test
-        shutil.rmtree(self.test_dir)
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
 
     def _create_file(self, path, content):
         full_path = os.path.join(self.test_dir, path)
@@ -33,6 +35,12 @@ class TestProjectScanner(unittest.TestCase):
         self._create_file('.git/config', '[core]\nrepositoryformatversion = 0')
 
         report = self.scanner.scan()
+
+        # Verify structure
+        # The report will contain relative paths. Since we pass absolute path to root_path,
+        # the tree logic calculates rel_path.
+        # But wait, ProjectScanner.__init__ resolves root_path relative to cwd.
+        # If we pass an absolute path that is inside cwd, it should work.
 
         # Verify structure
         self.assertIn('- README.md', report)
@@ -62,24 +70,17 @@ class TestProjectScanner(unittest.TestCase):
         """Test that scanning stops at max_depth."""
         # Default max_depth is 7
         # Create deep structure: a/b/c/d/e/f/g/h/i/j (depth 10)
-        deep_path = 'a/b/c/d/e/f/g/h/i/j'
+        deep_path = os.path.join('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j')
         self._create_file(os.path.join(deep_path, 'deep_file.txt'), 'content')
 
         report = self.scanner.scan()
 
         # Depth 1: a/
         self.assertIn('- a/', report)
-        # Depth 7 should be visible, depth 8+ should not
+
         # Structure: root -> a (1) -> b (2) -> c (3) -> d (4) -> e (5) -> f (6) -> g (7) -> h (8)
-
-        # Let's verify specifically what is visible.
-        # scanner logic: depth = rel_path.count(os.sep) + 1
-        # if depth > self.max_depth: continue
-
-        # a is depth 1.
-        # ...
-        # g is depth 7.
-        # h is depth 8.
+        # Max depth is 7.
+        # g is depth 7. h is depth 8.
 
         self.assertIn('- g/', report)
         self.assertNotIn('- h/', report)
@@ -96,8 +97,14 @@ class TestProjectScanner(unittest.TestCase):
 
         report = self.scanner.scan()
 
-        self.assertIn('large_file.txt', report) # It should be in the tree
-        self.assertIn('File skipped: Exceeds size limit', report) # Content skipped
+        # It should be in the tree structure
+        # Depending on how scan() is implemented, it might list the file in the tree but skip content.
+        # The tree logic iterates files.
+        self.assertIn('large_file.txt', report)
+
+        # Content logic iterates target_files or .md files
+        # The skipped message is inside the content section
+        self.assertIn('File skipped: Exceeds size limit', report)
 
     def test_scan_content_truncation(self):
         """Test that large file content is truncated."""
@@ -109,8 +116,6 @@ class TestProjectScanner(unittest.TestCase):
         report = self.scanner.scan()
 
         self.assertIn('...[Truncated due to length]...', report)
-        # Verify the content length in report is roughly 6000 + message length
-        # We can't be exact due to other report text, but we can check it's there.
 
     def test_empty_directory(self):
         """Test scanning an empty directory."""
