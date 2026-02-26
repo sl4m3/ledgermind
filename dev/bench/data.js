@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126656064,
+  "lastUpdate": 1772126727286,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2280,6 +2280,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005014762724067608",
             "extra": "mean: 4.823727793104455 msec\nrounds: 58"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "590b2117521d4047b1e09dcc2e43b2e77e647108",
+          "message": "🧪 add unit tests for API contract validation models (#26)\n\n- Added tests/server/test_contracts.py with comprehensive tests for Pydantic models.\n- Covered RecordDecisionRequest, SupersedeDecisionRequest, SearchDecisionsRequest, and SyncGitHistoryRequest.\n- Included validation for min_length, value ranges, and default values.\n- Verified test logic via code review.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:18:44+03:00",
+          "tree_id": "58bbea5dc207aaf6f3aeccaab38fb293765b9e7f",
+          "url": "https://github.com/sl4m3/ledgermind/commit/590b2117521d4047b1e09dcc2e43b2e77e647108"
+        },
+        "date": 1772126726323,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 27.72956176983094,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003551282206652051",
+            "extra": "mean: 36.06259659999296 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 211.83392332416943,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005206963963293004",
+            "extra": "mean: 4.720679220342343 msec\nrounds: 59"
           }
         ]
       }
