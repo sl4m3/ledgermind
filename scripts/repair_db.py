@@ -48,7 +48,7 @@ def repair_db(db_path):
         print(f"✗ Error accessing {db_path}: {e}")
 
 def main():
-    storage_path = sys.argv[1] if len(sys.argv) > 1 else ".ledgermind"
+    storage_path = sys.argv[1] if len(sys.argv) > 1 else "ledgermind"
     
     dbs = [
         os.path.join(storage_path, "semantic", "metadata.db"),

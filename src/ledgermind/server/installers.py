@@ -167,7 +167,7 @@ def main():
 
     try:
         from ledgermind.core.api.bridge import IntegrationBridge
-        bridge = IntegrationBridge(memory_path=os.path.join(PROJECT_PATH, '.ledgermind'))
+        bridge = IntegrationBridge(memory_path=os.path.join(PROJECT_PATH, 'ledgermind'))
         
         action = sys.argv[1] if len(sys.argv) > 1 else 'unknown'
         
@@ -331,7 +331,7 @@ class VSCodeInstaller(BaseInstaller):
             print(f"✗ Failed to copy extension files: {e}")
 
     def _inject_custom_instructions(self, path: str):
-        instructions = "Always check for the existence of '.ledgermind_context.md' in the project root. If it exists, read it at the beginning of every task to synchronize with the autonomous memory and previous decisions."
+        instructions = "Always check for the existence of 'ledgermind_context.md' in the project root. If it exists, read it at the beginning of every task to synchronize with the autonomous memory and previous decisions."
         
         data = {}
         if os.path.exists(path):

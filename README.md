@@ -181,9 +181,11 @@ ledgermind install vscode --path ./memory
 from ledgermind.core.api.bridge import IntegrationBridge
 
 # Using Jina v5 Small 4-bit GGUF for best accuracy on CPU
+# NOTE: Using 'ledgermind' (without a dot) as the memory directory is preferred for 
+# better compatibility with file processing tools (e.g. read_file).
 bridge = IntegrationBridge(
-    memory_path="./memory", 
-    vector_model=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf"
+    memory_path="ledgermind", 
+    vector_model="ledgermind/models/v5-small-text-matching-Q4_K_M.gguf"
 )
 
 # Inject relevant context into your agent's prompt
@@ -205,7 +207,7 @@ bridge.memory.record_decision(
 export LEDGERMIND_API_KEY="your-secure-key"
 
 # Start the MCP server
-ledgermind-mcp run --path ./memory
+ledgermind-mcp run --path ledgermind
 ```
 
 ---

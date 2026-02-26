@@ -46,7 +46,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Агенты (Cline/Roo) будут настроены читать этот файл автоматически.
     const updateShadowContext = async (prompt?: string) => {
         const projectPath = getProjectPath();
-        const shadowFilePath = path.join(projectPath, '.ledgermind_context.md');
+        const shadowFilePath = path.join(projectPath, 'ledgermind_context.md');
         
         const query = prompt || "Current project state and relevant decisions";
         const cmd = `ledgermind-mcp bridge-context --path "${projectPath}" --prompt "${query.replace(/"/g, '\\"')}"`;

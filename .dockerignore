@@ -2,7 +2,7 @@
 .pytest_cache
 .benchmarks
 .hypothesis
-.ledgermind
+ledgermind
 __pycache__
 *.egg-info
 dist

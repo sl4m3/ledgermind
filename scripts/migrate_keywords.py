@@ -41,4 +41,4 @@ def migrate_keywords(repo_path):
                     print(f"Failed to migrate {f}: {e}")
 
 if __name__ == "__main__":
-    migrate_keywords(".ledgermind/semantic")
+    migrate_keywords("ledgermind/semantic")

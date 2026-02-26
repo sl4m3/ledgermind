@@ -10,10 +10,8 @@ build/
 .idea/
 .vscode/
 .gemini/
-.ledgermind/
 .benchmarks/
 .hypothesis/
-/.ledgermind/
 /ledgermind/
 GEMINI.md
 # Benchmarking data

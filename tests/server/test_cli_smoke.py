@@ -39,7 +39,7 @@ def test_cli_help():
     assert "Ledgermind MCP Server Launcher" in result.stdout
 
 def test_cli_init_and_check(tmp_path):
-    memory_path = str(tmp_path / ".ledgermind")
+    memory_path = str(tmp_path / "ledgermind")
     
     # Test init
     result = run_cli(["init", "--path", memory_path])
@@ -54,7 +54,7 @@ def test_cli_init_and_check(tmp_path):
     assert "Git Available: ✓" in result.stdout
 
 def test_cli_stats(tmp_path):
-    memory_path = str(tmp_path / ".ledgermind")
+    memory_path = str(tmp_path / "ledgermind")
     run_cli(["init", "--path", memory_path])
     
     # Test stats
@@ -64,7 +64,7 @@ def test_cli_stats(tmp_path):
     assert "Episodic Events" in result.stdout
 
 def test_cli_verbose_logging(tmp_path):
-    memory_path = str(tmp_path / ".ledgermind")
+    memory_path = str(tmp_path / "ledgermind")
     run_cli(["init", "--path", memory_path])
     
     # Test check with verbose
