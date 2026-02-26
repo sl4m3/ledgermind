@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126476663,
+  "lastUpdate": 1772126478741,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2052,6 +2052,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0028868943269544987",
             "extra": "mean: 5.305853352938044 msec\nrounds: 51"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8328de05419c048079bb00de10b1552e93be04cc",
+          "message": "feat(tests): add validation test for ResolutionEngine (#19)\n\n- Add comprehensive test suite for `ResolutionEngine.validate_intent` in `tests/core/test_resolution_intent.py`.\n- Cover scenarios: abort, valid subset, exact match, missing conflicts, and empty sets.\n- Ensure correct behavior for intent validation logic.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:16:35+03:00",
+          "tree_id": "f21c83540f00ca811a89efe35b094c7d40a17b9c",
+          "url": "https://github.com/sl4m3/ledgermind/commit/8328de05419c048079bb00de10b1552e93be04cc"
+        },
+        "date": 1772126478278,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 27.878370994062948,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003110408666418824",
+            "extra": "mean: 35.870101600016824 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 211.26656393493673,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004779276680901805",
+            "extra": "mean: 4.733356672132783 msec\nrounds: 61"
           }
         ]
       }
