@@ -76,7 +76,7 @@ from ledgermind.core.api.bridge import IntegrationBridge
 
 bridge = IntegrationBridge(
     memory_path="./memory",
-    relevance_threshold=0.35,   # minimum relevance score for context injection
+    relevance_threshold=0.7,   # minimum relevance score for context injection
 )
 
 def agent_step(user_input: str) -> str:

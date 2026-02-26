@@ -20,7 +20,7 @@ class TestInjectionPolicy(unittest.TestCase):
         # Initialize bridge with high threshold (0.65) and 10 turns retention
         self.bridge = IntegrationBridge(
             memory_path=self.test_dir, 
-            relevance_threshold=0.65, 
+            relevance_threshold=0.7, 
             retention_turns=10
         )
         

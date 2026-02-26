@@ -17,9 +17,9 @@ config = LedgermindConfig(
     ttl_days=30,
     trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
     namespace="default",
-    vector_model=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
+    vector_model=".ledgermind/models/2.8.5-small-text-matching-Q4_K_M.gguf",
     vector_workers=0, # Auto-detect for multiprocessing
-    relevance_threshold=0.35,
+    relevance_threshold=0.7,
 )
 memory = Memory(config=config)
 ```
@@ -33,7 +33,7 @@ memory = Memory(config=config)
 | `vector_model` | `str` | *path* | Local path to `.gguf` file or HF model ID. |
 | `vector_workers` | `int` | `0` | Workers for multi-process encoding (0=auto). |
 | `enable_git` | `bool` | `True` | Enable Git-based audit log and versioning. |
-| `relevance_threshold` | `float` | `0.5` | Minimum score for RAG context injection. |
+| `relevance_threshold` | `float` | `0.7` | Minimum score for RAG context injection. |
 
 ---
 
@@ -108,7 +108,7 @@ ledgermind-mcp run --capabilities '{"read":true,"propose":true,"supersede":true}
 
 | Model | Dimensions | Size | Notes |
 |---|---|---|---|
-| **Jina v5 Small GGUF** | **1024** | **~400MB** | **Recommended.** Best CPU performance. |
+| **Jina 2.8.5 Small GGUF** | **1024** | **~400MB** | **Recommended.** Best CPU performance. |
 | `all-MiniLM-L6-2.8.2` | 384 | 80MB | Legacy default. Very fast. |
 | `all-mpnet-base-2.8.2` | 768 | 420MB | Higher quality, slower. |
 
