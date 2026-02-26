@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772128873194,
+  "lastUpdate": 1772133896732,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2774,6 +2774,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005710006232876382",
             "extra": "mean: 4.385301999999258 msec\nrounds: 63"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "a451601977594df79e895d13fe2fd37df61c98b8",
+          "message": "test: Fix cleanup in test_valid_scan",
+          "timestamp": "2026-02-26T22:20:54+03:00",
+          "tree_id": "8dea4ecb64bba2c6e91d6e532f17987e759e850d",
+          "url": "https://github.com/sl4m3/ledgermind/commit/a451601977594df79e895d13fe2fd37df61c98b8"
+        },
+        "date": 1772133896459,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 30.509245622485025,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0023318260398085895",
+            "extra": "mean: 32.7769493999881 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 228.52409594870954,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005218716425699236",
+            "extra": "mean: 4.375906163630299 msec\nrounds: 55"
           }
         ]
       }
