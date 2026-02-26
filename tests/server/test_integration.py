@@ -71,7 +71,7 @@ def test_agent_can_supersede_mcp_decision(mock_memory):
 def test_rate_limiting_cooldown(mock_memory):
     """Проверяет работу кулдауна между записями."""
     server = MCPServer(memory=mock_memory, default_role=MCPRole.AGENT, start_worker=False)
-    server._write_cooldown = 0.01 # Minimal cooldown for test
+    server._write_cooldown = 1.0 # Robust cooldown for CI environments
     
     req = RecordDecisionRequest(title="TitleOne", target="TargetArea", rationale="Rationale must be long enough for validation")
     
