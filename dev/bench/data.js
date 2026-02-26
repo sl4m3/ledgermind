@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772128692046,
+  "lastUpdate": 1772128873194,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2736,6 +2736,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005287286948144889",
             "extra": "mean: 4.355195685187035 msec\nrounds: 54"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "a60496bddb4dfc6ef002b7497382dbaa3889fcdb",
+          "message": "feat: Optimize search_decisions by batching metadata fetches (#25)\n\n- Add `get_batch_by_fids` to `MetadataStore` interface and `SemanticMetaStore`.\n- Refactor `_resolve_to_truth` to accept an optional local cache.\n- Optimize `Memory.search_decisions` to pre-fetch metadata for candidates and their superseding documents, reducing N+1 queries to a few batch queries.\n- Verified with benchmarks (slight improvement in local SQLite, significant reduction in query count).",
+          "timestamp": "2026-02-26T20:38:03+03:00",
+          "tree_id": "1bf1875218293947f8b3a02d3ec2168b2faf2cae",
+          "url": "https://github.com/sl4m3/ledgermind/commit/a60496bddb4dfc6ef002b7497382dbaa3889fcdb"
+        },
+        "date": 1772128872543,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 31.327727420303102,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012449684545318424",
+            "extra": "mean: 31.92060459999766 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 228.03446604137397,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005710006232876382",
+            "extra": "mean: 4.385301999999258 msec\nrounds: 63"
           }
         ]
       }
