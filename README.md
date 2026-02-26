@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.8.5** · Autonomous Memory Management System for AI Agents
+**v2.8.6** · Autonomous Memory Management System for AI Agents
 
 ![Banner](assets/banner.png)
 
@@ -249,7 +249,7 @@ search. Decisions with more "Evidence Links" (episodic events) receive a
 
 ---
 
-## Benchmarks (February 26, 2Y, v2.8.5)
+## Benchmarks (February 26, 2Y, v2.8.6)
 
 LedgerMind is optimized for high-speed operation on **Android/Termux**
 as well as containerized environments. It includes built-in security for MCP and
