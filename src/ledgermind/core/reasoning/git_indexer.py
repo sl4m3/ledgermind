@@ -12,6 +12,24 @@ class GitIndexer:
     
     def __init__(self, repo_path: str = "."):
         self.repo_path = repo_path
+        self._validate_path_safety()
+
+    def _validate_path_safety(self):
+        # Security: Prevent path traversal and access to unauthorized directories
+        # Resolve the absolute path of the target repo
+        abs_repo_path = os.path.realpath(os.path.abspath(self.repo_path))
+
+        # Resolve the current working directory
+        # We assume the agent is running in the root of the project it is allowed to access
+        cwd = os.path.realpath(os.getcwd())
+
+        # Check if the repo path is within the CWD
+        try:
+            if os.path.commonpath([cwd, abs_repo_path]) != cwd:
+                raise ValueError(f"Security violation: Access to {self.repo_path} is outside the allowed scope (CWD: {cwd}).")
+        except ValueError:
+            # Can happen if paths are on different drives on Windows
+            raise ValueError(f"Security violation: Access to {self.repo_path} is outside the allowed scope.")
 
     def get_recent_commits(self, limit: int = 10, since_hash: Optional[str] = None) -> List[Dict[str, Any]]:
         """Извлекает историю коммитов через git log."""
