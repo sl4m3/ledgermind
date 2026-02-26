@@ -23,7 +23,8 @@ def test_env():
     os.chdir(base_dir)
     yield base_dir
     os.chdir(cwd)
-    # shutil.rmtree(base_dir) # Keep for inspection if needed, or delete
+    if os.path.exists(base_dir):
+        shutil.rmtree(base_dir)
 
 def test_scan_current_directory(test_env):
     scanner = ProjectScanner(".")
