@@ -227,6 +227,74 @@ class SemanticMetaStore:
             cursor.execute(query_sql, sql_params)
             return [dict(row) for row in cursor.fetchall()]
 
+    def resolve_to_truth(self, fid: str) -> Optional[Dict[str, Any]]:
+        """
+        Recursively resolves the chain of superseded decisions to find the final active decision
+        or the last existing link in the chain, using a single recursive CTE.
+        """
+        self._conn.row_factory = sqlite3.Row
+        cursor = self._conn.cursor()
+
+        # Recursive CTE to follow superseded_by links
+        # Logic:
+        # 1. Start with 'fid'.
+        # 2. Recursively join if current is NOT active AND has a successor.
+        # 3. Stop if depth limit (20) reached or chain ends.
+
+        sql = """
+            WITH RECURSIVE chain(fid, status, superseded_by, depth) AS (
+                SELECT fid, status, superseded_by, 0
+                FROM semantic_meta
+                WHERE fid = ?
+
+                UNION ALL
+
+                SELECT m.fid, m.status, m.superseded_by, c.depth + 1
+                FROM semantic_meta m
+                JOIN chain c ON m.fid = c.superseded_by
+                WHERE c.depth < 20
+                  AND c.status != 'active'
+                  AND c.superseded_by IS NOT NULL
+            )
+            SELECT m.*, c.depth
+            FROM semantic_meta m
+            JOIN chain c ON m.fid = c.fid
+            ORDER BY c.depth DESC
+            LIMIT 1;
+        """
+
+        try:
+            cursor.execute(sql, (fid,))
+            row = cursor.fetchone()
+
+            if not row:
+                return None
+
+            res = dict(row)
+            depth = res.pop('depth', 0)
+
+            status = res.get("status")
+            successor = res.get("superseded_by")
+
+            # Replicate the logic of the iterative loop regarding depth limit
+            if depth >= 20:
+                logger.warning(f"Recursive truth resolution depth limit (20) reached for {fid}. Possible circularity or long evolution chain.")
+                return None
+
+            # Replicate broken link behavior:
+            # If we stopped, but the record is not active and claims to have a successor,
+            # it means the successor was not found (broken link).
+            # The iterative loop returns None in this case because get_by_fid returns None.
+            if status != "active" and successor:
+                return None
+
+            return res
+
+        except sqlite3.OperationalError as e:
+            logger.error(f"Resolution failed: {e}")
+            # Fallback to get_by_fid if CTE fails (e.g. very old SQLite version)
+            return self.get_by_fid(fid)
+
 
     def list_all(self) -> List[Dict[str, Any]]:
         self._conn.row_factory = sqlite3.Row
