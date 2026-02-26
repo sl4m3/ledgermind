@@ -209,6 +209,8 @@ class SemanticMetaStore:
             words = query.lower().split()
             if not words: return []
             
+            # Optimization: Use AND for intersection to match FTS behavior and improve performance.
+            # Each word must be present in at least one of the fields.
             conditions = []
             params = []
             for word in words:
@@ -216,7 +218,7 @@ class SemanticMetaStore:
                 conditions.append("(target LIKE ? OR fid LIKE ? OR title LIKE ? OR keywords LIKE ?)")
                 params.extend([pattern, pattern, pattern, pattern])
             
-            where_clause = "(" + " OR ".join(conditions) + ")"
+            where_clause = "(" + " AND ".join(conditions) + ")"
             sql_params = params + [namespace, limit]
             
             query_sql = f"""
