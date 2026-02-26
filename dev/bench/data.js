@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772119059898,
+  "lastUpdate": 1772119494554,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1672,6 +1672,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005971776656148863",
             "extra": "mean: 4.79072884905596 msec\nrounds: 53"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "7e6dd8aa32c317d750d495b65793787cba447866",
+          "message": "perf: optimize search_decisions by deferring JSON parsing\n\n- Fixes 5x performance regression in benchmarks.\n- Moves json.loads() out of the initial candidate loop to the final result formatting stage.",
+          "timestamp": "2026-02-26T18:20:37+03:00",
+          "tree_id": "08fa24864b12ca7bf3e9d1c052693e42fe528a82",
+          "url": "https://github.com/sl4m3/ledgermind/commit/7e6dd8aa32c317d750d495b65793787cba447866"
+        },
+        "date": 1772119493536,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 27.82973558489695,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0031865888819018096",
+            "extra": "mean: 35.93278839999812 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 220.16230056542088,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005417171702155068",
+            "extra": "mean: 4.542103700005859 msec\nrounds: 60"
           }
         ]
       }
