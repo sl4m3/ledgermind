@@ -100,7 +100,12 @@ class GitAuditProvider(AuditProvider):
 
     def commit_transaction(self, message: str):
         self.run(["add", "."])
-        self.run(["commit", "--allow-empty", "-m", message])
+        # Only commit if there are staged changes
+        res = self.run(["status", "--porcelain"])
+        if res.stdout.strip():
+            self.run(["commit", "-m", message])
+        else:
+            logger.debug("No changes to commit in transaction.")
 
     def get_history(self, relative_path: str) -> List[dict]:
         """Retrieves commit history for a specific file."""
