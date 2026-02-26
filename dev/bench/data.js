@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126987729,
+  "lastUpdate": 1772127073763,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2508,6 +2508,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000527086562960681",
             "extra": "mean: 4.679279094335804 msec\nrounds: 53"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "76f2e3a3c311512045460384efb1eac24fffb6aa",
+          "message": "Refactor _register_tools into LedgerMindTools class (#2)\n\nMoved tool definitions from `_register_tools` method in `server.py` to a new `LedgerMindTools` class in `src/ledgermind/server/tools/definitions.py`.\nMoved Prometheus metrics definitions to `src/ledgermind/server/metrics.py` to avoid circular imports.\nUpdated `_register_tools` to instantiate `LedgerMindTools` and register its methods.\n\nThis change improves code readability and maintainability by separating tool logic from the server class.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:27:06+03:00",
+          "tree_id": "47f67da10baa1cb8b3a67f92790496b239e69302",
+          "url": "https://github.com/sl4m3/ledgermind/commit/76f2e3a3c311512045460384efb1eac24fffb6aa"
+        },
+        "date": 1772127073479,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 28.187106713406003,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0029121055720959252",
+            "extra": "mean: 35.477213399997254 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 214.65657655210785,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005020863292878855",
+            "extra": "mean: 4.658604064512554 msec\nrounds: 62"
           }
         ]
       }
