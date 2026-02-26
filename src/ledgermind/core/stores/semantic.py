@@ -1,20 +1,27 @@
 import os
+import re
 import yaml
+import json
 import logging
 import sqlite3
 import uuid
 import threading
+import subprocess
+from datetime import datetime
 from typing import List, Optional, Any, Dict, Tuple
 from contextlib import contextmanager
 from ledgermind.core.core.schemas import MemoryEvent, TrustBoundary
 from ledgermind.core.stores.interfaces import MetadataStore, AuditProvider
 from ledgermind.core.stores.audit_git import GitAuditProvider
+from ledgermind.core.stores.audit_no import NoAuditProvider
+from ledgermind.core.core.migration import MigrationEngine
+from ledgermind.core.core.exceptions import ConflictError
 from ledgermind.core.stores.semantic_store.integrity import IntegrityChecker
 
 from ledgermind.core.stores.semantic_store.transitions import TransitionValidator
 from ledgermind.core.stores.semantic_store.loader import MemoryLoader
 from ledgermind.core.stores.semantic_store.meta import SemanticMetaStore
-from ledgermind.core.stores.semantic_store.transactions import FileSystemLock
+from ledgermind.core.stores.semantic_store.transactions import FileSystemLock, TransactionManager
 
 # Setup structured logging
 logger = logging.getLogger("ledgermind-core.semantic")
@@ -41,7 +48,6 @@ class SemanticStore:
         self.meta = meta_store or SemanticMetaStore(os.path.join(repo_path, "semantic_meta.db"))
         
         # Check for Git availability
-        import subprocess
         git_available = False
         try:
             subprocess.run(["git", "--version"], capture_output=True, check=True)
@@ -54,7 +60,6 @@ class SemanticStore:
         elif git_available:
             self.audit = GitAuditProvider(repo_path)
         else:
-            from ledgermind.core.stores.audit_no import NoAuditProvider
             self.audit = NoAuditProvider(repo_path)
         
         self.audit.initialize()
@@ -63,7 +68,6 @@ class SemanticStore:
         self._fs_lock.acquire(exclusive=True)
         try:
             if self.meta.get_version() != "1.22.0":
-                from ledgermind.core.core.migration import MigrationEngine
                 migrator = MigrationEngine(self)
                 migrator.run_all()
                 self.meta.set_version("1.22.0")
@@ -78,7 +82,6 @@ class SemanticStore:
     def reconcile_untracked(self):
         """Finds files that are on disk but not in audit (Git) and adds them."""
         self._fs_lock.acquire(exclusive=True)
-        import subprocess
         try:
             disk_files = []
             for root, _, filenames in os.walk(self.repo_path):
@@ -108,7 +111,6 @@ class SemanticStore:
         """Ensures that the metadata index reflects the actual Markdown files on disk."""
         should_lock = not self._in_transaction
         if should_lock: self._fs_lock.acquire(exclusive=True)
-        from datetime import datetime
         try:
             # Re-verify integrity if forced
             if force:
@@ -154,7 +156,6 @@ class SemanticStore:
                             existing_ts = existing.get('timestamp')
                             if isinstance(existing_ts, str):
                                 try:
-                                    from datetime import datetime
                                     existing_ts = datetime.fromisoformat(existing_ts)
                                 except ValueError: pass
                             
@@ -165,10 +166,8 @@ class SemanticStore:
                             raw_content = stream.read()
                             data, body = MemoryLoader.parse(raw_content)
                             if data:
-                                import json
                                 ts = data.get("timestamp")
                                 if isinstance(ts, str):
-                                    from datetime import datetime
                                     ts = datetime.fromisoformat(ts)
                                 
                                 # Use file mtime if no internal timestamp
@@ -223,7 +222,6 @@ class SemanticStore:
             yield
             return
 
-        from ledgermind.core.stores.semantic_store.transactions import TransactionManager
         self._current_tx = TransactionManager(self.repo_path, self.meta)
         self._in_transaction = True
         
@@ -255,7 +253,6 @@ class SemanticStore:
         
         # Security: Validate namespace
         if namespace and namespace != "default":
-            import re
             if not re.match(r'^[a-zA-Z0-9_\-]+$', namespace):
                 raise ValueError(f"Invalid namespace format: {namespace}. Only alphanumeric, underscores, and hyphens allowed.")
         
@@ -299,7 +296,6 @@ class SemanticStore:
                 if rationale_val:
                     cached_content = f"{event.content}\n{rationale_val}"
 
-                import json
                 final_target = get_ctx_val(ctx, 'target', 'unknown') or 'unknown'
                 final_namespace = namespace or get_ctx_val(ctx, 'namespace', 'default') or 'default'
                 final_keywords = get_ctx_val(ctx, 'keywords', [])
@@ -324,7 +320,6 @@ class SemanticStore:
                     if "UNIQUE" in str(ie):
                         msg = f"CONFLICT: Target '{final_target}' in namespace '{final_namespace}' already has active decisions."
                         logger.warning(msg)
-                        from ledgermind.core.core.exceptions import ConflictError
                         raise ConflictError(msg)
                     raise
             except Exception as e:
@@ -378,7 +373,6 @@ class SemanticStore:
             with open(file_path, "w", encoding="utf-8") as f: f.write(new_content)
             
             ctx = new_data.get("context", {})
-            from datetime import datetime
             ts = new_data.get("timestamp")
             if isinstance(ts, str): ts = datetime.fromisoformat(ts)
             
@@ -395,7 +389,6 @@ class SemanticStore:
                 final_keywords_upd = ", ".join(final_keywords_upd)
 
             try:
-                import json
                 self.meta.upsert(
                     fid=filename,
                     target=final_target_upd,
@@ -414,7 +407,6 @@ class SemanticStore:
                 if "UNIQUE" in str(ie):
                     msg = f"CONFLICT: Target '{final_target_upd}' in namespace '{final_ns_upd}' already has active decisions."
                     logger.warning(msg)
-                    from ledgermind.core.core.exceptions import ConflictError
                     raise ConflictError(msg)
                 raise
             except Exception as e:
