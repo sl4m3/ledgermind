@@ -131,11 +131,11 @@ class ResolutionIntent(BaseModel):
     target_decision_ids: List[str]
 
 class LedgermindConfig(BaseModel):
-    storage_path: str = Field(default="./memory")
+    storage_path: str = Field(default="../.ledgermind")
     ttl_days: int = Field(default=30, ge=1)
     trust_boundary: TrustBoundary = Field(default=TrustBoundary.AGENT_WITH_INTENT)
     namespace: str = Field(default="default")
-    vector_model: str = Field(default="ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
+    vector_model: str = Field(default="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
     vector_workers: int = Field(default=0, ge=0, description="Number of workers for multi-process encoding. 0 for auto-detection.")
     enable_git: bool = Field(default=True)
     relevance_threshold: float = Field(default=0.7, ge=0.0, le=1.0)

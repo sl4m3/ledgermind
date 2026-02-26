@@ -13,23 +13,23 @@ The primary configuration object. Pass it to `Memory(config=...)`.
 from ledgermind.core.core.schemas import LedgermindConfig, TrustBoundary
 
 config = LedgermindConfig(
-    storage_path="ledgermind", # Preferred naming (without leading dot)
+    storage_path="../.ledgermind", # Recommended (outside project root)
     ttl_days=30,
     trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
     namespace="default",
-    vector_model="ledgermind/models/2.8.5-small-text-matching-Q4_K_M.gguf",
+    vector_model="../.ledgermind/models/2.8.5-small-text-matching-Q4_K_M.gguf",
     vector_workers=0, # Auto-detect for multiprocessing
     relevance_threshold=0.7,
 )
 memory = Memory(config=config)
 ```
 
-> **Note on Directory Naming:** Using `ledgermind` (without a leading dot) is preferred over `.ledgermind`. This ensures that file analysis tools (like `read_file` or `grep`) can easily index and process the memory contents without being blocked by hidden-file ignore patterns.
+> **Note on Directory Naming:** Placing the `.ledgermind` folder in the **parent directory** (one level above the project root) is the **official recommended standard**. This architecture ensures that memory is fully isolated from your project code, prevents context pollution in file analysis tools (like `read_file`), and keeps memory files out of source control by default.
 
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `storage_path` | `str` | `./memory` | Root directory for all storage. |
+| `storage_path` | `str` | `../.ledgermind` | Root directory for all storage. |
 | `ttl_days` | `int ≥ 1` | `30` | Days before episodic events are archived. |
 | `trust_boundary` | `Enum` | `AGENT_WITH_INTENT` | Who can write to semantic memory. |
 | `namespace` | `str` | `default` | Logical partition for multi-tenant isolation. |

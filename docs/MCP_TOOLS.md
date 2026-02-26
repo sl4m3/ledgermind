@@ -8,12 +8,12 @@ LedgerMind exposes 15 tools via the Model Context Protocol. All tools are availa
 
 ```bash
 # Minimal
-ledgermind-mcp run --path ./memory
+ledgermind-mcp run --path ../.ledgermind
 
 # Secure with API Key and Webhooks
 export LEDGERMIND_API_KEY="your-secure-key"
 ledgermind-mcp run \
-  --path ./memory \
+  --path ../.ledgermind \
   --webhooks http://api.com/hook \
   --rest-port 8080
 ```
