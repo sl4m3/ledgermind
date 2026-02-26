@@ -14,6 +14,7 @@ build/
 .hypothesis/
 /ledgermind/
 GEMINI.md
+run_tests.sh
 # Benchmarking data
 benchmarks/datasets/
 benchmarks/results/

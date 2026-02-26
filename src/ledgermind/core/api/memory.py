@@ -855,13 +855,21 @@ class Memory:
             
             final_score = (scores[fid] / max_rrf) * (1.0 + boost) * status_multiplier
             
+            # Extract Rationale and Consequences from context_json
+            import json
+            ctx = json.loads(meta.get('context_json', '{}'))
+            
             all_candidates.append({
                 "id": final_id,
                 "score": final_score,
                 "status": status,
                 "title": meta.get("title", "unknown"),
+                "preview": meta.get("title", "unknown"),
                 "target": meta.get("target", "unknown"),
-                "preview": meta.get("content", "")[:200],
+                "content": meta.get("content", ""),
+                "rationale": ctx.get("rationale"),
+                "consequences": ctx.get("consequences"),
+                "expected_outcome": ctx.get("expected_outcome"),
                 "kind": meta.get("kind"),
                 "is_active": (status == "active"),
                 "evidence_count": link_count
