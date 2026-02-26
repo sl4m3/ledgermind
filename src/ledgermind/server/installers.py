@@ -17,6 +17,11 @@ class BaseInstaller:
     def uninstall(self):
         raise NotImplementedError
 
+    def _create_hook_script(self, script_path: str, content: str):
+        with open(script_path, "w") as f:
+            f.write(content)
+        os.chmod(script_path, 0o700)
+
 
 class ClaudeInstaller(BaseInstaller):
     def __init__(self):
@@ -32,25 +37,21 @@ class ClaudeInstaller(BaseInstaller):
         
         # 1. Create UserPromptSubmit / BeforeModel script
         before_script_path = os.path.join(self.hooks_dir, "ledgermind_before_prompt.sh")
-        with open(before_script_path, "w") as f:
-            f.write(f"""#!/bin/bash
+        self._create_hook_script(before_script_path, f"""#!/bin/bash
 # LedgerMind BeforeModel Hook
 # Injects context into the prompt
 PROMPT=$(cat)
 ledgermind-mcp bridge-context --path "{memory_path}" --prompt "$PROMPT" --cli "claude"
 """)
-        os.chmod(before_script_path, 0o700)
 
         # 2. Create PostToolUse / AfterModel script
         after_script_path = os.path.join(self.hooks_dir, "ledgermind_after_interaction.sh")
-        with open(after_script_path, "w") as f:
-            f.write(f"""#!/bin/bash
+        self._create_hook_script(after_script_path, f"""#!/bin/bash
 # LedgerMind AfterModel Hook
 # Records the interaction (fire and forget)
 RESPONSE=$(cat)
 ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Automated tool execution" --response "$RESPONSE" --cli "claude" &
 """)
-        os.chmod(after_script_path, 0o700)
 
         # 3. Update settings.json
         settings = {}
@@ -87,22 +88,18 @@ class CursorInstaller(BaseInstaller):
         os.makedirs(self.hooks_dir, exist_ok=True)
         
         before_script_path = os.path.join(self.hooks_dir, "ledgermind_before.sh")
-        with open(before_script_path, "w") as f:
-            f.write(f"""#!/bin/bash
+        self._create_hook_script(before_script_path, f"""#!/bin/bash
 # Cursor BeforeSubmitPrompt Hook
 PROMPT=$1
 ledgermind-mcp bridge-context --path "{memory_path}" --prompt "$PROMPT" --cli "cursor"
 """)
-        os.chmod(before_script_path, 0o700)
 
         after_script_path = os.path.join(self.hooks_dir, "ledgermind_after.sh")
-        with open(after_script_path, "w") as f:
-            f.write(f"""#!/bin/bash
+        self._create_hook_script(after_script_path, f"""#!/bin/bash
 # Cursor AfterAgentResponse Hook
 RESPONSE=$1
 ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Agent interaction" --response "$RESPONSE" --cli "cursor" &
 """)
-        os.chmod(after_script_path, 0o700)
 
         hooks_config = {}
         if os.path.exists(self.hooks_file):
