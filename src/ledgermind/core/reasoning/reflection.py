@@ -205,14 +205,33 @@ class ReflectionEngine:
 
     def _generate_evolution_proposal(self, target: str, stats: Dict[str, Any]) -> str:
         messages = []
+        all_changed_files = set()
+        all_hashes = []
         for e in stats['commit_events']:
             msg = e.get('context', {}).get('full_message', '')
             if not msg:
                 msg = e.get('content', '')
             if msg:
                 messages.append(msg.split('\n')[0])
+            
+            # Collect files and hashes
+            ctx = e.get('context', {})
+            files = ctx.get('changed_files', [])
+            if isinstance(files, list):
+                all_changed_files.update(files)
+            
+            h = ctx.get('hash')
+            if h:
+                all_hashes.append(h[:8])
         
         summary = "; ".join(messages[:3])
+        hash_summary = f" (Commits: {', '.join(all_hashes[:3])})" if all_hashes else ""
+        file_summary = ""
+        if all_changed_files:
+            file_list = sorted(list(all_changed_files))
+            file_summary = f" | Modified files: {', '.join(file_list[:5])}"
+            if len(file_list) > 5:
+                file_summary += f" and {len(file_list)-5} others"
 
         # Try to distill steps from commits
         distiller = DistillationEngine(self.episodic, window_size=self.policy.distillation_window_size)
@@ -222,7 +241,7 @@ class ReflectionEngine:
              procedural = temp_prop.procedural
         
         title = f"Evolving Pattern in {target}"
-        rationale = f"Active development detected ({stats['commits']} commits). Recent changes: {summary}."
+        rationale = f"Active development detected ({stats['commits']} commits).{hash_summary} Recent changes: {summary}.{file_summary}"
         
         h = ProposalContent(
             title=title,

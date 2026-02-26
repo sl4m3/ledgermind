@@ -77,7 +77,10 @@ class DistillationEngine:
                 if not content or len(content) < 5: continue
 
                 # Improved Rationale Extraction
-                raw_rationale = ev.get('context', {}).get('rationale') or ev.get('context', {}).get('full_message')
+                ctx = ev.get('context', {})
+                raw_rationale = ctx.get('rationale') or ctx.get('full_message')
+                changed_files = ctx.get('changed_files', [])
+                
                 if not raw_rationale:
                     if kind == 'prompt':
                         raw_rationale = f"User initiative: {content[:100]}..."
@@ -85,11 +88,25 @@ class DistillationEngine:
                         raw_rationale = "System response/outcome of action"
                     elif kind == 'commit_change':
                         raw_rationale = content[:150]
+                        if changed_files:
+                            file_str = ", ".join(changed_files[:5])
+                            if len(changed_files) > 5:
+                                file_str += f" (+{len(changed_files)-5} more)"
+                            raw_rationale += f" | Changes: {file_str}"
                     else:
                         raw_rationale = f"Recorded {kind} event"
 
+                action_text = f"[{kind.upper()}] {content[:200]}..."
+                if kind == 'commit_change':
+                    commit_hash = ctx.get('hash', 'unknown')[:8]
+                    if changed_files:
+                        file_summary = ", ".join(changed_files[:3])
+                        action_text = f"[{kind.upper()}] {commit_hash}: {content[:150]}... (Files: {file_summary})"
+                    else:
+                        action_text = f"[{kind.upper()}] {commit_hash}: {content[:150]}..."
+
                 steps.append(ProceduralStep(
-                    action=f"[{kind.upper()}] {content[:200]}...",
+                    action=action_text,
                     rationale=raw_rationale
                 ))
                 evidence_ids.append(ev.get('id', 0))
