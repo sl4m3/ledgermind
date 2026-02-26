@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126644293,
+  "lastUpdate": 1772126656064,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2242,6 +2242,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005086840931142236",
             "extra": "mean: 4.684939819676364 msec\nrounds: 61"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "255f4c61e8c28fbe05305a05b6302309d5228255",
+          "message": "test(core): add comprehensive tests for schemas.py (#24)\n\n- Add `tests/core/test_schemas.py` to verify Pydantic models in `src/ledgermind/core/core/schemas.py`.\n- Cover `MemoryEvent`, `DecisionContent`, and `ProposalContent` validation logic.\n- Ensure correct context polymorphism and field constraints.\n- Verify compatibility with Pydantic V2 error messages.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:18:16+03:00",
+          "tree_id": "a63cb5d3fb4f3863f40e4c98f5274c083c47fee3",
+          "url": "https://github.com/sl4m3/ledgermind/commit/255f4c61e8c28fbe05305a05b6302309d5228255"
+        },
+        "date": 1772126655741,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 26.387580358106067,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003078544728785462",
+            "extra": "mean: 37.89661599998908 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 207.30854701824288,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005014762724067608",
+            "extra": "mean: 4.823727793104455 msec\nrounds: 58"
           }
         ]
       }
