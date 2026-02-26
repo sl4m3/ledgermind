@@ -186,7 +186,7 @@ In MCP mode, this runs automatically every 5 minutes via `BackgroundWorker._run_
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
 
-bridge = IntegrationBridge(memory_path="./memory", relevance_threshold=0.35)
+bridge = IntegrationBridge(memory_path="./memory", relevance_threshold=0.7)
 
 user_input = "How should we configure the database connection pool?"
 

@@ -12,7 +12,7 @@ def temp_memory_path(tmp_path):
 @pytest.fixture
 def bridge(temp_memory_path):
     # Using 0.4 threshold because Rank 1 Vector match gives 0.5 score in current RRF implementation.
-    return IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.4)
+    return IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.7)
 
 def test_injection_existence_check(bridge, temp_memory_path):
     """Scenario 1: Базовая верификация инъекции."""
@@ -29,15 +29,17 @@ def test_injection_existence_check(bridge, temp_memory_path):
     
     # Run an irrelevant prompt with a higher threshold to ensure exclusion
     # "What is the capital of France?" might still have > 0.4 similarity to "Project Rule" 
-    # due to small model bias, so we use a stricter bridge here.
-    strict_bridge = IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.6)
+    # due to small model bias, so we use a stricter bridge here (0.95).
+    strict_bridge = IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.95)
     irrelevant_context = strict_bridge.get_context_for_prompt("What is the capital of France?")
     assert "[LEDGERMIND KNOWLEDGE BASE ACTIVE]" not in irrelevant_context
 
 def test_injection_precision_and_ranking(bridge, temp_memory_path):
     """Scenario 2: Проверка релевантности (Precision & Ranking)."""
     # Use a stricter threshold for precision testing
-    bridge = IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.6)
+    # Rank 1 Vector match with 1 link and active status gives exactly 0.9 score.
+    # Rank 2 Vector match gives approx 0.885 score.
+    bridge = IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.9)
     
     # Запись A: фрукты (Add keywords to ensure high rank if matched)
     bridge.record_decision(
@@ -53,7 +55,7 @@ def test_injection_precision_and_ranking(bridge, temp_memory_path):
     )
     
     # 1. Запрос про программирование
-    # We want to see if Rust (0.5+ score) is in and Apples (low score) is out.
+    # We want to see if Rust (0.9 score) is in and Apples (low score) is out.
     prog_context = bridge.get_context_for_prompt("Tell me about Rust programming", limit=5)
     assert "Rust Programming Language" in prog_context
     assert "Apples and Fruits" not in prog_context
@@ -73,13 +75,13 @@ def test_threshold_behavior(bridge, temp_memory_path):
     
     prompt = "Who can deploy code?"
     
-    # 1. High threshold (0.8) -> should not inject (Rank 1 Vector match is only 0.5)
-    high_bridge = IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.8)
+    # 1. High threshold (1.0) -> should not inject (Rank 1 Vector match + active + link = 0.9)
+    high_bridge = IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=1.0)
     context_high = high_bridge.get_context_for_prompt(prompt)
     assert "[LEDGERMIND KNOWLEDGE BASE ACTIVE]" not in context_high
     
-    # 2. Low threshold (0.3) -> should inject
-    low_bridge = IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.3)
+    # 2. Low threshold (0.5) -> should inject
+    low_bridge = IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.5)
     context_low = low_bridge.get_context_for_prompt(prompt)
     assert "[LEDGERMIND KNOWLEDGE BASE ACTIVE]" in context_low
 
