@@ -26,8 +26,7 @@
     <img src="./assets/agent.svg" height="52" alt="LedgerMind - Featured on AgentHunter">
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://findyouragent.ai" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
-    <img src="https://findyouragent.ai/embed-badge-gradient.svg" alt="FindYourAgent Logo" height="52" style="width: auto;" />
+  <a href="https://www.producthunt.com/products/ledgermind?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-ledgermind" target="_blank" rel="noopener noreferrer"><img alt="LedgerMind - True zero-touch autonomous memory for AI agents | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1086469&amp;theme=dark&amp;t=1772124580144">
   </a>
 </p>
 
