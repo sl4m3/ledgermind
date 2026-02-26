@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772072481466,
+  "lastUpdate": 1772075114301,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1444,6 +1444,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005419266884426028",
             "extra": "mean: 4.479277815380556 msec\nrounds: 65"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "2f4a8d526984241de0d1c4eca539996ca93f7386",
+          "message": "fix(ci): fix semantic search tests by pre-seeding memory and suppress debug logs",
+          "timestamp": "2026-02-26T06:00:21+03:00",
+          "tree_id": "cc03267d21d2213894d061e84f2eee4a6206a129",
+          "url": "https://github.com/sl4m3/ledgermind/commit/2f4a8d526984241de0d1c4eca539996ca93f7386"
+        },
+        "date": 1772075113764,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 28.014631840508677,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0020673635182975026",
+            "extra": "mean: 35.69563239999525 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 223.94730542315392,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005501222757132618",
+            "extra": "mean: 4.465336156246558 msec\nrounds: 64"
           }
         ]
       }
