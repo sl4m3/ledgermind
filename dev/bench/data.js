@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126209170,
+  "lastUpdate": 1772126278880,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1824,6 +1824,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00048492239306251596",
             "extra": "mean: 4.4742143684189015 msec\nrounds: 57"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d11054c5916c109c116bca20d57109bcd828d0ed",
+          "message": "Refactor MCPServer to use @measure_and_log decorator (#10)\n\n* Refactor MCPServer to use @measure_and_log decorator\n\nIntroduced a `measure_and_log` decorator in `src/ledgermind/server/server.py` to encapsulate timing, logging, and error handling logic for tool handlers. Applied this decorator to `handle_record_decision`, `handle_supersede_decision`, `handle_search`, and `handle_accept_proposal` to reduce boilerplate and improve maintainability.\n\nAdded `tests/server/test_decorator.py` to verify the decorator logic and ensure no regressions.\n\nCo-authored-by: sl4m3 <73834887+sl4m3@users.noreply.github.com>\n\n* Fix CI failures by exposing background module in server package\n\nThe previous refactor caused CI failures in `tests/test_verify_tools_and_audit.py` and others due to `AttributeError: module 'ledgermind.server' has no attribute 'background'`. This was caused by `unittest.mock.patch` failing to resolve `ledgermind.server.background` because the `__init__.py` did not expose the submodule.\n\nThis commit adds `from . import background` and `from . import server` to `src/ledgermind/server/__init__.py` to ensure submodules are accessible as attributes of the package, resolving the import/mocking issues.\n\nVerified by running the failing tests locally.\n\nCo-authored-by: sl4m3 <73834887+sl4m3@users.noreply.github.com>\n\n* Fix CI: Expose background module but not server in __init__\n\nThe `AttributeError` in tests was caused by `unittest.mock` failing to resolve `ledgermind.server.background`.\nWe fix this by adding `from . import background` to `src/ledgermind/server/__init__.py`.\n\nWe deliberately do NOT export `server` (`MCPServer`) in `__init__.py` to avoid potential circular import issues or complex initialization dependencies that might be confusing the test runner or patcher in the CI environment (which led to `AssertionError` in concurrency tests).\n\nVerified locally with `pytest`.\n\nCo-authored-by: sl4m3 <73834887+sl4m3@users.noreply.github.com>\n\n* Refactor Server Decorator & Fix CI\n\n1. Re-applied `@measure_and_log` decorator refactoring to `src/ledgermind/server/server.py`.\n2. Fixed CI failures by ensuring tests use robust `patch.object` instead of fragile string patching for `BackgroundWorker`.\n3. Removed `sys.modules` pollution in `tests/server/test_decorator.py`.\n4. Fixed `NameError` in `src/ledgermind/core/stores/vector.py` fallback path.\n5. Verified all relevant tests pass locally.\n\nCo-authored-by: sl4m3 <73834887+sl4m3@users.noreply.github.com>\n\n---------\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:13:50+03:00",
+          "tree_id": "57af38e9a5c5bda863fb21a2e34349e5c6572134",
+          "url": "https://github.com/sl4m3/ledgermind/commit/d11054c5916c109c116bca20d57109bcd828d0ed"
+        },
+        "date": 1772126277929,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 30.655513340742306,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0035863810941984646",
+            "extra": "mean: 32.620559599990884 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 224.2319114059069,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00045873718264040353",
+            "extra": "mean: 4.459668535714302 msec\nrounds: 56"
           }
         ]
       }
