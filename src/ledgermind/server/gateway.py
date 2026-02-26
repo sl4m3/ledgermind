@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import List, Optional, Any, Dict
 from ledgermind.core.api.memory import Memory
 from sse_starlette.sse import EventSourceResponse
+from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger("agent_memory_gateway")
 app = FastAPI(title="Agent Memory REST & Real-time Gateway")
@@ -52,7 +53,7 @@ def get_memory():
 
 @app.post("/search", dependencies=[Depends(get_api_key)])
 async def search(req: SearchRequest, mem: Memory = Depends(get_memory)):
-    results = mem.search_decisions(req.query, limit=req.limit, mode=req.mode)
+    results = await run_in_threadpool(mem.search_decisions, req.query, limit=req.limit, mode=req.mode)
     return {"status": "success", "results": results}
 
 @app.post("/record", dependencies=[Depends(get_api_key)])
