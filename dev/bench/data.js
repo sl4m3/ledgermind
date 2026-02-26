@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126367818,
+  "lastUpdate": 1772126472595,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1976,6 +1976,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0006356410420308794",
             "extra": "mean: 4.6689135624991 msec\nrounds: 64"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f9d1fa9cbeed42f170e720f217c504412aac3b38",
+          "message": "Improve test coverage for Memory.check_environment (#18)\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:16:20+03:00",
+          "tree_id": "c6d17d42ce3861c997f07fbef62eec8d08ff8182",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f9d1fa9cbeed42f170e720f217c504412aac3b38"
+        },
+        "date": 1772126472275,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 32.33050905214493,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0020201964555617057",
+            "extra": "mean: 30.930536799996844 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 215.4722844772901,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004207008365526782",
+            "extra": "mean: 4.640968106064685 msec\nrounds: 66"
           }
         ]
       }
