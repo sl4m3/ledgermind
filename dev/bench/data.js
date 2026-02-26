@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126030537,
+  "lastUpdate": 1772126098025,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1748,6 +1748,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00048522168117205705",
             "extra": "mean: 4.4287481206889225 msec\nrounds: 58"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "657f19e3aa4aa6a63df077bf159dc0b32d576e84",
+          "message": "Security Fix: Prevent path traversal in ProjectScanner (#3)\n\nValidated root_path in ProjectScanner.__init__ to ensure it is relative to the current working directory using pathlib.\nAdded regression tests in tests/test_valid_scan.py.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:10:46+03:00",
+          "tree_id": "eb62775deabad45a893815bc74acb2a520681ab7",
+          "url": "https://github.com/sl4m3/ledgermind/commit/657f19e3aa4aa6a63df077bf159dc0b32d576e84"
+        },
+        "date": 1772126097475,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 28.754189046841788,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0019981166151192475",
+            "extra": "mean: 34.777541400001155 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 222.38668335198312,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00042809556402061827",
+            "extra": "mean: 4.496672124999712 msec\nrounds: 64"
           }
         ]
       }
