@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772119056472,
+  "lastUpdate": 1772119059898,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1634,6 +1634,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.146101058609695",
             "extra": "mean: 24.893725999985552 msec\nrounds: 52"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "7927966e516c289bd48662f6e3220e90abc1e363",
+          "message": "docs: replace mermaid architecture with core-arc.svg in README.md",
+          "timestamp": "2026-02-26T18:12:44+03:00",
+          "tree_id": "8c867cf301db11684d0b2efcee11fd808f33f37f",
+          "url": "https://github.com/sl4m3/ledgermind/commit/7927966e516c289bd48662f6e3220e90abc1e363"
+        },
+        "date": 1772119058898,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 24.394792995845236,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006443384025363352",
+            "extra": "mean: 40.99235439998665 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 208.73650576092518,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005971776656148863",
+            "extra": "mean: 4.79072884905596 msec\nrounds: 53"
           }
         ]
       }
