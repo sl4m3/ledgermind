@@ -20,6 +20,12 @@ try:
 except ImportError:
     LLAMA_AVAILABLE = False
 
+try:
+    from annoy import AnnoyIndex
+    ANNOY_AVAILABLE = True
+except ImportError:
+    ANNOY_AVAILABLE = False
+
 VECTOR_AVAILABLE = True # NumPy is always available
 
 class GGUFEmbeddingAdapter:
@@ -134,8 +140,41 @@ class VectorStore:
         self._embedding_cache = {}
         self._max_cache_size = 500
 
+        # Annoy Index for Approximate Nearest Neighbor Search
+        self._annoy_index = None
+        self._indexed_count = 0
+
         if not os.path.exists(storage_path):
             os.makedirs(storage_path, exist_ok=True)
+
+    def _build_annoy_index(self):
+        """Builds an Annoy index for the current vectors."""
+        if not ANNOY_AVAILABLE or self._vectors is None:
+            return
+
+        try:
+            logger.info(f"Building Annoy index for {len(self._vectors)} vectors...")
+            f = self._vectors.shape[1]
+            # 'angular' metric is equivalent to cosine distance for normalized vectors
+            t = AnnoyIndex(f, 'angular')
+
+            # Add items to the index
+            for i in range(len(self._vectors)):
+                t.add_item(i, self._vectors[i])
+
+            # 20 trees provides a good balance between build time and accuracy
+            t.build(20)
+
+            annoy_path = os.path.join(self.storage_path, "vectors.ann")
+            t.save(annoy_path)
+
+            self._annoy_index = t
+            self._indexed_count = len(self._vectors)
+            logger.info(f"Built Annoy index for {self._indexed_count} vectors")
+        except Exception as e:
+            logger.error(f"Failed to build Annoy index: {e}")
+            self._annoy_index = None
+            self._indexed_count = 0
 
     def _get_embedding(self, text: str) -> np.ndarray:
         """Internal helper with caching."""
@@ -243,6 +282,21 @@ class VectorStore:
                 self._doc_ids = np.load(self.meta_path, allow_pickle=True).tolist()
                 self._deleted_ids = set()
                 logger.info(f"Loaded {len(self._doc_ids)} vectors from disk")
+
+                # Load Annoy Index if available
+                annoy_path = os.path.join(self.storage_path, "vectors.ann")
+                if ANNOY_AVAILABLE and os.path.exists(annoy_path) and self._vectors is not None:
+                    try:
+                        f = self._vectors.shape[1]
+                        t = AnnoyIndex(f, 'angular')
+                        t.load(annoy_path)
+                        self._annoy_index = t
+                        self._indexed_count = t.get_n_items()
+                        logger.info(f"Loaded Annoy index with {self._indexed_count} items")
+                    except Exception as e:
+                        logger.warning(f"Failed to load Annoy index: {e}")
+                        self._annoy_index = None
+                        self._indexed_count = 0
             except Exception as e:
                 logger.error(f"Failed to load vector store: {e}")
                 self._vectors = None
@@ -251,6 +305,10 @@ class VectorStore:
         if self._vectors is not None and self._dirty:
             np.save(self.index_path, self._vectors)
             np.save(self.meta_path, np.array(self._doc_ids, dtype=object))
+
+            # Rebuild Annoy index on save
+            self._build_annoy_index()
+
             self._dirty = False
             self._unsaved_count = 0
             logger.debug("Vector store flushed to disk.")
@@ -279,12 +337,23 @@ class VectorStore:
             self._doc_ids = []
             if os.path.exists(self.index_path): os.remove(self.index_path)
             if os.path.exists(self.meta_path): os.remove(self.meta_path)
+            annoy_path = os.path.join(self.storage_path, "vectors.ann")
+            if os.path.exists(annoy_path): os.remove(annoy_path)
+            self._annoy_index = None
+            self._indexed_count = 0
         else:
             self._vectors = self._vectors[remaining_indices]
             self._doc_ids = [self._doc_ids[i] for i in remaining_indices]
+            self._dirty = True
             self.save()
 
         self._deleted_ids = set()
+
+        # If save failed or wasn't called (shouldn't happen with dirty=True), invalidate index
+        if self._dirty:
+             self._annoy_index = None
+             self._indexed_count = 0
+
         logger.info("Vector store compaction complete")
 
     def add_documents(self, documents: List[Dict[str, Any]]):
@@ -349,27 +418,67 @@ class VectorStore:
                 logger.warning(f"Search dimension mismatch: index={self._vectors.shape[1]}, query={query_vector.shape[0]}. Skipping vector search.")
                 return []
 
-        # Calculate cosine similarity
-        # Since sentence-transformers usually returns normalized vectors, 
-        # it's just a dot product.
-        norms = np.linalg.norm(self._vectors, axis=1)
-        query_norm = np.linalg.norm(query_vector)
-        
-        # Dot product
-        similarities = np.dot(self._vectors, query_vector) / (norms * query_norm + 1e-9)
-        
-        # Get top indices
-        top_indices = np.argsort(similarities)[::-1]
-        
         results = []
-        for idx in top_indices:
-            fid = self._doc_ids[idx]
-            if fid in self._deleted_ids: continue
+        annoy_success = False
+
+        # 1. Annoy Search for indexed vectors
+        if self._annoy_index is not None and self._indexed_count > 0:
+             # Annoy 'angular' distance corresponds to sqrt(2(1-cos(u,v)))
+             # Request more items to buffer against deleted ones
+             annoy_limit = limit * 2 + 10
+             try:
+                 indices, distances = self._annoy_index.get_nns_by_vector(query_vector, annoy_limit, include_distances=True)
+
+                 for i, dist in zip(indices, distances):
+                     if i >= len(self._doc_ids): continue
+                     fid = self._doc_ids[i]
+                     if fid in self._deleted_ids: continue
+
+                     # Convert angular distance to cosine similarity
+                     # sim = 1 - dist^2 / 2
+                     score = 1.0 - (dist ** 2) / 2.0
+                     results.append({
+                         "id": fid,
+                         "score": float(score)
+                     })
+                 annoy_success = True
+             except Exception as e:
+                 logger.error(f"Annoy search failed: {e}")
+                 # If Annoy fails, we will fallback to full scan
+                 results = []
+
+        # 2. Brute force search for unindexed tail (or full fallback)
+        start_idx = self._indexed_count if annoy_success else 0
+
+        if start_idx < len(self._vectors):
+            tail_vectors = self._vectors[start_idx:]
+
+            # Calculate cosine similarity for tail
+            norms = np.linalg.norm(tail_vectors, axis=1)
+            query_norm = np.linalg.norm(query_vector)
             
-            results.append({
-                "id": fid,
-                "score": float(similarities[idx])
-            })
-            if len(results) >= limit: break
+            # Avoid division by zero
+            denom = norms * query_norm + 1e-9
+            similarities = np.dot(tail_vectors, query_vector) / denom
             
-        return results
+            # Get top indices from tail
+            # We don't need full sort if we only want top K, but tail is usually small.
+            # If tail is large (fallback), argsort is fine.
+            tail_indices = np.argsort(similarities)[::-1]
+
+            for idx in tail_indices:
+                real_idx = start_idx + idx
+                fid = self._doc_ids[real_idx]
+                if fid in self._deleted_ids: continue
+
+                results.append({
+                    "id": fid,
+                    "score": float(similarities[idx])
+                })
+
+        # Merge and Sort
+        results.sort(key=lambda x: x["score"], reverse=True)
+
+        # Deduplicate by ID? No, original didn't.
+
+        return results[:limit]
