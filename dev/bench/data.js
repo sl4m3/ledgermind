@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772117393750,
+  "lastUpdate": 1772117725547,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1558,6 +1558,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005103285215588002",
             "extra": "mean: 4.678761285717089 msec\nrounds: 63"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "b0128f622f795dcbe0d52a4cdf4cf52acc683d9a",
+          "message": "docs: update architecture diagram in README.md to reflect current core components and zero-touch hooks",
+          "timestamp": "2026-02-26T17:50:48+03:00",
+          "tree_id": "585f26edf225f8bd172c4be65a1b40aa9ae652fe",
+          "url": "https://github.com/sl4m3/ledgermind/commit/b0128f622f795dcbe0d52a4cdf4cf52acc683d9a"
+        },
+        "date": 1772117725194,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 29.779723494921537,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0035200859651079845",
+            "extra": "mean: 33.57989539998698 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 214.9751217632641,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005246761873891944",
+            "extra": "mean: 4.65170105172088 msec\nrounds: 58"
           }
         ]
       }
