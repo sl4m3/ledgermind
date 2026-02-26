@@ -54,6 +54,7 @@ class IntegrationBridge:
                     memories.append({
                         "id": fid,
                         "title": item.get('title'),
+                        "path": os.path.join(self.memory_path, "semantic", fid),
                         "content": item.get('preview')
                     })
             return memories
@@ -79,6 +80,10 @@ class IntegrationBridge:
         if not memories:
             return ""
         
+        # Add instruction for the agent on how to use paths
+        for m in memories:
+            m["instruction"] = f"For more details run: cat {m['path']}"
+
         json_data = json.dumps({
             "source": "ledgermind",
             "memories": memories
