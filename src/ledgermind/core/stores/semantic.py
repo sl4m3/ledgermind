@@ -5,7 +5,7 @@ import sqlite3
 import uuid
 import threading
 from typing import List, Optional, Any, Dict, Tuple
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from ledgermind.core.core.schemas import MemoryEvent, TrustBoundary
 from ledgermind.core.stores.interfaces import MetadataStore, AuditProvider
 from ledgermind.core.stores.audit_git import GitAuditProvider
@@ -142,61 +142,65 @@ class SemanticStore:
                     self.meta.delete(orphaned_fid)
                 
                 # Add/Update missing or changed files
-                for f in disk_files:
-                    try:
-                        full_path = os.path.join(self.repo_path, f)
-                        mtime = os.path.getmtime(full_path)
-                        
-                        existing = self.meta.get_by_fid(f)
-                        if existing and not force:
-                            # Heuristic: if timestamp in meta is close to mtime, skip re-parsing
-                            # A more robust way would be a dedicated 'last_synced_mtime' column
-                            existing_ts = existing.get('timestamp')
-                            if isinstance(existing_ts, str):
-                                try:
-                                    from datetime import datetime
-                                    existing_ts = datetime.fromisoformat(existing_ts)
-                                except ValueError: pass
+                # Use batch_update if not already in a transaction
+                cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
+
+                with cm:
+                    for f in disk_files:
+                        try:
+                            full_path = os.path.join(self.repo_path, f)
+                            mtime = os.path.getmtime(full_path)
                             
-                            if existing_ts and abs(existing_ts.timestamp() - mtime) < 1.0:
-                                continue
-
-                        with open(full_path, 'r', encoding='utf-8') as stream:
-                            raw_content = stream.read()
-                            data, body = MemoryLoader.parse(raw_content)
-                            if data:
-                                import json
-                                ts = data.get("timestamp")
-                                if isinstance(ts, str):
-                                    from datetime import datetime
-                                    ts = datetime.fromisoformat(ts)
+                            existing = self.meta.get_by_fid(f)
+                            if existing and not force:
+                                # Heuristic: if timestamp in meta is close to mtime, skip re-parsing
+                                # A more robust way would be a dedicated 'last_synced_mtime' column
+                                existing_ts = existing.get('timestamp')
+                                if isinstance(existing_ts, str):
+                                    try:
+                                        from datetime import datetime
+                                        existing_ts = datetime.fromisoformat(existing_ts)
+                                    except ValueError: pass
                                 
-                                # Use file mtime if no internal timestamp
-                                final_ts = ts or datetime.fromtimestamp(mtime)
-                                
-                                sync_ctx = data.get("context", {})
-                                sync_target = sync_ctx.get("target") or "unknown"
-                                sync_ns = sync_ctx.get("namespace") or "default"
-                                sync_keywords = sync_ctx.get("keywords", [])
-                                if isinstance(sync_keywords, list):
-                                    sync_keywords = ", ".join(sync_keywords)
+                                if existing_ts and abs(existing_ts.timestamp() - mtime) < 1.0:
+                                    continue
 
-                                self.meta.upsert(
-                                    fid=f, 
-                                    target=sync_target,
-                                    title=sync_ctx.get("title", "") if sync_ctx else "",
-                                    status=sync_ctx.get("status", "unknown") if sync_ctx else "unknown",
-                                    kind=data.get("kind", "unknown"),
-                                    timestamp=final_ts,
-                                    superseded_by=sync_ctx.get("superseded_by") if sync_ctx else None,
-                                    namespace=sync_ns,
-                                    content=data.get("content", "")[:8000],
-                                    keywords=sync_keywords,
-                                    confidence=sync_ctx.get("confidence", 1.0) if sync_ctx else 1.0,
-                                    context_json=json.dumps(sync_ctx or {})
-                                )
-                    except Exception as e:
-                        logger.error(f"Failed to index {f}: {e}")
+                            with open(full_path, 'r', encoding='utf-8') as stream:
+                                raw_content = stream.read()
+                                data, body = MemoryLoader.parse(raw_content)
+                                if data:
+                                    import json
+                                    ts = data.get("timestamp")
+                                    if isinstance(ts, str):
+                                        from datetime import datetime
+                                        ts = datetime.fromisoformat(ts)
+
+                                    # Use file mtime if no internal timestamp
+                                    final_ts = ts or datetime.fromtimestamp(mtime)
+
+                                    sync_ctx = data.get("context", {})
+                                    sync_target = sync_ctx.get("target") or "unknown"
+                                    sync_ns = sync_ctx.get("namespace") or "default"
+                                    sync_keywords = sync_ctx.get("keywords", [])
+                                    if isinstance(sync_keywords, list):
+                                        sync_keywords = ", ".join(sync_keywords)
+
+                                    self.meta.upsert(
+                                        fid=f,
+                                        target=sync_target,
+                                        title=sync_ctx.get("title", "") if sync_ctx else "",
+                                        status=sync_ctx.get("status", "unknown") if sync_ctx else "unknown",
+                                        kind=data.get("kind", "unknown"),
+                                        timestamp=final_ts,
+                                        superseded_by=sync_ctx.get("superseded_by") if sync_ctx else None,
+                                        namespace=sync_ns,
+                                        content=data.get("content", "")[:8000],
+                                        keywords=sync_keywords,
+                                        confidence=sync_ctx.get("confidence", 1.0) if sync_ctx else 1.0,
+                                        context_json=json.dumps(sync_ctx or {})
+                                    )
+                        except Exception as e:
+                            logger.error(f"Failed to index {f}: {e}")
         finally:
             if should_lock: self._fs_lock.release()
 
