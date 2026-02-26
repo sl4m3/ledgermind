@@ -18,7 +18,7 @@ interaction is recorded without manual intervention or extra prompt tokens.
 ## Core Features
 
 ### 1. Shadow Context Injection
-The extension maintains a hidden file named `.ledgermind_context.md` in your
+The extension maintains a hidden file named `ledgermind_context.md` in your
 project root. This file is updated automatically whenever you:
 - Save a file.
 - Switch between editor tabs.
@@ -77,12 +77,12 @@ If you use **Continue**, add the following to your `.continue/config.json`:
     {
       "name": "file",
       "options": {
-        "fileName": ".ledgermind_context.md"
+        "fileName": "ledgermind_context.md"
       }
     }
   ]
 }
 ```
 
-Then, you can reference the memory context by typing `@.ledgermind_context.md`
+Then, you can reference the memory context by typing `@ledgermind_context.md`
 in your chat.

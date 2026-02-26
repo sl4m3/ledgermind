@@ -40,7 +40,7 @@ def mock_home(tmp_path):
 def test_install_claude_hooks(mock_home, tmp_path):
     project_path = tmp_path / "project"
     project_path.mkdir()
-    run_cli(["init", "--path", str(project_path / ".ledgermind")])
+    run_cli(["init", "--path", str(project_path / "ledgermind")])
 
     with patch("pathlib.Path.home", return_value=mock_home):
         result = run_cli(["install", "claude", "--path", str(project_path)])
@@ -109,11 +109,11 @@ def test_install_gemini_hooks(mock_home, tmp_path):
         assert hook_file.exists()
         content = hook_file.read_text()
         assert "bridge.get_context_for_prompt" in content
-        assert "IntegrationBridge(memory_path=os.path.join(PROJECT_PATH, '.ledgermind'))" in content
+        assert "IntegrationBridge(memory_path=os.path.join(PROJECT_PATH, 'ledgermind'))" in content
         assert str(project_path) in content
 
 def test_bridge_context_cli(tmp_path):
-    memory_path = tmp_path / ".ledgermind"
+    memory_path = tmp_path / "ledgermind"
     run_cli(["init", "--path", str(memory_path)])
     
     # Record a decision first so we have context
@@ -130,7 +130,7 @@ def test_bridge_context_cli(tmp_path):
     assert "Test Rule" in result.stdout
 
 def test_bridge_record_cli(tmp_path):
-    memory_path = tmp_path / ".ledgermind"
+    memory_path = tmp_path / "ledgermind"
     run_cli(["init", "--path", str(memory_path)])
     
     result = run_cli([

@@ -13,16 +13,19 @@ The primary configuration object. Pass it to `Memory(config=...)`.
 from ledgermind.core.core.schemas import LedgermindConfig, TrustBoundary
 
 config = LedgermindConfig(
-    storage_path="./memory",
+    storage_path="ledgermind", # Preferred naming (without leading dot)
     ttl_days=30,
     trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
     namespace="default",
-    vector_model=".ledgermind/models/2.8.5-small-text-matching-Q4_K_M.gguf",
+    vector_model="ledgermind/models/2.8.5-small-text-matching-Q4_K_M.gguf",
     vector_workers=0, # Auto-detect for multiprocessing
     relevance_threshold=0.7,
 )
 memory = Memory(config=config)
 ```
+
+> **Note on Directory Naming:** Using `ledgermind` (without a leading dot) is preferred over `.ledgermind`. This ensures that file analysis tools (like `read_file` or `grep`) can easily index and process the memory contents without being blocked by hidden-file ignore patterns.
+
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
@@ -43,13 +46,13 @@ memory = Memory(config=config)
 
 The VS Code integration uses a "Shadow File" strategy. 
 
-- **Shadow File:** `.ledgermind_context.md` (created in project root).
+- **Shadow File:** `ledgermind_context.md` (created in project root).
 - **Extension Path:** `~/.vscode/extensions/ledgermind.ledgermind-vscode`.
 - **Roo Code Instructions:** Stored in `globalStorage/saoudrizwan.claude-dev/settings/custom_instructions.json`.
 
 You can modify the "Custom Instructions" to change how the agent interacts
 with the shadow file. We recommend the default: *"Always read 
-.ledgermind_context.md at the beginning of every task."*
+ledgermind_context.md at the beginning of every task."*
 
 ---
 

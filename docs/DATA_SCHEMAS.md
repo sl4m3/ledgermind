@@ -103,11 +103,11 @@ class MemoryDecision(BaseModel):
 
 ```python
 class LedgermindConfig(BaseModel):
-    storage_path: str = "./memory"
+    storage_path: str = "ledgermind"
     ttl_days: int = 30
     trust_boundary: TrustBoundary = "agent"
     namespace: str = "default"
-    vector_model: str = ".ledgermind/models/2.7.9-small-text-matching-Q4_K_M.gguf"
+    vector_model: str = "ledgermind/models/2.7.9-small-text-matching-Q4_K_M.gguf"
     vector_workers: int = 0
     relevance_threshold: float = 0.7
 ```
