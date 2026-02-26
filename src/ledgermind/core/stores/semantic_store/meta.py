@@ -152,6 +152,15 @@ class SemanticMetaStore:
         row = cursor.execute("SELECT * FROM semantic_meta WHERE fid = ?", (fid,)).fetchone()
         return dict(row) if row else None
 
+    def get_batch_by_fids(self, fids: List[str]) -> List[Dict[str, Any]]:
+        """Retrieves metadata for multiple file IDs efficiently."""
+        if not fids: return []
+        self._conn.row_factory = sqlite3.Row
+        placeholders = ','.join('?' for _ in fids)
+        cursor = self._conn.cursor()
+        cursor.execute(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", fids)
+        return [dict(row) for row in cursor.fetchall()]
+
     def get_active_fid(self, target: str, namespace: str = "default") -> Optional[str]:
         cursor = self._conn.cursor()
         row = cursor.execute(

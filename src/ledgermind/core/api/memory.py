@@ -248,7 +248,8 @@ class Memory:
             )
 
         # 2.6: Deep Conflict Detection for semantic records
-        if decision := self.router.route(event, intent=intent):
+        decision = self.router.route(event, intent=intent)
+        if decision:
              if decision.should_persist and decision.store_type == "semantic" and not intent:
                  # Check for active conflicts that aren't being superseded
                  if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=effective_namespace):
@@ -258,7 +259,7 @@ class Memory:
                          reason=f"Invariant Violation: {conflict_msg}"
                      )
         
-        if decision.should_persist:
+        if decision and decision.should_persist:
             if decision.store_type == "episodic":
                 ev_id = self.episodic.append(event)
                 decision.metadata["event_id"] = ev_id
@@ -269,7 +270,6 @@ class Memory:
                 with self.semantic.transaction():
                     logger.debug("Inside transaction block...")
                     # 1. Update back-links and deactivate old versions BEFORE saving new one
-                    # to satisfy SQLite UNIQUE constraint on active targets.
                     if intent and intent.resolution_type == "supersede":
                         for old_id in intent.target_decision_ids:
                             # Verify it exists and is active before deactivating
@@ -282,28 +282,18 @@ class Memory:
                                     commit_msg=f"Deactivating for transition"
                                 )
                             else:
-                                # In some cases (like tests with rapid evolution), it might already be superseded.
-                                # We log it but proceed if the intent is clear.
                                 logger.info(f"Target {old_id} already superseded or missing during transition.")
 
                     # 2.7: Late-bind Conflict Detection (Inside Lock)
-                    # This prevents race conditions where two agents check simultaneously
                     if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=effective_namespace):
                         logger.warning(f"Race condition prevented: {conflict_msg}")
                         raise ConflictError(f"Conflict detected during transaction: {conflict_msg}")
-
-                    # Simulation: artificial delay for testing concurrency
-                    import time
-                    if os.environ.get("LEDGERMIND_TEST_DELAY"):
-                        time.sleep(float(os.environ.get("LEDGERMIND_TEST_DELAY")))
 
                     # 2. Prepare context for new decision
                     if isinstance(event.context, DecisionContent):
                         if intent and intent.resolution_type == "supersede":
                             event.context.supersedes = intent.target_decision_ids
                         event.context.namespace = effective_namespace
-                        
-                        # Sync evidence_event_ids from input context if it was a dict
                         if isinstance(context, dict) and 'evidence_event_ids' in context:
                             event.context.evidence_event_ids = context['evidence_event_ids']
 
@@ -314,32 +304,28 @@ class Memory:
                         if isinstance(context, dict) and 'evidence_event_ids' in context:
                             event.context['evidence_event_ids'] = context['evidence_event_ids']
 
-                    # 3. Save new decision (this updates SQLite and Git)
-                    logger.debug("Calling semantic.save()...")
+                    # 3. Save new decision
                     new_fid = self.semantic.save(event, namespace=effective_namespace)
-                    logger.debug(f"Saved new_fid={new_fid}")
-                    
                     decision.metadata["file_id"] = new_fid
                     self.events.emit("semantic_added", {"id": new_fid, "kind": event.kind, "namespace": effective_namespace})
                     
                     # 4. Now that we have new_fid, update back-links properly
                     if intent and intent.resolution_type == "supersede":
                         for old_id in intent.target_decision_ids:
-                            logger.debug(f"Linking {old_id} to new {new_fid}...")
                             self.semantic.update_decision(
                                 old_id, 
                                 {"status": "superseded", "superseded_by": new_fid},
                                 commit_msg=f"Superseded by {new_fid}"
                             )
 
-                    # BUG FIX: Link grounding evidence to the new semantic record
+                    # Link grounding evidence to the new semantic record
                     all_grounding_ids = set()
                     if isinstance(event.context, dict):
                         all_grounding_ids.update(event.context.get('evidence_event_ids', []))
                     elif hasattr(event.context, 'evidence_event_ids'):
                         all_grounding_ids.update(getattr(event.context, 'evidence_event_ids', []))
                     
-                    # Also inherit links from superseded items
+                    # Inherit links from superseded items
                     if intent and intent.resolution_type == "supersede":
                         for old_id in intent.target_decision_ids:
                             try:
@@ -349,7 +335,6 @@ class Memory:
                                 logger.warning(f"Failed to fetch links from superseded item {old_id}: {e}")
 
                     if all_grounding_ids:
-                        # Batch linking grounding evidence
                         for ev_id in all_grounding_ids:
                             try:
                                 self.episodic.link_to_semantic(ev_id, new_fid)
@@ -357,9 +342,7 @@ class Memory:
                                 logger.warning(f"Failed to link grounding evidence {ev_id} to {new_fid}: {le}")
 
                 logger.debug("Transaction committed. Now indexing in VectorStore...")
-                # 3.5: Index in VectorStore (OUTSIDE transaction for massive speed gain)
                 try:
-                    # Combine content with rationale for better grounded search
                     indexed_content = event.content
                     ctx = event.context
                     rationale_val = ""
@@ -371,18 +354,14 @@ class Memory:
                     if rationale_val:
                         indexed_content = f"{event.content}\n{rationale_val}"
 
-                    logger.debug(f"Adding documents to VectorStore (ID: {new_fid})...")
                     self.vector.add_documents([{
                         "id": new_fid,
                         "content": indexed_content
                     }])
-                    logger.debug("Vector indexing completed.")
-                except Exception as ve:
-                    logger.warning(f"Vector indexing failed for {new_fid}: {ve}")
                 except Exception as ve:
                     logger.warning(f"Vector indexing failed for {new_fid}: {ve}")
 
-                # Immortal Link (after transaction success)
+                # Immortal Link
                 ev_id = self.episodic.append(event, linked_id=new_fid)
                 decision.metadata["event_id"] = ev_id
                 
@@ -507,7 +486,6 @@ class Memory:
                         updates = {"confidence": new_conf}
                         
                         # Logic for deprecating stale decisions
-                        # Retrieve current metadata to check kind and status
                         meta = self.semantic.meta.get_by_fid(fid)
                         if meta and meta.get('kind') in ('decision', 'constraint') and meta.get('status') == 'active':
                             if new_conf < 0.5:
@@ -522,29 +500,23 @@ class Memory:
     def run_reflection(self) -> List[str]:
         """
         Execute the incremental reflection process to identify patterns.
-        Uses a watermark stored in MetaStore to avoid double-processing.
         """
-        # 1. Retrieve the last processed event ID
         watermark_key = "last_reflection_event_id"
         last_id = self.semantic.meta.get_config(watermark_key)
         after_id = int(last_id) if last_id is not None else None
         
-        # 2. Run incremental cycle
         proposal_ids, new_max_id = self.reflection_engine.run_cycle(after_id=after_id)
         
-        # 3. Update watermark if we processed new events
         has_new_events = False
         try:
             if new_max_id is not None:
                 if after_id is None or int(new_max_id) > int(after_id):
                     has_new_events = True
         except (ValueError, TypeError):
-            # Fallback for Mocks in tests
             if new_max_id is not None:
                 has_new_events = True
 
         if has_new_events:
-            # Protect with FS lock to be safe
             if self.semantic._fs_lock.acquire(exclusive=True, timeout=5):
                 try:
                     self.semantic.meta.set_config(watermark_key, new_max_id)
@@ -564,29 +536,23 @@ class Memory:
     def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None, namespace: Optional[str] = None, arbiter_callback: Optional[callable] = None) -> MemoryDecision:
         """
         Helper to record a new decision in semantic memory.
-        Automatically resolves conflicts using Hybrid Similarity and optional LLM arbitration.
         """
         if not title.strip(): raise ValueError("Title cannot be empty")
         if not target.strip(): raise ValueError("Target cannot be empty")
         if not rationale.strip(): raise ValueError("Rationale cannot be empty")
 
         effective_namespace = namespace or self.namespace
-
-        # 1. Target Normalization
         target = self.targets.normalize(target)
         self.targets.register(target, description=title)
 
-        # 2. Pre-flight Conflict Check & Auto-Resolution
         active_conflicts = self.semantic.list_active_conflicts(target, namespace=effective_namespace)
         if active_conflicts:
-            # Intelligent Conflict Resolution
             try:
                 from ledgermind.core.stores.vector import EMBEDDING_AVAILABLE
                 if EMBEDDING_AVAILABLE and self.vector._vectors is not None:
                     import numpy as np
                     from difflib import SequenceMatcher
                     
-                    # Calculate new vector
                     new_text = f"{title}\n{rationale}"
                     new_vec = self.vector.model.encode([new_text])[0]
                     new_norm = np.linalg.norm(new_vec)
@@ -597,33 +563,21 @@ class Memory:
                         if old_vec is None or not old_meta:
                             continue
                             
-                        # A. Calculate Base Vector Similarity
                         old_norm = np.linalg.norm(old_vec)
                         sim = float(np.dot(new_vec, old_vec) / (new_norm * old_norm + 1e-9))
                         
-                        # B. Title Weighting (Boost if titles are nearly identical)
                         old_title = old_meta.get('title', '')
                         title_sim = SequenceMatcher(None, title.lower(), old_title.lower()).ratio()
-                        
                         if title_sim > 0.90:
-                            sim = max(sim, 0.71) # Force into "consideration" or "auto" zone
-                            logger.info(f"Title match boost for {target}: {title_sim:.2f} -> Adjusted Sim: {sim:.4f}")
+                            sim = max(sim, 0.71)
 
-                        logger.info(f"Similarity check for {target} against {old_fid}: {sim:.4f} (Threshold: 0.70)")
-                        
-                        # C. LLM Arbitration (Gray Zone: 0.50 - 0.70)
                         if 0.50 <= sim < 0.70 and arbiter_callback:
-                            logger.info(f"Similarity {sim:.4f} in gray zone. Triggering LLM arbitration...")
                             new_data = {"title": title, "rationale": rationale}
                             old_data = {"title": old_title, "rationale": old_meta.get('content', '')}
-                            
                             if arbiter_callback(new_data, old_data) == "SUPERSEDE":
-                                sim = 0.71 # Elevate to trigger supersede
-                                logger.info("LLM Arbiter decided: SUPERSEDE")
+                                sim = 0.71
 
                         if sim > 0.70:
-                            logger.info(f"Auto-resolving conflict for {target} (similarity {sim:.2f}) -> Superseding {old_fid}")
-                            logger.debug(f"Calling supersede_decision for {old_fid}...")
                             res = self.supersede_decision(
                                 title=title,
                                 target=target,
@@ -633,12 +587,10 @@ class Memory:
                                 evidence_ids=evidence_ids,
                                 namespace=effective_namespace
                             )
-                            logger.debug(f"supersede_decision completed for {old_fid}.")
                             return res
             except Exception as e:
                 logger.warning(f"Auto-resolution failed: {e}")
             
-            # If we fall through, it's a hard conflict
             suggestions = self.targets.suggest(target)
             msg = f"CONFLICT: Target '{target}' in namespace '{effective_namespace}' already has active decisions: {active_conflicts}. "
             if suggestions:
@@ -661,12 +613,10 @@ class Memory:
             context=ctx,
             namespace=effective_namespace
         )
-        
         if not decision.should_persist:
             if "CONFLICT" in decision.reason:
                 raise ConflictError(decision.reason)
             raise InvariantViolation(f"Failed to record decision: {decision.reason}")
-            
         return decision
 
     def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None, namespace: Optional[str] = None) -> MemoryDecision:
@@ -701,12 +651,10 @@ class Memory:
             intent=intent,
             namespace=effective_namespace
         )
-
         if not decision.should_persist:
             if "CONFLICT" in decision.reason:
                 raise ConflictError(decision.reason)
             raise InvariantViolation(f"Failed to supersede decision: {decision.reason}")
-            
         return decision
 
     def accept_proposal(self, proposal_id: str) -> MemoryDecision:
@@ -715,7 +663,6 @@ class Memory:
         """
         self.semantic._validate_fid(proposal_id)
         from ledgermind.core.stores.semantic_store.loader import MemoryLoader
-        
         file_path = os.path.join(self.semantic.repo_path, proposal_id)
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"Proposal not found: {proposal_id}")
@@ -730,12 +677,8 @@ class Memory:
         if ctx.get("status") != "draft":
             raise ValueError(f"Proposal {proposal_id} is already {ctx.get('status')}")
 
-        # Convert proposal to decision
         with self.semantic.transaction():
             supersedes = ctx.get("suggested_supersedes", [])
-            
-            # Grounding inheritance: combine IDs from file context with actual DB links
-            # (this captures the proposal's own creation event)
             grounding_ids = set(ctx.get("evidence_event_ids", []))
             try:
                 grounding_ids.update(self.episodic.get_linked_event_ids(proposal_id))
@@ -762,13 +705,11 @@ class Memory:
             
             if decision.should_persist:
                 new_id = decision.metadata.get("file_id")
-                
                 self.semantic.update_decision(
                     proposal_id, 
                     {"status": "accepted", "converted_to": new_id}, 
                     commit_msg=f"Accepted and converted to {new_id}"
                 )
-            
         return decision
 
     def reject_proposal(self, proposal_id: str, reason: str):
@@ -788,30 +729,21 @@ class Memory:
         Now supports namespacing and pagination.
         """
         effective_namespace = namespace or self.namespace
-        
-        # 1. Execute Searches
         k = 60 # RRF constant
         
-        # Aggressive limit for namespace filtering to avoid starvation
         if namespace:
             search_limit = max(200, (offset + limit) * 10)
         else:
             search_limit = (offset + limit) * 3
         
-        # Vector Search
         vec_results = []
         try:
-            # Note: VectorStore currently doesn't support namespace filtering internally,
-            # so we'll filter during RRF/Resolution step.
             vec_results = self.vector.search(query, limit=search_limit)
         except Exception: pass
             
-        # Keyword Search (FTS)
         kw_results = self.semantic.meta.keyword_search(query, limit=search_limit, namespace=effective_namespace)
         
-        # 2. RRF Fusion
         scores = {}
-        
         for rank, item in enumerate(vec_results):
             fid = item['id']
             scores[fid] = scores.get(fid, 0.0) + (1.0 / (k + rank + 1))
@@ -820,39 +752,44 @@ class Memory:
             fid = item['fid']
             scores[fid] = scores.get(fid, 0.0) + (1.0 / (k + rank + 1))
 
-        # 3. Normalization
         max_rrf = 2.0 / (k + 1.0)
-
-        # Sort by score descending
         sorted_fids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
         
-        # 4. Resolve truth and apply Evidence Boost to ALL candidates
+        # Batch Fetch Optimization (PR #25)
+        candidates_meta = self.semantic.meta.get_batch_by_fids(sorted_fids)
+        request_cache = {m['fid']: m for m in candidates_meta}
+
+        current_layer_ids = [m['superseded_by'] for m in candidates_meta if m.get('superseded_by')]
+        current_layer_ids = [fid for fid in current_layer_ids if fid and fid not in request_cache]
+
+        iteration = 0
+        while current_layer_ids and iteration < 5:
+            new_batch = self.semantic.meta.get_batch_by_fids(current_layer_ids)
+            for m in new_batch:
+                request_cache[m['fid']] = m
+            current_layer_ids = [m['superseded_by'] for m in new_batch if m.get('superseded_by')]
+            current_layer_ids = [fid for fid in current_layer_ids if fid and fid not in request_cache]
+            iteration += 1
+
         all_candidates = []
         for fid in sorted_fids:
-            # Resolve to truth (handle superseding)
-            meta = self._resolve_to_truth(fid, mode)
+            meta = self._resolve_to_truth(fid, mode, cache=request_cache)
             if not meta: continue
             
-            # Namespace Filter
             if meta.get('namespace', 'default') != effective_namespace:
                 continue
 
             status = meta.get("status", "unknown")
             if mode == "strict" and status != "active": continue
 
-            # Evidence boost: each link adds 20% to the score. Capped at 1.0 (max 2x multiplier)
             final_id = meta['fid']
             link_count, _ = self.episodic.count_links_for_semantic(final_id)
             boost = min(link_count * 0.2, 1.0) 
             
-            # Status-based Boosting/Penalty
             status_multiplier = 1.0
-            if status == "active":
-                status_multiplier = 1.5
-            elif status == "rejected" or status == "falsified":
-                status_multiplier = 0.2
-            elif status == "superseded" or status == "deprecated":
-                status_multiplier = 0.3
+            if status == "active": status_multiplier = 1.5
+            elif status in ("rejected", "falsified"): status_multiplier = 0.2
+            elif status in ("superseded", "deprecated"): status_multiplier = 0.3
             
             final_score = (scores[fid] / max_rrf) * (1.0 + boost) * status_multiplier
             
@@ -870,53 +807,63 @@ class Memory:
                 "evidence_count": link_count
             })
 
-        # 5. Final Sort by boosted score and apply Pagination
         all_candidates.sort(key=lambda x: x['score'], reverse=True)
-        
         final_results = []
         seen_ids = set()
         skipped = 0
         
         for cand in all_candidates:
             if cand['id'] in seen_ids: continue
-            
             if skipped < offset:
                 skipped += 1
                 continue
             
-            # Extract Rationale and Consequences from context_json only for final results
             try:
                 ctx = json.loads(cand.pop('context_json'))
             except Exception:
                 ctx = {}
-                
             cand["rationale"] = ctx.get("rationale")
             cand["consequences"] = ctx.get("consequences")
             cand["expected_outcome"] = ctx.get("expected_outcome")
                 
             final_results.append(cand)
             seen_ids.add(cand['id'])
-            
             try:
                 self.semantic.meta.increment_hit(cand['id'])
-            except Exception as e:
-                # Non-fatal: search should proceed even if hit count update fails due to locks
-                logger.debug(f"Failed to increment hit count for {cand['id']}: {e}")
+            except Exception: pass
             
             if len(final_results) >= limit: break
             
         return final_results
 
-
-    def _resolve_to_truth(self, doc_id: str, mode: str) -> Optional[Dict[str, Any]]:
+    def _resolve_to_truth(self, doc_id: str, mode: str, cache: Optional[Dict[str, Dict[str, Any]]] = None) -> Optional[Dict[str, Any]]:
         """Recursively follows 'superseded_by' links using Metadata Store."""
         self.semantic._validate_fid(doc_id)
 
-        # If mode is audit, we want the specific version requested, not the truth
         if mode == "audit":
+            if cache and doc_id in cache: return cache[doc_id]
             return self.semantic.meta.get_by_fid(doc_id)
 
-        # For resolution, use the optimized CTE query
+        # Optimization: Use cache first if available (PR #25)
+        if cache:
+            current_id = doc_id
+            depth = 0
+            while depth < 20:
+                if current_id in cache:
+                    meta = cache[current_id]
+                    status = meta.get("status")
+                    successor = meta.get("superseded_by")
+                    if status == "active" or not successor:
+                        return meta
+                    current_id = successor
+                    depth += 1
+                else:
+                    # Fallback to CTE if cache miss
+                    break
+            else:
+                return None
+
+        # Fallback to CTE query (origin/main)
         return self.semantic.meta.resolve_to_truth(doc_id)
 
     def generate_knowledge_graph(self, target: Optional[str] = None) -> str:
@@ -926,15 +873,14 @@ class Memory:
         return generator.generate_mermaid(target_filter=target)
 
     def run_maintenance(self) -> Dict[str, Any]:
-        """Runs periodic maintenance tasks: decay and merge analysis."""
-        # 0. Deep Integrity Sync & Check
+        """Runs periodic maintenance tasks."""
         from ledgermind.core.stores.semantic_store.integrity import IntegrityChecker
         self.semantic.sync_meta_index()
         integrity_status = "ok"
         try:
             IntegrityChecker.validate(self.semantic.repo_path, force=True)
         except Exception as ie:
-            logger.error(f"Integrity Violation detected during maintenance: {ie}")
+            logger.error(f"Integrity Violation: {ie}")
             integrity_status = f"violation: {str(ie)}"
 
         decay_report = self.run_decay()
@@ -948,29 +894,23 @@ class Memory:
         }
 
     def get_stats(self) -> Dict[str, Any]:
-        """Returns diagnostic statistics about memory system health."""
-        active_semantic = len(self.get_decisions())
+        """Returns diagnostic statistics."""
         return {
-            "semantic_decisions": active_semantic,
+            "semantic_decisions": len(self.get_decisions()),
             "namespace": self.namespace,
             "storage_path": self.storage_path
         }
 
     def forget(self, decision_id: str):
-        """Hard-deletes a memory from filesystem and metadata."""
+        """Hard-deletes a memory."""
         self.semantic._validate_fid(decision_id)
-        # Clean up episodic links before purging semantic record
         self.episodic.unlink_all_for_semantic(decision_id)
-        
         self.semantic.purge_memory(decision_id)
         self.vector.remove_id(decision_id)
-        logger.info(f"Memory {decision_id} forgotten across systems.")
+        logger.info(f"Memory {decision_id} forgotten.")
 
     def close(self):
-        """Releases all resources held by the memory system."""
-        if hasattr(self, 'vector'):
-            self.vector.close()
-        if hasattr(self, 'semantic') and hasattr(self.semantic, 'meta'):
-            self.semantic.meta.close()
+        """Releases all resources."""
+        if hasattr(self, 'vector'): self.vector.close()
+        if hasattr(self, 'semantic') and hasattr(self.semantic, 'meta'): self.semantic.meta.close()
         logger.info("Memory system closed.")
-
