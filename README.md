@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v2.8.6** · Autonomous Memory Management System for AI Agents
+**v2.8.7** · Autonomous Memory Management System for AI Agents
 
 ![Banner](assets/banner.png)
 
@@ -209,10 +209,11 @@ search. Decisions with more "Evidence Links" (episodic events) receive a
 | [MCP Tools Reference](docs/MCP_TOOLS.md) | All 15 MCP tools with namespacing and offset |
 | [Architecture](docs/ARCHITECTURE.md) | Deep dive into internals and design decisions |
 | [Configuration](docs/CONFIGURATION.md) | API keys, Webhooks, and tuning |
+| [Changelog](docs/changelogs/latest.md) | Recent releases and critical fixes |
 
 ---
 
-## Benchmarks (February 26, 2Y, v2.8.6)
+## Benchmarks (February 26, 2Y, v2.8.7)
 
 LedgerMind is optimized for high-speed operation on **Android/Termux**
 as well as containerized environments. It includes built-in security for MCP and
