@@ -1,20 +1,26 @@
 import os
+import re
 import yaml
+import json
 import logging
 import sqlite3
 import uuid
 import threading
+import subprocess
+from datetime import datetime
 from typing import List, Optional, Any, Dict, Tuple
 from contextlib import contextmanager, nullcontext
 from ledgermind.core.core.schemas import MemoryEvent, TrustBoundary
 from ledgermind.core.stores.interfaces import MetadataStore, AuditProvider
 from ledgermind.core.stores.audit_git import GitAuditProvider
+from ledgermind.core.stores.audit_no import NoAuditProvider
+from ledgermind.core.core.migration import MigrationEngine
+from ledgermind.core.core.exceptions import ConflictError
 from ledgermind.core.stores.semantic_store.integrity import IntegrityChecker
-
 from ledgermind.core.stores.semantic_store.transitions import TransitionValidator
 from ledgermind.core.stores.semantic_store.loader import MemoryLoader
 from ledgermind.core.stores.semantic_store.meta import SemanticMetaStore
-from ledgermind.core.stores.semantic_store.transactions import FileSystemLock
+from ledgermind.core.stores.semantic_store.transactions import FileSystemLock, TransactionManager
 
 # Setup structured logging
 logger = logging.getLogger("ledgermind-core.semantic")
@@ -41,7 +47,6 @@ class SemanticStore:
         self.meta = meta_store or SemanticMetaStore(os.path.join(repo_path, "semantic_meta.db"))
         
         # Check for Git availability
-        import subprocess
         git_available = False
         try:
             subprocess.run(["git", "--version"], capture_output=True, check=True)
@@ -54,7 +59,6 @@ class SemanticStore:
         elif git_available:
             self.audit = GitAuditProvider(repo_path)
         else:
-            from ledgermind.core.stores.audit_no import NoAuditProvider
             self.audit = NoAuditProvider(repo_path)
         
         self.audit.initialize()
@@ -63,7 +67,6 @@ class SemanticStore:
         self._fs_lock.acquire(exclusive=True)
         try:
             if self.meta.get_version() != "1.22.0":
-                from ledgermind.core.core.migration import MigrationEngine
                 migrator = MigrationEngine(self)
                 migrator.run_all()
                 self.meta.set_version("1.22.0")
@@ -78,7 +81,6 @@ class SemanticStore:
     def reconcile_untracked(self):
         """Finds files that are on disk but not in audit (Git) and adds them."""
         self._fs_lock.acquire(exclusive=True)
-        import subprocess
         try:
             disk_files = []
             for root, _, filenames in os.walk(self.repo_path):
@@ -104,32 +106,92 @@ class SemanticStore:
         finally:
             self._fs_lock.release()
 
+    def _get_disk_files(self) -> set[str]:
+        disk_files = set()
+        for root, _, filenames in os.walk(self.repo_path):
+            if ".git" in root or ".tx_backup" in root: continue
+            for f in filenames:
+                if f.endswith(".md") or f.endswith(".yaml"):
+                    rel_path = os.path.relpath(os.path.join(root, f), self.repo_path)
+                    disk_files.add(rel_path)
+        return disk_files
+
+    def _get_meta_files(self) -> set[str]:
+        try:
+            current_meta = self.meta.list_all()
+            return {m['fid'] for m in current_meta}
+        except Exception:
+            return set()
+
+    def _remove_orphans(self, orphans: set[str]):
+        for orphaned_fid in orphans:
+            logger.debug(f"Removing orphan from meta: {orphaned_fid}")
+            self.meta.delete(orphaned_fid)
+
+    def _update_meta_for_file(self, fid: str, force: bool = False):
+        try:
+            full_path = os.path.join(self.repo_path, fid)
+            mtime = os.path.getmtime(full_path)
+
+            existing = self.meta.get_by_fid(fid)
+            if existing and not force:
+                existing_ts = existing.get('timestamp')
+                if isinstance(existing_ts, str):
+                    try:
+                        existing_ts = datetime.fromisoformat(existing_ts)
+                    except ValueError: pass
+
+                if existing_ts and abs(existing_ts.timestamp() - mtime) < 1.0:
+                    return
+
+            with open(full_path, 'r', encoding='utf-8') as stream:
+                raw_content = stream.read()
+                data, body = MemoryLoader.parse(raw_content)
+                if data:
+                    ts = data.get("timestamp")
+                    if isinstance(ts, str):
+                        ts = datetime.fromisoformat(ts)
+
+                    final_ts = ts or datetime.fromtimestamp(mtime)
+
+                    sync_ctx = data.get("context", {})
+                    sync_target = sync_ctx.get("target") or "unknown"
+                    sync_ns = sync_ctx.get("namespace") or "default"
+                    sync_keywords = sync_ctx.get("keywords", [])
+                    if isinstance(sync_keywords, list):
+                        sync_keywords = ", ".join(sync_keywords)
+
+                    self.meta.upsert(
+                        fid=fid,
+                        target=sync_target,
+                        title=sync_ctx.get("title", "") if sync_ctx else "",
+                        status=sync_ctx.get("status", "unknown") if sync_ctx else "unknown",
+                        kind=data.get("kind", "unknown"),
+                        timestamp=final_ts,
+                        superseded_by=sync_ctx.get("superseded_by") if sync_ctx else None,
+                        namespace=sync_ns,
+                        content=data.get("content", "")[:8000],
+                        keywords=sync_keywords,
+                        confidence=sync_ctx.get("confidence", 1.0) if sync_ctx else 1.0,
+                        context_json=json.dumps(sync_ctx or {})
+                    )
+        except Exception as e:
+            logger.error(f"Failed to index {fid}: {e}")
+
     def sync_meta_index(self, force: bool = False):
         """Ensures that the metadata index reflects the actual Markdown files on disk."""
         should_lock = not self._in_transaction
         if should_lock: self._fs_lock.acquire(exclusive=True)
-        from datetime import datetime
         try:
             # Re-verify integrity if forced
             if force:
                 IntegrityChecker.validate(self.repo_path, force=True)
 
             # 1. Get current files on disk
-            disk_files = set()
-            for root, _, filenames in os.walk(self.repo_path):
-                if ".git" in root or ".tx_backup" in root: continue
-                for f in filenames:
-                    if f.endswith(".md") or f.endswith(".yaml"):
-                        rel_path = os.path.relpath(os.path.join(root, f), self.repo_path)
-                        disk_files.add(rel_path)
+            disk_files = self._get_disk_files()
 
             # 2. Get current records in MetaStore
-            try:
-                current_meta = self.meta.list_all()
-                meta_files = {m['fid'] for m in current_meta}
-            except Exception:
-                current_meta = []
-                meta_files = set()
+            meta_files = self._get_meta_files()
 
             # 3. Handle Mismatches and Updates
             if disk_files != meta_files or force:
@@ -137,9 +199,7 @@ class SemanticStore:
                     logger.info(f"Syncing semantic meta index ({len(disk_files)} on disk, {len(meta_files)} in meta)...")
                 
                 # Remove orphans from meta
-                for orphaned_fid in meta_files - disk_files:
-                    logger.debug(f"Removing orphan from meta: {orphaned_fid}")
-                    self.meta.delete(orphaned_fid)
+                self._remove_orphans(meta_files - disk_files)
                 
                 # Add/Update missing or changed files
                 # Use batch_update if not already in a transaction
@@ -147,60 +207,7 @@ class SemanticStore:
 
                 with cm:
                     for f in disk_files:
-                        try:
-                            full_path = os.path.join(self.repo_path, f)
-                            mtime = os.path.getmtime(full_path)
-                            
-                            existing = self.meta.get_by_fid(f)
-                            if existing and not force:
-                                # Heuristic: if timestamp in meta is close to mtime, skip re-parsing
-                                # A more robust way would be a dedicated 'last_synced_mtime' column
-                                existing_ts = existing.get('timestamp')
-                                if isinstance(existing_ts, str):
-                                    try:
-                                        from datetime import datetime
-                                        existing_ts = datetime.fromisoformat(existing_ts)
-                                    except ValueError: pass
-                                
-                                if existing_ts and abs(existing_ts.timestamp() - mtime) < 1.0:
-                                    continue
-
-                            with open(full_path, 'r', encoding='utf-8') as stream:
-                                raw_content = stream.read()
-                                data, body = MemoryLoader.parse(raw_content)
-                                if data:
-                                    import json
-                                    ts = data.get("timestamp")
-                                    if isinstance(ts, str):
-                                        from datetime import datetime
-                                        ts = datetime.fromisoformat(ts)
-
-                                    # Use file mtime if no internal timestamp
-                                    final_ts = ts or datetime.fromtimestamp(mtime)
-
-                                    sync_ctx = data.get("context", {})
-                                    sync_target = sync_ctx.get("target") or "unknown"
-                                    sync_ns = sync_ctx.get("namespace") or "default"
-                                    sync_keywords = sync_ctx.get("keywords", [])
-                                    if isinstance(sync_keywords, list):
-                                        sync_keywords = ", ".join(sync_keywords)
-
-                                    self.meta.upsert(
-                                        fid=f,
-                                        target=sync_target,
-                                        title=sync_ctx.get("title", "") if sync_ctx else "",
-                                        status=sync_ctx.get("status", "unknown") if sync_ctx else "unknown",
-                                        kind=data.get("kind", "unknown"),
-                                        timestamp=final_ts,
-                                        superseded_by=sync_ctx.get("superseded_by") if sync_ctx else None,
-                                        namespace=sync_ns,
-                                        content=data.get("content", "")[:8000],
-                                        keywords=sync_keywords,
-                                        confidence=sync_ctx.get("confidence", 1.0) if sync_ctx else 1.0,
-                                        context_json=json.dumps(sync_ctx or {})
-                                    )
-                        except Exception as e:
-                            logger.error(f"Failed to index {f}: {e}")
+                        self._update_meta_for_file(f, force=force)
         finally:
             if should_lock: self._fs_lock.release()
 
@@ -227,7 +234,6 @@ class SemanticStore:
             yield
             return
 
-        from ledgermind.core.stores.semantic_store.transactions import TransactionManager
         self._current_tx = TransactionManager(self.repo_path, self.meta)
         self._in_transaction = True
         
@@ -254,12 +260,47 @@ class SemanticStore:
             if not event or (event.source == "agent" and event.kind == "decision"):
                 raise PermissionError("Trust Boundary Violation")
 
+    def _upsert_metadata(self, fid: str, target: str, namespace: str, kind: str,
+                         timestamp: datetime, content: str, context: Dict[str, Any],
+                         status: str):
+        """
+        Shared logic for upserting metadata to the store.
+        """
+        # Prepare cached content including rationale for searchability
+        rationale = context.get('rationale', '')
+        cached_content = f"{content}\n{rationale}" if rationale else content
+
+        keywords = context.get('keywords', [])
+        if isinstance(keywords, list):
+            keywords = ", ".join(keywords)
+
+        try:
+            self.meta.upsert(
+                fid=fid,
+                target=target,
+                title=context.get('title', ''),
+                status=status,
+                kind=kind,
+                timestamp=timestamp,
+                superseded_by=context.get('superseded_by'),
+                namespace=namespace,
+                content=cached_content[:8000],
+                keywords=keywords,
+                confidence=context.get('confidence', 1.0),
+                context_json=json.dumps(context)
+            )
+        except sqlite3.IntegrityError as ie:
+            if "UNIQUE" in str(ie):
+                msg = f"CONFLICT: Target '{target}' in namespace '{namespace}' already has active decisions."
+                logger.warning(msg)
+                raise ConflictError(msg)
+            raise
+
     def save(self, event: MemoryEvent, namespace: Optional[str] = None) -> str:
         self._enforce_trust(event)
         
         # Security: Validate namespace
         if namespace and namespace != "default":
-            import re
             if not re.match(r'^[a-zA-Z0-9_\-]+$', namespace):
                 raise ValueError(f"Invalid namespace format: {namespace}. Only alphanumeric, underscores, and hyphens allowed.")
         
@@ -286,58 +327,30 @@ class SemanticStore:
                 f.write(content)
             
             try:
-                ctx = event.context
-                def get_ctx_val(obj, key, default):
-                    if isinstance(obj, dict): return obj.get(key, default)
-                    return getattr(obj, key, default)
-
-                # Prepare cached content including rationale for searchability
-                cached_content = event.content
-                ctx_obj = event.context
-                rationale_val = ""
-                if isinstance(ctx_obj, dict):
-                    rationale_val = ctx_obj.get('rationale', '')
-                elif hasattr(ctx_obj, 'rationale'):
-                    rationale_val = getattr(ctx_obj, 'rationale', '')
+                # Use data['context'] which is guaranteed to be a dict by model_dump above
+                ctx_dict = data.get('context', {})
                 
-                if rationale_val:
-                    cached_content = f"{event.content}\n{rationale_val}"
+                # Determine target and namespace
+                final_target = ctx_dict.get('target') or 'unknown'
+                final_namespace = namespace or ctx_dict.get('namespace') or 'default'
 
-                import json
-                final_target = get_ctx_val(ctx, 'target', 'unknown') or 'unknown'
-                final_namespace = namespace or get_ctx_val(ctx, 'namespace', 'default') or 'default'
-                final_keywords = get_ctx_val(ctx, 'keywords', [])
-                if isinstance(final_keywords, list):
-                    final_keywords = ", ".join(final_keywords)
-                
-                try:
-                    self.meta.upsert(
-                        fid=relative_path,
-                        target=final_target,
-                        title=get_ctx_val(ctx, 'title', ''),
-                        status=get_ctx_val(ctx, 'status', 'active'),
-                        kind=event.kind,
-                        timestamp=event.timestamp,
-                        namespace=final_namespace,
-                        content=cached_content[:8000],
-                        keywords=final_keywords,
-                        confidence=get_ctx_val(ctx, 'confidence', 1.0),
-                        context_json=json.dumps(ctx if isinstance(ctx, dict) else ctx.model_dump(mode='json'))
-                    )
-                except sqlite3.IntegrityError as ie:
-                    if "UNIQUE" in str(ie):
-                        msg = f"CONFLICT: Target '{final_target}' in namespace '{final_namespace}' already has active decisions."
-                        logger.warning(msg)
-                        from ledgermind.core.core.exceptions import ConflictError
-                        raise ConflictError(msg)
-                    raise
+                self._upsert_metadata(
+                    fid=relative_path,
+                    target=final_target,
+                    namespace=final_namespace,
+                    kind=event.kind,
+                    timestamp=event.timestamp,
+                    content=event.content,
+                    context=ctx_dict,
+                    status=ctx_dict.get('status', 'active')
+                )
             except Exception as e:
                 # If we are in a transaction, TransactionManager will handle rollback.
                 # If not, we do manual cleanup.
                 if not self._in_transaction:
                     if os.path.exists(full_path): os.remove(full_path)
                 
-                if "ConflictError" in str(type(e)): raise
+                if isinstance(e, ConflictError): raise
                 raise RuntimeError(f"Metadata Update Failed: {e}")
 
             if not self._in_transaction:
@@ -382,50 +395,28 @@ class SemanticStore:
             with open(file_path, "w", encoding="utf-8") as f: f.write(new_content)
             
             ctx = new_data.get("context", {})
-            from datetime import datetime
             ts = new_data.get("timestamp")
             if isinstance(ts, str): ts = datetime.fromisoformat(ts)
             
-            # Combine content with rationale for better searchability in metadata cache
-            cached_content_upd = new_data.get("content", "")
-            rationale_upd = ctx.get("rationale", "")
-            if rationale_upd:
-                cached_content_upd = f"{cached_content_upd}\n{rationale_upd}"
-
             final_target_upd = ctx.get("target") or old_data.get("context", {}).get("target") or "unknown"
             final_ns_upd = ctx.get("namespace") or old_data.get("context", {}).get("namespace") or "default"
-            final_keywords_upd = ctx.get("keywords", [])
-            if isinstance(final_keywords_upd, list):
-                final_keywords_upd = ", ".join(final_keywords_upd)
 
             try:
-                import json
-                self.meta.upsert(
+                self._upsert_metadata(
                     fid=filename,
                     target=final_target_upd,
-                    title=ctx.get("title", ""),
-                    status=ctx.get("status"),
+                    namespace=final_ns_upd,
                     kind=new_data.get("kind"),
                     timestamp=ts or datetime.now(),
-                    superseded_by=ctx.get("superseded_by"),
-                    namespace=final_ns_upd,
-                    content=cached_content_upd[:8000],
-                    keywords=final_keywords_upd,
-                    confidence=ctx.get("confidence", 1.0),
-                    context_json=json.dumps(ctx)
+                    content=new_data.get("content", ""),
+                    context=ctx,
+                    status=ctx.get("status")
                 )
-            except sqlite3.IntegrityError as ie:
-                if "UNIQUE" in str(ie):
-                    msg = f"CONFLICT: Target '{final_target_upd}' in namespace '{final_ns_upd}' already has active decisions."
-                    logger.warning(msg)
-                    from ledgermind.core.core.exceptions import ConflictError
-                    raise ConflictError(msg)
-                raise
             except Exception as e:
                 if not self._in_transaction:
                     with open(file_path, "w", encoding="utf-8") as f: f.write(content)
                 
-                if "ConflictError" in str(type(e)): raise
+                if isinstance(e, ConflictError): raise
                 raise RuntimeError(f"Metadata Update Failed: {e}")
 
 
