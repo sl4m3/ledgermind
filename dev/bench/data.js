@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772075387767,
+  "lastUpdate": 1772117393750,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1520,6 +1520,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00044360773687831834",
             "extra": "mean: 4.441507158730026 msec\nrounds: 63"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "36b1cc8982453f6973fcb31a4332f77765cb9210",
+          "message": "bump: version 2.8.5 -> 2.8.6\n\n- Enhance IntegrationBridge and Memory API to inject rich context fields (rationale, consequences, targets) directly into agent prompts.\n- Update documentation to reflect Jina v5 model recommendation.\n- Add run_tests.sh to .gitignore.\n- Synchronize versioning across pyproject.toml, VERSION file, and server contracts.",
+          "timestamp": "2026-02-26T17:45:46+03:00",
+          "tree_id": "77173ea173677cc0906aecd983f775986a84b3f1",
+          "url": "https://github.com/sl4m3/ledgermind/commit/36b1cc8982453f6973fcb31a4332f77765cb9210"
+        },
+        "date": 1772117393366,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 29.720099373302766,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0031134264987499587",
+            "extra": "mean: 33.64726300001166 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 213.7317847466833,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005103285215588002",
+            "extra": "mean: 4.678761285717089 msec\nrounds: 63"
           }
         ]
       }
