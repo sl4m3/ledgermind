@@ -14,7 +14,17 @@ class MemoryTransferManager:
         self.storage_path = storage_path
 
     def export_to_tar(self, output_path: str) -> str:
-        """Packs the entire memory storage into a .tar.gz archive."""
+        """Packs the entire memory storage into a .tar.gz archive.
+
+        Args:
+            output_path: The filename for the export. Must not contain directory path components.
+
+        Raises:
+            ValueError: If output_path contains directory components (security check).
+        """
+        if os.path.basename(output_path) != output_path:
+            raise ValueError(f"Security violation: Export path '{output_path}' must be a filename, not a path.")
+
         if not output_path.endswith(".tar.gz"):
             output_path += ".tar.gz"
             
