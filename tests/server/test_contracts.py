@@ -4,7 +4,11 @@ from ledgermind.server.contracts import (
     RecordDecisionRequest,
     SupersedeDecisionRequest,
     SearchDecisionsRequest,
-    SyncGitHistoryRequest
+    SyncGitHistoryRequest,
+    AcceptProposalRequest,
+    BaseResponse,
+    SearchResponse,
+    SearchResultItem
 )
 
 # --- RecordDecisionRequest Tests ---
@@ -94,6 +98,27 @@ def test_supersede_decision_request_invalid_old_ids_empty():
             old_decision_ids=[]
         )
 
+def test_supersede_decision_request_invalid_title_short():
+    # min_length=1
+    with pytest.raises(ValidationError):
+        SupersedeDecisionRequest(
+            title="",
+            target="target",
+            rationale="rationale that is long enough",
+            old_decision_ids=["d1"]
+        )
+
+def test_supersede_decision_request_invalid_target_short():
+    # min_length=1
+    with pytest.raises(ValidationError):
+        SupersedeDecisionRequest(
+            title="title",
+            target="",
+            rationale="rationale that is long enough",
+            old_decision_ids=["d1"]
+        )
+
+
 # --- SearchDecisionsRequest Tests ---
 
 def test_search_decisions_request_valid():
@@ -160,3 +185,51 @@ def test_sync_git_history_request_invalid_limit_high():
     # le=100
     with pytest.raises(ValidationError):
         SyncGitHistoryRequest(limit=101)
+
+
+# --- AcceptProposalRequest Tests ---
+
+def test_accept_proposal_request_valid():
+    request = AcceptProposalRequest(proposal_id="proposal_123.md")
+    assert request.proposal_id == "proposal_123.md"
+
+def test_accept_proposal_request_missing_id():
+    with pytest.raises(ValidationError):
+        AcceptProposalRequest()
+
+
+# --- BaseResponse Tests ---
+
+def test_base_response_valid_success():
+    response = BaseResponse(status="success", message="OK")
+    assert response.status == "success"
+    assert response.message == "OK"
+
+def test_base_response_valid_error():
+    response = BaseResponse(status="error", message="Failed")
+    assert response.status == "error"
+
+def test_base_response_invalid_status():
+    with pytest.raises(ValidationError):
+        BaseResponse(status="invalid_status")
+
+
+# --- SearchResponse Tests ---
+
+def test_search_response_valid():
+    items = [
+        SearchResultItem(
+            id="1",
+            score=0.9,
+            status="active",
+            preview="Preview text",
+            kind="decision"
+        )
+    ]
+    response = SearchResponse(status="success", results=items)
+    assert len(response.results) == 1
+    assert response.results[0].id == "1"
+
+def test_search_response_defaults():
+    response = SearchResponse(status="success")
+    assert response.results == []
