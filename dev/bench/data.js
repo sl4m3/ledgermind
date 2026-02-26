@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126334907,
+  "lastUpdate": 1772126367818,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1938,6 +1938,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005400985630241916",
             "extra": "mean: 2.894085781247687 msec\nrounds: 96"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0fc71075110bc05a4348919ae283ba6b17d26c3b",
+          "message": "feat(core): Optimize resolve_to_truth using recursive CTE (#14)\n\nReplaced the iterative N+1 query loop in `_resolve_to_truth` with a single recursive CTE query in `SemanticMetaStore`. This reduces the resolution time from ~0.35ms to ~0.075ms (4.6x speedup) for long chains.\n\n- Added `resolve_to_truth` to `SemanticMetaStore` in `src/ledgermind/core/stores/semantic_store/meta.py`.\n- Updated `_resolve_to_truth` in `src/ledgermind/core/api/memory.py` to use the new method.\n- Added regression tests in `tests/test_resolution_edge_cases.py` to verify edge cases (broken links, depth limit, circularity).\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:15:10+03:00",
+          "tree_id": "c4018b9e7412a3791fbccf7fa50987f3ccdd9ad5",
+          "url": "https://github.com/sl4m3/ledgermind/commit/0fc71075110bc05a4348919ae283ba6b17d26c3b"
+        },
+        "date": 1772126367544,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 31.536476962527647,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009470859645830719",
+            "extra": "mean: 31.7093123999939 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 214.18259014946003,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006356410420308794",
+            "extra": "mean: 4.6689135624991 msec\nrounds: 64"
           }
         ]
       }
