@@ -38,7 +38,8 @@ async def get_api_key(
 ):
     expected_key = os.environ.get("LEDGERMIND_API_KEY")
     if not expected_key:
-        return None
+        logger.error("LEDGERMIND_API_KEY is not set. Refusing access.")
+        raise HTTPException(status_code=500, detail="Server authentication not configured")
     
     # Check both header and query param
     key = api_key_header or api_key_query
@@ -96,6 +97,13 @@ async def websocket_endpoint(
 ):
     """Bi-directional live updates via WebSockets."""
     expected_key = os.environ.get("LEDGERMIND_API_KEY")
+
+    if not expected_key:
+        logger.error("LEDGERMIND_API_KEY is not set. Refusing websocket connection.")
+        await websocket.accept()
+        await websocket.close(code=1008) # Policy Violation
+        return
+
     if expected_key and api_key != expected_key:
         await websocket.accept()
         await websocket.close(code=4003) # Forbidden
