@@ -1,6 +1,7 @@
 import pytest
+import os
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from ledgermind.server.gateway import app, get_memory
 
 def test_gateway_endpoints():
@@ -18,18 +19,21 @@ def test_gateway_endpoints():
     assert res.status_code == 200
     assert res.json()["status"] == "alive"
     
-    # 2. Search
-    res = client.post("/search", json={"query": "test"})
-    assert res.status_code == 200
-    assert res.json()["results"][0]["id"] == "d1"
-    
-    # 3. Record
-    res = client.post("/record", json={
-        "title": "Rest Title", 
-        "target": "Rest Target", 
-        "rationale": "Enough length for rationale"
-    })
-    assert res.status_code == 200
-    assert res.json()["id"] == "new.md"
+    with patch.dict(os.environ, {"LEDGERMIND_API_KEY": "test-key"}):
+        headers = {"X-API-Key": "test-key"}
+
+        # 2. Search
+        res = client.post("/search", json={"query": "test"}, headers=headers)
+        assert res.status_code == 200
+        assert res.json()["results"][0]["id"] == "d1"
+
+        # 3. Record
+        res = client.post("/record", json={
+            "title": "Rest Title",
+            "target": "Rest Target",
+            "rationale": "Enough length for rationale"
+        }, headers=headers)
+        assert res.status_code == 200
+        assert res.json()["id"] == "new.md"
     
     app.dependency_overrides.clear()

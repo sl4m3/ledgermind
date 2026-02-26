@@ -911,23 +911,13 @@ class Memory:
     def _resolve_to_truth(self, doc_id: str, mode: str) -> Optional[Dict[str, Any]]:
         """Recursively follows 'superseded_by' links using Metadata Store."""
         self.semantic._validate_fid(doc_id)
-        current_id = doc_id
-        depth = 0
-        while depth < 20:
-            meta = self.semantic.meta.get_by_fid(current_id)
-            if not meta: return None
-            
-            status = meta.get("status")
-            successor = meta.get("superseded_by")
-            
-            if mode == "audit" or status == "active" or not successor:
-                return meta
-                
-            current_id = successor
-            depth += 1
-            
-        logger.warning(f"Recursive truth resolution depth limit (20) reached for {doc_id}. Possible circularity or long evolution chain.")
-        return None
+
+        # If mode is audit, we want the specific version requested, not the truth
+        if mode == "audit":
+            return self.semantic.meta.get_by_fid(doc_id)
+
+        # For resolution, use the optimized CTE query
+        return self.semantic.meta.resolve_to_truth(doc_id)
 
     def generate_knowledge_graph(self, target: Optional[str] = None) -> str:
         """Generates a Mermaid graph of knowledge evolution."""
