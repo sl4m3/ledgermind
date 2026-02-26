@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126727286,
+  "lastUpdate": 1772126829625,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2318,6 +2318,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005206963963293004",
             "extra": "mean: 4.720679220342343 msec\nrounds: 59"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "390536d59483192beb84a5079489e97dfdf289a3",
+          "message": "Refactor installer hook script creation logic (#7)\n\nExtracted `_create_hook_script` helper method in `BaseInstaller` to reduce code duplication in `ClaudeInstaller` and `CursorInstaller`. This method handles writing the script content and setting the correct file permissions (0o700).\n\n- Added `_create_hook_script` to `BaseInstaller` in `src/ledgermind/server/installers.py`\n- Updated `ClaudeInstaller.install` to use the helper\n- Updated `CursorInstaller.install` to use the helper\n- Verified with `tests/server/test_hooks_integration.py`\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:22:03+03:00",
+          "tree_id": "d621e0db6957727f6bc79b1136f34e294cca3013",
+          "url": "https://github.com/sl4m3/ledgermind/commit/390536d59483192beb84a5079489e97dfdf289a3"
+        },
+        "date": 1772126829336,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 33.204257978586604,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009786548843293585",
+            "extra": "mean: 30.116619399984756 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 215.77237826567296,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004413584223011655",
+            "extra": "mean: 4.63451350000293 msec\nrounds: 66"
           }
         ]
       }
