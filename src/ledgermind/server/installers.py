@@ -149,13 +149,17 @@ def main():
     log_debug(f'--- Hook Execution Start ---')
     log_debug(f'Args: {{sys.argv}}')
     
-    stdin_data = ''
+    stdin_json = {{}}
+    prompt = ''
     if not sys.stdin.isatty():
         try:
-            stdin_data = sys.stdin.read()
-            log_debug(f'Captured stdin (length: {{len(stdin_data)}})')
+            raw_input = sys.stdin.read()
+            if raw_input:
+                stdin_json = json.loads(raw_input)
+                prompt = stdin_json.get('prompt', '')
+            log_debug(f'Captured input (prompt length: {{len(prompt)}})')
         except Exception as e:
-            log_debug(f'Error reading stdin: {{str(e)}}')
+            log_debug(f'Error parsing input: {{str(e)}}')
 
     project_src = os.path.join(PROJECT_PATH, 'src')
     if os.path.exists(project_src) and project_src not in sys.path:
@@ -169,21 +173,34 @@ def main():
         
         if action == 'before':
             log_debug('Processing BeforeAgent')
-            if stdin_data:
-                bridge.memory.process_event(source='user', kind='prompt', content=stdin_data)
+            if prompt:
+                # Record prompt to episodic memory
+                bridge.memory.process_event(source='user', kind='prompt', content=prompt)
                 log_debug('Prompt recorded to episodic.db')
                 
-                context = bridge.get_context_for_prompt(stdin_data)
+                # Fetch context
+                context = bridge.get_context_for_prompt(prompt)
                 if context:
-                    sys.stdout.write(context + '\\n\\n')
-                    log_debug('Context injected to stdout')
+                    # Return formatted JSON for context injection
+                    output = {{
+                        "hookSpecificOutput": {{
+                            "additionalContext": context
+                        }}
+                    }}
+                    sys.stdout.write(json.dumps(output) + '\\n')
+                    log_debug('Context injected via JSON output')
+                else:
+                    # Return empty JSON if no context found
+                    sys.stdout.write(json.dumps({{}}) + '\\n')
+            else:
+                sys.stdout.write(json.dumps({{}}) + '\\n')
 
         elif action == 'after':
             log_debug('Processing AfterAgent')
-            if stdin_data:
+            if stdin_json:
                 try:
-                    data = json.loads(stdin_data)
-                    transcript_path = data.get("transcript_path")
+                    # Gemini CLI passes the transcript path in the JSON input
+                    transcript_path = stdin_json.get("transcript_path")
                     if transcript_path and os.path.exists(transcript_path):
                         with open(transcript_path, 'r', encoding='utf-8') as f:
                             transcript = json.load(f)
@@ -195,19 +212,19 @@ def main():
                                 last_user_idx = i
                                 break
                         
-                        gemini_turns = turns[last_user_idx + 1:] if last_user_idx != -1 else []
-                        if not gemini_turns and turns:
-                            gemini_turns = [turns[-1]]
+                        agent_turns = turns[last_user_idx + 1:] if last_user_idx != -1 else []
+                        if not agent_turns and turns:
+                            agent_turns = [turns[-1]]
 
                         events_recorded = 0
-                        for t in gemini_turns:
+                        for t in agent_turns:
                             if t.get("type") in ["gemini", "agent", "assistant"] or t.get("role") in ["assistant", "agent", "gemini"]:
                                 text_content = t.get("content", "").strip()
                                 if text_content:
                                     bridge.memory.process_event(source='agent', kind='result', content=text_content)
                                     events_recorded += 1
                                 
-                                tool_calls = t.get("toolCalls", [])
+                                tool_calls = t.get("toolCalls", []) + t.get("tool_calls", [])
                                 for tc in tool_calls:
                                     tool_name = tc.get("name", "unknown")
                                     status = tc.get("status", "unknown")
@@ -221,17 +238,16 @@ def main():
                                     bridge.memory.process_event(source='agent', kind='call', content=tool_event_content)
                                     events_recorded += 1
 
-                        if events_recorded == 0:
-                            bridge.memory.process_event(source='agent', kind='result', content=stdin_data)
-                        
-                        log_debug(f'Separated {{events_recorded}} events recorded to episodic.db')
+                        log_debug(f'Recorded {{events_recorded}} events from transcript')
                     else:
-                        bridge.memory.process_event(source='agent', kind='result', content=stdin_data)
-                        log_debug('Raw response recorded to episodic.db')
+                        # Fallback to recording the raw response if no transcript
+                        raw_response = stdin_json.get("response", "")
+                        if raw_response:
+                            bridge.memory.process_event(source='agent', kind='result', content=raw_response)
+                            log_debug('Raw response recorded to episodic.db')
 
                 except Exception as e:
-                    bridge.memory.process_event(source='agent', kind='result', content=stdin_data)
-                    log_debug(f'Raw response recorded (fallback): {{e}}')
+                    log_debug(f'Error recording after interaction: {{e}}')
 
     except Exception as e:
         log_debug(f'Error in main: {{str(e)}}')
