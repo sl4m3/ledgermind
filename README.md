@@ -171,7 +171,8 @@ The easiest way to use LedgerMind is to install the **LedgerMind Hooks Pack**. T
 
 ```bash
 # Install hooks for your preferred client (vscode, claude, cursor, or gemini)
-ledgermind install vscode --path ./memory
+# Memory is installed in the parent directory (../.ledgermind) by default for best isolation.
+ledgermind install gemini
 ```
 *Now, simply use your client as usual. LedgerMind operates entirely in the background.*
 
@@ -180,12 +181,13 @@ ledgermind install vscode --path ./memory
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
 
-# Using Jina v5 Small 4-bit GGUF for best accuracy on CPU
-# NOTE: Using 'ledgermind' (without a dot) as the memory directory is preferred for 
-# better compatibility with file processing tools (e.g. read_file).
+# NOTE: Using '.ledgermind' in the parent directory (outside the project root) 
+# is the recommended standard. This keeps memory isolated from project code,
+# prevents context pollution in analysis tools (like 'read_file'), and ensures
+# memory is not accidentally committed to source control.
 bridge = IntegrationBridge(
-    memory_path="ledgermind", 
-    vector_model="ledgermind/models/v5-small-text-matching-Q4_K_M.gguf"
+    memory_path="../.ledgermind", 
+    vector_model="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf"
 )
 
 # Inject relevant context into your agent's prompt

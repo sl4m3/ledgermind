@@ -100,7 +100,7 @@ def main():
     
     # Run command
     run_parser = subparsers.add_parser("run", help="Run the MCP server")
-    run_parser.add_argument("--path", default="ledgermind", help="Path to memory storage")
+    run_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
     run_parser.add_argument("--name", default="Ledgermind", help="MCP Server Name")
     run_parser.add_argument("--capabilities", help="JSON string of capabilities")
     run_parser.add_argument("--metrics-port", type=int, help="Port for Prometheus metrics")
@@ -109,15 +109,15 @@ def main():
     
     # Init command
     init_parser = subparsers.add_parser("init", help="Initialize a new memory project")
-    init_parser.add_argument("--path", default="ledgermind", help="Path to create memory storage")
+    init_parser.add_argument("--path", default="../.ledgermind", help="Path to create memory storage")
 
     # Check command
     check_parser = subparsers.add_parser("check", help="Check project health")
-    check_parser.add_argument("--path", default="ledgermind", help="Path to memory storage")
+    check_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
     
     # Stats command
     stats_parser = subparsers.add_parser("stats", help="Show project statistics")
-    stats_parser.add_argument("--path", default="ledgermind", help="Path to memory storage")
+    stats_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
 
     # Global options
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
@@ -133,13 +133,13 @@ def main():
 
     # Bridge commands
     bc_parser = subparsers.add_parser("bridge-context", help="Internal: get context")
-    bc_parser.add_argument("--path", default="ledgermind", help="Path to memory storage")
+    bc_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
     bc_parser.add_argument("--prompt", required=True, help="User prompt")
     bc_parser.add_argument("--cli", help="Default CLI for arbitration")
     bc_parser.add_argument("--threshold", type=float, help="Relevance threshold")
 
     br_parser = subparsers.add_parser("bridge-record", help="Internal: record interaction")
-    br_parser.add_argument("--path", default="ledgermind", help="Path to memory storage")
+    br_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
     br_parser.add_argument("--prompt", required=True, help="User prompt")
     br_parser.add_argument("--response", required=True, help="Agent response")
     br_parser.add_argument("--success", action="store_true", default=True, help="Was successful")

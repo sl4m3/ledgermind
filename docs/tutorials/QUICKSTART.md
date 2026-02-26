@@ -25,8 +25,9 @@ pip install ledgermind[vector]
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
 
-# This creates ./memory/ with all required subdirectories and a Git repository
-bridge = IntegrationBridge(memory_path="./project_memory")
+# This creates ../.ledgermind/ in the parent directory (outside project root)
+# Placing memory one level up is the recommended standard for best isolation.
+bridge = IntegrationBridge(memory_path="../.ledgermind")
 memory = bridge.memory
 
 print("✓ Memory initialized")
@@ -34,7 +35,7 @@ print("✓ Memory initialized")
 
 Or via CLI:
 ```bash
-ledgermind-mcp init --path ./project_memory
+ledgermind-mcp init --path ../.ledgermind
 ```
 
 ---
@@ -235,7 +236,8 @@ print(f"Vector embeddings:{stats['vector_count']}")
 from ledgermind.core.api.bridge import IntegrationBridge
 
 def run_demo():
-    bridge = IntegrationBridge(memory_path="./demo_memory")
+    # Recommended: storage path one level above the project
+    bridge = IntegrationBridge(memory_path="../.ledgermind")
     memory = bridge.memory
 
     # Record decisions

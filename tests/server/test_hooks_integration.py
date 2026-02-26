@@ -61,7 +61,7 @@ def test_install_claude_hooks(mock_home, tmp_path):
         before_content = (hooks_dir / "ledgermind_before_prompt.sh").read_text()
         assert "bridge-context" in before_content
         assert '--cli "claude"' in before_content
-        assert str(project_path) in before_content
+        assert ".ledgermind" in before_content
 
         with open(settings_file) as f:
             settings = json.load(f)
@@ -88,7 +88,7 @@ def test_install_cursor_hooks(mock_home, tmp_path):
         before_content = (hooks_dir / "ledgermind_before.sh").read_text()
         assert "bridge-context" in before_content
         assert '--cli "cursor"' in before_content
-        assert str(project_path) in before_content
+        assert ".ledgermind" in before_content
 
         with open(hooks_file) as f:
             config = json.load(f)
@@ -109,7 +109,7 @@ def test_install_gemini_hooks(mock_home, tmp_path):
         assert hook_file.exists()
         content = hook_file.read_text()
         assert "bridge.get_context_for_prompt" in content
-        assert "IntegrationBridge(memory_path=os.path.join(PROJECT_PATH, 'ledgermind'))" in content
+        assert "IntegrationBridge(memory_path=MEMORY_PATH)" in content
         assert str(project_path) in content
 
 def test_bridge_context_cli(tmp_path):
