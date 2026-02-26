@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772070831424,
+  "lastUpdate": 1772072481466,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1406,6 +1406,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00047692599619533565",
             "extra": "mean: 4.419286454549365 msec\nrounds: 66"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "a5f3cb0beba36b3483cf2a23d5f0987b4a82c8cc",
+          "message": "fix(hooks): align Gemini CLI hooks with JSON I/O protocol",
+          "timestamp": "2026-02-26T05:17:13+03:00",
+          "tree_id": "c809acf31ac4de1212283469d27f02939bc7f824",
+          "url": "https://github.com/sl4m3/ledgermind/commit/a5f3cb0beba36b3483cf2a23d5f0987b4a82c8cc"
+        },
+        "date": 1772072480483,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 28.97559037154461,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003118467411307216",
+            "extra": "mean: 34.51180760002899 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 223.25027408799846,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005419266884426028",
+            "extra": "mean: 4.479277815380556 msec\nrounds: 65"
           }
         ]
       }
