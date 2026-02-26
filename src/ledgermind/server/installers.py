@@ -26,6 +26,8 @@ class ClaudeInstaller(BaseInstaller):
         self.settings_file = os.path.join(self.claude_dir, "settings.json")
 
     def install(self, project_path: str):
+        project_path = os.path.abspath(project_path)
+        memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
         os.makedirs(self.hooks_dir, exist_ok=True)
         
         # 1. Create UserPromptSubmit / BeforeModel script
@@ -35,7 +37,7 @@ class ClaudeInstaller(BaseInstaller):
 # LedgerMind BeforeModel Hook
 # Injects context into the prompt
 PROMPT=$(cat)
-ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT" --cli "claude"
+ledgermind-mcp bridge-context --path "{memory_path}" --prompt "$PROMPT" --cli "claude"
 """)
         os.chmod(before_script_path, 0o700)
 
@@ -46,7 +48,7 @@ ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT" --cli "
 # LedgerMind AfterModel Hook
 # Records the interaction (fire and forget)
 RESPONSE=$(cat)
-ledgermind-mcp bridge-record --path "{project_path}" --prompt "Automated tool execution" --response "$RESPONSE" --cli "claude" &
+ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Automated tool execution" --response "$RESPONSE" --cli "claude" &
 """)
         os.chmod(after_script_path, 0o700)
 
@@ -80,6 +82,8 @@ class CursorInstaller(BaseInstaller):
         self.hooks_file = os.path.join(self.cursor_dir, "hooks.json")
 
     def install(self, project_path: str):
+        project_path = os.path.abspath(project_path)
+        memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
         os.makedirs(self.hooks_dir, exist_ok=True)
         
         before_script_path = os.path.join(self.hooks_dir, "ledgermind_before.sh")
@@ -87,7 +91,7 @@ class CursorInstaller(BaseInstaller):
             f.write(f"""#!/bin/bash
 # Cursor BeforeSubmitPrompt Hook
 PROMPT=$1
-ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT" --cli "cursor"
+ledgermind-mcp bridge-context --path "{memory_path}" --prompt "$PROMPT" --cli "cursor"
 """)
         os.chmod(before_script_path, 0o700)
 
@@ -96,7 +100,7 @@ ledgermind-mcp bridge-context --path "{project_path}" --prompt "$PROMPT" --cli "
             f.write(f"""#!/bin/bash
 # Cursor AfterAgentResponse Hook
 RESPONSE=$1
-ledgermind-mcp bridge-record --path "{project_path}" --prompt "Agent interaction" --response "$RESPONSE" --cli "cursor" &
+ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Agent interaction" --response "$RESPONSE" --cli "cursor" &
 """)
         os.chmod(after_script_path, 0o700)
 
@@ -125,6 +129,8 @@ class GeminiInstaller(BaseInstaller):
         self.hooks_dir = os.path.join(self.gemini_dir, "hooks")
 
     def install(self, project_path: str):
+        project_path = os.path.abspath(project_path)
+        memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
         os.makedirs(self.hooks_dir, exist_ok=True)
         # For Gemini CLI, we create a Python hook that the CLI can import or call
         hook_file = os.path.join(self.hooks_dir, "ledgermind_hook.py")
@@ -136,6 +142,7 @@ import json
 
 LOG_FILE = os.path.expanduser('~/.gemini/hooks/ledgermind_debug.log')
 PROJECT_PATH = '{project_path}'
+MEMORY_PATH = '{memory_path}'
 
 def log_debug(msg):
     try:
@@ -167,7 +174,7 @@ def main():
 
     try:
         from ledgermind.core.api.bridge import IntegrationBridge
-        bridge = IntegrationBridge(memory_path=os.path.join(PROJECT_PATH, 'ledgermind'))
+        bridge = IntegrationBridge(memory_path=MEMORY_PATH)
         
         action = sys.argv[1] if len(sys.argv) > 1 else 'unknown'
         
@@ -272,12 +279,15 @@ class VSCodeInstaller(BaseInstaller):
             self.extensions_dir = os.path.expanduser("~/.vscode/extensions")
 
     def install(self, project_path: str):
+        project_path = os.path.abspath(project_path)
+        memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
+        
         # 1. Физическая установка расширения LedgerMind
         self._install_extension_files(project_path)
 
         # 2. Roo Code (Cline) - settings path
         roo_path = os.path.join(self.global_storage, "saoudrizwan.claude-dev", "settings", "cline_mcp_settings.json")
-        self._inject_mcp_config(roo_path, project_path, "Roo Code (Cline)")
+        self._inject_mcp_config(roo_path, memory_path, "Roo Code (Cline)")
 
         # 3. Hardcore Zero-Touch: Добавляем системную инструкцию для автоматического чтения контекста
         # Путь к кастомным инструкциям Roo Code
@@ -349,7 +359,7 @@ class VSCodeInstaller(BaseInstaller):
             json.dump(data, f, indent=2)
         print(f"  → Injected Hardcore Memory Policy into Custom Instructions.")
 
-    def _inject_mcp_config(self, config_path: str, project_path: str, ext_name: str):
+    def _inject_mcp_config(self, config_path: str, memory_path: str, ext_name: str):
         config_dir = os.path.dirname(config_path)
         if not os.path.exists(config_dir):
             return
@@ -367,7 +377,7 @@ class VSCodeInstaller(BaseInstaller):
 
         config["mcpServers"]["ledgermind"] = {
             "command": "ledgermind-mcp",
-            "args": ["run", "--path", os.path.abspath(project_path)],
+            "args": ["run", "--path", os.path.abspath(memory_path)],
             "disabled": False
         }
 

@@ -11,7 +11,7 @@ This document walks through the most common usage patterns in LedgerMind with fu
 ```python
 from ledgermind.core.api.memory import Memory
 
-memory = Memory(storage_path="./memory")
+memory = Memory(storage_path="../.ledgermind")
 
 # Step 1: Record a decision
 result = memory.record_decision(
@@ -110,7 +110,7 @@ memory.supersede_decision(
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
 
-bridge = IntegrationBridge(memory_path="./memory")
+bridge = IntegrationBridge(memory_path="../.ledgermind")
 
 # Agent encounters several errors
 bridge.record_interaction(
@@ -186,7 +186,7 @@ In MCP mode, this runs automatically every 5 minutes via `BackgroundWorker._run_
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
 
-bridge = IntegrationBridge(memory_path="./memory", relevance_threshold=0.7)
+bridge = IntegrationBridge(memory_path="../.ledgermind", relevance_threshold=0.7)
 
 user_input = "How should we configure the database connection pool?"
 
@@ -269,7 +269,7 @@ memory.reject_proposal(drafts[0]["id"], reason="Not enough evidence yet.")
 from ledgermind.core.api.transfer import MemoryTransferManager
 
 # Export
-transfer = MemoryTransferManager(storage_path="./memory")
+transfer = MemoryTransferManager(storage_path="../.ledgermind")
 archive = transfer.export_to_tar("memory_backup_2024-02-01.tar.gz")
 print(f"Exported to: {archive}")
 

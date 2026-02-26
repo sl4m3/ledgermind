@@ -64,7 +64,8 @@ pip install ledgermind[vector]
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
 
-bridge = IntegrationBridge(memory_path="./memory")
+# Recommended: storage path one level above the project
+bridge = IntegrationBridge(memory_path="../.ledgermind")
 ```
 
 `IntegrationBridge` is the recommended entry point for most use cases. It wraps the `Memory` class with simplified methods and safe error handling.
@@ -75,7 +76,7 @@ bridge = IntegrationBridge(memory_path="./memory")
 from ledgermind.core.api.bridge import IntegrationBridge
 
 bridge = IntegrationBridge(
-    memory_path="./memory",
+    memory_path="../.ledgermind",
     relevance_threshold=0.7,   # minimum relevance score for context injection
 )
 
@@ -115,7 +116,7 @@ from ledgermind.core.api.memory import Memory
 from ledgermind.core.core.schemas import LedgermindConfig, TrustBoundary
 
 config = LedgermindConfig(
-    storage_path="./memory",
+    storage_path="../.ledgermind",
     ttl_days=60,
     trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
     namespace="my_agent_2.7.9",
@@ -171,12 +172,11 @@ memory = Memory(
 
 ```bash
 # Basic
-ledgermind-mcp run --path ./memory
+ledgermind-mcp run --path ../.ledgermind
 
 # Production
 ledgermind-mcp run \
-  --path ./memory \
-  --name "ProjectMemory" \
+      --path ../.ledgermind \  --name "ProjectMemory" \
   --metrics-port 9090 \
   --rest-port 8080
 ```
@@ -203,7 +203,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
   "mcpServers": {
     "ledgermind": {
       "command": "ledgermind-mcp",
-      "args": ["run", "--path", "./memory"]
+      "args": ["run", "--path", "../.ledgermind"]
     }
   }
 }
@@ -217,14 +217,14 @@ from ledgermind.core.api.memory import Memory
 from ledgermind.core.core.schemas import TrustBoundary
 
 memory = Memory(
-    storage_path="./memory",
+    storage_path="../.ledgermind",
     trust_boundary=TrustBoundary.AGENT_WITH_INTENT
 )
 
 server = MCPServer(
     memory=memory,
     server_name="MyAgent Memory",
-    storage_path="./memory",
+    storage_path="../.ledgermind",
     capabilities={
         "read": True,
         "propose": True,

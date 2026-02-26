@@ -20,3 +20,4 @@ benchmarks/results/
 # Test temporary dirs
 /temp_test_*/
 /.test_memory/
+.ledgermind/

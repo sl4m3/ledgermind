@@ -157,7 +157,7 @@ search_decisions(query, limit, mode)
 ## Storage Layout
 
 ```
-./memory/                          ← storage_path
+../.ledgermind/                    ← storage_path
 ├── episodic.db                    ← SQLite: interaction journal
 ├── vector_index/
 │   ├── vectors.npy                ← NumPy float32 embeddings matrix

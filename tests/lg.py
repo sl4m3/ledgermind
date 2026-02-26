@@ -61,7 +61,7 @@ def run_lifecycle_test(args):
     try:
         bridge = IntegrationBridge(
             memory_path=tmp_dir, 
-            vector_model="ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
+            vector_model="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
             default_cli=[args.cli]
         )
         target = f"Legacy-Protocol-{uuid.uuid4().hex[:4]}"
@@ -285,7 +285,7 @@ def run_autonomy_stress_tests():
     os.makedirs(tmp_dir, exist_ok=True)
     
     try:
-        bridge = IntegrationBridge(memory_path=tmp_dir, vector_model="ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
+        bridge = IntegrationBridge(memory_path=tmp_dir, vector_model="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
         
         # --- TEST 1: Falsifiability (Negative Feedback Loop) ---
         console.print("\n[bold cyan]1. Falsifiability Test (Knowledge Invalidation)[/bold cyan]")
@@ -443,7 +443,7 @@ def main():
         sys.exit(0)
     
     try:
-        bridge = IntegrationBridge(memory_path=MEMORY_PATH, vector_model="ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
+        bridge = IntegrationBridge(memory_path=MEMORY_PATH, vector_model="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
         if not args.no_memory:
             show_injected_context(bridge, user_prompt)
         bridge.execute_with_memory([args.cli], user_prompt, stream=True)
