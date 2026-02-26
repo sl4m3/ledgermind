@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772119494554,
+  "lastUpdate": 1772126030537,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1710,6 +1710,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005417171702155068",
             "extra": "mean: 4.542103700005859 msec\nrounds: 60"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "26c5a9bd5d52ff23fd7947d449134f0f4e926cc4",
+          "message": "Refactor sync_meta_index into helper methods (#1)\n\nThis change breaks down the complex `sync_meta_index` method in `SemanticStore` into four smaller, more focused helper methods:\n- `_get_disk_files`: Retrieves relevant files from the disk.\n- `_get_meta_files`: Retrieves files currently indexed in the metadata store.\n- `_remove_orphans`: Removes metadata entries for files that no longer exist on disk.\n- `_update_meta_for_file`: Handles the logic for updating metadata for a single file.\n\nThis improves readability and maintainability of the code, making the synchronization process easier to understand and test. The behavior remains unchanged.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:09:35+03:00",
+          "tree_id": "b8c865918f78f8296f1ce315c5b44eefedfc3aa0",
+          "url": "https://github.com/sl4m3/ledgermind/commit/26c5a9bd5d52ff23fd7947d449134f0f4e926cc4"
+        },
+        "date": 1772126029924,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 30.09965858499661,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0022203267840983374",
+            "extra": "mean: 33.222968199993375 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 225.7974426968412,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00048522168117205705",
+            "extra": "mean: 4.4287481206889225 msec\nrounds: 58"
           }
         ]
       }
