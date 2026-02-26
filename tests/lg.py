@@ -12,6 +12,11 @@ import json
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 
+# Ensure local src is prioritized for imports
+src_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
+if os.path.exists(src_path):
+    sys.path.insert(0, src_path)
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.status import Status
@@ -47,8 +52,6 @@ def warp_time_in_db(db_path: str, table: str, days_back: int, time_col: str = "t
 
 def run_lifecycle_test(args):
     """Expanded Lifecycle Test: Birth -> Search -> Evolution -> Aging -> Decay -> Graph."""
-    import logging
-    logging.basicConfig(level=logging.INFO, format='%(message)s')
     console.print(Panel.fit("[bold magenta]LedgerMind Advanced Knowledge Lifecycle Test[/bold magenta]", border_style="magenta"))
     
     tmp_dir = os.path.join(os.getcwd(), "memory")
@@ -58,7 +61,7 @@ def run_lifecycle_test(args):
     try:
         bridge = IntegrationBridge(
             memory_path=tmp_dir, 
-            vector_model=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
+            vector_model="ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
             default_cli=[args.cli]
         )
         target = f"Legacy-Protocol-{uuid.uuid4().hex[:4]}"
@@ -282,7 +285,7 @@ def run_autonomy_stress_tests():
     os.makedirs(tmp_dir, exist_ok=True)
     
     try:
-        bridge = IntegrationBridge(memory_path=tmp_dir, vector_model=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
+        bridge = IntegrationBridge(memory_path=tmp_dir, vector_model="ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
         
         # --- TEST 1: Falsifiability (Negative Feedback Loop) ---
         console.print("\n[bold cyan]1. Falsifiability Test (Knowledge Invalidation)[/bold cyan]")
@@ -360,7 +363,7 @@ def run_autonomy_stress_tests():
         console.print("[dim]Metadata index files deleted.[/dim]")
         
         # Re-initialize bridge
-        bridge = IntegrationBridge(memory_path=tmp_dir, vector_model=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
+        bridge = IntegrationBridge(memory_path=tmp_dir, vector_model="ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
         
         # Check recovery
         check_res = bridge.search_decisions(target_t, limit=1)
@@ -440,7 +443,7 @@ def main():
         sys.exit(0)
     
     try:
-        bridge = IntegrationBridge(memory_path=MEMORY_PATH, vector_model=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
+        bridge = IntegrationBridge(memory_path=MEMORY_PATH, vector_model="ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
         if not args.no_memory:
             show_injected_context(bridge, user_prompt)
         bridge.execute_with_memory([args.cli], user_prompt, stream=True)
@@ -449,4 +452,6 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
+    import logging
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
     main()
