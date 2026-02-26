@@ -830,7 +830,16 @@ class Memory:
             link_count, _ = self.episodic.count_links_for_semantic(final_id)
             boost = min(link_count * 0.2, 1.0) 
             
-            final_score = (scores[fid] / max_rrf) * (1.0 + boost)
+            # Status-based Boosting/Penalty
+            status_multiplier = 1.0
+            if status == "active":
+                status_multiplier = 1.5
+            elif status == "rejected" or status == "falsified":
+                status_multiplier = 0.2
+            elif status == "superseded" or status == "deprecated":
+                status_multiplier = 0.3
+            
+            final_score = (scores[fid] / max_rrf) * (1.0 + boost) * status_multiplier
             
             all_candidates.append({
                 "id": final_id,
