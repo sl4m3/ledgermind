@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772060532410,
+  "lastUpdate": 1772070831424,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1368,6 +1368,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0004732982987761984",
             "extra": "mean: 4.542208857141564 msec\nrounds: 63"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "3a709d1f99295d023286741af617d33d49edd6eb",
+          "message": "release: version 2.8.5\n\n- Bump version to 2.8.5 in pyproject.toml and VERSION.\n- Increase default relevance_threshold to 0.7 for cleaner context injection.\n- Synchronize all documentation (README, ARCHITECTURE, CONFIGURATION, API_REFERENCE) with current project status.\n- Adapt injection logic tests to match the new 0.7 threshold and status-based boosting.\n- Ensure GGUF stability with 4 threads in Termux/Android environments by optimizing subprocess execution order.\n- Update expected mcp_api_version in tests for version 2.8.5.",
+          "timestamp": "2026-02-26T04:49:23+03:00",
+          "tree_id": "3c3d8c45b382ac8af62d082136fc46e38a490857",
+          "url": "https://github.com/sl4m3/ledgermind/commit/3a709d1f99295d023286741af617d33d49edd6eb"
+        },
+        "date": 1772070830879,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 29.40376134797365,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002434967755268809",
+            "extra": "mean: 34.009254399995825 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 226.2808736850642,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00047692599619533565",
+            "extra": "mean: 4.419286454549365 msec\nrounds: 66"
           }
         ]
       }
