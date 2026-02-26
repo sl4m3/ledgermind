@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772127310616,
+  "lastUpdate": 1772127464097,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2622,6 +2622,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00044283718810222153",
             "extra": "mean: 4.644127571427564 msec\nrounds: 63"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cf399d8615f08795652375f39fe8d18c19ac7428",
+          "message": "Optimize `sync_meta_index` with batch transaction (#15)\n\n- Add `batch_update` context manager and `rollback_transaction` to `SemanticMetaStore`\n- Wrap `disk_files` loop in `sync_meta_index` with `batch_update` to reduce I/O and commit overhead\n- Conditionally use batch update only if not already in a transaction to avoid nesting errors\n- Measured performance improvement: ~35% speedup (1.33s -> 0.98s for 500 files)\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:33:45+03:00",
+          "tree_id": "74847cd250043d179964a1576e6aea4d7df48006",
+          "url": "https://github.com/sl4m3/ledgermind/commit/cf399d8615f08795652375f39fe8d18c19ac7428"
+        },
+        "date": 1772127463827,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 32.83297154244395,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00048152860112152794",
+            "extra": "mean: 30.45718839999836 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 200.4037061748368,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0024142204259677523",
+            "extra": "mean: 4.989927676924183 msec\nrounds: 65"
           }
         ]
       }
