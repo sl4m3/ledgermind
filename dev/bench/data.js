@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126942963,
+  "lastUpdate": 1772126987729,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2470,6 +2470,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005076771252727606",
             "extra": "mean: 4.550696440689488 msec\nrounds: 59"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "44daf3344e54b944e6a6d2831caf6017f5f60890",
+          "message": "test(core): add tests for Memory.accept_proposal workflow (#17)\n\nAdded a comprehensive test suite in `tests/core/test_memory_proposal.py` to cover:\n- Successful proposal acceptance and conversion to decision.\n- Proposal acceptance with superseding logic.\n- Error handling for missing proposals, invalid kinds, and invalid statuses.\n\nThis ensures reliability and correct state transitions for the proposal acceptance feature.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:24:26+03:00",
+          "tree_id": "b39e383778fcfb51a0205397c5f4674035097b3b",
+          "url": "https://github.com/sl4m3/ledgermind/commit/44daf3344e54b944e6a6d2831caf6017f5f60890"
+        },
+        "date": 1772126986732,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 27.391380657822413,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0026175680886065837",
+            "extra": "mean: 36.507834800011096 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 213.7081332059215,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000527086562960681",
+            "extra": "mean: 4.679279094335804 msec\nrounds: 53"
           }
         ]
       }
