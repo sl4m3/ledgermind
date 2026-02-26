@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126472595,
+  "lastUpdate": 1772126476663,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2014,6 +2014,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0004207008365526782",
             "extra": "mean: 4.640968106064685 msec\nrounds: 66"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "97a0165fa9871174b83dc656502d1d5eb3585c01",
+          "message": "feat(tests): add comprehensive tests for TargetRegistry (#16)\n\n- Add `tests/core/test_targets.py` covering:\n  - Normalization (exact, alias, case-insensitive, unknown)\n  - Persistence (save/load, file updates)\n  - Singleton pattern verification\n  - Suggestion logic\n  - File corruption handling\n- Use `tempfile` for isolation and fixture for cache clearing.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:15:43+03:00",
+          "tree_id": "07373714dbdcd9245955548d5f5c245f020f49ca",
+          "url": "https://github.com/sl4m3/ledgermind/commit/97a0165fa9871174b83dc656502d1d5eb3585c01"
+        },
+        "date": 1772126475653,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 28.7169892465116,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0024356736807404715",
+            "extra": "mean: 34.82259200001181 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 188.4710966326017,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0028868943269544987",
+            "extra": "mean: 5.305853352938044 msec\nrounds: 51"
           }
         ]
       }
