@@ -99,6 +99,7 @@ class GitAuditProvider(AuditProvider):
             logger.warning(f"Failed to purge {relative_path} from git: {e}")
 
     def commit_transaction(self, message: str):
+        self.run(["add", "."])
         self.run(["commit", "--allow-empty", "-m", message])
 
     def get_history(self, relative_path: str) -> List[dict]:
