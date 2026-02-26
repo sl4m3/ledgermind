@@ -5,6 +5,7 @@ import unittest.mock
 from ledgermind.server.server import MCPServer
 from ledgermind.core.api.memory import Memory
 from ledgermind.server.contracts import RecordDecisionRequest, SearchDecisionsRequest
+from ledgermind.server.background import BackgroundWorker
 
 @pytest.fixture
 def real_memory(tmp_path):
@@ -13,7 +14,7 @@ def real_memory(tmp_path):
 
 def test_e2e_record_and_search(real_memory):
     """E2E: Запись через сервер и поиск результата."""
-    with unittest.mock.patch("ledgermind.server.background.BackgroundWorker.start"):
+    with unittest.mock.patch.object(BackgroundWorker, "start"):
         server = MCPServer(memory=real_memory)
         
         # 1. Записываем решение
@@ -38,7 +39,7 @@ def test_e2e_record_and_search(real_memory):
 
 def test_e2e_supersede_workflow(real_memory):
     """E2E: Полный цикл вытеснения знаний через сервер."""
-    with unittest.mock.patch("ledgermind.server.background.BackgroundWorker.start"):
+    with unittest.mock.patch.object(BackgroundWorker, "start"):
         server = MCPServer(memory=real_memory)
     
         # Записываем v1
