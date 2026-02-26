@@ -131,9 +131,10 @@ class SemanticStore:
                 current_meta = []
                 meta_files = set()
 
-            # 3. Handle Mismatches
-            if disk_files != meta_files:
-                logger.info(f"Syncing semantic meta index ({len(disk_files)} on disk, {len(meta_files)} in meta)...")
+            # 3. Handle Mismatches and Updates
+            if disk_files != meta_files or force:
+                if disk_files != meta_files:
+                    logger.info(f"Syncing semantic meta index ({len(disk_files)} on disk, {len(meta_files)} in meta)...")
                 
                 # Remove orphans from meta
                 for orphaned_fid in meta_files - disk_files:
@@ -146,10 +147,8 @@ class SemanticStore:
                         full_path = os.path.join(self.repo_path, f)
                         mtime = os.path.getmtime(full_path)
                         
-                        # Check if we already have this file with the same mtime
-                        # Note: We need to store mtime in MetaStore or check against its current record
                         existing = self.meta.get_by_fid(f)
-                        if existing:
+                        if existing and not force:
                             # Heuristic: if timestamp in meta is close to mtime, skip re-parsing
                             # A more robust way would be a dedicated 'last_synced_mtime' column
                             existing_ts = existing.get('timestamp')
@@ -178,6 +177,9 @@ class SemanticStore:
                                 sync_ctx = data.get("context", {})
                                 sync_target = sync_ctx.get("target") or "unknown"
                                 sync_ns = sync_ctx.get("namespace") or "default"
+                                sync_keywords = sync_ctx.get("keywords", [])
+                                if isinstance(sync_keywords, list):
+                                    sync_keywords = ", ".join(sync_keywords)
 
                                 self.meta.upsert(
                                     fid=f, 
@@ -189,6 +191,7 @@ class SemanticStore:
                                     superseded_by=sync_ctx.get("superseded_by") if sync_ctx else None,
                                     namespace=sync_ns,
                                     content=data.get("content", "")[:8000],
+                                    keywords=sync_keywords,
                                     confidence=sync_ctx.get("confidence", 1.0) if sync_ctx else 1.0,
                                     context_json=json.dumps(sync_ctx or {})
                                 )
@@ -299,6 +302,9 @@ class SemanticStore:
                 import json
                 final_target = get_ctx_val(ctx, 'target', 'unknown') or 'unknown'
                 final_namespace = namespace or get_ctx_val(ctx, 'namespace', 'default') or 'default'
+                final_keywords = get_ctx_val(ctx, 'keywords', [])
+                if isinstance(final_keywords, list):
+                    final_keywords = ", ".join(final_keywords)
                 
                 try:
                     self.meta.upsert(
@@ -310,6 +316,7 @@ class SemanticStore:
                         timestamp=event.timestamp,
                         namespace=final_namespace,
                         content=cached_content[:8000],
+                        keywords=final_keywords,
                         confidence=get_ctx_val(ctx, 'confidence', 1.0),
                         context_json=json.dumps(ctx if isinstance(ctx, dict) else ctx.model_dump(mode='json'))
                     )
@@ -383,6 +390,9 @@ class SemanticStore:
 
             final_target_upd = ctx.get("target") or old_data.get("context", {}).get("target") or "unknown"
             final_ns_upd = ctx.get("namespace") or old_data.get("context", {}).get("namespace") or "default"
+            final_keywords_upd = ctx.get("keywords", [])
+            if isinstance(final_keywords_upd, list):
+                final_keywords_upd = ", ".join(final_keywords_upd)
 
             try:
                 import json
@@ -396,6 +406,7 @@ class SemanticStore:
                     superseded_by=ctx.get("superseded_by"),
                     namespace=final_ns_upd,
                     content=cached_content_upd[:8000],
+                    keywords=final_keywords_upd,
                     confidence=ctx.get("confidence", 1.0),
                     context_json=json.dumps(ctx)
                 )

@@ -18,6 +18,16 @@ class DistillationEngine:
         self.episodic = episodic_store
         self.window_size = window_size
 
+    def _extract_keywords(self, title: str, target: str, rationale: str) -> List[str]:
+        """Simple keyword extraction from text fields."""
+        import re
+        all_text = f"{title} {target} {rationale}".lower()
+        words = re.findall(r'[a-zа-я0-9]{3,}', all_text)
+        stop_words = {"for", "the", "and", "with", "from", "this", "that", "was", "were", "been", "has", "had", 
+                      "для", "или", "это", "был", "была", "было", "были", "его", "ее", "их"}
+        unique_words = list(set(w for w in words if w not in stop_words))
+        return sorted(unique_words)[:10]
+
     def distill_trajectories(self, limit: int = 100, after_id: Optional[int] = None) -> List[ProposalContent]:
         """
         Ищет успешные цепочки событий и превращает их в предложения по процедурам.
@@ -95,11 +105,15 @@ class DistillationEngine:
             success_evidence_ids=evidence_ids
         )
 
+        title = f"Procedural Optimization for {target}"
+        rationale = f"Distilled from successful trajectory ending in event {result_event.get('id')}"
+
         return ProposalContent(
-            title=f"Procedural Optimization for {target}",
+            title=title,
             target=target,
             status=ProposalStatus.DRAFT,
-            rationale=f"Distilled from successful trajectory ending in event {result_event.get('id')}",
+            rationale=rationale,
+            keywords=self._extract_keywords(title, target, rationale),
             confidence=0.8,
             evidence_event_ids=evidence_ids,
             procedural=procedural

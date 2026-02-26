@@ -49,6 +49,7 @@ class ProposalContent(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     
     # Epistemic Model Fields
+    keywords: List[str] = Field(default_factory=list, description="Semantic keywords for better retrieval")
     strengths: List[str] = Field(default_factory=list, description="Arguments in favor of this hypothesis")
     objections: List[str] = Field(default_factory=list, description="Active counter-arguments or missing evidence")
     counter_patterns: List[str] = Field(default_factory=list, description="Scenarios where this hypothesis was expected to trigger but didn't")
@@ -76,6 +77,7 @@ class DecisionContent(BaseModel):
     status: Literal["active", "deprecated", "superseded"] = "active"
     rationale: RationaleStr
     namespace: str = "default"
+    keywords: List[str] = Field(default_factory=list, description="Semantic keywords for better retrieval")
     evidence_event_ids: List[int] = Field(default_factory=list)
     consequences: List[str] = Field(default_factory=list)
     supersedes: List[str] = Field(default_factory=list)
@@ -136,5 +138,5 @@ class LedgermindConfig(BaseModel):
     vector_model: str = Field(default=".ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
     vector_workers: int = Field(default=0, ge=0, description="Number of workers for multi-process encoding. 0 for auto-detection.")
     enable_git: bool = Field(default=True)
-    relevance_threshold: float = Field(default=0.3, ge=0.0, le=1.0)
+    relevance_threshold: float = Field(default=0.5, ge=0.0, le=1.0)
 

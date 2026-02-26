@@ -55,6 +55,7 @@ class SemanticMetaStore:
                 "namespace": "TEXT DEFAULT 'default'",
                 "hit_count": "INTEGER DEFAULT 0",
                 "content": "TEXT DEFAULT ''",
+                "keywords": "TEXT DEFAULT ''",
                 "last_hit_at": "DATETIME",
                 "confidence": "REAL DEFAULT 1.0",
                 "context_json": "TEXT DEFAULT '{}'"
@@ -88,7 +89,7 @@ class SemanticMetaStore:
                     # Create FTS5 table linked to semantic_meta
                     self._conn.execute("""
                         CREATE VIRTUAL TABLE semantic_fts USING fts5(
-                            fid, title, target, content, 
+                            fid, title, target, content, keywords,
                             content='semantic_meta', 
                             content_rowid='rowid'
                         )
@@ -97,18 +98,18 @@ class SemanticMetaStore:
                     # Triggers are required for External Content Tables to keep index in sync
                     self._conn.execute("""
                         CREATE TRIGGER semantic_ai AFTER INSERT ON semantic_meta BEGIN
-                            INSERT INTO semantic_fts(rowid, fid, title, target, content) VALUES (new.rowid, new.fid, new.title, new.target, new.content);
+                            INSERT INTO semantic_fts(rowid, fid, title, target, content, keywords) VALUES (new.rowid, new.fid, new.title, new.target, new.content, new.keywords);
                         END;
                     """)
                     self._conn.execute("""
                         CREATE TRIGGER semantic_ad AFTER DELETE ON semantic_meta BEGIN
-                            INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content);
+                            INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content, keywords) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content, old.keywords);
                         END;
                     """)
                     self._conn.execute("""
                         CREATE TRIGGER semantic_au AFTER UPDATE ON semantic_meta BEGIN
-                            INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content);
-                            INSERT INTO semantic_fts(rowid, fid, title, target, content) VALUES (new.rowid, new.fid, new.title, new.target, new.content);
+                            INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content, keywords) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content, old.keywords);
+                            INSERT INTO semantic_fts(rowid, fid, title, target, content, keywords) VALUES (new.rowid, new.fid, new.title, new.target, new.content, new.keywords);
                         END;
                     """)
                     
@@ -116,9 +117,9 @@ class SemanticMetaStore:
                     self._conn.execute("INSERT INTO semantic_fts(semantic_fts) VALUES('rebuild')")
                 else:
                     # Ensure triggers exist (migration for old versions)
-                    self._conn.execute("CREATE TRIGGER IF NOT EXISTS semantic_ai AFTER INSERT ON semantic_meta BEGIN INSERT INTO semantic_fts(rowid, fid, title, target, content) VALUES (new.rowid, new.fid, new.title, new.target, new.content); END;")
-                    self._conn.execute("CREATE TRIGGER IF NOT EXISTS semantic_ad AFTER DELETE ON semantic_meta BEGIN INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content); END;")
-                    self._conn.execute("CREATE TRIGGER IF NOT EXISTS semantic_au AFTER UPDATE ON semantic_meta BEGIN INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content); INSERT INTO semantic_fts(rowid, fid, title, target, content) VALUES (new.rowid, new.fid, new.title, new.target, new.content); END;")
+                    self._conn.execute("CREATE TRIGGER IF NOT EXISTS semantic_ai AFTER INSERT ON semantic_meta BEGIN INSERT INTO semantic_fts(rowid, fid, title, target, content, keywords) VALUES (new.rowid, new.fid, new.title, new.target, new.content, new.keywords); END;")
+                    self._conn.execute("CREATE TRIGGER IF NOT EXISTS semantic_ad AFTER DELETE ON semantic_meta BEGIN INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content, keywords) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content, old.keywords); END;")
+                    self._conn.execute("CREATE TRIGGER IF NOT EXISTS semantic_au AFTER UPDATE ON semantic_meta BEGIN INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content, keywords) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content, old.keywords); INSERT INTO semantic_fts(rowid, fid, title, target, content, keywords) VALUES (new.rowid, new.fid, new.title, new.target, new.content, new.keywords); END;")
 
             except sqlite3.OperationalError as e:
                 logger.warning(f"FTS5 setup failed: {e}. Keyword search will be limited.")
@@ -127,20 +128,21 @@ class SemanticMetaStore:
 
     def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, 
                title: str = "", superseded_by: Optional[str] = None, namespace: str = "default",
-               content: str = "", confidence: float = 1.0, context_json: str = "{}"):
+               content: str = "", keywords: str = "", confidence: float = 1.0, context_json: str = "{}"):
         """Atomic upsert of decision metadata with content caching."""
         self._conn.execute("""
-            INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, confidence, context_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, keywords, confidence, context_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(fid) DO UPDATE SET
                 title=excluded.title,
                 status=excluded.status,
                 superseded_by=excluded.superseded_by,
                 namespace=excluded.namespace,
                 content=excluded.content,
+                keywords=excluded.keywords,
                 confidence=excluded.confidence,
                 context_json=excluded.context_json
-        """, (fid, target, title, status, kind, timestamp.isoformat(), superseded_by, namespace, content, confidence, context_json))
+        """, (fid, target, title, status, kind, timestamp.isoformat(), superseded_by, namespace, content, keywords, confidence, context_json))
 
     def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
         """Retrieves full metadata for a specific file ID."""
@@ -169,8 +171,8 @@ class SemanticMetaStore:
             if not safe_query.strip(): return []
             
             # Clean query of FTS5 special characters to avoid syntax errors or weird matching
-            # Keep alphanumerics and spaces.
-            clean_query = re.sub(r'[^a-zA-Z0-9\s]', ' ', query)
+            # Keep alphanumerics (including Unicode) and spaces.
+            clean_query = re.sub(r'[^\w\s]', ' ', query)
             # Remove double spaces
             clean_query = " ".join(clean_query.split())
 
@@ -211,8 +213,8 @@ class SemanticMetaStore:
             params = []
             for word in words:
                 pattern = f"%{word}%"
-                conditions.append("(target LIKE ? OR fid LIKE ? OR title LIKE ?)")
-                params.extend([pattern, pattern, pattern])
+                conditions.append("(target LIKE ? OR fid LIKE ? OR title LIKE ? OR keywords LIKE ?)")
+                params.extend([pattern, pattern, pattern, pattern])
             
             where_clause = "(" + " OR ".join(conditions) + ")"
             sql_params = params + [namespace, limit]

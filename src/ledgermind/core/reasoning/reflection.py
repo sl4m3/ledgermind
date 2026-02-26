@@ -48,6 +48,18 @@ class ReflectionEngine:
         if not self.processor:
             logger.warning("ReflectionEngine initialized without a high-level processor.")
 
+    def _extract_keywords(self, title: str, target: str, rationale: str) -> List[str]:
+        """Simple keyword extraction from text fields."""
+        import re
+        all_text = f"{title} {target} {rationale}".lower()
+        # Remove non-alphanumeric (keep Russian and English)
+        words = re.findall(r'[a-zа-я0-9]{3,}', all_text)
+        # Basic stop words (common in this context)
+        stop_words = {"for", "the", "and", "with", "from", "this", "that", "was", "were", "been", "has", "had", 
+                      "для", "или", "это", "был", "была", "было", "были", "его", "ее", "их"}
+        unique_words = list(set(w for w in words if w not in stop_words))
+        return sorted(unique_words)[:10]
+
     def run_cycle(self, after_id: Optional[int] = None) -> Tuple[List[str], Optional[int]]:
         """
         Runs an incremental reflection cycle.
@@ -172,10 +184,14 @@ class ReflectionEngine:
             temp_prop = distiller._create_procedural_proposal(target_events[:-1], target_events[-1])
             procedural = temp_prop.procedural
 
+        title = f"Best Practice for {target}"
+        rationale = f"Observed {stats['successes']} successful operations. This pattern should be formalized."
+        
         h = ProposalContent(
-            title=f"Best Practice for {target}",
+            title=title,
             target=target,
-            rationale=f"Observed {stats['successes']} successful operations. This pattern should be formalized.",
+            rationale=rationale,
+            keywords=self._extract_keywords(title, target, rationale),
             confidence=0.6,
             strengths=["Based on verified positive outcomes", "Codifies successful workflow"],
             evidence_event_ids=stats['all_ids'],
@@ -205,10 +221,14 @@ class ReflectionEngine:
              temp_prop = distiller._create_procedural_proposal(stats['commit_events'], stats['commit_events'][-1])
              procedural = temp_prop.procedural
         
+        title = f"Evolving Pattern in {target}"
+        rationale = f"Active development detected ({stats['commits']} commits). Recent changes: {summary}."
+        
         h = ProposalContent(
-            title=f"Evolving Pattern in {target}",
+            title=title,
             target=target,
-            rationale=f"Active development detected ({stats['commits']} commits). Recent changes: {summary}.",
+            rationale=rationale,
+            keywords=self._extract_keywords(title, target, rationale),
             confidence=0.5,
             strengths=["Reflects actual code changes", "Keeps memory in sync with codebase"],
             evidence_event_ids=stats['all_ids'],
@@ -376,20 +396,26 @@ class ReflectionEngine:
             temp_prop = distiller._create_procedural_proposal(target_events[:-1], target_events[-1])
             procedural = temp_prop.procedural
 
+        t1 = f"Structural flaw in {target}"
+        r1 = f"Consistent failures suggest a missing logical constraint."
         h1 = ProposalContent(
-            title=f"Structural flaw in {target}",
+            title=t1,
             target=target,
-            rationale=f"Consistent failures suggest a missing logical constraint.",
+            rationale=r1,
+            keywords=self._extract_keywords(t1, target, r1),
             confidence=0.5,
             strengths=["Explains repeated errors"],
             evidence_event_ids=stats['all_ids'],
             procedural=procedural.model_copy(deep=True) if procedural else None, # Глубокая копия
             first_observed_at=datetime.now()
         )
+        t2 = f"Environmental noise in {target}"
+        r2 = f"Errors might be due to transient fluctuations."
         h2 = ProposalContent(
-            title=f"Environmental noise in {target}",
+            title=t2,
             target=target,
-            rationale=f"Errors might be due to transient fluctuations.",
+            rationale=r2,
+            keywords=self._extract_keywords(t2, target, r2),
             confidence=0.4,
             strengths=["More conservative"],
             evidence_event_ids=stats['all_ids'],
