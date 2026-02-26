@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772127464097,
+  "lastUpdate": 1772127733897,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2660,6 +2660,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0024142204259677523",
             "extra": "mean: 4.989927676924183 msec\nrounds: 65"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ed7bb0f4a9f4f4c1e2bb1d2b99f619a0ffe0b369",
+          "message": "feat: Optimize search_decisions by batching metadata fetches (#25)\n\n- Add `get_batch_by_fids` to `MetadataStore` interface and `SemanticMetaStore`.\n- Refactor `_resolve_to_truth` to accept an optional local cache.\n- Optimize `Memory.search_decisions` to pre-fetch metadata for candidates and their superseding documents, reducing N+1 queries to a few batch queries.\n- Verified with benchmarks (slight improvement in local SQLite, significant reduction in query count).\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:38:03+03:00",
+          "tree_id": "1bf1875218293947f8b3a02d3ec2168b2faf2cae",
+          "url": "https://github.com/sl4m3/ledgermind/commit/ed7bb0f4a9f4f4c1e2bb1d2b99f619a0ffe0b369"
+        },
+        "date": 1772127733588,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 31.41634305687511,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0011517374869820021",
+            "extra": "mean: 31.830566599990103 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 230.84234521986446,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004810301911126911",
+            "extra": "mean: 4.33196084127267 msec\nrounds: 63"
           }
         ]
       }
