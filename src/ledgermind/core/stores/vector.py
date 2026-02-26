@@ -25,18 +25,22 @@ VECTOR_AVAILABLE = True # NumPy is always available
 class GGUFEmbeddingAdapter:
     """Adapts llama-cpp-python to match SentenceTransformer's encode API."""
     def __init__(self, model_path: str):
+        import contextlib
+        import io
+        
         logger.info(f"Loading GGUF Model: {model_path}")
         # Optimized for Termux/Mobile: 4 threads is usually the sweet spot for performance vs heat
-        self.client = Llama(
-            model_path=model_path, 
-            embedding=True, 
-            verbose=False, 
-            n_ctx=8192, 
-            n_gpu_layers=0,
-            n_threads=4,
-            n_batch=512,
-            pooling_type=1 
-        )
+        with contextlib.redirect_stderr(io.StringIO()):
+            self.client = Llama(
+                model_path=model_path, 
+                embedding=True, 
+                verbose=False, 
+                n_ctx=8192, 
+                n_gpu_layers=0,
+                n_threads=4,
+                n_batch=512,
+                pooling_type=1 
+            )
         self._cache = {}
         self._max_cache = 100
         self.model_path = model_path.lower()
@@ -59,6 +63,9 @@ class GGUFEmbeddingAdapter:
             self.dimension = 1024
 
     def encode(self, sentences: Any, **kwargs) -> np.ndarray:
+        import contextlib
+        import io
+        
         is_single = isinstance(sentences, str)
         input_list = [sentences] if is_single else sentences
         
@@ -68,31 +75,32 @@ class GGUFEmbeddingAdapter:
             prefix = "text-matching: "
 
         embeddings = []
-        for text in input_list:
-            if text in self._cache:
-                embeddings.append(self._cache[text])
-                continue
-                
-            try:
-                # Apply prefix if needed
-                processed_text = f"{prefix}{text}" if prefix else text
-                res = self.client.create_embedding(processed_text)
-                emb = res['data'][0]['embedding']
-                # If llama-cpp returns a scalar or malformed list, wrap it
-                if not isinstance(emb, list):
-                    emb = [emb]
-                
-                # Update cache
-                if len(self._cache) >= self._max_cache:
-                    # Basic eviction
-                    self._cache.pop(next(iter(self._cache)))
-                self._cache[text] = emb
-                
-                embeddings.append(emb)
-            except Exception as e:
-                logger.error(f"GGUF Encoding failed for text: {e}")
-                # Return zero vector on failure to maintain shape
-                embeddings.append([0.0] * self.dimension)
+        with contextlib.redirect_stderr(io.StringIO()):
+            for text in input_list:
+                if text in self._cache:
+                    embeddings.append(self._cache[text])
+                    continue
+                    
+                try:
+                    # Apply prefix if needed
+                    processed_text = f"{prefix}{text}" if prefix else text
+                    res = self.client.create_embedding(processed_text)
+                    emb = res['data'][0]['embedding']
+                    # If llama-cpp returns a scalar or malformed list, wrap it
+                    if not isinstance(emb, list):
+                        emb = [emb]
+                    
+                    # Update cache
+                    if len(self._cache) >= self._max_cache:
+                        # Basic eviction
+                        self._cache.pop(next(iter(self._cache)))
+                    self._cache[text] = emb
+                    
+                    embeddings.append(emb)
+                except Exception as e:
+                    logger.error(f"GGUF Encoding failed for text: {e}")
+                    # Return zero vector on failure to maintain shape
+                    embeddings.append([0.0] * self.dimension)
         
         arr = np.array(embeddings).astype('float32')
         return arr[0] if is_single else arr
