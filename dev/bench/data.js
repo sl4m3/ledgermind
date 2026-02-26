@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126539441,
+  "lastUpdate": 1772126555846,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2128,6 +2128,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0004560813754957968",
             "extra": "mean: 4.698199080646389 msec\nrounds: 62"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7f4ffae4c6bc07e7e73f9c3a8e5311c8d3b131da",
+          "message": "feat(tests): add unit tests for ConflictEngine (#21)\n\nAdded a new test file `tests/core/reasoning/test_conflict.py` to cover the `check_for_conflicts` method in `ConflictEngine`.\n\nTesting improvements:\n- Verified conflict detection logic with mocked `meta_store`.\n- Verified namespace handling and isolation.\n- Verified behavior for non-decision events.\n- Added regression tests for error conditions.\n\nThis ensures that the conflict detection logic is robust and changes to it will be caught by tests.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:17:09+03:00",
+          "tree_id": "a57783b78498606dcdefd268a85e213dbc7024b9",
+          "url": "https://github.com/sl4m3/ledgermind/commit/7f4ffae4c6bc07e7e73f9c3a8e5311c8d3b131da"
+        },
+        "date": 1772126554840,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 31.40238557139672,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006977645459718808",
+            "extra": "mean: 31.844714400006065 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 214.46755141302216,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005059319444607812",
+            "extra": "mean: 4.662710015624683 msec\nrounds: 64"
           }
         ]
       }
