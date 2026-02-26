@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772127195435,
+  "lastUpdate": 1772127310616,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2584,6 +2584,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000368161676460974",
             "extra": "mean: 3.0591928723412547 msec\nrounds: 94"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "94705d9dda2d9e833fb19ca33eefea303c4b62ff",
+          "message": "🧹 Refactor imports in SemanticStore to top level (#4)\n\n* Refactor imports in SemanticStore\n\nMoves import statements from inside methods to the top level of the file\nin `src/ledgermind/core/stores/semantic.py`. This improves code readability\nand adheres to PEP 8 style guidelines.\n\n- Moved standard library imports: `subprocess`, `json`, `re`, `datetime`.\n- Moved internal imports: `NoAuditProvider`, `MigrationEngine`, `ConflictError`, `TransactionManager`.\n- Verified no circular import issues were introduced.\n\nCo-authored-by: sl4m3 <73834887+sl4m3@users.noreply.github.com>\n\n* Refactor imports in SemanticStore and fix flaky CI test\n\n- Moved import statements from inside methods to the top level in `src/ledgermind/core/stores/semantic.py` to improve code health and follow PEP 8.\n- Increased write cooldown in `tests/server/test_integration.py` to 1.0s to prevent flaky failures in slow CI environments.\n\nCo-authored-by: sl4m3 <73834887+sl4m3@users.noreply.github.com>\n\n---------\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:31:04+03:00",
+          "tree_id": "e269273b11c4e2f8441de0476ba5753777149b39",
+          "url": "https://github.com/sl4m3/ledgermind/commit/94705d9dda2d9e833fb19ca33eefea303c4b62ff"
+        },
+        "date": 1772127309584,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 28.255739305775432,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00547102766176436",
+            "extra": "mean: 35.391039999990426 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 215.32569564892657,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00044283718810222153",
+            "extra": "mean: 4.644127571427564 msec\nrounds: 63"
           }
         ]
       }
