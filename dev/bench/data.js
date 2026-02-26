@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126555846,
+  "lastUpdate": 1772126556809,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2166,6 +2166,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005059319444607812",
             "extra": "mean: 4.662710015624683 msec\nrounds: 64"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "384468ee45630eaa30e70f7309ea216404b640eb",
+          "message": "test(core): add tests for DistillationEngine trajectories (#22)\n\n- Added `tests/core/test_distillation.py` covering:\n  - Basic successful trajectory distillation\n  - Pagination with `after_id` (ASC/DESC order handling)\n  - Edge cases (empty window, immediate result)\n  - Failure filtering\n  - Multiple trajectories processing\n  - Window size limits\n\nThis improves test coverage for `DistillationEngine.distill_trajectories` as requested.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:17:31+03:00",
+          "tree_id": "f61d7f518fcbe5dbe0e5ebd5fd3e613e255786c4",
+          "url": "https://github.com/sl4m3/ledgermind/commit/384468ee45630eaa30e70f7309ea216404b640eb"
+        },
+        "date": 1772126556455,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 29.997331317413703,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003014490164422776",
+            "extra": "mean: 33.336298800003306 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 214.6810609601686,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004262558875034598",
+            "extra": "mean: 4.6580727500016295 msec\nrounds: 64"
           }
         ]
       }
