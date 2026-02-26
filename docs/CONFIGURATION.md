@@ -33,7 +33,7 @@ memory = Memory(config=config)
 | `vector_model` | `str` | *path* | Local path to `.gguf` file or HF model ID. |
 | `vector_workers` | `int` | `0` | Workers for multi-process encoding (0=auto). |
 | `enable_git` | `bool` | `True` | Enable Git-based audit log and versioning. |
-| `relevance_threshold` | `float` | `0.45` | Minimum score for RAG context injection. |
+| `relevance_threshold` | `float` | `0.5` | Minimum score for RAG context injection. |
 
 ---
 
