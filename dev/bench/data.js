@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126098025,
+  "lastUpdate": 1772126209170,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1786,6 +1786,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00042809556402061827",
             "extra": "mean: 4.496672124999712 msec\nrounds: 64"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fad46a06fcfaaf911501f3ae9da3933898eb8566",
+          "message": "Fix arbitrary file write vulnerability in MemoryTransferManager.export_to_tar (#6)\n\nThe `export_to_tar` method previously allowed arbitrary file paths, enabling an attacker to write files to any location on the filesystem. This change restricts the `output_path` argument to be a filename only (no directory components allowed), ensuring that exports are always written to the current working directory.\n\nThis is a breaking change for consumers relying on specifying full paths for exports, but necessary for security.\n\nTests were updated to verify the new restriction and ensure valid exports still work when executed in the correct context.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:12:26+03:00",
+          "tree_id": "1f651fb036f76aea771163aa9630884d27c721de",
+          "url": "https://github.com/sl4m3/ledgermind/commit/fad46a06fcfaaf911501f3ae9da3933898eb8566"
+        },
+        "date": 1772126208721,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 28.061643753661254,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002463148800828315",
+            "extra": "mean: 35.63583119999976 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 223.50292535343584,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00048492239306251596",
+            "extra": "mean: 4.4742143684189015 msec\nrounds: 57"
           }
         ]
       }
