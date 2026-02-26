@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126556809,
+  "lastUpdate": 1772126644293,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2204,6 +2204,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0004262558875034598",
             "extra": "mean: 4.6580727500016295 msec\nrounds: 64"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d1cf2ce5be7f52b8a88f6f70646489eed0e58eb8",
+          "message": "⚡ Optimize keyword_search fallback: Switch to AND logic and single loop construction. (#23)\n\nChanged the fallback keyword search logic from OR (Union) to AND (Intersection).\nThis aligns the fallback behavior with the primary FTS search logic, fixing an inconsistency where fallback was overly broad.\nAdditionally, this improves performance by allowing the database to short-circuit non-matching rows earlier (fail-fast) and reduces the result set size.\nAlso refactored the query construction loop to be more efficient (single pass).\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:17:53+03:00",
+          "tree_id": "468b230f420073c5e9588d347eaa9da6187c9be3",
+          "url": "https://github.com/sl4m3/ledgermind/commit/d1cf2ce5be7f52b8a88f6f70646489eed0e58eb8"
+        },
+        "date": 1772126643365,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 29.139182055931524,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002288333886772842",
+            "extra": "mean: 34.31805320000194 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 213.44991365739253,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005086840931142236",
+            "extra": "mean: 4.684939819676364 msec\nrounds: 61"
           }
         ]
       }
