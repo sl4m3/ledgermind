@@ -4,6 +4,7 @@ import logging
 import sqlite3
 import uuid
 import threading
+from datetime import datetime
 from typing import List, Optional, Any, Dict, Tuple
 from contextlib import contextmanager
 from ledgermind.core.core.schemas import MemoryEvent, TrustBoundary
@@ -257,6 +258,44 @@ class SemanticStore:
             if not event or (event.source == "agent" and event.kind == "decision"):
                 raise PermissionError("Trust Boundary Violation")
 
+    def _upsert_metadata(self, fid: str, target: str, namespace: str, kind: str,
+                         timestamp: datetime, content: str, context: Dict[str, Any],
+                         status: str):
+        """
+        Shared logic for upserting metadata to the store.
+        """
+        # Prepare cached content including rationale for searchability
+        rationale = context.get('rationale', '')
+        cached_content = f"{content}\n{rationale}" if rationale else content
+
+        keywords = context.get('keywords', [])
+        if isinstance(keywords, list):
+            keywords = ", ".join(keywords)
+
+        import json
+        try:
+            self.meta.upsert(
+                fid=fid,
+                target=target,
+                title=context.get('title', ''),
+                status=status,
+                kind=kind,
+                timestamp=timestamp,
+                superseded_by=context.get('superseded_by'),
+                namespace=namespace,
+                content=cached_content[:8000],
+                keywords=keywords,
+                confidence=context.get('confidence', 1.0),
+                context_json=json.dumps(context)
+            )
+        except sqlite3.IntegrityError as ie:
+            if "UNIQUE" in str(ie):
+                msg = f"CONFLICT: Target '{target}' in namespace '{namespace}' already has active decisions."
+                logger.warning(msg)
+                from ledgermind.core.core.exceptions import ConflictError
+                raise ConflictError(msg)
+            raise
+
     def save(self, event: MemoryEvent, namespace: Optional[str] = None) -> str:
         self._enforce_trust(event)
         
@@ -289,51 +328,24 @@ class SemanticStore:
                 f.write(content)
             
             try:
-                ctx = event.context
-                def get_ctx_val(obj, key, default):
-                    if isinstance(obj, dict): return obj.get(key, default)
-                    return getattr(obj, key, default)
-
-                # Prepare cached content including rationale for searchability
-                cached_content = event.content
-                ctx_obj = event.context
-                rationale_val = ""
-                if isinstance(ctx_obj, dict):
-                    rationale_val = ctx_obj.get('rationale', '')
-                elif hasattr(ctx_obj, 'rationale'):
-                    rationale_val = getattr(ctx_obj, 'rationale', '')
+                # Use data['context'] which is guaranteed to be a dict by model_dump above
+                ctx_dict = data.get('context', {})
                 
-                if rationale_val:
-                    cached_content = f"{event.content}\n{rationale_val}"
+                # Determine target and namespace (logic from original code preserved)
+                # Note: get_ctx_val logic is simplified because ctx_dict is a dict.
+                final_target = ctx_dict.get('target') or 'unknown'
+                final_namespace = namespace or ctx_dict.get('namespace') or 'default'
 
-                import json
-                final_target = get_ctx_val(ctx, 'target', 'unknown') or 'unknown'
-                final_namespace = namespace or get_ctx_val(ctx, 'namespace', 'default') or 'default'
-                final_keywords = get_ctx_val(ctx, 'keywords', [])
-                if isinstance(final_keywords, list):
-                    final_keywords = ", ".join(final_keywords)
-                
-                try:
-                    self.meta.upsert(
-                        fid=relative_path,
-                        target=final_target,
-                        title=get_ctx_val(ctx, 'title', ''),
-                        status=get_ctx_val(ctx, 'status', 'active'),
-                        kind=event.kind,
-                        timestamp=event.timestamp,
-                        namespace=final_namespace,
-                        content=cached_content[:8000],
-                        keywords=final_keywords,
-                        confidence=get_ctx_val(ctx, 'confidence', 1.0),
-                        context_json=json.dumps(ctx if isinstance(ctx, dict) else ctx.model_dump(mode='json'))
-                    )
-                except sqlite3.IntegrityError as ie:
-                    if "UNIQUE" in str(ie):
-                        msg = f"CONFLICT: Target '{final_target}' in namespace '{final_namespace}' already has active decisions."
-                        logger.warning(msg)
-                        from ledgermind.core.core.exceptions import ConflictError
-                        raise ConflictError(msg)
-                    raise
+                self._upsert_metadata(
+                    fid=relative_path,
+                    target=final_target,
+                    namespace=final_namespace,
+                    kind=event.kind,
+                    timestamp=event.timestamp,
+                    content=event.content,
+                    context=ctx_dict,
+                    status=ctx_dict.get('status', 'active')
+                )
             except Exception as e:
                 # If we are in a transaction, TransactionManager will handle rollback.
                 # If not, we do manual cleanup.
@@ -389,41 +401,20 @@ class SemanticStore:
             ts = new_data.get("timestamp")
             if isinstance(ts, str): ts = datetime.fromisoformat(ts)
             
-            # Combine content with rationale for better searchability in metadata cache
-            cached_content_upd = new_data.get("content", "")
-            rationale_upd = ctx.get("rationale", "")
-            if rationale_upd:
-                cached_content_upd = f"{cached_content_upd}\n{rationale_upd}"
-
             final_target_upd = ctx.get("target") or old_data.get("context", {}).get("target") or "unknown"
             final_ns_upd = ctx.get("namespace") or old_data.get("context", {}).get("namespace") or "default"
-            final_keywords_upd = ctx.get("keywords", [])
-            if isinstance(final_keywords_upd, list):
-                final_keywords_upd = ", ".join(final_keywords_upd)
 
             try:
-                import json
-                self.meta.upsert(
+                self._upsert_metadata(
                     fid=filename,
                     target=final_target_upd,
-                    title=ctx.get("title", ""),
-                    status=ctx.get("status"),
+                    namespace=final_ns_upd,
                     kind=new_data.get("kind"),
                     timestamp=ts or datetime.now(),
-                    superseded_by=ctx.get("superseded_by"),
-                    namespace=final_ns_upd,
-                    content=cached_content_upd[:8000],
-                    keywords=final_keywords_upd,
-                    confidence=ctx.get("confidence", 1.0),
-                    context_json=json.dumps(ctx)
+                    content=new_data.get("content", ""),
+                    context=ctx,
+                    status=ctx.get("status")
                 )
-            except sqlite3.IntegrityError as ie:
-                if "UNIQUE" in str(ie):
-                    msg = f"CONFLICT: Target '{final_target_upd}' in namespace '{final_ns_upd}' already has active decisions."
-                    logger.warning(msg)
-                    from ledgermind.core.core.exceptions import ConflictError
-                    raise ConflictError(msg)
-                raise
             except Exception as e:
                 if not self._in_transaction:
                     with open(file_path, "w", encoding="utf-8") as f: f.write(content)
