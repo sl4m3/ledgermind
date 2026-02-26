@@ -1,21 +1,26 @@
 import os
+import re
 import yaml
+import json
 import logging
 import sqlite3
 import uuid
 import threading
+import subprocess
 from datetime import datetime
 from typing import List, Optional, Any, Dict, Tuple
 from contextlib import contextmanager
 from ledgermind.core.core.schemas import MemoryEvent, TrustBoundary
 from ledgermind.core.stores.interfaces import MetadataStore, AuditProvider
 from ledgermind.core.stores.audit_git import GitAuditProvider
+from ledgermind.core.stores.audit_no import NoAuditProvider
+from ledgermind.core.core.migration import MigrationEngine
+from ledgermind.core.core.exceptions import ConflictError
 from ledgermind.core.stores.semantic_store.integrity import IntegrityChecker
-
 from ledgermind.core.stores.semantic_store.transitions import TransitionValidator
 from ledgermind.core.stores.semantic_store.loader import MemoryLoader
 from ledgermind.core.stores.semantic_store.meta import SemanticMetaStore
-from ledgermind.core.stores.semantic_store.transactions import FileSystemLock
+from ledgermind.core.stores.semantic_store.transactions import FileSystemLock, TransactionManager
 
 # Setup structured logging
 logger = logging.getLogger("ledgermind-core.semantic")
@@ -42,7 +47,6 @@ class SemanticStore:
         self.meta = meta_store or SemanticMetaStore(os.path.join(repo_path, "semantic_meta.db"))
         
         # Check for Git availability
-        import subprocess
         git_available = False
         try:
             subprocess.run(["git", "--version"], capture_output=True, check=True)
@@ -55,7 +59,6 @@ class SemanticStore:
         elif git_available:
             self.audit = GitAuditProvider(repo_path)
         else:
-            from ledgermind.core.stores.audit_no import NoAuditProvider
             self.audit = NoAuditProvider(repo_path)
         
         self.audit.initialize()
@@ -64,7 +67,6 @@ class SemanticStore:
         self._fs_lock.acquire(exclusive=True)
         try:
             if self.meta.get_version() != "1.22.0":
-                from ledgermind.core.core.migration import MigrationEngine
                 migrator = MigrationEngine(self)
                 migrator.run_all()
                 self.meta.set_version("1.22.0")
@@ -79,7 +81,6 @@ class SemanticStore:
     def reconcile_untracked(self):
         """Finds files that are on disk but not in audit (Git) and adds them."""
         self._fs_lock.acquire(exclusive=True)
-        import subprocess
         try:
             disk_files = []
             for root, _, filenames in os.walk(self.repo_path):
@@ -128,7 +129,6 @@ class SemanticStore:
             self.meta.delete(orphaned_fid)
 
     def _update_meta_for_file(self, fid: str, force: bool = False):
-        from datetime import datetime
         try:
             full_path = os.path.join(self.repo_path, fid)
             mtime = os.path.getmtime(full_path)
@@ -148,7 +148,6 @@ class SemanticStore:
                 raw_content = stream.read()
                 data, body = MemoryLoader.parse(raw_content)
                 if data:
-                    import json
                     ts = data.get("timestamp")
                     if isinstance(ts, str):
                         ts = datetime.fromisoformat(ts)
@@ -231,7 +230,6 @@ class SemanticStore:
             yield
             return
 
-        from ledgermind.core.stores.semantic_store.transactions import TransactionManager
         self._current_tx = TransactionManager(self.repo_path, self.meta)
         self._in_transaction = True
         
@@ -272,7 +270,6 @@ class SemanticStore:
         if isinstance(keywords, list):
             keywords = ", ".join(keywords)
 
-        import json
         try:
             self.meta.upsert(
                 fid=fid,
@@ -292,7 +289,6 @@ class SemanticStore:
             if "UNIQUE" in str(ie):
                 msg = f"CONFLICT: Target '{target}' in namespace '{namespace}' already has active decisions."
                 logger.warning(msg)
-                from ledgermind.core.core.exceptions import ConflictError
                 raise ConflictError(msg)
             raise
 
@@ -301,7 +297,6 @@ class SemanticStore:
         
         # Security: Validate namespace
         if namespace and namespace != "default":
-            import re
             if not re.match(r'^[a-zA-Z0-9_\-]+$', namespace):
                 raise ValueError(f"Invalid namespace format: {namespace}. Only alphanumeric, underscores, and hyphens allowed.")
         
@@ -331,8 +326,7 @@ class SemanticStore:
                 # Use data['context'] which is guaranteed to be a dict by model_dump above
                 ctx_dict = data.get('context', {})
                 
-                # Determine target and namespace (logic from original code preserved)
-                # Note: get_ctx_val logic is simplified because ctx_dict is a dict.
+                # Determine target and namespace
                 final_target = ctx_dict.get('target') or 'unknown'
                 final_namespace = namespace or ctx_dict.get('namespace') or 'default'
 
@@ -352,7 +346,7 @@ class SemanticStore:
                 if not self._in_transaction:
                     if os.path.exists(full_path): os.remove(full_path)
                 
-                if "ConflictError" in str(type(e)): raise
+                if isinstance(e, ConflictError): raise
                 raise RuntimeError(f"Metadata Update Failed: {e}")
 
             if not self._in_transaction:
@@ -397,7 +391,6 @@ class SemanticStore:
             with open(file_path, "w", encoding="utf-8") as f: f.write(new_content)
             
             ctx = new_data.get("context", {})
-            from datetime import datetime
             ts = new_data.get("timestamp")
             if isinstance(ts, str): ts = datetime.fromisoformat(ts)
             
@@ -419,7 +412,7 @@ class SemanticStore:
                 if not self._in_transaction:
                     with open(file_path, "w", encoding="utf-8") as f: f.write(content)
                 
-                if "ConflictError" in str(type(e)): raise
+                if isinstance(e, ConflictError): raise
                 raise RuntimeError(f"Metadata Update Failed: {e}")
 
 
