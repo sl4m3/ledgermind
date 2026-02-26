@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126291568,
+  "lastUpdate": 1772126334907,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1900,6 +1900,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005215596485569087",
             "extra": "mean: 4.534034437501333 msec\nrounds: 64"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ee78ad44b75bf51ac826e5090e168e71b199254f",
+          "message": "Optimize vector search using Annoy for approximate nearest neighbor search (#13)\n\n- Implemented Annoy index in `VectorStore` to replace O(N) full scan.\n- Added `_build_annoy_index` to build and save the index.\n- Updated `load`, `save`, and `compact` to manage the index lifecycle.\n- Implemented hybrid search strategy: uses Annoy for indexed vectors and brute-force for unindexed tail (newly added documents).\n- Added benchmark script `benchmarks/benchmark_vector_search.py`.\n- Benchmark shows ~57x speedup (13.5ms -> 0.235ms for 20k vectors).\n- Falls back gracefully to brute force if Annoy is not available.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:14:52+03:00",
+          "tree_id": "44a04618891b39f5e81894fbc0680f473d9c6771",
+          "url": "https://github.com/sl4m3/ledgermind/commit/ee78ad44b75bf51ac826e5090e168e71b199254f"
+        },
+        "date": 1772126334517,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 25.347099633787263,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02425394806728066",
+            "extra": "mean: 39.45224560000611 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 345.53225978287486,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005400985630241916",
+            "extra": "mean: 2.894085781247687 msec\nrounds: 96"
           }
         ]
       }
