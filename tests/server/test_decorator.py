@@ -5,8 +5,8 @@ import os
 import sys
 
 # Mock dependencies to avoid actual imports if they are heavy or missing
-sys.modules['ledgermind.core.api.bridge'] = MagicMock()
-sys.modules['ledgermind.server.background'] = MagicMock()
+# sys.modules['ledgermind.core.api.bridge'] = MagicMock()
+# sys.modules['ledgermind.server.background'] = MagicMock()
 
 from ledgermind.server.server import MCPServer
 from ledgermind.server.contracts import RecordDecisionRequest, DecisionResponse, SupersedeDecisionRequest, SearchDecisionsRequest, SearchResponse
@@ -119,5 +119,5 @@ class TestDecorator:
 
             # Check Audit Log - Should NOT include commit hash (default None)
             server.audit_logger.log_access.assert_called_with(
-                "agent", "search_decisions", req.model_dump(), True
+                "agent", "search_decisions", req.model_dump(), True, commit_hash=None
             )
