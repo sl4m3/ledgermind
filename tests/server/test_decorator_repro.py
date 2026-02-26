@@ -1,0 +1,123 @@
+import pytest
+from unittest.mock import MagicMock, patch, ANY
+import time
+import os
+import sys
+
+# Mock dependencies to avoid actual imports if they are heavy or missing
+sys.modules['ledgermind.core.api.bridge'] = MagicMock()
+sys.modules['ledgermind.server.background'] = MagicMock()
+
+from ledgermind.server.server import MCPServer
+from ledgermind.server.contracts import RecordDecisionRequest, DecisionResponse, SupersedeDecisionRequest, SearchDecisionsRequest, SearchResponse
+
+class TestDecorator:
+    @pytest.fixture
+    def server(self):
+        memory = MagicMock()
+        # Mocking __init__ dependencies
+        with patch('ledgermind.server.server.EnvironmentContext'), \
+             patch('ledgermind.server.server.AuditLogger'), \
+             patch('ledgermind.server.server.FastMCP'):
+            server = MCPServer(memory, start_worker=False)
+            server.audit_logger = MagicMock()
+            # Mocking _get_commit_hash as it is used in logging
+            server._get_commit_hash = MagicMock(return_value="abc1234")
+            # Mocking _check_capability
+            server._check_capability = MagicMock()
+            # Mocking _validate_auth
+            server._validate_auth = MagicMock()
+            # Mocking _apply_cooldown
+            server._apply_cooldown = MagicMock()
+            # Mocking _validate_isolation
+            server._validate_isolation = MagicMock()
+
+            return server
+
+    def test_handle_record_decision_success(self, server):
+        req = RecordDecisionRequest(title="Test", target="Target", rationale="Rationale is long enough now", consequences=[], namespace="default")
+        server.memory.record_decision.return_value.metadata = {"file_id": "dec_123"}
+
+        with patch('ledgermind.server.server.TOOL_CALLS') as mock_calls, \
+             patch('ledgermind.server.server.TOOL_LATENCY') as mock_latency:
+
+            mock_calls.labels.return_value = MagicMock()
+            mock_latency.labels.return_value = MagicMock()
+
+            resp = server.handle_record_decision(req)
+
+            assert resp.status == "success"
+            assert resp.decision_id == "dec_123"
+
+            # Check Metrics
+            mock_calls.labels.assert_called_with(tool="record_decision", status="success")
+            mock_latency.labels.assert_called_with(tool="record_decision")
+
+            # Check Audit Log
+            server.audit_logger.log_access.assert_called_with(
+                "agent", "record_decision", req.model_dump(), True, commit_hash="abc1234"
+            )
+
+    def test_handle_record_decision_failure(self, server):
+        req = RecordDecisionRequest(title="Test", target="Target", rationale="Rationale is long enough now", consequences=[], namespace="default")
+        server.memory.record_decision.side_effect = Exception("Memory Error")
+
+        with patch('ledgermind.server.server.TOOL_CALLS') as mock_calls, \
+             patch('ledgermind.server.server.TOOL_LATENCY') as mock_latency:
+
+            mock_calls.labels.return_value = MagicMock()
+            mock_latency.labels.return_value = MagicMock()
+
+            resp = server.handle_record_decision(req)
+
+            assert resp.status == "error"
+            assert "Memory Error" in resp.message
+
+            # Check Metrics
+            mock_calls.labels.assert_called_with(tool="record_decision", status="error")
+            mock_latency.labels.assert_called_with(tool="record_decision")
+
+            # Check Audit Log
+            server.audit_logger.log_access.assert_called_with(
+                "agent", "record_decision", req.model_dump(), False, error="Memory Error"
+            )
+
+    def test_handle_supersede_decision_success(self, server):
+        req = SupersedeDecisionRequest(title="Test", target="Target", rationale="Rationale is long enough now for supersede", old_decision_ids=["old_1"], consequences=[], namespace="default")
+        server.memory.supersede_decision.return_value.metadata = {"file_id": "dec_456"}
+
+        with patch('ledgermind.server.server.TOOL_CALLS') as mock_calls, \
+             patch('ledgermind.server.server.TOOL_LATENCY') as mock_latency:
+
+            mock_calls.labels.return_value = MagicMock()
+            mock_latency.labels.return_value = MagicMock()
+
+            resp = server.handle_supersede_decision(req)
+
+            assert resp.status == "success"
+            assert resp.decision_id == "dec_456"
+
+            # Check Audit Log - Should include commit hash
+            server.audit_logger.log_access.assert_called_with(
+                "agent", "supersede_decision", req.model_dump(), True, commit_hash="abc1234"
+            )
+
+    def test_handle_search_success(self, server):
+        req = SearchDecisionsRequest(query="Test", limit=5)
+        server.memory.search_decisions.return_value = []
+
+        with patch('ledgermind.server.server.TOOL_CALLS') as mock_calls, \
+             patch('ledgermind.server.server.TOOL_LATENCY') as mock_latency:
+
+            mock_calls.labels.return_value = MagicMock()
+            mock_latency.labels.return_value = MagicMock()
+
+            resp = server.handle_search(req)
+
+            assert resp.status == "success"
+            assert resp.results == []
+
+            # Check Audit Log - Should NOT include commit hash (default None)
+            server.audit_logger.log_access.assert_called_with(
+                "agent", "search_decisions", req.model_dump(), True
+            )
