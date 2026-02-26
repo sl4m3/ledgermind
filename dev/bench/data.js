@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772126905341,
+  "lastUpdate": 1772126942963,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2432,6 +2432,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005114576243687807",
             "extra": "mean: 4.660368905656727 msec\nrounds: 53"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ee2ed111ae9c9e6fd7efc6593896a02e0067f6ce",
+          "message": "Offload blocking search_decisions to thread pool (#5)\n\nThis commit optimizes the `/search` endpoint by offloading the synchronous `mem.search_decisions` call to a thread pool using `starlette.concurrency.run_in_threadpool`.\n\nThis prevents the main event loop from blocking during long-running search operations, significantly improving concurrency and responsiveness for other endpoints (e.g., health checks, websocket connections).\n\nMeasured Improvement:\n- Before: Concurrent `/health` request blocked for ~1.88s during a slow search.\n- After: Concurrent `/health` request completed in ~0.06s during the same slow search.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:12:09+03:00",
+          "tree_id": "68f6594cd8473e699c0f8316d05368336cd8c9e1",
+          "url": "https://github.com/sl4m3/ledgermind/commit/ee2ed111ae9c9e6fd7efc6593896a02e0067f6ce"
+        },
+        "date": 1772126942443,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 26.870537952347902,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0028001511814571152",
+            "extra": "mean: 37.215481200018985 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 219.7465845136634,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005076771252727606",
+            "extra": "mean: 4.550696440689488 msec\nrounds: 59"
           }
         ]
       }
