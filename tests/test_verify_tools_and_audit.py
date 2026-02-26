@@ -8,6 +8,7 @@ import time
 import logging
 from ledgermind.core.api.memory import Memory
 from ledgermind.server.server import MCPServer
+from ledgermind.server.background import BackgroundWorker
 
 class TestTools(unittest.TestCase):
     def setUp(self):
@@ -18,7 +19,7 @@ class TestTools(unittest.TestCase):
         self.memory = Memory(storage_path=self.test_dir)
         
         # Patch BackgroundWorker to avoid SQLite concurrency issues in unit tests
-        self.patcher = unittest.mock.patch("ledgermind.server.background.BackgroundWorker.start")
+        self.patcher = unittest.mock.patch.object(BackgroundWorker, "start")
         self.patcher.start()
         
         self.server = MCPServer(self.memory, storage_path=self.test_dir)

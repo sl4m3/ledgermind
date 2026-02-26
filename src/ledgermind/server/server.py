@@ -5,8 +5,11 @@ import enum
 import httpx
 import asyncio
 import time
+import threading
+import functools
+import inspect
 from mcp.server.fastmcp import FastMCP, Context
-from prometheus_client import start_http_server
+from prometheus_client import start_http_server, Counter, Histogram
 from ledgermind.core.api.memory import Memory
 from ledgermind.server.tools.environment import EnvironmentContext
 from ledgermind.server.audit import AuditLogger
@@ -19,6 +22,55 @@ from ledgermind.server.metrics import TOOL_CALLS, TOOL_LATENCY
 from ledgermind.server.tools.definitions import LedgerMindTools
 
 logger = logging.getLogger("ledgermind.server")
+
+# Metrics definitions (in case they are not in ledgermind.server.metrics yet or for redundancy)
+# But they ARE in origin/main so I'll keep them as they were in origin/main if they were added there.
+# Looking at the conflict, they were added to server.py in origin/main.
+
+def measure_and_log(tool_name: str, role: str = "agent", include_commit_hash: bool = False):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self, request, *args, **kwargs):
+            start_time = time.time()
+            try:
+                # Execute the function
+                result = func(self, request, *args, **kwargs)
+
+                # Success Logging
+                req_dump = request.model_dump() if hasattr(request, "model_dump") else str(request)
+
+                commit_hash = None
+                if include_commit_hash and hasattr(self, "_get_commit_hash"):
+                    commit_hash = self._get_commit_hash()
+
+                self.audit_logger.log_access(role, tool_name, req_dump, True, commit_hash=commit_hash)
+                TOOL_CALLS.labels(tool=tool_name, status="success").inc()
+
+                return result
+
+            except Exception as e:
+                # Error Logging
+                req_dump = request.model_dump() if hasattr(request, "model_dump") else str(request)
+                self.audit_logger.log_access(role, tool_name, req_dump, False, error=str(e))
+                TOOL_CALLS.labels(tool=tool_name, status="error").inc()
+
+                # Determine return type to construct error response
+                sig = inspect.signature(func)
+                return_type = sig.return_annotation
+
+                if return_type and hasattr(return_type, "model_construct"):
+                    # Use standard constructor with keyword arguments for BaseResponse derivatives
+                    try:
+                        return return_type(status="error", message=str(e))
+                    except Exception:
+                        return BaseResponse(status="error", message=str(e))
+
+                # Fallback
+                return BaseResponse(status="error", message=str(e))
+            finally:
+                TOOL_LATENCY.labels(tool=tool_name).observe(time.time() - start_time)
+        return wrapper
+    return decorator
 
 class MCPRole(str, enum.Enum):
     VIEWER = "viewer"
@@ -70,7 +122,6 @@ class MCPServer:
         # Subscribe to events for webhooks
         if self.webhooks:
             # Memory class has an 'events' object (EventEmitter)
-            # Need to make sure it's accessible.
             if hasattr(self.memory, 'events'):
                 self.memory.events.subscribe(self._trigger_webhooks)
 
@@ -106,10 +157,6 @@ class MCPServer:
             provided_key = headers.get("X-API-Key") or headers.get("x-api-key")
             if provided_key != self.api_key:
                 raise PermissionError("Invalid or missing X-API-Key header.")
-        
-        # For stdio, we assume the environment is already secured or the key 
-        # is passed via transport-specific metadata if supported by the client.
-        # Currently, if LEDGERMIND_API_KEY is set but no header is found in SSE, it fails.
 
     def _validate_isolation(self, decision_ids: List[str]):
         """
@@ -130,7 +177,6 @@ class MCPServer:
             raise PermissionError(f"Capability '{capability}' is required for this operation.")
 
     def _apply_cooldown(self):
-        import time
         now = time.time()
         if now - self._last_write_time < self._write_cooldown:
             raise PermissionError(f"Rate limit exceeded: please wait {self._write_cooldown}s between operations.")
@@ -141,93 +187,54 @@ class MCPServer:
     def _get_commit_hash(self) -> Optional[str]:
         return self.memory.semantic.get_head_hash()
 
+    @measure_and_log("record_decision", include_commit_hash=True)
     def handle_record_decision(self, request: RecordDecisionRequest) -> DecisionResponse:
-        start_time = time.time()
-        try:
-            self._validate_auth()
-            self._check_capability("propose")
-            self._apply_cooldown()
-            result = self.memory.record_decision(
-                title=request.title, 
-                target=request.target,
-                rationale=f"[via MCP] {request.rationale}",
-                consequences=request.consequences,
-                namespace=request.namespace
-            )
-            dec_id = result.metadata.get("file_id")
-            commit_hash = self._get_commit_hash()
-            self.audit_logger.log_access("agent", "record_decision", request.model_dump(), True, commit_hash=commit_hash)
-            TOOL_CALLS.labels(tool="record_decision", status="success").inc()
-            return DecisionResponse(status="success", decision_id=dec_id)
-        except Exception as e:
-            self.audit_logger.log_access("agent", "record_decision", request.model_dump(), False, error=str(e))
-            TOOL_CALLS.labels(tool="record_decision", status="error").inc()
-            return DecisionResponse(status="error", message=str(e))
-        finally:
-            TOOL_LATENCY.labels(tool="record_decision").observe(time.time() - start_time)
+        self._validate_auth()
+        self._check_capability("propose")
+        self._apply_cooldown()
+        result = self.memory.record_decision(
+            title=request.title,
+            target=request.target,
+            rationale=f"[via MCP] {request.rationale}",
+            consequences=request.consequences,
+            namespace=request.namespace
+        )
+        dec_id = result.metadata.get("file_id")
+        return DecisionResponse(status="success", decision_id=dec_id)
 
+    @measure_and_log("supersede_decision", include_commit_hash=True)
     def handle_supersede_decision(self, request: SupersedeDecisionRequest) -> DecisionResponse:
-        start_time = time.time()
-        try:
-            self._validate_auth()
-            self._check_capability("supersede")
-            self._validate_isolation(request.old_decision_ids)
-            result = self.memory.supersede_decision(
-                title=request.title, target=request.target,
-                rationale=f"[via MCP] {request.rationale}",
-                old_decision_ids=request.old_decision_ids,
-                consequences=request.consequences,
-                namespace=request.namespace
-            )
-            dec_id = result.metadata.get("file_id")
-            commit_hash = self._get_commit_hash()
-            self.audit_logger.log_access("agent", "supersede_decision", request.model_dump(), True, commit_hash=commit_hash)
-            TOOL_CALLS.labels(tool="supersede_decision", status="success").inc()
-            return DecisionResponse(status="success", decision_id=dec_id)
-        except Exception as e:
-            self.audit_logger.log_access("agent", "supersede_decision", request.model_dump(), False, error=str(e))
-            TOOL_CALLS.labels(tool="supersede_decision", status="error").inc()
-            return DecisionResponse(status="error", message=str(e))
-        finally:
-            TOOL_LATENCY.labels(tool="supersede_decision").observe(time.time() - start_time)
+        self._validate_auth()
+        self._check_capability("supersede")
+        self._validate_isolation(request.old_decision_ids)
+        result = self.memory.supersede_decision(
+            title=request.title, target=request.target,
+            rationale=f"[via MCP] {request.rationale}",
+            old_decision_ids=request.old_decision_ids,
+            consequences=request.consequences,
+            namespace=request.namespace
+        )
+        dec_id = result.metadata.get("file_id")
+        return DecisionResponse(status="success", decision_id=dec_id)
 
+    @measure_and_log("search_decisions")
     def handle_search(self, request: SearchDecisionsRequest) -> SearchResponse:
-        start_time = time.time()
-        try:
-            self._validate_auth()
-            self._check_capability("read")
-            results = self.memory.search_decisions(
-                request.query, 
-                limit=request.limit, 
-                offset=request.offset,
-                namespace=request.namespace,
-                mode=request.mode
-            )
-            self.audit_logger.log_access("agent", "search_decisions", request.model_dump(), True)
-            TOOL_CALLS.labels(tool="search_decisions", status="success").inc()
-            return SearchResponse(status="success", results=results)
-        except Exception as e:
-            self.audit_logger.log_access("agent", "search_decisions", request.model_dump(), False, error=str(e))
-            TOOL_CALLS.labels(tool="search_decisions", status="error").inc()
-            return SearchResponse(status="error", message=str(e))
-        finally:
-            TOOL_LATENCY.labels(tool="search_decisions").observe(time.time() - start_time)
+        self._validate_auth()
+        self._check_capability("read")
+        results = self.memory.search_decisions(
+            request.query,
+            limit=request.limit,
+            offset=request.offset,
+            namespace=request.namespace,
+            mode=request.mode
+        )
+        return SearchResponse(status="success", results=results)
 
+    @measure_and_log("accept_proposal", include_commit_hash=True)
     def handle_accept_proposal(self, request: AcceptProposalRequest) -> BaseResponse:
-        start_time = time.time()
-        try:
-            self._check_capability("accept")
-            self.memory.accept_proposal(request.proposal_id)
-            commit_hash = self._get_commit_hash()
-            self.audit_logger.log_access("agent", "accept_proposal", request.model_dump(), True, commit_hash=commit_hash)
-            TOOL_CALLS.labels(tool="accept_proposal", status="success").inc()
-            return BaseResponse(status="success", message="Accepted")
-        except Exception as e:
-            self.audit_logger.log_access("agent", "accept_proposal", request.model_dump(), False, error=str(e))
-            TOOL_CALLS.labels(tool="accept_proposal", status="error").inc()
-            return BaseResponse(status="error", message=str(e))
-        finally:
-            TOOL_LATENCY.labels(tool="accept_proposal").observe(time.time() - start_time)
+        self._check_capability("accept")
+        self.memory.accept_proposal(request.proposal_id)
+        return BaseResponse(status="success", message="Accepted")
 
     def _register_tools(self):
         """
@@ -283,7 +290,6 @@ class MCPServer:
             
         self.mcp.run()
 
-
     @classmethod
     def serve(cls, 
               storage_path: str = "ledgermind", 
@@ -304,4 +310,3 @@ class MCPServer:
             rest_port=rest_port
         )
         server.run()
-
