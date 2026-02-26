@@ -2,6 +2,7 @@ import sqlite3
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+from contextlib import contextmanager
 
 import re
 
@@ -366,3 +367,26 @@ class SemanticMetaStore:
     def close(self):
         """Closes the persistent database connection."""
         self._conn.close()
+
+    def begin_transaction(self):
+        """Manually starts a transaction."""
+        self._conn.execute("BEGIN")
+
+    def commit_transaction(self):
+        """Manually commits a transaction."""
+        self._conn.execute("COMMIT")
+
+    def rollback_transaction(self):
+        """Manually rolls back a transaction."""
+        self._conn.execute("ROLLBACK")
+
+    @contextmanager
+    def batch_update(self):
+        """Context manager for batched operations."""
+        self.begin_transaction()
+        try:
+            yield
+            self.commit_transaction()
+        except:
+            self.rollback_transaction()
+            raise
