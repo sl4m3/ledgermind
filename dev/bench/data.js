@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772127073763,
+  "lastUpdate": 1772127195435,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2546,6 +2546,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005020863292878855",
             "extra": "mean: 4.658604064512554 msec\nrounds: 62"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "46e2277df93fd7b9af248073ce697834dc34d55b",
+          "message": "Refactor SemanticStore to use shared _upsert_metadata method (#8)\n\nThis commit introduces a private helper method `_upsert_metadata` in `SemanticStore` to encapsulate the logic for upserting metadata to the `SemanticMetaStore`. This reduces code duplication between `save` and `update_decision` methods and ensures consistent handling of content caching (appending rationale), keyword formatting, and conflict detection.\n\nChanges:\n- Added `_upsert_metadata` method to `SemanticStore`.\n- Updated `save` method to use `_upsert_metadata`.\n- Updated `update_decision` method to use `_upsert_metadata`.\n- Added `datetime` import to support type hinting.\n\nCo-authored-by: google-labs-jules[bot] <161369871+google-labs-jules[bot]@users.noreply.github.com>",
+          "timestamp": "2026-02-26T20:22:52+03:00",
+          "tree_id": "261997cec75b530ed60c3f646245990c141e7dc0",
+          "url": "https://github.com/sl4m3/ledgermind/commit/46e2277df93fd7b9af248073ce697834dc34d55b"
+        },
+        "date": 1772127194924,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 31.47341165207267,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0035649910956439225",
+            "extra": "mean: 31.77285040003426 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 326.8836067974629,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000368161676460974",
+            "extra": "mean: 3.0591928723412547 msec\nrounds: 94"
           }
         ]
       }
