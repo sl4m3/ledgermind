@@ -17,12 +17,29 @@ KIND_RESULT = "result"
 KIND_PROPOSAL = "proposal"
 KIND_SNAPSHOT = "context_snapshot"
 KIND_INJECTION = "context_injection"
+KIND_INTERVENTION = "intervention"
 
-SEMANTIC_KINDS = [KIND_DECISION, KIND_CONSTRAINT, KIND_ASSUMPTION, KIND_PROPOSAL]
+SEMANTIC_KINDS = [KIND_DECISION, KIND_CONSTRAINT, KIND_ASSUMPTION, KIND_PROPOSAL, KIND_INTERVENTION]
 
 StrictStr = Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
 RationaleStr = Annotated[str, StringConstraints(min_length=10, strip_whitespace=True)]
 TargetStr = Annotated[str, StringConstraints(min_length=3, strip_whitespace=True)]
+
+
+class DecisionPhase(str, Enum):
+    PATTERN = "pattern"
+    EMERGENT = "emergent"
+    CANONICAL = "canonical"
+
+class DecisionVitality(str, Enum):
+    ACTIVE = "active"
+    DECAYING = "decaying"
+    DORMANT = "dormant"
+
+class PatternScope(str, Enum):
+    LOCAL = "local"
+    SYSTEM = "system"
+    INFRA = "infra"
 
 class ProposalStatus(str, Enum):
     DRAFT = "draft"
@@ -71,6 +88,45 @@ class ProposalContent(BaseModel):
     
     ready_for_review: bool = False
 
+
+class DecisionStream(BaseModel):
+    decision_id: StrictStr
+    target: TargetStr
+    title: StrictStr
+    rationale: RationaleStr
+    namespace: str = "default"
+    scope: PatternScope = PatternScope.LOCAL
+    status: Literal["active", "deprecated", "superseded"] = "active"
+    
+    phase: DecisionPhase = DecisionPhase.PATTERN
+    vitality: DecisionVitality = DecisionVitality.ACTIVE
+    provenance: Literal["internal", "external"] = "internal"
+    
+    # Context & Links
+    keywords: List[str] = Field(default_factory=list)
+    evidence_event_ids: List[int] = Field(default_factory=list)
+    consequences: List[str] = Field(default_factory=list)
+    supersedes: List[str] = Field(default_factory=list)
+    superseded_by: Optional[str] = None
+    attachments: List[Dict[str, str]] = Field(default_factory=list)
+    
+    # Lifecycle Metrics
+    frequency: int = 0
+    unique_contexts: int = 0
+    confidence: float = 1.0
+    stability_score: float = 0.0
+    
+    first_seen: datetime = Field(default_factory=datetime.now)
+    last_seen: datetime = Field(default_factory=datetime.now)
+    lifetime_days: float = 0.0
+    reinforcement_density: float = 0.0
+    coverage: float = 0.0
+    
+    estimated_removal_cost: float = 0.0
+    estimated_utility: float = 0.0
+
+    schema_version: int = 1
+
 class DecisionContent(BaseModel):
     title: StrictStr
     target: TargetStr
@@ -94,9 +150,9 @@ class DecisionContent(BaseModel):
 class MemoryEvent(BaseModel):
     schema_version: int = Field(default=1)
     source: Literal["user", "agent", "system", "reflection_engine", "bridge"]
-    kind: Literal["decision", "error", "config_change", "assumption", "constraint", "result", "proposal", "context_snapshot", "context_injection", "task", "call", "commit_change", "prompt"]
+    kind: Literal["decision", "error", "config_change", "assumption", "constraint", "result", "proposal", "context_snapshot", "context_injection", "task", "call", "commit_change", "prompt", "intervention"]
     content: StrictStr
-    context: Union[DecisionContent, ProposalContent, Dict[str, Any]] = Field(default_factory=dict)
+    context: Union[DecisionContent, ProposalContent, DecisionStream, Dict[str, Any]] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.now)
 
     @field_validator('content')
@@ -111,11 +167,18 @@ class MemoryEvent(BaseModel):
         if self.kind in SEMANTIC_KINDS:
             if self.kind == KIND_PROPOSAL:
                 if isinstance(self.context, dict):
-                    self.context = ProposalContent(**self.context)
+                    # Distinguish between ProposalContent and DecisionStream (if embedded in proposal)
+                    if "phase" in self.context or "decision_id" in self.context:
+                        self.context = DecisionStream(**self.context)
+                    else:
+                        self.context = ProposalContent(**self.context)
             else:
-                # Force validation of context as DecisionContent for other semantic types
+                # Force validation of context as DecisionContent or DecisionStream
                 if isinstance(self.context, dict):
-                    self.context = DecisionContent(**self.context)
+                    if "decision_id" in self.context or "phase" in self.context:
+                        self.context = DecisionStream(**self.context)
+                    else:
+                        self.context = DecisionContent(**self.context)
         return self
 
 class MemoryDecision(BaseModel):

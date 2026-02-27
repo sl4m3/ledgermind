@@ -58,7 +58,12 @@ class SemanticMetaStore:
                 "content": "TEXT DEFAULT ''",
                 "keywords": "TEXT DEFAULT ''",
                 "last_hit_at": "DATETIME",
-                "confidence": "REAL DEFAULT 1.0",
+                                "confidence": "REAL DEFAULT 1.0",
+                "phase": "TEXT DEFAULT 'pattern'",
+                "vitality": "TEXT DEFAULT 'active'",
+                "reinforcement_density": "REAL DEFAULT 0.0",
+                "stability_score": "REAL DEFAULT 0.0",
+                "coverage": "REAL DEFAULT 0.0",
                 "context_json": "TEXT DEFAULT '{}'"
             }
             for col, definition in cols.items():
@@ -78,6 +83,8 @@ class SemanticMetaStore:
             self._conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON semantic_meta(status)")
             self._conn.execute("CREATE INDEX IF NOT EXISTS idx_target ON semantic_meta(target)")
             self._conn.execute("CREATE INDEX IF NOT EXISTS idx_namespace ON semantic_meta(namespace)")
+            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_phase ON semantic_meta(phase)")
+            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_vitality ON semantic_meta(vitality)")
 
             # FTS5 Full Text Search
             try:
@@ -129,11 +136,13 @@ class SemanticMetaStore:
 
     def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, 
                title: str = "", superseded_by: Optional[str] = None, namespace: str = "default",
-               content: str = "", keywords: str = "", confidence: float = 1.0, context_json: str = "{}"):
+               content: str = "", keywords: str = "", confidence: float = 1.0, context_json: str = "{}",
+               phase: str = "pattern", vitality: str = "active", reinforcement_density: float = 0.0, 
+               stability_score: float = 0.0, coverage: float = 0.0):
         """Atomic upsert of decision metadata with content caching."""
         self._conn.execute("""
-            INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, keywords, confidence, context_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(fid) DO UPDATE SET
                 title=excluded.title,
                 status=excluded.status,
@@ -142,8 +151,13 @@ class SemanticMetaStore:
                 content=excluded.content,
                 keywords=excluded.keywords,
                 confidence=excluded.confidence,
-                context_json=excluded.context_json
-        """, (fid, target, title, status, kind, timestamp.isoformat(), superseded_by, namespace, content, keywords, confidence, context_json))
+                context_json=excluded.context_json,
+                phase=excluded.phase,
+                vitality=excluded.vitality,
+                reinforcement_density=excluded.reinforcement_density,
+                stability_score=excluded.stability_score,
+                coverage=excluded.coverage
+        """, (fid, target, title, status, kind, timestamp.isoformat(), superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage))
 
     def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
         """Retrieves full metadata for a specific file ID."""

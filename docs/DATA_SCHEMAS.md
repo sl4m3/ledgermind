@@ -14,15 +14,72 @@ Base type for all information flowing into `process_event()`.
 class MemoryEvent(BaseModel):
     schema_version: int = 1
     source: Literal["user", "agent", "system", "reflection_engine", "bridge"]
-    kind: Literal["decision", "error", "proposal", "commit_change", "task", "call", "prompt", "result"]
+    kind: Literal["decision", "error", "proposal", "intervention", "commit_change", "task", "call", "prompt", "result"]
     content: str
-    context: Union[DecisionContent, ProposalContent, Dict[str, Any]]
+    context: Union[DecisionContent, ProposalContent, DecisionStream, Dict[str, Any]]
     timestamp: datetime
 ```
 
 ---
 
 ## Knowledge Content Models
+
+### DecisionStream
+
+The central model for all evolving behavioral patterns and decisions. A single stream maintains its identity (`decision_id`) as it transitions through different phases.
+
+```python
+class DecisionPhase(str, Enum):
+    PATTERN = "pattern"
+    EMERGENT = "emergent"
+    CANONICAL = "canonical"
+
+class DecisionVitality(str, Enum):
+    ACTIVE = "active"
+    DECAYING = "decaying"
+    DORMANT = "dormant"
+
+class PatternScope(str, Enum):
+    LOCAL = "local"
+    SYSTEM = "system"
+    INFRA = "infra"
+
+class DecisionStream(BaseModel):
+    decision_id: str
+    target: str
+    title: str
+    rationale: str
+    namespace: str = "default"
+    scope: PatternScope = PatternScope.LOCAL
+    
+    phase: DecisionPhase = DecisionPhase.PATTERN
+    vitality: DecisionVitality = DecisionVitality.ACTIVE
+    provenance: Literal["internal", "external"] = "internal"
+    
+    # Context & Links
+    keywords: List[str] = []
+    evidence_event_ids: List[int] = []
+    consequences: List[str] = []
+    supersedes: List[str] = []
+    superseded_by: Optional[str] = None
+    
+    # Lifecycle Metrics
+    frequency: int = 0
+    unique_contexts: int = 0
+    confidence: float = 0.0
+    stability_score: float = 0.0
+    
+    first_seen: datetime
+    last_seen: datetime
+    lifetime_days: float = 0.0
+    reinforcement_density: float = 0.0
+    coverage: float = 0.0
+    
+    estimated_removal_cost: float = 0.0
+    estimated_utility: float = 0.0
+```
+
+### Legacy Models (Supported for migration)
 
 ### DecisionContent
 
