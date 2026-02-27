@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772199208461,
+  "lastUpdate": 1772199230752,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3116,6 +3116,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0004775228809880023",
             "extra": "mean: 4.472726209678696 msec\nrounds: 62"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "87d0d5b085513150a2638cec0d6f8d717fd08943",
+          "message": "feat(vscode): add status bar indicator for LedgerMind activity (#30)\n\n- Added a status bar item to the VS Code extension to show LedgerMind state.\n- Implemented `setBusy` logic to display a spinning sync icon during background operations.\n- Updated `.gitignore` to prevent `node_modules` pollution.\n- Created `.jules/palette.md` to document UX learnings.",
+          "timestamp": "2026-02-27T16:29:46+03:00",
+          "tree_id": "7e363afbbd4f75349797929cad732c6ef09c5347",
+          "url": "https://github.com/sl4m3/ledgermind/commit/87d0d5b085513150a2638cec0d6f8d717fd08943"
+        },
+        "date": 1772199229865,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 24.750882001386955,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002706656931812111",
+            "extra": "mean: 40.402600600009464 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 358.68267201990153,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003802945032380767",
+            "extra": "mean: 2.787979676767087 msec\nrounds: 99"
           }
         ]
       }
