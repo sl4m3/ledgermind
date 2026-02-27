@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772147586703,
+  "lastUpdate": 1772154941029,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2888,6 +2888,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005327187628982299",
             "extra": "mean: 4.358605107689493 msec\nrounds: 65"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "7cb18a8a8857d4160b9fcb144b12b41a57804840",
+          "message": "feat: implement DecisionStream ontology and autonomous lifecycle management\n\n- Unified API to use DecisionStream with lifecycle fields (phase, vitality)\n- Added LifecycleEngine for temporal metrics and phase transitions\n- Refactored memory.py to handle KIND_INTERVENTION and dynamic lifecycle ranking\n- Updated SQL schema in meta.py with indices for phase and vitality\n- Added comprehensive lifecycle and ranking tests\n- Updated documentation to reflect the new ontology",
+          "timestamp": "2026-02-27T04:11:18+03:00",
+          "tree_id": "f378083361da7c32a9e6a9a8481b39c266254adb",
+          "url": "https://github.com/sl4m3/ledgermind/commit/7cb18a8a8857d4160b9fcb144b12b41a57804840"
+        },
+        "date": 1772154940548,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 22.99611656301755,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0033769052957866395",
+            "extra": "mean: 43.48560319998569 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 218.1194669729022,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005082469162342903",
+            "extra": "mean: 4.584643516134365 msec\nrounds: 62"
           }
         ]
       }
