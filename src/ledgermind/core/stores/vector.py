@@ -333,6 +333,15 @@ class VectorStore:
                 self._vectors = np.load(self.index_path)
                 self._doc_ids = np.load(self.meta_path, allow_pickle=True).tolist()
                 self._deleted_ids = set()
+
+                # Check if vectors are normalized (checking first one is usually enough)
+                # But to be safe and simple, we normalize everything on load.
+                # This ensures backward compatibility and allows dot-product optimization.
+                if self._vectors is not None and len(self._vectors) > 0:
+                    norms = np.linalg.norm(self._vectors, axis=1, keepdims=True)
+                    norms[norms == 0] = 1e-9
+                    self._vectors = self._vectors / norms
+
                 logger.info(f"Loaded {len(self._doc_ids)} vectors from disk")
 
                 # Load Annoy Index if available
@@ -424,6 +433,12 @@ class VectorStore:
             
         new_embeddings = np.array(new_embeddings).astype('float32')
 
+        # Normalize immediately for dot-product optimization
+        norms = np.linalg.norm(new_embeddings, axis=1, keepdims=True)
+        # Avoid division by zero
+        norms[norms == 0] = 1e-9
+        new_embeddings = new_embeddings / norms
+
         # Dimension check and adjustment
         if self._vectors is not None:
             if self._vectors.shape[1] != new_embeddings.shape[1]:
@@ -464,6 +479,11 @@ class VectorStore:
         # Use cached embedding helper
         query_vector = self._get_embedding(query)
         
+        # Normalize query vector for dot product
+        q_norm = np.linalg.norm(query_vector)
+        if q_norm > 0:
+            query_vector = query_vector / q_norm
+
         # Dimension check
         if self._vectors is not None:
             if self._vectors.shape[1] != query_vector.shape[0]:
@@ -505,18 +525,20 @@ class VectorStore:
         if start_idx < len(self._vectors):
             tail_vectors = self._vectors[start_idx:]
 
-            # Calculate cosine similarity for tail
-            norms = np.linalg.norm(tail_vectors, axis=1)
-            query_norm = np.linalg.norm(query_vector)
-            
-            # Avoid division by zero
-            denom = norms * query_norm + 1e-9
-            similarities = np.dot(tail_vectors, query_vector) / denom
+            # Vectors are pre-normalized, so cosine similarity is just dot product
+            similarities = np.dot(tail_vectors, query_vector)
             
             # Get top indices from tail
-            # We don't need full sort if we only want top K, but tail is usually small.
-            # If tail is large (fallback), argsort is fine.
-            tail_indices = np.argsort(similarities)[::-1]
+            # Optimization: Use argpartition for top-k if tail is large
+            needed = limit * 2 # fetch a bit more to handle deletions
+            if len(similarities) > needed * 2:
+                # Top-k unsorted partition
+                top_indices = np.argpartition(similarities, -needed)[-needed:]
+                # Sort only the top-k
+                sorted_top_indices = top_indices[np.argsort(similarities[top_indices])[::-1]]
+                tail_indices = sorted_top_indices
+            else:
+                tail_indices = np.argsort(similarities)[::-1]
 
             for idx in tail_indices:
                 real_idx = start_idx + idx
