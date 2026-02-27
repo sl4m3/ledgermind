@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772156997474,
+  "lastUpdate": 1772199208461,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3078,6 +3078,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005015532828584892",
             "extra": "mean: 4.511357365380229 msec\nrounds: 52"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7289c4103a50940e3c3a62533fbce9d46bda16b5",
+          "message": "⚡ Bolt: Optimize VectorStore search performance (#28)\n\n* ⚡ Bolt: Optimize VectorStore search with pre-normalization and argpartition\n\n💡 What:\n- Updated `VectorStore.add_documents` to normalize vectors immediately upon ingestion.\n- Updated `VectorStore.load` to normalize all vectors upon loading (ensuring backward compatibility).\n- Optimized `VectorStore.search` to use pure dot product instead of cosine similarity (avoiding runtime norm calculation and division).\n- Replaced `np.argsort` with `np.argpartition` for top-k selection when the candidate set is large.\n\n🎯 Why:\n- The previous implementation calculated norms and performed division for every vector in the tail during every search query, which is computationally expensive ($O(N)$).\n- Full sorting of the similarity scores is unnecessary when only the top-k results are needed.\n\n📊 Impact:\n- Reduces search latency for unindexed vectors by ~50x in micro-benchmarks (from ~100ms to ~2ms for 50k vectors).\n- Makes the brute-force fallback significantly more viable for larger datasets before requiring an index rebuild.\n\n🔬 Measurement:\n- Verified using a reproduction script with 50k random vectors.\n- Baseline search time: ~111ms\n- Optimized search time: ~2ms\n\n* ⚡ Bolt: Optimize VectorStore search with pre-normalization and argpartition\n\n💡 What:\n- Updated `VectorStore.add_documents` to normalize vectors immediately upon ingestion.\n- Updated `VectorStore.load` to normalize all vectors upon loading (ensuring backward compatibility).\n- Optimized `VectorStore.search` to use pure dot product instead of cosine similarity (avoiding runtime norm calculation and division).\n- Replaced `np.argsort` with `np.argpartition` for top-k selection when the candidate set is large.\n- Improved `tests/core/stress/test_concurrency.py` to robustly close `Memory` instances, fixing a CI `sqlite3.OperationalError: disk I/O error`.\n\n🎯 Why:\n- The previous implementation calculated norms and performed division for every vector in the tail during every search query, which is computationally expensive ($O(N)$).\n- Full sorting of the similarity scores is unnecessary when only the top-k results are needed.\n- Concurrent tests were leaving SQLite connections open in threads, causing file locking issues in CI environments.\n\n📊 Impact:\n- Reduces search latency for unindexed vectors by ~50x in micro-benchmarks (from ~100ms to ~2ms for 50k vectors).\n- Makes the brute-force fallback significantly more viable for larger datasets before requiring an index rebuild.\n- Increases CI stability by ensuring proper resource cleanup in concurrency tests.\n\n🔬 Measurement:\n- Verified using a reproduction script with 50k random vectors.\n- Baseline search time: ~111ms\n- Optimized search time: ~2ms",
+          "timestamp": "2026-02-27T16:29:24+03:00",
+          "tree_id": "1bf7834747e68f0bf2ff91159b5af752055eb130",
+          "url": "https://github.com/sl4m3/ledgermind/commit/7289c4103a50940e3c3a62533fbce9d46bda16b5"
+        },
+        "date": 1772199207435,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 23.71257236033465,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0018687530392496646",
+            "extra": "mean: 42.17172160000473 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 223.57728891074606,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004775228809880023",
+            "extra": "mean: 4.472726209678696 msec\nrounds: 62"
           }
         ]
       }
