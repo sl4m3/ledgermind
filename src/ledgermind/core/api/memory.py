@@ -894,7 +894,9 @@ class Memory:
                 "context_json": meta.get('context_json', '{}'),
                 "kind": meta.get("kind"),
                 "is_active": (status == "active"),
-                "evidence_count": link_count
+                "evidence_count": link_count,
+                "vitality": vitality,
+                "phase": phase
             })
 
         all_candidates.sort(key=lambda x: x['score'], reverse=True)
@@ -973,6 +975,9 @@ class Memory:
             logger.error(f"Integrity Violation: {ie}")
             integrity_status = f"violation: {str(ie)}"
 
+        # 0. Lifecycle Update (Phase transitions & Vitality decay)
+        reflection_proposals = self.run_reflection()
+
         decay_report = self.run_decay()
         
         # Update metrics (Issue #16)
@@ -989,6 +994,7 @@ class Memory:
         merges = merger.scan_for_duplicates()
         return {
             "decay": decay_report.__dict__,
+            "reflection": {"proposals_created": len(reflection_proposals)},
             "merging": {"proposals_created": len(merges), "ids": merges},
             "integrity": integrity_status
         }
