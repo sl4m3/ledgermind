@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772202839237,
+  "lastUpdate": 1772203884229,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3268,6 +3268,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0003466839166476305",
             "extra": "mean: 2.8588264329871507 msec\nrounds: 97"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "af6cc9e91f3ce1ec838df125cdf2fbbffe1bacb6",
+          "message": "fix(core): audit resolution: enhance security, concurrency, and transaction integrity\n\n- security: strengthen path traversal protection via absolute path validation in SemanticStore\n- core: implement per-path thread locks in FileSystemLock to eliminate global bottlenecks\n- core: fix transaction rollback logic in accept_proposal to preserve draft status on failure\n- core: enforce strict routing rules to prevent episodic events in semantic storage\n- search: implement RRF score aggregation for historical truth resolutions\n- server: add sensitive data redaction for audit logs\n- tests: add comprehensive verification suite for path traversal and RRF aggregation",
+          "timestamp": "2026-02-27T17:47:15+03:00",
+          "tree_id": "0a9841ec4909740e8c8095bda6fddae9b5a782f4",
+          "url": "https://github.com/sl4m3/ledgermind/commit/af6cc9e91f3ce1ec838df125cdf2fbbffe1bacb6"
+        },
+        "date": 1772203883146,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 22.356580001821623,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004623682137983383",
+            "extra": "mean: 44.72956059998978 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 221.1737385577089,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005634861551618839",
+            "extra": "mean: 4.521332444444252 msec\nrounds: 63"
           }
         ]
       }
