@@ -200,7 +200,20 @@ class ReflectionEngine:
         stream = self.lifecycle.update_vitality(stream, now)
         stream = self.lifecycle.promote_stream(stream)
         
-        self.processor.update_decision(fid, stream.model_dump(), commit_msg=f"Lifecycle: Promoted/Updated stream to {stream.phase.value}")
+        # Normative upgrade: Proposal -> Decision based on balanced model (PR #45)
+        current_kind = data.get('kind', KIND_PROPOSAL)
+        new_kind = current_kind
+        
+        if current_kind == KIND_PROPOSAL:
+            new_kind = self.lifecycle.evaluate_normative_authority(stream)
+            if new_kind == KIND_DECISION:
+                logger.info(f"Normative Upgrade: {stream.target} is now a DECISION.")
+        
+        # Merge kind into update data
+        update_data = stream.model_dump()
+        update_data['kind'] = new_kind
+
+        self.processor.update_decision(fid, update_data, commit_msg=f"Lifecycle: Promoted/Updated stream to {stream.phase.value} ({new_kind})")
 
     def _create_pattern_stream(self, target: str, stats: Dict[str, Any], now: datetime, 
                                event_map: Optional[Dict[int, Any]] = None,
