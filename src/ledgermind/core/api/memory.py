@@ -674,12 +674,13 @@ class Memory:
             rationale=rationale,
             consequences=consequences or [],
             evidence_event_ids=evidence_ids or [],
-            namespace=effective_namespace,
-            phase=DecisionPhase.EMERGENT,
-            vitality=DecisionVitality.ACTIVE,
-            first_seen=datetime.now(),
-            last_seen=datetime.now()
+            namespace=effective_namespace
         )
+        
+        # Apply intervention logic to set default emergent phase and high responsibility
+        from ledgermind.core.reasoning.lifecycle import LifecycleEngine
+        ctx = LifecycleEngine().process_intervention(ctx, datetime.now())
+
         decision = self.process_event(
             source="agent",
             kind=KIND_DECISION,
@@ -889,14 +890,20 @@ class Memory:
             link_count, _ = self.episodic.count_links_for_semantic(final_id)
             boost = min(link_count * 0.2, 1.0) 
             
-            # Dynamic Lifecycle Multiplier
-            phase = meta.get('phase', 'pattern')
-            vitality = meta.get('vitality', 'active')
+            # Dynamic Lifecycle Multiplier (Balanced Model)
+            phase = meta.get('phase', 'pattern').lower()
+            vitality = meta.get('vitality', 'active').lower()
+            kind = meta.get('kind', 'proposal').lower()
             
             phase_weights = {"canonical": 1.5, "emergent": 1.2, "pattern": 1.0}
             vitality_weights = {"active": 1.0, "decaying": 0.5, "dormant": 0.2}
+            kind_weights = {"decision": 1.35, "proposal": 1.0} # Decision gets ~35% boost
             
-            lifecycle_multiplier = phase_weights.get(phase, 1.0) * vitality_weights.get(vitality, 1.0)
+            lifecycle_multiplier = (
+                phase_weights.get(phase, 1.0) * 
+                vitality_weights.get(vitality, 1.0) * 
+                kind_weights.get(kind, 1.0)
+            )
             
             if status in ("rejected", "falsified"): lifecycle_multiplier *= 0.2
             elif status in ("superseded", "deprecated"): lifecycle_multiplier *= 0.3
