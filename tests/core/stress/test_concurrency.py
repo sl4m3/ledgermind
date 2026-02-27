@@ -22,6 +22,7 @@ def test_concurrent_writes(clean_storage):
     # 1. Setup initial state
     init_mem = Memory(storage_path=clean_storage)
     init_mem.record_decision("Base Decision", "base", "Initial rationale for base decision")
+    init_mem.close() # Ensure initial setup is closed
     
     def worker(i):
         # Each worker tries to create a unique decision using its OWN instance
@@ -31,6 +32,8 @@ def test_concurrent_writes(clean_storage):
             return True, None
         except Exception as e:
             return False, str(e)
+        finally:
+            worker_mem.close()
 
     # 2. Launch concurrent workers
     # Reduce workers to 2 to fit within limits
@@ -51,6 +54,8 @@ def test_concurrent_writes(clean_storage):
     # 4. Verify integrity
     verify_mem = Memory(storage_path=clean_storage)
     decisions = verify_mem.get_decisions()
+    verify_mem.close()
+
     # All successful writes should be present + 1 base decision
     assert len(decisions) == len(successes) + 1
     
@@ -65,6 +70,7 @@ def test_concurrent_conflict(clean_storage):
     target = "shared_resource"
     
     def worker(i):
+        worker_mem = None
         try:
             worker_mem = Memory(storage_path=clean_storage)
             # Use RADICALLY different content to ensure 0 similarity
@@ -83,6 +89,9 @@ def test_concurrent_conflict(clean_storage):
             if "UNIQUE constraint" in msg or "active decision" in msg or "Invariant Violation" in msg:
                 return "conflict"
             return f"error: {type(e).__name__} {msg}"
+        finally:
+            if worker_mem:
+                worker_mem.close()
 
     num_workers = 2
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
@@ -106,4 +115,5 @@ def test_concurrent_conflict(clean_storage):
     # Verify no more than one active decision exists for target
     verify_mem = Memory(storage_path=clean_storage)
     conflicts = verify_mem.semantic.list_active_conflicts(target)
+    verify_mem.close()
     assert len(conflicts) <= 1
