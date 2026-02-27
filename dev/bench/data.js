@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772154941029,
+  "lastUpdate": 1772156483026,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2926,6 +2926,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005082469162342903",
             "extra": "mean: 4.584643516134365 msec\nrounds: 62"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "db518a7f224bd93d00491d08e62c6e0b84e5edcc",
+          "message": "fix(core): resolve SQLite transaction race conditions and add Jina v5 auto-download\n\n- Improved transaction management in SemanticMetaStore to handle nested calls and prevent 'no transaction active' errors.\n- Fixed race condition in SemanticStore rollback that prevented correct re-acquisition of locks.\n- Implemented auto-download logic for Jina v5 GGUF embedding model from Hugging Face.\n- Updated environment checks to verify GGUF model availability.\n- Updated lifecycle tests in tests/lg.py to match current SemanticMetaStore schema.",
+          "timestamp": "2026-02-27T04:37:09+03:00",
+          "tree_id": "866ab36bd955d47b8b91b997bf4b98ef530eb90b",
+          "url": "https://github.com/sl4m3/ledgermind/commit/db518a7f224bd93d00491d08e62c6e0b84e5edcc"
+        },
+        "date": 1772156481995,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 24.617436179498053,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0015371991202207038",
+            "extra": "mean: 40.62161439999272 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 224.04086009956572,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004971275126403975",
+            "extra": "mean: 4.463471527272263 msec\nrounds: 55"
           }
         ]
       }
