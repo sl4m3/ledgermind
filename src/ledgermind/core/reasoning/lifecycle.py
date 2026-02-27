@@ -46,7 +46,7 @@ class LifecycleEngine:
         
         stream.coverage = stream.lifetime_days / self.observation_window_days
 
-        if len(sorted_dates) > 1:
+        if len(sorted_dates) > 2:
             intervals = [(sorted_dates[i] - sorted_dates[i-1]).total_seconds() / 86400.0 
                          for i in range(1, len(sorted_dates))]
             if len(intervals) > 1:
@@ -55,7 +55,9 @@ class LifecycleEngine:
                 # Assuming variance of 0 is perfect stability (score 1.0).
                 stream.stability_score = max(0.0, 1.0 - (var / (safe_lifetime + 1.0)))
             else:
-                stream.stability_score = 1.0
+                stream.stability_score = 0.0
+        elif len(sorted_dates) == 2:
+            stream.stability_score = 0.3 # Moderate stability signal for 2 events
         else:
             stream.stability_score = 0.0
 
