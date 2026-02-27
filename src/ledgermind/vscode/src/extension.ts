@@ -51,23 +51,35 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     // 2. TERMINAL WATCHER: Записываем всё, что происходит в терминале
+    let terminalBuffer = '';
+    let debounceTimer: NodeJS.Timeout | null = null;
+
     context.subscriptions.push(
         vscode.window.onDidWriteTerminalData((e) => {
-            // Фильтруем вывод, чтобы не записывать каждый символ, а только значимые блоки (например, после Enter)
-            if (e.data.includes('\r') || e.data.includes('\n')) {
+            terminalBuffer += e.data;
+            if (debounceTimer) clearTimeout(debounceTimer);
+            
+            debounceTimer = setTimeout(() => {
                 const projectPath = getProjectPath();
                 // Очистка данных от ANSI-кодов
-                const cleanData = e.data.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
+                const cleanData = terminalBuffer.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
                 
-                execFile('ledgermind-mcp', [
-                    'bridge-record',
-                    '--path', projectPath,
-                    '--prompt', 'Terminal Output',
-                    '--response', cleanData,
-                    '--success',
-                    '--cli', 'vscode-terminal'
-                ]);
-            }
+                // Фильтруем только значимые командные строки (содержат $ или >)
+                const lines = cleanData.split(/[\r\n]+/).filter(l => l.trim());
+                const cmds = lines.filter(l => /\$|>/.test(l)).join('; ');
+
+                if (cmds) {
+                    execFile('ledgermind-mcp', [
+                        'bridge-record',
+                        '--path', projectPath,
+                        '--prompt', 'Terminal Commands',
+                        '--response', cmds,
+                        '--success',
+                        '--cli', 'vscode-terminal'
+                    ]);
+                }
+                terminalBuffer = '';
+            }, 1500); // Debounce 1.5s
         })
     );
 

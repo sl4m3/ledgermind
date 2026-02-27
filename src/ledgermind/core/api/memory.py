@@ -31,6 +31,13 @@ from ledgermind.core.core.targets import TargetRegistry
 
 from ledgermind.core.utils.events import EventEmitter
 
+# Optional observability
+try:
+    from ledgermind.server.metrics import VITALITY_DISTRIBUTION, PHASE_DISTRIBUTION
+except ImportError:
+    VITALITY_DISTRIBUTION = None
+    PHASE_DISTRIBUTION = None
+
 class Memory:
     """
     The main entry point for the ledgermind-core.
@@ -967,6 +974,16 @@ class Memory:
             integrity_status = f"violation: {str(ie)}"
 
         decay_report = self.run_decay()
+        
+        # Update metrics (Issue #16)
+        stats = self.get_stats()
+        if VITALITY_DISTRIBUTION:
+            for v, count in stats.get('vitality', {}).items():
+                VITALITY_DISTRIBUTION.labels(vitality=v).set(count)
+        if PHASE_DISTRIBUTION:
+            for p, count in stats.get('phases', {}).items():
+                PHASE_DISTRIBUTION.labels(phase=p).set(count)
+
         from ledgermind.core.reasoning.merging import MergeEngine
         merger = MergeEngine(self)
         merges = merger.scan_for_duplicates()

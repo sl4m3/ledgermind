@@ -7,6 +7,13 @@ from ledgermind.core.core.schemas import (
     DecisionStream, DecisionPhase, DecisionVitality, PatternScope
 )
 
+# Optional observability
+try:
+    from ledgermind.server.metrics import PHASE_TRANSITIONS, STREAM_PROMOTIONS
+except ImportError:
+    PHASE_TRANSITIONS = None
+    STREAM_PROMOTIONS = None
+
 logger = logging.getLogger(__name__)
 
 class LifecycleEngine:
@@ -80,6 +87,10 @@ class LifecycleEngine:
         if getattr(stream, 'provenance', 'internal') == 'external':
             score += 0.4
             
+        # Add real-usage signals
+        score += min(stream.hit_count / 100.0, 0.2)  # Boost for real use
+        score += stream.confidence * 0.1  # High confidence = harder to delete
+            
         return min(score, 1.0)
 
     def estimate_utility(self, stream: DecisionStream) -> float:
@@ -118,6 +129,8 @@ class LifecycleEngine:
         Evaluates and transitions Phase based on temporal signals and cost.
         PATTERN -> EMERGENT -> CANONICAL
         """
+        old_phase = stream.phase
+        
         # Re-calculate static properties
         stream.estimated_removal_cost = self.estimate_removal_cost(stream)
         stream.estimated_utility = self.estimate_utility(stream)
@@ -143,6 +156,13 @@ class LifecycleEngine:
                 stream.vitality == DecisionVitality.ACTIVE):
                 stream.phase = DecisionPhase.CANONICAL
                 
+        # Observe metrics
+        if stream.phase != old_phase:
+            if PHASE_TRANSITIONS:
+                PHASE_TRANSITIONS.labels(from_phase=old_phase.value, to_phase=stream.phase.value).inc()
+            if STREAM_PROMOTIONS:
+                STREAM_PROMOTIONS.labels(target_phase=stream.phase.value).inc()
+
         return stream
 
     def process_intervention(self, stream: DecisionStream, now: datetime) -> DecisionStream:

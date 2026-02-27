@@ -113,6 +113,7 @@ class DecisionStream(BaseModel):
     # Lifecycle Metrics
     frequency: int = 0
     unique_contexts: int = 0
+    hit_count: int = 0
     confidence: float = 1.0
     stability_score: float = 0.0
     
