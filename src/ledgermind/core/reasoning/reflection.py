@@ -146,6 +146,13 @@ class ReflectionEngine:
             reinforcement_dates = [now]
             
         stream = self.lifecycle.calculate_temporal_signals(stream, reinforcement_dates, now)
+        
+        # Issue #14: Reactivate dormant stream if new events arrived in this cluster
+        if stats.get('all_ids'):
+            if stream.vitality == DecisionVitality.DORMANT:
+                logger.info(f"Reactivating dormant stream: {stream.target}")
+                stream.vitality = DecisionVitality.ACTIVE
+                
         stream = self.lifecycle.update_vitality(stream, now)
         stream = self.lifecycle.promote_stream(stream)
         
@@ -233,6 +240,12 @@ class ReflectionEngine:
                 ctx = json.loads(m.get('context_json', '{}'))
                 # Robust check: must have either phase or decision_id
                 if "phase" in ctx or "decision_id" in ctx:
+                    # Inject latest metrics from database into context
+                    ctx['hit_count'] = m.get('hit_count', 0)
+                    ctx['confidence'] = m.get('confidence', ctx.get('confidence', 1.0))
+                    ctx['phase'] = m.get('phase', ctx.get('phase', 'pattern'))
+                    ctx['vitality'] = m.get('vitality', ctx.get('vitality', 'active'))
+
                     # Validate via Pydantic to ensure it's a valid stream
                     try:
                         DecisionStream(**ctx)
