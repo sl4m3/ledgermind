@@ -22,3 +22,5 @@ benchmarks/results/
 /temp_test_*/
 /.test_memory/
 .ledgermind/
+node_modules/
+**/node_modules/
