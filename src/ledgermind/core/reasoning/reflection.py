@@ -288,11 +288,25 @@ class ReflectionEngine:
             
             if ev['kind'] == 'commit_change' and (not target or target in self.BLACKLISTED_TARGETS or len(target) < 3):
                 import re
+                # 1. Try conventional commit pattern: feat(core): ...
                 match = re.search(r'\(([^)]+)\):', content)
-                target = match.group(1) if match else target
+                if match:
+                    target = match.group(1)
+                else:
+                    # 2. Try to infer target from changed files
+                    changed_files = ctx.get('changed_files', [])
+                    if changed_files:
+                        # Find most common top-level directory/module
+                        paths = [f.split('/')[0] for f in changed_files if '/' in f]
+                        if not paths: # Files in root
+                            paths = [f.split('.')[0] for f in changed_files]
+                        
+                        if paths:
+                            from collections import Counter
+                            target = Counter(paths).most_common(1)[0][0]
 
             # Inheritance: results and calls inherit target from previous context (PR #42)
-            if not target and ev['kind'] in (KIND_RESULT, "call", "task"):
+            if not target and ev['kind'] in (KIND_RESULT, "call", "task", "commit_change"):
                 target = last_valid_target
 
             target = target or "general"
@@ -301,9 +315,11 @@ class ReflectionEngine:
             if target not in self.BLACKLISTED_TARGETS and target.lower() != "general" and len(target) >= 3:
                 last_valid_target = target
             elif ev['kind'] in ('prompt', 'decision'):
-                # Reseting on new prompt only if it doesn't have its own target
-                if not target or target == "general":
-                    last_valid_target = None
+                # Issue Fix: Don't reset to None immediately. 
+                # Only reset if the prompt explicitly has a different target or after a period of time
+                if target and target not in self.BLACKLISTED_TARGETS and target != "general":
+                    last_valid_target = target
+                # If we really want to reset, we should do it based on session gap, not just every prompt
                 
             if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general") or len(target) < 3:
                 continue
