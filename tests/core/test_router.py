@@ -99,3 +99,14 @@ def test_route_conflict_with_invalid_intent(router, mock_conflict_engine, mock_r
     assert decision.should_persist is False
     assert "CONFLICT" in decision.reason
     assert "ResolutionIntent is invalid" in decision.reason
+
+def test_route_episodic_with_supersede_intent_remains_episodic(router):
+    # This event is episodic (prompt)
+    event = MemoryEvent(source="user", kind="prompt", content="Hello", timestamp=datetime.now())
+    # But it has an intent to supersede
+    intent = ResolutionIntent(resolution_type="supersede", rationale="Updating with long enough rationale", target_decision_ids=["file1.md"])
+    
+    decision = router.route(event, intent=intent)
+    assert decision.should_persist is True
+    # Should still be episodic because kind='prompt' is not in SEMANTIC_KINDS
+    assert decision.store_type == "episodic"

@@ -112,3 +112,57 @@ def test_hard_purge_gdpr(temp_memory_path):
     memory.forget(fid)
     assert fid not in memory.get_decisions()
     assert not os.path.exists(os.path.join(temp_memory_path, "semantic", fid))
+
+def test_path_traversal_protection(temp_memory_path):
+    """Ensures _validate_fid blocks path traversal attempts."""
+    memory = Memory(storage_path=temp_memory_path)
+    
+    malicious_fids = [
+        "../../etc/passwd",
+        "/etc/passwd",
+        "~/secret.txt",
+        "semantic/../../../etc/shadow",
+        "..\\..\\windows\\system32" # Windows style
+    ]
+    
+    for fid in malicious_fids:
+        with pytest.raises(ValueError, match="Invalid file identifier"):
+            memory.semantic._validate_fid(fid)
+
+def test_accept_proposal_rollback_preserves_draft_status(temp_memory_path):
+    """Ensures that if accept_proposal fails, the proposal remains 'draft' on disk."""
+    memory = Memory(storage_path=temp_memory_path)
+    
+    # 1. Create a proposal
+    from ledgermind.core.core.schemas import KIND_PROPOSAL, MemoryEvent
+    proposal_content = {
+        "title": "New Pattern",
+        "target": "Network-Architecture",
+        "rationale": "High-level rationale for this proposal.",
+        "status": "draft",
+        "confidence": 0.9
+    }
+    proposal_id = memory.semantic.save(MemoryEvent(
+        source="agent",
+        kind=KIND_PROPOSAL,
+        content="Proposal summary",
+        context=proposal_content
+    ))
+    
+    # 2. Force failure during conversion
+    original_record = memory.record_decision
+    def failing_record(*args, **kwargs):
+        raise RuntimeError("Simulated failure during proposal acceptance")
+    
+    memory.record_decision = failing_record
+    
+    try:
+        with pytest.raises(RuntimeError, match="Simulated failure"):
+            memory.accept_proposal(proposal_id)
+            
+        # 3. Verify status is still 'draft' even after rollback
+        memory.semantic.sync_meta_index(force=True)
+        meta = memory.semantic.meta.get_by_fid(proposal_id)
+        assert meta['status'] == 'draft'
+    finally:
+        memory.record_decision = original_record
