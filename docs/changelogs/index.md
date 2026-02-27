@@ -4,12 +4,27 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.0.2] - 2026-02-28
+
+- **Balanced Ranking Model:** Kind-based weighting (Decision vs. Proposal) 
+  and Phase multipliers (Canonical, Emergent, Pattern).
+- **Normative Authority:** Formalized Weighted Authority score for 
+  knowledge promotion.
+- **Test Stability:** Fixed `AttributeError` in `tests/lg.py` and 
+  synchronized test expectations with current lifecycle logic.
+- **Injection Precision:** Fine-tuned relevance thresholding for 
+  context injection.
+
 ## [v3.0.1] - 2026-02-27
 
-- **Performance Optimization:** Incremental integrity validation and vector embedding caching.
-- **Enhanced Reflection:** Improved session-based distillation for multi-turn autonomous tasks.
-- **Stability Fixes:** Cache isolation in IntegrityChecker and optimized episodic store indexing.
-- **Dynamic Versioning:** Unified version management across all system components.
+- **Performance Optimization:** Incremental integrity validation and 
+  vector embedding caching.
+- **Enhanced Reflection:** Improved session-based distillation for 
+  multi-turn autonomous tasks.
+- **Stability Fixes:** Cache isolation in IntegrityChecker and 
+  optimized episodic store indexing.
+- **Dynamic Versioning:** Unified version management across all 
+  system components.
 
 ## [v3.0.0] - 2026-02-27
 
