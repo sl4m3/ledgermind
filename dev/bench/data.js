@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772156692692,
+  "lastUpdate": 1772156900431,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3002,6 +3002,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0004460538896122483",
             "extra": "mean: 4.775036114753049 msec\nrounds: 61"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "12abfe6c05da7a2e08dc3df2befa57f46ac8c6fb",
+          "message": "fix(core): make check_environment robust to missing config in tests",
+          "timestamp": "2026-02-27T04:44:12+03:00",
+          "tree_id": "d2aae4c3fd82bddee7f06b42d095b1b649a7f325",
+          "url": "https://github.com/sl4m3/ledgermind/commit/12abfe6c05da7a2e08dc3df2befa57f46ac8c6fb"
+        },
+        "date": 1772156899633,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 26.12101127913086,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0036989907762299363",
+            "extra": "mean: 38.28335700000025 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 358.6138595522741,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003510405423923188",
+            "extra": "mean: 2.788514647059347 msec\nrounds: 102"
           }
         ]
       }
