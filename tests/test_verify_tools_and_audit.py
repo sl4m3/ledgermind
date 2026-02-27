@@ -71,8 +71,9 @@ class TestTools(unittest.TestCase):
     def test_api_specification(self):
         print("Testing API Specification Tool...")
         from ledgermind.server.specification import MCPApiSpecification
+        from ledgermind.server.contracts import MCP_API_VERSION
         spec = MCPApiSpecification.generate_full_spec()
-        self.assertEqual(spec['mcp_api_version'], "3.0.0")
+        self.assertEqual(spec['mcp_api_version'], MCP_API_VERSION)
         self.assertIn("record_decision", spec['tools'])
         print("✓ API Specification OK.")
 
