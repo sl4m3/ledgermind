@@ -41,7 +41,6 @@ class ReflectionEngine:
     """
     BLACKLISTED_TARGETS = {
         "general", "general_development", "general_task", "unknown", "none", "null",
-        "core", "test", "tests", "dev", "development", "system", "agent", 
         "reflection_engine", "bridge", "memory", "tmp", "ledgermind"
     }
 
@@ -94,10 +93,10 @@ class ReflectionEngine:
                     prop.keywords.append(f"fid:{fid}") # Hack to pass fid back or we could use a better way
 
             # 1. Evidence Aggregation
-            recent_events = self.episodic.query(limit=1000, status='active', after_id=after_id, order='ASC')
+            recent_events = self.episodic.query(limit=2000, status='active', after_id=after_id, order='ASC')
             
             # Optimization: Load all active events once to avoid N+1 queries in _process_stream
-            all_recent_events = self.episodic.query(limit=2000, status='active', order='ASC')
+            all_recent_events = self.episodic.query(limit=3000, status='active', order='ASC')
             event_map = {e['id']: e for e in all_recent_events}
 
             all_streams = self._get_all_streams()
@@ -262,6 +261,9 @@ class ReflectionEngine:
         # Meta-events that should never trigger learning or be used as evidence
         META_KINDS = {KIND_PROPOSAL, "context_snapshot", "context_injection"}
         
+        # Russian success indicators
+        RU_SUCCESS_KEYWORDS = {"успешно", "прошли", "исправлено", "завершено", "ок", "выполнено"}
+
         for ev in events:
             # 1. Anti-Self-Reflection: Skip events from engine or meta-events
             if ev.get('source') == 'reflection_engine': continue
@@ -269,24 +271,26 @@ class ReflectionEngine:
             
             ctx = ev.get('context', {})
             target = ctx.get('target')
+            content = ev.get('content', '').lower()
             
             if ev['kind'] == 'commit_change' and (not target or target in self.BLACKLISTED_TARGETS or len(target) < 3):
                 import re
-                msg = ev.get('content', '')
-                match = re.search(r'\(([^)]+)\):', msg)
+                match = re.search(r'\(([^)]+)\):', content)
                 target = match.group(1) if match else target
 
-            # Inheritance: only for results that don't have their own target
-            if not target and ev['kind'] == KIND_RESULT:
+            # Inheritance: results and calls inherit target from previous context (PR #42)
+            if not target and ev['kind'] in (KIND_RESULT, "call", "task"):
                 target = last_valid_target
 
             target = target or "general"
             
-            # Update last valid target if this one is good, otherwise RESET it if it's a new prompt/decision
+            # Update last valid target if this one is good
             if target not in self.BLACKLISTED_TARGETS and target.lower() != "general" and len(target) >= 3:
                 last_valid_target = target
-            elif ev['kind'] in ('prompt', 'decision', 'task'):
-                last_valid_target = None
+            elif ev['kind'] in ('prompt', 'decision'):
+                # Reseting on new prompt only if it doesn't have its own target
+                if not target or target == "general":
+                    last_valid_target = None
                 
             if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general") or len(target) < 3:
                 continue
@@ -302,15 +306,19 @@ class ReflectionEngine:
                 clusters[target]['weight'] += 0.5
             elif ev['kind'] == KIND_RESULT:
                 score = ctx.get('success', 0.5)
-                if score is True: score = 1.0
+                # Localization support: check for Russian success words
+                is_ru_success = any(word in content for word in RU_SUCCESS_KEYWORDS)
+                
+                if score is True or is_ru_success: score = 1.0
                 elif score is False: score = 0.0
+                
                 clusters[target]['successes'] += float(score)
                 clusters[target]['errors'] += (1.0 - float(score))
                 clusters[target]['weight'] += 1.0 if score > 0.7 else 0.2
             elif ev['kind'] == 'commit_change': 
                 clusters[target]['commits'] += 1
                 clusters[target]['weight'] += 2.0
-            elif ev['kind'] in ('call', 'task'):
+            elif ev['kind'] in ('call', 'task', 'prompt'):
                 clusters[target]['weight'] += 0.1
             
             try: clusters[target]['last_seen'] = max(clusters[target]['last_seen'], ev['timestamp'])

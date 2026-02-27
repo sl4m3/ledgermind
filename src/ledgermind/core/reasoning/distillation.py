@@ -10,13 +10,15 @@ logger = logging.getLogger(__name__)
 
 class DistillationEngine:
     """
-    Реализация принципа MemP: Дистилляция траекторий в процедурные знания.
-    Анализирует эпизодическую память для выделения успешных паттернов действий.
+    Distillation Engine v5.1: Session-based Trajectory Distiller.
+    Implementation of the MemP principle: distilling active trajectories into procedural knowledge.
+    
+    Now supports multi-turn session boundaries (user -> agent -> user) and target-based stitching.
     """
     
-    def __init__(self, episodic_store, window_size: int = 5):
+    def __init__(self, episodic_store, window_size: int = 20):
         self.episodic = episodic_store
-        self.window_size = window_size
+        self.window_size = window_size # Now acts as a search depth for multi-session stitching
 
     def _extract_keywords(self, title: str, target: str, rationale: str) -> List[str]:
         """Simple keyword extraction from text fields."""
@@ -24,44 +26,87 @@ class DistillationEngine:
         all_text = f"{title} {target} {rationale}".lower()
         words = re.findall(r'[a-zа-я0-9]{3,}', all_text)
         stop_words = {"for", "the", "and", "with", "from", "this", "that", "was", "were", "been", "has", "had", 
-                      "для", "или", "это", "был", "была", "было", "были", "его", "ее", "их"}
+                      "для", "или", "это", "был", "была", "было", "были", "его", "ее", "их", "как", "мне"}
         unique_words = list(set(w for w in words if w not in stop_words))
         return sorted(unique_words)[:10]
 
-    def distill_trajectories(self, limit: int = 100, after_id: Optional[int] = None) -> List[ProposalContent]:
+    def distill_trajectories(self, limit: int = 200, after_id: Optional[int] = None) -> List[ProposalContent]:
         """
-        Ищет успешные цепочки событий и превращает их в предложения по процедурам.
+        Groups events by actor-based sessions and distills them into procedural proposals.
         """
-        # Если есть after_id, идем по порядку (ASC), если нет - берем последние (DESC)
+        # 1. Fetch events
         order = 'ASC' if after_id is not None else 'DESC'
         events = self.episodic.query(limit=limit, status='active', after_id=after_id, order=order)
         if not events:
             return []
 
-        # Если брали DESC, переворачиваем для хронологии. Если ASC - уже ок.
         chronological_events = list(reversed(events)) if order == 'DESC' else events
-        proposals = []
         
-        for i, event in enumerate(chronological_events):
-            if event.get('kind') == KIND_RESULT:
-                context = event.get('context', {})
-                if context.get('success') or "success" in event.get('content', '').lower():
-                    # Траектория - это события ПЕРЕД текущим результатом
-                    # Берем окно из последних событий
-                    trajectory_events = chronological_events[max(0, i - self.window_size):i]
-                    if trajectory_events:
-                        proposal = self._create_procedural_proposal(trajectory_events, event)
-                        proposals.append(proposal)
+        # 2. Group events into Turns (User Prompt -> Agent Chain)
+        turns = []
+        current_turn = []
         
-        return proposals
+        for ev in chronological_events:
+            # A new user prompt or an explicit new decision marks the end of previous turn
+            if ev.get('source') == 'user' or ev.get('kind') == 'decision':
+                if current_turn:
+                    turns.append(current_turn)
+                current_turn = [ev]
+            else:
+                if current_turn:
+                    current_turn.append(ev)
+        
+        if current_turn:
+            turns.append(current_turn)
 
-    def _create_procedural_proposal(self, trajectory: List[Dict[str, Any]], result_event: Dict[str, Any]) -> ProposalContent:
-        """Создает Proposal на основе цепочки событий."""
+        # 3. Stitch Turns into Task Trajectories based on shared target
+        trajectories = []
+        active_trajectories_by_target = {} # target -> list of turns
+        
+        RU_SUCCESS_KEYWORDS = {"успешно", "прошли", "исправлено", "завершено", "выполнено"}
+
+        for turn in turns:
+            # Detect target for the turn
+            target = 'unknown'
+            is_success = False
+            
+            for ev in turn:
+                # Target discovery
+                candidate = ev.get('context', {}).get('target')
+                if candidate and candidate != 'unknown' and len(str(candidate)) > 2:
+                    target = candidate
+                
+                # Success discovery
+                if ev.get('kind') == KIND_RESULT:
+                    ctx = ev.get('context', {})
+                    content = ev.get('content', '').lower()
+                    if ctx.get('success') or any(kw in content for kw in RU_SUCCESS_KEYWORDS) or "success" in content:
+                        is_success = True
+
+            if target == 'unknown' and active_trajectories_by_target:
+                # Inherit target from most recent active trajectory if any
+                target = list(active_trajectories_by_target.keys())[-1]
+
+            if target not in active_trajectories_by_target:
+                active_trajectories_by_target[target] = []
+            
+            active_trajectories_by_target[target].extend(turn)
+            
+            # If success detected, crystallize this trajectory
+            if is_success and target != 'unknown':
+                full_events = active_trajectories_by_target.pop(target)
+                proposal = self._create_procedural_proposal(full_events, target)
+                if proposal:
+                    trajectories.append(proposal)
+        
+        return trajectories
+
+    def _create_procedural_proposal(self, full_events: List[Dict[str, Any]], target: str) -> Optional[ProposalContent]:
+        """Creates a Proposal based on a chain of events spanning one or more sessions."""
         steps = []
         evidence_ids = []
         
         def clean_content(content):
-            # Если это JSON (как в наших промптах), достаем только само сообщение
             if content.strip().startswith('{'):
                 try:
                     data = json.loads(content)
@@ -69,14 +114,13 @@ class DistillationEngine:
                 except: pass
             return content
 
-        for ev in trajectory:
+        for ev in full_events:
             kind = ev.get('kind')
-            # Расширяем список учитываемых событий
-            if kind in ['task', 'call', 'decision', 'commit_change', 'prompt', 'result']:
+            # Only include meaningful actions in the procedural steps
+            if kind in ['task', 'call', 'commit_change', 'prompt', 'result', 'decision']:
                 content = clean_content(ev.get('content', ''))
                 if not content or len(content) < 5: continue
 
-                # Improved Rationale Extraction
                 ctx = ev.get('context', {})
                 raw_rationale = ctx.get('rationale') or ctx.get('full_message')
                 changed_files = ctx.get('changed_files', [])
@@ -84,26 +128,19 @@ class DistillationEngine:
                 if not raw_rationale:
                     if kind == 'prompt':
                         raw_rationale = f"User initiative: {content[:100]}..."
-                    elif kind == 'result':
-                        raw_rationale = "System response/outcome of action"
+                    elif kind in ('result', 'decision'):
+                        raw_rationale = "System outcome or decision state"
                     elif kind == 'commit_change':
                         raw_rationale = content[:150]
                         if changed_files:
-                            file_str = ", ".join(changed_files[:5])
-                            if len(changed_files) > 5:
-                                file_str += f" (+{len(changed_files)-5} more)"
-                            raw_rationale += f" | Changes: {file_str}"
+                            raw_rationale += f" | Files: {', '.join(changed_files[:3])}"
                     else:
-                        raw_rationale = f"Recorded {kind} event"
+                        raw_rationale = f"Action: {kind}"
 
                 action_text = f"[{kind.upper()}] {content[:200]}..."
                 if kind == 'commit_change':
                     commit_hash = ctx.get('hash', 'unknown')[:8]
-                    if changed_files:
-                        file_summary = ", ".join(changed_files[:3])
-                        action_text = f"[{kind.upper()}] {commit_hash}: {content[:150]}... (Files: {file_summary})"
-                    else:
-                        action_text = f"[{kind.upper()}] {commit_hash}: {content[:150]}..."
+                    action_text = f"[COMMIT] {commit_hash}: {content[:150]}..."
 
                 steps.append(ProceduralStep(
                     action=action_text,
@@ -111,21 +148,10 @@ class DistillationEngine:
                 ))
                 evidence_ids.append(ev.get('id', 0))
 
-        target = result_event.get('context', {}).get('target')
-        
-        # Target Inheritance: If result has no target, look back in trajectory
-        if not target or target == 'unknown':
-            for ev in reversed(trajectory):
-                candidate = ev.get('context', {}).get('target')
-                if candidate and candidate != 'unknown':
-                    target = candidate
-                    break
-        
-        target = target or 'unknown'
-        
-        # Если шагов не нашлось, все равно добавим результат как улику
-        evidence_ids.append(result_event.get('id', 0))
+        if not steps:
+            return None
 
+        last_id = evidence_ids[-1] if evidence_ids else 0
         procedural = ProceduralContent(
             steps=steps,
             target_task=target,
@@ -133,7 +159,7 @@ class DistillationEngine:
         )
 
         title = f"Procedural Optimization for {target}"
-        rationale = f"Distilled from successful trajectory ending in event {result_event.get('id')}"
+        rationale = f"Distilled from multi-turn successful trajectory (ending at ID {last_id})"
 
         return ProposalContent(
             title=title,
@@ -141,7 +167,7 @@ class DistillationEngine:
             status=ProposalStatus.DRAFT,
             rationale=rationale,
             keywords=self._extract_keywords(title, target, rationale),
-            confidence=0.8,
+            confidence=0.85, # Increased confidence for multi-session patterns
             evidence_event_ids=evidence_ids,
             procedural=procedural
         )
