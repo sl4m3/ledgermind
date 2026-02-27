@@ -370,7 +370,7 @@ class SemanticStore:
 
             if not self._in_transaction:
                 try:
-                    IntegrityChecker.validate(self.repo_path)
+                    IntegrityChecker.validate(self.repo_path, fid=relative_path)
                     self.audit.add_artifact(relative_path, content, f"Add {event.kind}: {event.content[:50]}")
                 except Exception as e:
                     if os.path.exists(full_path): os.remove(full_path)
@@ -454,7 +454,7 @@ class SemanticStore:
 
             if not self._in_transaction:
                 try:
-                    IntegrityChecker.validate(self.repo_path)
+                    IntegrityChecker.validate(self.repo_path, fid=filename)
                     self.audit.update_artifact(filename, new_content, commit_msg)
                 except Exception as e:
                     with open(file_path, "w", encoding="utf-8") as f: f.write(content)
