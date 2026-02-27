@@ -87,15 +87,20 @@ class IntegrityChecker:
         # This is where we MUST rely on cache for the rest of the repo.
         if fid:
             # For incremental check to work, we need a full 'decisions' view.
-            # If cache is empty, we have to do a full scan anyway once.
-            if not IntegrityChecker._file_data_cache:
+            # If cache has NO files for this repo, we have to do a full scan anyway once.
+            repo_abs = os.path.abspath(repo_path)
+            has_current_repo_in_cache = any(k.startswith(repo_abs) for k in IntegrityChecker._file_data_cache.keys())
+            
+            if not has_current_repo_in_cache:
                 IntegrityChecker.validate(repo_path, force=True)
                 return # Full check was done
             
-            # Use cached decisions for everything else
+            # Use cached decisions for everything else (ONLY from current repo_path)
+            repo_abs = os.path.abspath(repo_path)
             for f_path, (ts, data) in IntegrityChecker._file_data_cache.items():
-                rel = os.path.relpath(f_path, repo_path)
-                decisions[rel] = data
+                if f_path.startswith(repo_abs):
+                    rel = os.path.relpath(f_path, repo_path)
+                    decisions[rel] = data
         
         for f in all_files:
             file_path = os.path.join(repo_path, f)
