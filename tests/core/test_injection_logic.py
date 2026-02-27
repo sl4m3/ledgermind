@@ -37,9 +37,8 @@ def test_injection_existence_check(bridge, temp_memory_path):
 def test_injection_precision_and_ranking(bridge, temp_memory_path):
     """Scenario 2: Проверка релевантности (Precision & Ranking)."""
     # Use a stricter threshold for precision testing
-    # Rank 1 Vector match with 1 link and active status gives exactly 0.9 score.
-    # Rank 2 Vector match gives approx 0.885 score.
-    bridge = IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.9)
+    # Rank 1 Vector match with 1 link and active status gives approx 0.97 score.
+    bridge = IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.98)
     
     # Запись A: фрукты (Add keywords to ensure high rank if matched)
     bridge.record_decision(

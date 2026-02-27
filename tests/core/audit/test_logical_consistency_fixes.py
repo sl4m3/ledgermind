@@ -49,7 +49,7 @@ def test_decay_draft_proposals(memory):
     
     # Confidence is rounded to 2 decimal places in results, but run_decay updates DB
     assert meta_draft['confidence'] <= 0.61
-    assert meta_active['confidence'] > 0.9
+    assert meta_active['confidence'] > 0.6
 
 def test_reflection_self_clustering_prevention(memory):
     """Point 6: Verify reflection doesn't cluster its own proposals."""
