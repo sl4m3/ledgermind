@@ -386,9 +386,17 @@ class SemanticStore:
             if not self._in_transaction: self._fs_lock.release()
 
     def _validate_fid(self, fid: str):
-        """Prevents Path Traversal attacks."""
+        """Prevents Path Traversal attacks using absolute path validation."""
+        # Normalize and resolve absolute path
+        repo_abs = os.path.abspath(self.repo_path)
+        target_abs = os.path.abspath(os.path.join(repo_abs, fid))
+        
+        # Ensure the target path is strictly within the repository directory
+        if not target_abs.startswith(repo_abs):
+            raise ValueError(f"Invalid file identifier (Path Traversal attempt): {fid}")
+        
         if ".." in fid or fid.startswith("/") or fid.startswith("~"):
-            raise ValueError(f"Invalid file identifier: {fid}")
+            raise ValueError(f"Invalid file identifier (disallowed characters): {fid}")
 
     def update_decision(self, filename: str, updates: dict, commit_msg: str):
         self._validate_fid(filename)
