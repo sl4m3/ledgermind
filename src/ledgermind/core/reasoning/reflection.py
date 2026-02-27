@@ -7,7 +7,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from ledgermind.core.core.schemas import (
     MemoryEvent, KIND_PROPOSAL, KIND_DECISION, KIND_RESULT, KIND_ERROR, KIND_INTERVENTION,
-    DecisionStream, DecisionPhase, DecisionVitality, PatternScope
+    DecisionStream, DecisionPhase, DecisionVitality, PatternScope, ProposalContent
 )
 from ledgermind.core.stores.episodic import EpisodicStore
 from ledgermind.core.stores.semantic import SemanticStore
@@ -39,7 +39,11 @@ class ReflectionEngine:
     """
     Reflection Engine v5.0: Behavior Observer and Lifecycle Manager.
     """
-    BLACKLISTED_TARGETS = {"general", "general_development", "general_task", "unknown", "none", "null"}
+    BLACKLISTED_TARGETS = {
+        "general", "general_development", "general_task", "unknown", "none", "null",
+        "core", "test", "tests", "dev", "development", "system", "agent", 
+        "reflection_engine", "bridge", "memory", "tmp", "ledgermind"
+    }
 
     def __init__(self, episodic_store: EpisodicStore, semantic_store: SemanticStore, 
                  policy: Optional[ReflectionPolicy] = None,
@@ -66,9 +70,16 @@ class ReflectionEngine:
             distiller = DistillationEngine(self.episodic, window_size=self.policy.distillation_window_size)
             procedural_proposals = distiller.distill_trajectories(after_id=after_id)
             
+            # Group procedural proposals by target for linking
+            target_to_procedural = {}
+            
             for prop in procedural_proposals:
                 if prop.target in self.BLACKLISTED_TARGETS or prop.target.lower().startswith("general"):
                     continue
+                
+                if prop.target not in target_to_procedural:
+                    target_to_procedural[prop.target] = []
+                target_to_procedural[prop.target].append(prop)
 
                 decision = self.processor.process_event(
                     source="reflection_engine",
@@ -77,7 +88,10 @@ class ReflectionEngine:
                     context=prop
                 )
                 if decision.should_persist:
-                    result_ids.append(decision.metadata.get("file_id"))
+                    fid = decision.metadata.get("file_id")
+                    result_ids.append(fid)
+                    # Add fid to our mapping for linking
+                    prop.keywords.append(f"fid:{fid}") # Hack to pass fid back or we could use a better way
 
             # 1. Evidence Aggregation
             recent_events = self.episodic.query(limit=1000, status='active', after_id=after_id, order='ASC')
@@ -100,16 +114,17 @@ class ReflectionEngine:
                         continue
                     
                     relevant_streams = [(fid, data) for fid, data in all_streams.items() if data['context'].get('target') == target]
+                    procedural_list = target_to_procedural.get(target, [])
                     
                     if relevant_streams:
                         for fid, data in relevant_streams:
-                            self._process_stream(fid, data, stats, now, event_map=event_map)
+                            self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list)
                             processed_fids.add(fid)
                             result_ids.append(fid)
                     else:
                         # New pattern
                         if stats['commits'] >= 1 or stats['successes'] >= 1 or stats['errors'] >= 1:
-                            new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map)
+                            new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map, procedural_links=procedural_list)
                             if new_fid: result_ids.append(new_fid)
 
             # 3. Apply Vitality Decay for unprocessed streams (always run this)
@@ -130,7 +145,9 @@ class ReflectionEngine:
                 
         return result_ids, max_id
 
-    def _process_stream(self, fid: str, data: Dict[str, Any], stats: Dict[str, Any], now: datetime, event_map: Optional[Dict[int, Any]] = None):
+    def _process_stream(self, fid: str, data: Dict[str, Any], stats: Dict[str, Any], now: datetime, 
+                        event_map: Optional[Dict[int, Any]] = None, 
+                        procedural_links: Optional[List[ProposalContent]] = None):
         stream = DecisionStream(**data['context'])
         
         # Collect timestamps
@@ -141,6 +158,21 @@ class ReflectionEngine:
         reinforcement_dates = []
         all_evidence = set(stream.evidence_event_ids + stats['all_ids'])
         stream.evidence_event_ids = list(all_evidence)
+        
+        # Link procedural instructions if provided
+        if procedural_links:
+            for prop in procedural_links:
+                if prop.procedural and prop.confidence >= 0.7:
+                    # Attach the most confident procedural content directly to the stream
+                    if not stream.procedural or prop.confidence > stream.confidence:
+                        stream.procedural = prop.procedural
+                    
+                    # Also keep track of dedicated procedural IDs
+                    for kw in prop.keywords:
+                        if kw.startswith("fid:"):
+                            proc_fid = kw.split(":", 1)[1]
+                            if proc_fid not in stream.procedural_ids:
+                                stream.procedural_ids.append(proc_fid)
         
         # Define kinds that constitute a real 'use' or 'reinforcement' of knowledge (PR #30)
         REINFORCEMENT_KINDS = {KIND_RESULT, KIND_ERROR, "call", "task", "prompt", "intervention"}
@@ -171,7 +203,9 @@ class ReflectionEngine:
         
         self.processor.update_decision(fid, stream.model_dump(), commit_msg=f"Lifecycle: Promoted/Updated stream to {stream.phase.value}")
 
-    def _create_pattern_stream(self, target: str, stats: Dict[str, Any], now: datetime, event_map: Optional[Dict[int, Any]] = None) -> str:
+    def _create_pattern_stream(self, target: str, stats: Dict[str, Any], now: datetime, 
+                               event_map: Optional[Dict[int, Any]] = None,
+                               procedural_links: Optional[List[ProposalContent]] = None) -> str:
         stream = DecisionStream(
             decision_id=str(uuid.uuid4()),
             target=target,
@@ -184,6 +218,19 @@ class ReflectionEngine:
             last_seen=now,
             frequency=len(stats['all_ids'])
         )
+
+        # Link procedural instructions if provided
+        if procedural_links:
+            for prop in procedural_links:
+                if prop.procedural and prop.confidence >= 0.7:
+                    if not stream.procedural or prop.confidence > stream.confidence:
+                        stream.procedural = prop.procedural
+                    
+                    for kw in prop.keywords:
+                        if kw.startswith("fid:"):
+                            proc_fid = kw.split(":", 1)[1]
+                            if proc_fid not in stream.procedural_ids:
+                                stream.procedural_ids.append(proc_fid)
         
         reinforcement_dates = []
         if event_map:
@@ -211,8 +258,15 @@ class ReflectionEngine:
     def _cluster_evidence(self, events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         clusters = {}
         last_valid_target = None
+        
+        # Meta-events that should never trigger learning or be used as evidence
+        META_KINDS = {KIND_PROPOSAL, "context_snapshot", "context_injection"}
+        
         for ev in events:
+            # 1. Anti-Self-Reflection: Skip events from engine or meta-events
             if ev.get('source') == 'reflection_engine': continue
+            if ev.get('kind') in META_KINDS: continue
+            
             ctx = ev.get('context', {})
             target = ctx.get('target')
             
@@ -220,7 +274,7 @@ class ReflectionEngine:
                 import re
                 msg = ev.get('content', '')
                 match = re.search(r'\(([^)]+)\):', msg)
-                target = match.group(1) if match else target or "general_development"
+                target = match.group(1) if match else target
 
             # Inheritance: only for results that don't have their own target
             if not target and ev['kind'] == KIND_RESULT:
@@ -238,18 +292,26 @@ class ReflectionEngine:
                 continue
             
             if target not in clusters:
-                clusters[target] = {'errors': 0.0, 'successes': 0.0, 'commits': 0, 'all_ids': [], 'last_seen': ev['timestamp']}
+                clusters[target] = {'errors': 0.0, 'successes': 0.0, 'commits': 0, 'all_ids': [], 'last_seen': ev['timestamp'], 'weight': 0.0}
             
             clusters[target]['all_ids'].append(ev['id'])
             
-            if ev['kind'] == KIND_ERROR: clusters[target]['errors'] += 1.0
+            # kind-based weighting
+            if ev['kind'] == KIND_ERROR: 
+                clusters[target]['errors'] += 1.0
+                clusters[target]['weight'] += 0.5
             elif ev['kind'] == KIND_RESULT:
                 score = ctx.get('success', 0.5)
                 if score is True: score = 1.0
                 elif score is False: score = 0.0
                 clusters[target]['successes'] += float(score)
                 clusters[target]['errors'] += (1.0 - float(score))
-            elif ev['kind'] == 'commit_change': clusters[target]['commits'] += 1
+                clusters[target]['weight'] += 1.0 if score > 0.7 else 0.2
+            elif ev['kind'] == 'commit_change': 
+                clusters[target]['commits'] += 1
+                clusters[target]['weight'] += 2.0
+            elif ev['kind'] in ('call', 'task'):
+                clusters[target]['weight'] += 0.1
             
             try: clusters[target]['last_seen'] = max(clusters[target]['last_seen'], ev['timestamp'])
             except: pass

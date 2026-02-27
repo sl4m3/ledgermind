@@ -117,6 +117,10 @@ class DecisionStream(BaseModel):
     confidence: float = 1.0
     stability_score: float = 0.0
     
+    # MemP Linking: Associated procedural knowledge
+    procedural: Optional[ProceduralContent] = None
+    procedural_ids: List[str] = Field(default_factory=list, description="IDs of dedicated procedural records for this stream")
+    
     first_seen: datetime = Field(default_factory=datetime.now)
     last_seen: datetime = Field(default_factory=datetime.now)
     lifetime_days: float = 0.0
@@ -140,6 +144,9 @@ class DecisionContent(BaseModel):
     supersedes: List[str] = Field(default_factory=list)
     superseded_by: Optional[str] = None
     attachments: List[Dict[str, str]] = Field(default_factory=list) # List of {type: "image", path: "blobs/..."}
+    
+    # MemP extension: Procedural data
+    procedural: Optional[ProceduralContent] = None
 
     @field_validator('title', 'target', 'rationale')
     @classmethod
