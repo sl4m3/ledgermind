@@ -71,20 +71,37 @@ class DistillationEngine:
             is_success = False
             
             for ev in turn:
+                ctx = ev.get('context', {})
                 # Target discovery
-                candidate = ev.get('context', {}).get('target')
+                candidate = ctx.get('target')
+                
+                # Try to extract target from commit message or files if not explicitly set
+                if (not candidate or candidate == 'unknown') and ev.get('kind') == 'commit_change':
+                    content = ev.get('content', '')
+                    import re
+                    match = re.search(r'\(([^)]+)\):', content)
+                    if match:
+                        candidate = match.group(1)
+                    else:
+                        changed_files = ctx.get('changed_files', [])
+                        if changed_files:
+                            paths = [f.split('/')[0] for f in changed_files if '/' in f]
+                            if not paths: paths = [f.split('.')[0] for f in changed_files]
+                            if paths:
+                                from collections import Counter
+                                candidate = Counter(paths).most_common(1)[0][0]
+
                 if candidate and candidate != 'unknown' and len(str(candidate)) > 2:
                     target = candidate
                 
                 # Success discovery
                 if ev.get('kind') == KIND_RESULT:
-                    ctx = ev.get('context', {})
                     content = ev.get('content', '').lower()
                     if ctx.get('success') or any(kw in content for kw in RU_SUCCESS_KEYWORDS) or "success" in content:
                         is_success = True
 
-            if target == 'unknown' and active_trajectories_by_target:
-                # Inherit target from most recent active trajectory if any
+            if (not target or target == 'unknown') and active_trajectories_by_target:
+                # Inherit target from most recent active trajectory
                 target = list(active_trajectories_by_target.keys())[-1]
 
             if target not in active_trajectories_by_target:
