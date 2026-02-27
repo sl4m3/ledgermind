@@ -4,6 +4,15 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.0.0] - 2026-02-27
+
+- **DecisionStream Lifecycle Engine:** Autonomous phases (`PATTERN`, `EMERGENT`, `CANONICAL`) with temporal signal analysis.
+- **Procedural Distillation (MemP):** Automatic conversion of successful trajectories into step-by-step instructions.
+- **Zero-Touch Hooks Pack:** Transparent memory operations for Gemini CLI, Claude Code, Cursor, and VS Code.
+- **Security Hardening:** Path traversal protection and absolute path validation in ProjectScanner.
+- **Transaction Integrity:** SAVEPOINT support and thread-local isolation for concurrent operations.
+- **Self-Healing Index:** Automatic reconstruction of SQLite metadata from Markdown source files.
+
 ## [v2.8.7] - 2026-02-26
 
 **Critical Patch & Security Hardening**

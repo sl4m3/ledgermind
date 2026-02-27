@@ -1,50 +1,28 @@
-# Latest Release (v2.8.7)
+# Latest Release (v3.0.0)
 
-**February 26, 2026**
+**February 27, 2026**
 
-This patch release addresses critical security vulnerabilities, 
-optimizes storage performance, and significantly expands test coverage 
-to ensure architectural integrity.
+LedgerMind v3.0.0 transforms the system from a passive memory store into a proactive **Autonomous Knowledge Core**. This release introduces the **DecisionStream Lifecycle Engine**, **Procedural Distillation**, and deep **Zero-Touch Integration** for AI agents.
 
-## What's Changed
+## Major Changes
 
-### Security & Hardening
-- **Path Traversal:** Fixed a security vulnerability in `ProjectScanner` 
-  that allowed arbitrary directory scanning.
-- **File System Safety:** Prevented arbitrary file writes in 
-  `MemoryTransferManager.export_to_tar`.
-- **Git Security:** Hardened `GitIndexer` by validating that `repo_path` 
-  is always within the current working directory.
-- **Auth Hardening:** Fixed an insecure default configuration that 
-  could lead to unauthorized access in certain environments.
+### DecisionStream Lifecycle Engine
+Replaced the static decision model with an autonomous lifecycle (`PATTERN` → `EMERGENT` → `CANONICAL`). 
+- **Temporal Signals:** Added burst protection using reinforcement density and interval stability (variance) analysis.
+- **Vitality Decay:** Knowledge is now tracked through `ACTIVE`, `DECAYING`, and `DORMANT` states.
 
-### Performance Optimizations
-- **Batch Processing:** Implemented batch metadata fetches in 
-  `search_decisions`, reducing database I/O overhead.
-- **Transaction Speed:** Optimized `sync_meta_index` using batch 
-  transactions for massive re-indexing speedups.
-- **Search Logic:** Refactored `keyword_search` fallback to use 
-  AND-logic and a more efficient single-loop construction.
-- **Vector Search:** Integrated `Annoy` for approximate nearest 
-  neighbor (ANN) search to handle large-scale vector indices.
-- **Parallelism:** Offloaded blocking search operations to a dedicated 
-  thread pool.
+### Procedural Distillation (MemP)
+Automatic conversion of successful interaction trajectories into structured `procedural.steps`. This "Memory-to-Procedure" mapping ensures agents have clear instructions for recurring tasks.
 
-### Core Logic & Refactoring
-- **Recursive CTE:** Optimized `resolve_to_truth` using recursive 
-  Common Table Expressions (CTE) for deep knowledge inheritance.
-- **Audit History:** Fixed a critical bug where `GitAuditProvider` 
-  failed to record interaction events in the semantic history.
-- **Architectural Refinement:** Consolidated tool registration into 
-  the `LedgerMindTools` class and refactored `SemanticStore` for 
-  better maintainability.
+### Zero-Touch Hooks Pack
+New `ledgermind install` command for transparent memory operations in Gemini CLI, Claude Code, Cursor, and VS Code. Memory is now injected and recorded automatically in the background.
 
-### Test Coverage expansion
-- **Unit Testing:** Added 50+ new unit tests covering `ProjectScanner`, 
-  `ConflictEngine`, `ResolutionEngine`, `EventEmitter`, and `TargetRegistry`.
-- **Contract Validation:** Introduced comprehensive validation tests 
-  for API contract models and `schemas.py`.
+### Security & Integrity
+- **Path Traversal:** Implemented absolute path validation and symlink prevention.
+- **Transactions:** Hardened SQLite transaction management with `SAVEPOINT` and thread-local isolation.
+- **Self-Healing:** Automatic metadata index reconstruction from Markdown source files.
 
 ---
 
-**Full changelog:** [v2.8.6...v2.8.7](https://github.com/ledgermind/ledgermind/compare/v2.8.6...v2.8.7)
+**Full Release Notes:** [v3.0.0.md](v3.0.0.md)
+**Full changelog:** [v2.8.7...v3.0.0](https://github.com/ledgermind/ledgermind/compare/v2.8.7...v3.0.0)
