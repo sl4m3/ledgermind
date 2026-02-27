@@ -254,6 +254,11 @@ class SemanticStore:
             logger.error(f"Transaction Failed: {e}. Rolling back...")
             if isinstance(self.audit, GitAuditProvider):
                 self.audit.run(["reset", "--hard", "HEAD"])
+            
+            # Reset transaction state BEFORE sync to ensure it can re-acquire locks if needed
+            self._in_transaction = False
+            self._current_tx = None
+            
             self.sync_meta_index() 
             raise
         finally:
