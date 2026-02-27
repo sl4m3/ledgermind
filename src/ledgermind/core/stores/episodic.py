@@ -46,6 +46,9 @@ class EpisodicStore:
                     conn.execute("ALTER TABLE events ADD COLUMN link_strength REAL DEFAULT 1.0")
                 except sqlite3.OperationalError:
                     pass
+                
+                # Performance: Add index for duplicate detection
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_events_duplicate ON events (source, kind, content)")
 
     def append(self, event: MemoryEvent, linked_id: Optional[str] = None, link_strength: float = 1.0) -> int:
         # Step 0: Last-resort duplicate check
@@ -68,7 +71,7 @@ class EpisodicStore:
                         event.source,
                         event.kind,
                         event.content,
-                        json.dumps(context_dict),
+                        json.dumps(context_dict, sort_keys=True),
                         event.timestamp.isoformat(),
                         linked_id,
                         link_strength
@@ -153,7 +156,7 @@ class EpisodicStore:
             context_dict = context_data.model_dump(mode='json')
         else:
             context_dict = context_data
-        context_json = json.dumps(context_dict)
+        context_json = json.dumps(context_dict, sort_keys=True)
 
         with self._get_conn() as conn:
             sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ?"

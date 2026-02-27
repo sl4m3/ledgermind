@@ -234,7 +234,8 @@ class Memory:
                       content: str, 
                       context: Optional[Union[DecisionContent, DecisionStream, Dict[str, Any]]] = None,
                       intent: Optional[ResolutionIntent] = None,
-                      namespace: Optional[str] = None) -> MemoryDecision:
+                      namespace: Optional[str] = None,
+                      vector: Optional[Any] = None) -> MemoryDecision:
         """
         Process an incoming event and decide whether to persist it.
         """
@@ -390,7 +391,7 @@ class Memory:
                     self.vector.add_documents([{
                         "id": new_fid,
                         "content": indexed_content
-                    }])
+                    }], embeddings=[vector] if vector is not None else None)
                 except Exception as ve:
                     logger.warning(f"Vector indexing failed for {new_fid}: {ve}")
 
@@ -611,6 +612,7 @@ class Memory:
         self.targets.register(target, description=title)
 
         active_conflicts = self.semantic.list_active_conflicts(target, namespace=effective_namespace)
+        new_vec_cached = None
         if active_conflicts:
             try:
                 from ledgermind.core.stores.vector import EMBEDDING_AVAILABLE
@@ -620,6 +622,7 @@ class Memory:
                     
                     new_text = f"{title}\n{rationale}"
                     new_vec = self.vector.model.encode([new_text])[0]
+                    new_vec_cached = new_vec # Cache for later indexing
                     new_norm = np.linalg.norm(new_vec)
                     
                     for old_fid in active_conflicts:
@@ -650,7 +653,8 @@ class Memory:
                                 old_decision_ids=[old_fid],
                                 consequences=consequences,
                                 evidence_ids=evidence_ids,
-                                namespace=effective_namespace
+                                namespace=effective_namespace,
+                                vector=new_vec # Reuse the vector we just computed
                             )
                             return res
             except Exception as e:
@@ -681,7 +685,8 @@ class Memory:
             kind=KIND_DECISION,
             content=title,
             context=ctx,
-            namespace=effective_namespace
+            namespace=effective_namespace,
+            vector=new_vec_cached
         )
         if not decision.should_persist:
             if "CONFLICT" in decision.reason:
@@ -689,7 +694,7 @@ class Memory:
             raise InvariantViolation(f"Failed to record decision: {decision.reason}")
         return decision
 
-    def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None, namespace: Optional[str] = None) -> MemoryDecision:
+    def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None, namespace: Optional[str] = None, vector: Optional[Any] = None) -> MemoryDecision:
         """
         Helper to evolve knowledge by superseding existing decisions.
         """
@@ -724,7 +729,8 @@ class Memory:
             content=title,
             context=ctx,
             intent=intent,
-            namespace=effective_namespace
+            namespace=effective_namespace,
+            vector=vector
         )
         if not decision.should_persist:
             if "CONFLICT" in decision.reason:
