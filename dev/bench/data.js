@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772207825061,
+  "lastUpdate": 1772208694859,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3420,6 +3420,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00048594233784267463",
             "extra": "mean: 4.522307703126671 msec\nrounds: 64"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "2fbb09fd8a56462147290077aa5e10f0fc49c518",
+          "message": "fix(core): implement dynamic versioning and fix specification mismatch\n\n- contracts: replace hardcoded MCP_API_VERSION with dynamic retrieval from VERSION file\n- tests: update test_api_specification to use MCP_API_VERSION instead of hardcoded string\n- core: dynamically load __version__ in __init__.py for consistency\n- vscode: bump version to 3.0.0 in package.json",
+          "timestamp": "2026-02-27T19:07:15+03:00",
+          "tree_id": "2d37541fec78892e7d8c25bdae7050a982f30c4d",
+          "url": "https://github.com/sl4m3/ledgermind/commit/2fbb09fd8a56462147290077aa5e10f0fc49c518"
+        },
+        "date": 1772208693778,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 21.89203468476292,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0058987775165507544",
+            "extra": "mean: 45.678714399991804 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 219.14930023053236,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005362825089883656",
+            "extra": "mean: 4.563099215685644 msec\nrounds: 51"
           }
         ]
       }
