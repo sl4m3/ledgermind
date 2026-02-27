@@ -142,6 +142,10 @@ def run_lifecycle_test(args):
         console.print("\n[bold cyan]Stage 2: Crystallization (Transition to EMERGENT)[/bold cyan]")
         # Accept proposal -> Should become EMERGENT
         meta_prop = bridge.memory.semantic.meta.get_by_fid(prop_id)
+        if not meta_prop:
+            console.print(f"[red]FAIL: Proposal {prop_id} not found in metadata.[/red]")
+            return
+            
         prop_ctx = json.loads(meta_prop.get('context_json', '{}'))
         
         fid = prop_id # Fallback
@@ -163,10 +167,12 @@ def run_lifecycle_test(args):
         if active_results:
              fid = active_results[0]['id']
              meta = bridge.memory.semantic.meta.get_by_fid(fid)
-             if meta.get('phase') == 'emergent':
+             if meta and meta.get('phase') == 'emergent':
                  console.print(f"[green]✔ Successfully crystallized to EMERGENT phase.[/green]")
-             else:
+             elif meta:
                  console.print(f"[red]FAIL: Expected emergent phase, got {meta.get('phase')}[/red]")
+             else:
+                 console.print(f"[red]FAIL: Record {fid} not found in metadata store.[/red]")
         else:
              console.print(f"[red]FAIL: No active decision found for {target} after acceptance.[/red]")
 
@@ -186,6 +192,10 @@ def run_lifecycle_test(args):
         if int_results:
             fid = int_results[0]['id']
             meta = bridge.memory.semantic.meta.get_by_fid(fid)
+            if not meta:
+                console.print(f"[red]FAIL: Intervention record {fid} not found in metadata store.[/red]")
+                return
+            
             ctx = json.loads(meta.get('context_json', '{}'))
             if meta.get('phase') == 'emergent' and ctx.get('estimated_removal_cost', 0) >= 0.7:
                  console.print(f"[green]✔ Intervention verified: Immediate EMERGENT status with high removal cost.[/green]")
@@ -207,8 +217,10 @@ def run_lifecycle_test(args):
         print_decision_status_table(bridge, target, "Knowledge State: Reinforced")
         
         meta_re = bridge.memory.semantic.meta.get_by_fid(fid)
-        if meta_re.get('stability_score', 0) > 0.5:
+        if meta_re and meta_re.get('stability_score', 0) > 0.5:
             console.print(f"[green]✔ Stability Score increased to {meta_re.get('stability_score'):.2f}[/green]")
+        elif not meta_re:
+            console.print(f"[yellow]! Record {fid} not found after reflection.[/yellow]")
         
         # --- STAGE 4: AGING (DECAYING) ---
         console.print("\n[bold yellow]Stage 4: Aging (Simulated 14 days Inactivity)[/bold yellow]")
@@ -223,10 +235,12 @@ def run_lifecycle_test(args):
         print_decision_status_table(bridge, target, "Knowledge State: Decaying")
         
         meta_age = bridge.memory.semantic.meta.get_by_fid(fid)
-        if meta_age.get('vitality') == 'decaying':
+        if meta_age and meta_age.get('vitality') == 'decaying':
             console.print(f"[green]✔ Vitality transitioned to DECAYING.[/green]")
-        else:
+        elif meta_age:
             console.print(f"[red]FAIL: Expected decaying vitality, got {meta_age.get('vitality')}[/red]")
+        else:
+            console.print(f"[red]FAIL: Record {fid} not found in metadata after aging.[/red]")
 
         # --- STAGE 5: SEARCH RANKING IMPACT ---
         console.print("\n[bold cyan]Stage 5: Search Ranking Impact (Lifecycle Multipliers)[/bold cyan]")

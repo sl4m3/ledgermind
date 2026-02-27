@@ -1,27 +1,27 @@
-# Latest Release (v3.0.1)
+# Latest Release (v3.0.2)
 
-**February 27, 2026**
+**February 28, 2026**
 
-LedgerMind v3.0.1 introduces significant performance optimizations and stability fixes. This release focuses on making the **Autonomous Knowledge Core** faster and more reliable through incremental validation and enhanced session-based intelligence.
+LedgerMind v3.0.2 introduces a refined **Balanced Ranking Model** and formalizes the **Normative Authority** logic for knowledge evolution. This release focuses on ensuring authoritative knowledge is prioritized through sophisticated lifecycle-aware scoring.
 
 ## Major Changes
 
-### Performance Optimization
-Drastically reduced recording latency by implementing **Incremental Integrity Validation**.
-- **O(1) Checks:** Replaced full repository scans with targeted file-level validation.
-- **Embedding Caching:** Pre-computed vectors are now reused during the recording pipeline to eliminate redundant LLM/Embedding calls.
+### Balanced Ranking & Scoring
+The search engine now employs a more nuanced ranking algorithm that incorporates the **Lifecycle State** of each memory.
+- **Kind-Based Weighting:** Authoritative `Decisions` now receive a ~35% boost compared to `Proposals`.
+- **Phase Multipliers:** Results are scaled based on their maturity: `CANONICAL` (1.5x), `EMERGENT` (1.2x), and `PATTERN` (1.0x).
+- **Vitality Aware:** Decaying and Dormant memories are de-prioritized in favor of active knowledge.
 
-### Enhanced Reflection Intelligence
-Refined the **Session-Based Distillation** logic to better capture multi-turn interaction trajectories.
-- **Autonomous Turns:** Improved turn boundary detection for autonomous agent tasks.
-- **Target Inheritance:** Enhanced the ability to link events to their primary project targets across session gaps.
+### Formalized Normative Authority
+Improved the logic for promoting behavioral patterns (`PATTERN`) and observations (`EMERGENT`) to project rules (`DECISION`).
+- **Balanced Model:** Implemented a weighted authority score based on Confidence, Utility (Success Signals), and Removal Cost.
+- **Dynamic Thresholds:** Transition thresholds are now sensitive to the current lifecycle phase.
 
-### System Stability
-- **Cache Isolation:** Fixed data leakage in the IntegrityChecker for multi-repository environments.
-- **Database Indexing:** Optimized SQLite indexes for faster duplicate detection in episodic memory.
-- **Unified Versioning:** Implemented dynamic version loading across core and server modules.
+### Lifecycle Stability & Fixes
+- **Test Robustness:** Fixed critical stability issues in the lifecycle validation suite (`tests/lg.py`).
+- **Injection Precision:** Fine-tuned `IntegrationBridge` relevance thresholds for better context injection.
 
 ---
 
-**Full Release Notes:** [v3.0.1.md](v3.0.1.md)
-**Full changelog:** [v3.0.0...v3.0.1](https://github.com/ledgermind/ledgermind/compare/v3.0.0...v3.0.1)
+**Full Release Notes:** [v3.0.2.md](v3.0.2.md)
+**Full changelog:** [v3.0.1...v3.0.2](https://github.com/ledgermind/ledgermind/compare/v3.0.1...v3.0.2)
