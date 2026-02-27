@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772199230752,
+  "lastUpdate": 1772199241895,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3154,6 +3154,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0003802945032380767",
             "extra": "mean: 2.787979676767087 msec\nrounds: 99"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c2f451becce81a1db125d1c3247382f4efcc54b",
+          "message": "feat(security): prevent symlink traversal in project scanner (#29)\n\nFixes a vulnerability where `ProjectScanner` followed symbolic links, potentially\nexposing sensitive files outside the project root.\n\n- Modified `ProjectScanner._get_files_content` to check `os.path.islink()`\n- Added journal entry in `.jules/sentinel.md`\n- Verified with reproduction test case",
+          "timestamp": "2026-02-27T16:29:37+03:00",
+          "tree_id": "fa0edddf2dcfb690dc4e2637c6486c1f4fd10e89",
+          "url": "https://github.com/sl4m3/ledgermind/commit/4c2f451becce81a1db125d1c3247382f4efcc54b"
+        },
+        "date": 1772199241071,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 22.58643174682246,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004638397228704739",
+            "extra": "mean: 44.27436839998791 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 221.7895417281748,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005096848523462671",
+            "extra": "mean: 4.508778873016473 msec\nrounds: 63"
           }
         ]
       }
