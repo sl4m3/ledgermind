@@ -117,6 +117,11 @@ class ProjectScanner:
                     # Match target files or any .md file (documentation)
                     if f in self.target_files or f.lower().endswith('.md'):
                         file_path = os.path.join(root, f)
+
+                        # Security: Do not follow symlinks to avoid path traversal
+                        if os.path.islink(file_path):
+                            continue
+
                         rel_file_path = os.path.relpath(file_path, self.root_path)
                         
                         try:
