@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772156483026,
+  "lastUpdate": 1772156692692,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2964,6 +2964,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0004971275126403975",
             "extra": "mean: 4.463471527272263 msec\nrounds: 55"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "84f930342bd91c2d89fe175a96325c06abd739db",
+          "message": "chore(security): suppress Bandit B113 for model download stream\n\nUsing timeout=None is intentional for large (~400MB) model downloads to\nensure completion in constrained environments. Added # nosec B113 to\nsatisfy the security scan.",
+          "timestamp": "2026-02-27T04:40:36+03:00",
+          "tree_id": "0913d92e5aa6e7c45eb9b7f38c8fb4816637c079",
+          "url": "https://github.com/sl4m3/ledgermind/commit/84f930342bd91c2d89fe175a96325c06abd739db"
+        },
+        "date": 1772156692379,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 22.81107605850664,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0029584229914009328",
+            "extra": "mean: 43.838352799980385 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 209.42249984463564,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004460538896122483",
+            "extra": "mean: 4.775036114753049 msec\nrounds: 61"
           }
         ]
       }
