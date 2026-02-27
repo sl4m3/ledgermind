@@ -1,28 +1,27 @@
-# Latest Release (v3.0.0)
+# Latest Release (v3.0.1)
 
 **February 27, 2026**
 
-LedgerMind v3.0.0 transforms the system from a passive memory store into a proactive **Autonomous Knowledge Core**. This release introduces the **DecisionStream Lifecycle Engine**, **Procedural Distillation**, and deep **Zero-Touch Integration** for AI agents.
+LedgerMind v3.0.1 introduces significant performance optimizations and stability fixes. This release focuses on making the **Autonomous Knowledge Core** faster and more reliable through incremental validation and enhanced session-based intelligence.
 
 ## Major Changes
 
-### DecisionStream Lifecycle Engine
-Replaced the static decision model with an autonomous lifecycle (`PATTERN` → `EMERGENT` → `CANONICAL`). 
-- **Temporal Signals:** Added burst protection using reinforcement density and interval stability (variance) analysis.
-- **Vitality Decay:** Knowledge is now tracked through `ACTIVE`, `DECAYING`, and `DORMANT` states.
+### Performance Optimization
+Drastically reduced recording latency by implementing **Incremental Integrity Validation**.
+- **O(1) Checks:** Replaced full repository scans with targeted file-level validation.
+- **Embedding Caching:** Pre-computed vectors are now reused during the recording pipeline to eliminate redundant LLM/Embedding calls.
 
-### Procedural Distillation (MemP)
-Automatic conversion of successful interaction trajectories into structured `procedural.steps`. This "Memory-to-Procedure" mapping ensures agents have clear instructions for recurring tasks.
+### Enhanced Reflection Intelligence
+Refined the **Session-Based Distillation** logic to better capture multi-turn interaction trajectories.
+- **Autonomous Turns:** Improved turn boundary detection for autonomous agent tasks.
+- **Target Inheritance:** Enhanced the ability to link events to their primary project targets across session gaps.
 
-### Zero-Touch Hooks Pack
-New `ledgermind install` command for transparent memory operations in Gemini CLI, Claude Code, Cursor, and VS Code. Memory is now injected and recorded automatically in the background.
-
-### Security & Integrity
-- **Path Traversal:** Implemented absolute path validation and symlink prevention.
-- **Transactions:** Hardened SQLite transaction management with `SAVEPOINT` and thread-local isolation.
-- **Self-Healing:** Automatic metadata index reconstruction from Markdown source files.
+### System Stability
+- **Cache Isolation:** Fixed data leakage in the IntegrityChecker for multi-repository environments.
+- **Database Indexing:** Optimized SQLite indexes for faster duplicate detection in episodic memory.
+- **Unified Versioning:** Implemented dynamic version loading across core and server modules.
 
 ---
 
-**Full Release Notes:** [v3.0.0.md](v3.0.0.md)
-**Full changelog:** [v2.8.7...v3.0.0](https://github.com/ledgermind/ledgermind/compare/v2.8.7...v3.0.0)
+**Full Release Notes:** [v3.0.1.md](v3.0.1.md)
+**Full changelog:** [v3.0.0...v3.0.1](https://github.com/ledgermind/ledgermind/compare/v3.0.0...v3.0.1)

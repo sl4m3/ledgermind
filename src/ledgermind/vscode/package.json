@@ -2,7 +2,7 @@
   "name": "ledgermind-vscode",
   "displayName": "LedgerMind Zero-Touch",
   "description": "Invisible autonomous memory bridge for LedgerMind",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "publisher": "ledgermind",
   "engines": {
     "vscode": "^1.85.0"

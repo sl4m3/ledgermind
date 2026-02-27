@@ -4,6 +4,13 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.0.1] - 2026-02-27
+
+- **Performance Optimization:** Incremental integrity validation and vector embedding caching.
+- **Enhanced Reflection:** Improved session-based distillation for multi-turn autonomous tasks.
+- **Stability Fixes:** Cache isolation in IntegrityChecker and optimized episodic store indexing.
+- **Dynamic Versioning:** Unified version management across all system components.
+
 ## [v3.0.0] - 2026-02-27
 
 - **DecisionStream Lifecycle Engine:** Autonomous phases (`PATTERN`, `EMERGENT`, `CANONICAL`) with temporal signal analysis.
