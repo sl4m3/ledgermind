@@ -6,7 +6,7 @@ import uuid
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from ledgermind.core.core.schemas import (
-    MemoryEvent, KIND_PROPOSAL, KIND_DECISION, KIND_RESULT, KIND_ERROR,
+    MemoryEvent, KIND_PROPOSAL, KIND_DECISION, KIND_RESULT, KIND_ERROR, KIND_INTERVENTION,
     DecisionStream, DecisionPhase, DecisionVitality, PatternScope
 )
 from ledgermind.core.stores.episodic import EpisodicStore
@@ -81,11 +81,6 @@ class ReflectionEngine:
 
             # 1. Evidence Aggregation
             recent_events = self.episodic.query(limit=1000, status='active', after_id=after_id, order='ASC')
-            if not recent_events:
-                return result_ids, max_id
-                
-            max_id = max(e['id'] for e in recent_events)
-            evidence_clusters = self._cluster_evidence(recent_events)
             
             # Optimization: Load all active events once to avoid N+1 queries in _process_stream
             all_recent_events = self.episodic.query(limit=2000, status='active', order='ASC')
@@ -94,31 +89,44 @@ class ReflectionEngine:
             all_streams = self._get_all_streams()
             processed_fids = set()
             now = datetime.now()
-            
-            # 2. Update existing streams or discover new patterns
-            for target, stats in evidence_clusters.items():
-                if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general"):
-                    continue
-                
-                relevant_streams = [(fid, data) for fid, data in all_streams.items() if data['context'].get('target') == target]
-                
-                if relevant_streams:
-                    for fid, data in relevant_streams:
-                        self._process_stream(fid, data, stats, now, event_map=event_map)
-                        processed_fids.add(fid)
-                        result_ids.append(fid)
-                else:
-                    # New pattern
-                    if stats['commits'] >= 1 or stats['successes'] >= 1 or stats['errors'] >= 1:
-                        new_fid = self._create_pattern_stream(target, stats, now)
-                        if new_fid: result_ids.append(new_fid)
 
-            # 3. Apply Vitality Decay for unprocessed streams
+            if recent_events:
+                max_id = max(e['id'] for e in recent_events)
+                evidence_clusters = self._cluster_evidence(recent_events)
+                
+                # 2. Update existing streams or discover new patterns
+                for target, stats in evidence_clusters.items():
+                    if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general"):
+                        continue
+                    
+                    relevant_streams = [(fid, data) for fid, data in all_streams.items() if data['context'].get('target') == target]
+                    
+                    if relevant_streams:
+                        for fid, data in relevant_streams:
+                            self._process_stream(fid, data, stats, now, event_map=event_map)
+                            processed_fids.add(fid)
+                            result_ids.append(fid)
+                    else:
+                        # New pattern
+                        if stats['commits'] >= 1 or stats['successes'] >= 1 or stats['errors'] >= 1:
+                            new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map)
+                            if new_fid: result_ids.append(new_fid)
+
+            # 3. Apply Vitality Decay for unprocessed streams (always run this)
             for fid, data in all_streams.items():
                 if fid not in processed_fids:
                     stream = DecisionStream(**data['context'])
+                    old_vit = stream.vitality
                     stream = self.lifecycle.update_vitality(stream, now)
-                    self.processor.update_decision(fid, stream.model_dump(), commit_msg="Lifecycle: Vitality decay update.")
+                    
+                    days = (now - stream.last_seen).total_seconds() / 86400.0
+                    logger.debug(f"Decay check for {fid} ({stream.target}): last_seen={stream.last_seen}, days={days:.2f}, vit={old_vit}->{stream.vitality}")
+
+                    # Only update if vitality or confidence actually changed to avoid churn
+                    if stream.vitality != old_vit or abs(stream.confidence - data['context'].get('confidence', 0)) > 0.01:
+                        logger.info(f"Applying vitality decay to {fid}: {old_vit} -> {stream.vitality} (days={days:.2f})")
+                        self.processor.update_decision(fid, stream.model_dump(), commit_msg="Lifecycle: Vitality decay update.")
+                        result_ids.append(fid)
                 
         return result_ids, max_id
 
@@ -134,13 +142,18 @@ class ReflectionEngine:
         all_evidence = set(stream.evidence_event_ids + stats['all_ids'])
         stream.evidence_event_ids = list(all_evidence)
         
+        # Define kinds that constitute a real 'use' or 'reinforcement' of knowledge (PR #30)
+        REINFORCEMENT_KINDS = {KIND_RESULT, KIND_ERROR, "call", "task", "prompt", "intervention"}
+
         for eid in stream.evidence_event_ids:
             if eid in event_map:
-                try:
-                    dt = datetime.fromisoformat(event_map[eid]['timestamp'])
-                    reinforcement_dates.append(dt)
-                except:
-                    pass
+                ev = event_map[eid]
+                if ev['kind'] in REINFORCEMENT_KINDS:
+                    try:
+                        dt = datetime.fromisoformat(ev['timestamp'])
+                        reinforcement_dates.append(dt)
+                    except:
+                        pass
         
         if not reinforcement_dates:
             reinforcement_dates = [now]
@@ -158,7 +171,7 @@ class ReflectionEngine:
         
         self.processor.update_decision(fid, stream.model_dump(), commit_msg=f"Lifecycle: Promoted/Updated stream to {stream.phase.value}")
 
-    def _create_pattern_stream(self, target: str, stats: Dict[str, Any], now: datetime) -> str:
+    def _create_pattern_stream(self, target: str, stats: Dict[str, Any], now: datetime, event_map: Optional[Dict[int, Any]] = None) -> str:
         stream = DecisionStream(
             decision_id=str(uuid.uuid4()),
             target=target,
@@ -172,8 +185,24 @@ class ReflectionEngine:
             frequency=len(stats['all_ids'])
         )
         
+        reinforcement_dates = []
+        if event_map:
+            REINFORCEMENT_KINDS = {KIND_RESULT, KIND_ERROR, "call", "task", "prompt", "intervention"}
+            for eid in stats['all_ids']:
+                if eid in event_map:
+                    ev = event_map[eid]
+                    if ev['kind'] in REINFORCEMENT_KINDS:
+                        try:
+                            dt = datetime.fromisoformat(ev['timestamp'])
+                            reinforcement_dates.append(dt)
+                        except:
+                            pass
+                            
+        if not reinforcement_dates:
+            reinforcement_dates = [now]
+        
         # Calculate initial temporal signals
-        stream = self.lifecycle.calculate_temporal_signals(stream, [now], now)
+        stream = self.lifecycle.calculate_temporal_signals(stream, reinforcement_dates, now)
         stream = self.lifecycle.promote_stream(stream)
         
         decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=stream.title, context=stream)
@@ -245,6 +274,9 @@ class ReflectionEngine:
                     ctx['confidence'] = m.get('confidence', ctx.get('confidence', 1.0))
                     ctx['phase'] = m.get('phase', ctx.get('phase', 'pattern'))
                     ctx['vitality'] = m.get('vitality', ctx.get('vitality', 'active'))
+                    # Synchronize last_seen with database timestamp for accurate decay (PR #28)
+                    if m.get('timestamp'):
+                        ctx['last_seen'] = m.get('timestamp')
 
                     # Validate via Pydantic to ensure it's a valid stream
                     try:
