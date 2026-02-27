@@ -21,7 +21,7 @@ class ReflectionPolicy:
                  error_threshold: int = 1,
                  success_threshold: int = 2,
                  min_confidence: float = 0.3,
-                 observation_window_hours: int = 1,
+                 observation_window_hours: int = 168,
                  decay_rate: float = 0.05,
                  ready_threshold: float = 0.6,
                  auto_accept_threshold: float = 0.9,
@@ -48,7 +48,7 @@ class ReflectionEngine:
         self.semantic = semantic_store
         self.policy = policy or ReflectionPolicy()
         self.processor = processor
-        self.lifecycle = LifecycleEngine(observation_window_days=self.policy.observation_window.total_seconds()/3600.0/24.0)
+        self.lifecycle = LifecycleEngine(observation_window_days=self.policy.observation_window.total_seconds()/86400.0)
         if not self.processor:
             logger.warning("ReflectionEngine initialized without a high-level processor.")
 
@@ -87,6 +87,10 @@ class ReflectionEngine:
             max_id = max(e['id'] for e in recent_events)
             evidence_clusters = self._cluster_evidence(recent_events)
             
+            # Optimization: Load all active events once to avoid N+1 queries in _process_stream
+            all_recent_events = self.episodic.query(limit=2000, status='active', order='ASC')
+            event_map = {e['id']: e for e in all_recent_events}
+
             all_streams = self._get_all_streams()
             processed_fids = set()
             now = datetime.now()
@@ -100,7 +104,7 @@ class ReflectionEngine:
                 
                 if relevant_streams:
                     for fid, data in relevant_streams:
-                        self._process_stream(fid, data, stats, now)
+                        self._process_stream(fid, data, stats, now, event_map=event_map)
                         processed_fids.add(fid)
                         result_ids.append(fid)
                 else:
@@ -118,12 +122,13 @@ class ReflectionEngine:
                 
         return result_ids, max_id
 
-    def _process_stream(self, fid: str, data: Dict[str, Any], stats: Dict[str, Any], now: datetime):
+    def _process_stream(self, fid: str, data: Dict[str, Any], stats: Dict[str, Any], now: datetime, event_map: Optional[Dict[int, Any]] = None):
         stream = DecisionStream(**data['context'])
         
         # Collect timestamps
-        events = self.episodic.query(limit=1000, status='active', order='ASC')
-        event_map = {e['id']: e for e in events}
+        if event_map is None:
+            events = self.episodic.query(limit=1000, status='active', order='ASC')
+            event_map = {e['id']: e for e in events}
         
         reinforcement_dates = []
         all_evidence = set(stream.evidence_event_ids + stats['all_ids'])
