@@ -1,4 +1,5 @@
 import os
+import time
 import numpy as np
 import logging
 import platform
@@ -212,6 +213,11 @@ class VectorStore:
             if self.model_name.lower().endswith(".gguf"):
                 if not LLAMA_AVAILABLE:
                     raise ImportError("llama-cpp-python not found. Required for GGUF models. Run: pip install llama-cpp-python")
+                
+                # Auto-download for known models if file is missing
+                if not os.path.exists(self.model_name):
+                    self._ensure_model_downloaded(self.model_name)
+                    
                 _MODEL_CACHE[cache_key] = GGUFEmbeddingAdapter(self.model_name)
                 logger.info(f"GGUF Vector Engine Initialized: {self.model_name}")
                 return _MODEL_CACHE[cache_key]
@@ -245,6 +251,52 @@ class VectorStore:
             _MODEL_CACHE[cache_key] = model
             
         return _MODEL_CACHE[cache_key]
+
+    def _ensure_model_downloaded(self, model_path: str):
+        """Downloads known GGUF models from Hugging Face if they are missing locally."""
+        # Mapping of filenames to their direct HF download URLs
+        KNOWN_GGUF_MODELS = {
+            "v5-small-text-matching-q4_k_m.gguf": "https://huggingface.co/jinaai/jina-embeddings-v5-text-small-text-matching-GGUF/resolve/main/jina-embeddings-v5-text-small-text-matching-Q4_K_M.gguf",
+            "jina-embeddings-v5-text-small-text-matching-q4_k_m.gguf": "https://huggingface.co/jinaai/jina-embeddings-v5-text-small-text-matching-GGUF/resolve/main/jina-embeddings-v5-text-small-text-matching-Q4_K_M.gguf"
+        }
+
+        filename = os.path.basename(model_path).lower()
+        if filename not in KNOWN_GGUF_MODELS:
+            logger.warning(f"GGUF model {filename} not found locally and no auto-download URL known. Please download it manually.")
+            return
+
+        url = KNOWN_GGUF_MODELS[filename]
+        logger.info(f"Model missing. Downloading {filename} from Hugging Face...")
+        
+        try:
+            os.makedirs(os.path.dirname(model_path), exist_ok=True)
+            
+            import httpx
+            with open(model_path, "wb") as f:
+                with httpx.stream("GET", url, follow_redirects=True, timeout=None) as response:
+                    if response.status_code != 200:
+                        raise RuntimeError(f"Failed to download model: HTTP {response.status_code}")
+                        
+                    total = int(response.headers.get("Content-Length", 0))
+                    downloaded = 0
+                    last_log_time = time.time()
+                    
+                    for chunk in response.iter_bytes(chunk_size=1024*1024): # 1MB chunks
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        
+                        # Log progress every 5 seconds to avoid flooding
+                        if time.time() - last_log_time > 5.0:
+                            progress = (downloaded / total * 100) if total > 0 else 0
+                            logger.info(f"Downloading Model: {progress:.1f}% ({downloaded / (1024*1024):.1f} MB)")
+                            last_log_time = time.time()
+                            
+            logger.info(f"Successfully downloaded {filename} to {model_path}")
+        except Exception as e:
+            if os.path.exists(model_path):
+                os.remove(model_path)
+            logger.error(f"Failed to auto-download GGUF model: {e}")
+            raise RuntimeError(f"GGUF model missing and auto-download failed: {e}")
 
     def _get_pool(self):
         if not EMBEDDING_AVAILABLE or self.workers <= 1:

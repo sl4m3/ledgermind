@@ -142,9 +142,17 @@ class Memory:
 
         # 0.1 Check Vector Search (Optional)
         logger.debug("Checking vector search availability...")
-        from ledgermind.core.stores.vector import EMBEDDING_AVAILABLE
-        results["vector_available"] = EMBEDDING_AVAILABLE
-        if not EMBEDDING_AVAILABLE:
+        from ledgermind.core.stores.vector import EMBEDDING_AVAILABLE, LLAMA_AVAILABLE
+        
+        is_gguf = self.config.vector_model.endswith(".gguf")
+        results["vector_available"] = (LLAMA_AVAILABLE if is_gguf else EMBEDDING_AVAILABLE)
+        
+        if is_gguf:
+            if not LLAMA_AVAILABLE:
+                results["warnings"].append("llama-cpp-python not installed. GGUF vector search is disabled.")
+            elif not os.path.exists(self.config.vector_model):
+                results["warnings"].append(f"GGUF model missing from {self.config.vector_model}. It will be downloaded on first use.")
+        elif not EMBEDDING_AVAILABLE:
             results["warnings"].append("Sentence-transformers not installed. Vector search is disabled.")
 
         # 1. Check Git

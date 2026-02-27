@@ -30,8 +30,8 @@ class SemanticMetaStore:
             self._conn.execute("SELECT 1")
         except sqlite3.OperationalError: pass
 
-        with self._conn:
-            self._conn.execute("BEGIN")
+        self.begin_transaction()
+        try:
             self._conn.execute("""
                 CREATE TABLE IF NOT EXISTS semantic_meta (
                     fid TEXT PRIMARY KEY,
@@ -58,7 +58,7 @@ class SemanticMetaStore:
                 "content": "TEXT DEFAULT ''",
                 "keywords": "TEXT DEFAULT ''",
                 "last_hit_at": "DATETIME",
-                                "confidence": "REAL DEFAULT 1.0",
+                "confidence": "REAL DEFAULT 1.0",
                 "phase": "TEXT DEFAULT 'pattern'",
                 "vitality": "TEXT DEFAULT 'active'",
                 "reinforcement_density": "REAL DEFAULT 0.0",
@@ -132,7 +132,10 @@ class SemanticMetaStore:
             except sqlite3.OperationalError as e:
                 logger.warning(f"FTS5 setup failed: {e}. Keyword search will be limited.")
             
-            self._conn.execute("COMMIT")
+            self.commit_transaction()
+        except Exception:
+            self.rollback_transaction()
+            raise
 
     def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, 
                title: str = "", superseded_by: Optional[str] = None, namespace: str = "default",
@@ -158,6 +161,7 @@ class SemanticMetaStore:
                 stability_score=excluded.stability_score,
                 coverage=excluded.coverage
         """, (fid, target, title, status, kind, timestamp.isoformat(), superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage))
+
 
     def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
         """Retrieves full metadata for a specific file ID."""
@@ -393,23 +397,30 @@ class SemanticMetaStore:
 
     def begin_transaction(self):
         """Manually starts a transaction."""
-        self._conn.execute("BEGIN")
+        if not self._conn.in_transaction:
+            self._conn.execute("BEGIN IMMEDIATE")
 
     def commit_transaction(self):
         """Manually commits a transaction."""
-        self._conn.execute("COMMIT")
+        if self._conn.in_transaction:
+            self._conn.execute("COMMIT")
 
     def rollback_transaction(self):
         """Manually rolls back a transaction."""
-        self._conn.execute("ROLLBACK")
+        if self._conn.in_transaction:
+            self._conn.execute("ROLLBACK")
 
     @contextmanager
     def batch_update(self):
         """Context manager for batched operations."""
-        self.begin_transaction()
+        was_in_transaction = self._conn.in_transaction
+        if not was_in_transaction:
+            self.begin_transaction()
         try:
             yield
-            self.commit_transaction()
+            if not was_in_transaction and self._conn.in_transaction:
+                self.commit_transaction()
         except:
-            self.rollback_transaction()
+            if not was_in_transaction and self._conn.in_transaction:
+                self.rollback_transaction()
             raise
