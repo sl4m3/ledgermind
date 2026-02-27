@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772229619312,
+  "lastUpdate": 1772230986361,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3610,6 +3610,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0006287366727202158",
             "extra": "mean: 4.644409529413563 msec\nrounds: 51"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "5263216cca831fa833a43f506f5048a7070cfe10",
+          "message": "feat(core): implement balanced ranking model in search_decisions (Kind x Phase)",
+          "timestamp": "2026-02-28T01:18:55+03:00",
+          "tree_id": "46f7dfdee328dd1283368bc9b81a684a1f868e54",
+          "url": "https://github.com/sl4m3/ledgermind/commit/5263216cca831fa833a43f506f5048a7070cfe10"
+        },
+        "date": 1772230986072,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 24.76252969270735,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0011709425104426778",
+            "extra": "mean: 40.38359619996754 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 218.20440987586898,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005305062286839621",
+            "extra": "mean: 4.58285880000718 msec\nrounds: 65"
           }
         ]
       }
