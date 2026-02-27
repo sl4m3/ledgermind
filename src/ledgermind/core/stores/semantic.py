@@ -173,7 +173,12 @@ class SemanticStore:
                         content=data.get("content", "")[:8000],
                         keywords=sync_keywords,
                         confidence=sync_ctx.get("confidence", 1.0) if sync_ctx else 1.0,
-                        context_json=json.dumps(sync_ctx or {})
+                        context_json=json.dumps(sync_ctx or {}),
+                        phase=sync_ctx.get("phase", "pattern"),
+                        vitality=sync_ctx.get("vitality", "active"),
+                        reinforcement_density=sync_ctx.get("reinforcement_density", 0.0),
+                        stability_score=sync_ctx.get("stability_score", 0.0),
+                        coverage=sync_ctx.get("coverage", 0.0)
                     )
         except Exception as e:
             logger.error(f"Failed to index {fid}: {e}")
@@ -287,7 +292,12 @@ class SemanticStore:
                 content=cached_content[:8000],
                 keywords=keywords,
                 confidence=context.get('confidence', 1.0),
-                context_json=json.dumps(context)
+                context_json=json.dumps(context),
+                phase=context.get('phase', 'pattern'),
+                vitality=context.get('vitality', 'active'),
+                reinforcement_density=context.get('reinforcement_density', 0.0),
+                stability_score=context.get('stability_score', 0.0),
+                coverage=context.get('coverage', 0.0)
             )
         except sqlite3.IntegrityError as ie:
             if "UNIQUE" in str(ie):
