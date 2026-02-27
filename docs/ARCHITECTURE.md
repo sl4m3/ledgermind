@@ -18,10 +18,8 @@ Every entry point into the system passes through `process_event()`, which
 enforces invariants, checks duplicates, validates trust boundaries, and routes 
 to the appropriate store — before any write happens.
 
-**3. Immutability through Supersede.**
-Knowledge is never overwritten. When a decision changes, the old record gets 
-`status=superseded` and a forward link (`superseded_by`) to its replacement. 
-The full graph of truth evolution is always preserved.
+**3. Decision Streams and Lifecycle Phases.**
+Decisions are not static objects but phases in a behavioral lifecycle (`DecisionStream`). A single stream maintains its identity (`decision_id`) and evolves through phases (`PATTERN` -> `EMERGENT` -> `CANONICAL`) based on continuous evidence, with orthogonal tracking for viability (`DecisionVitality`: `ACTIVE`, `DECAYING`, `DORMANT`). Immutability is preserved for completed streams, and superseding handles conflicts.
 
 **4. Crash Safety & Thread-Local Isolation.**
 All semantic writes happen inside a `FileSystemLock` + `TransactionManager` 
@@ -63,7 +61,8 @@ Memory (core/api/memory.py)
 ├── Webhook Dispatcher     Async HTTP POST notifications for memory events
 ├── ResolutionEngine       Validates ResolutionIntent before supersede
 ├── ReflectionEngine       Incremental Knowledge Discovery (Probabilistic)
-├── DecayEngine            Manages TTL, confidence decay, and forgetting
+├── LifecycleEngine        Manages phase transitions, temporal signals, and vitality decay
+├── DecayEngine            Manages TTL and pruning of episodic events
 ├── MergeEngine            Scans for semantically identical active decisions
 ├── DistillationEngine     Distills successful trajectories → ProceduralProposals
 ├── GitIndexer             Imports Git commits into episodic memory
@@ -73,13 +72,14 @@ Memory (core/api/memory.py)
 
 ---
 
-## Reflection and Knowledge Synthesis
+## Lifecycle and Knowledge Synthesis
 
-The `ReflectionEngine` moved from binary success/failure tracking to a **Probabilistic Model**:
+The `ReflectionEngine` and `LifecycleEngine` work together to observe behavior and promote knowledge:
 
-*   **Float Success Weights:** Interactions are scored from `0.0` (Hard Error) to `1.0` (Verified Success).
-*   **Target Inheritance:** `prompt` and `result` events automatically inherit the `target` from the preceding actions in a session, enabling better clustering.
-*   **Procedural Distillation:** Successful "trajectories" are automatically converted into пошаговые инструкции (`procedural.steps`) inside proposals.
+*   **Behavioral Detections:** `ReflectionEngine` clusters episodic events (successes, errors, commits) into implicit patterns.
+*   **Temporal Signals:** `LifecycleEngine` evaluates reinforcement density, stability (variance of intervals), and lifetime coverage to protect against short-term bursts of activity.
+*   **Decision Streams:** Instead of manually creating "decisions", the system automatically transitions knowledge through `PATTERN`, `EMERGENT`, and `CANONICAL` phases.
+*   **Procedural Distillation:** Successful "trajectories" are automatically distilled into step-by-step instructions.
 
 ---
 

@@ -108,7 +108,7 @@ memory.process_event(
     source: str,
     kind: str,
     content: str,
-    context: Optional[Union[DecisionContent, ProposalContent, Dict]] = None,
+    context: Optional[Union[DecisionContent, ProposalContent, DecisionStream, Dict]] = None,
     intent: Optional[ResolutionIntent] = None,
     namespace: Optional[str] = None
 ) -> MemoryDecision
@@ -120,9 +120,9 @@ Low-level method that all write operations ultimately call. Enforces the full pi
 
 **`source`** must be one of: `user`, `agent`, `system`, `reflection_engine`, `bridge`
 
-**`kind`** must be one of: `decision`, `error`, `config_change`, `assumption`, `constraint`, `result`, `proposal`, `context_snapshot`, `context_injection`, `task`, `call`, `commit_change`, `prompt`
+**`kind`** must be one of: `decision`, `error`, `config_change`, `assumption`, `constraint`, `result`, `proposal`, `intervention`, `context_snapshot`, `context_injection`, `task`, `call`, `commit_change`, `prompt`
 
-Semantic kinds (`decision`, `constraint`, `assumption`, `proposal`) are persisted to the `SemanticStore`. All others go to `EpisodicStore`.
+Semantic kinds (`decision`, `constraint`, `assumption`, `proposal`, `intervention`) are persisted to the `SemanticStore`. All others go to `EpisodicStore`.
 
 ---
 
@@ -150,29 +150,7 @@ Hard-deletes a record from all stores: filesystem, Git (by removing file and com
 
 ---
 
-### Proposals
-
-#### `accept_proposal()`
-
-```python
-memory.accept_proposal(proposal_id: str) -> MemoryDecision
-```
-
-Converts a `draft` proposal into an active decision. If the proposal contains `suggested_supersedes`, calls `supersede_decision()` for those IDs automatically.
-
-**Raises:** `FileNotFoundError`, `ValueError` if file is not a proposal or status is not `draft`.
-
----
-
-#### `reject_proposal()`
-
-```python
-memory.reject_proposal(proposal_id: str, reason: str)
-```
-
-Marks a proposal as `rejected` with a reason. The record is preserved for audit purposes.
-
----
+### Lifecycle and Streams
 
 #### `run_reflection()`
 
@@ -180,9 +158,19 @@ Marks a proposal as `rejected` with a reason. The record is preserved for audit 
 memory.run_reflection() -> List[str]
 ```
 
-Manually triggers a full `ReflectionEngine` cycle. Returns a list of created/updated proposal file IDs. In MCP mode, this runs automatically in the background every 4 hours.
+Manually triggers a full `ReflectionEngine` cycle. Returns a list of created/updated `DecisionStream` file IDs. In MCP mode, this runs automatically in the background every 4 hours.
 
-**Git Evolution:** When `enable_git` is active, the reflection engine analyzes recent commits indexed into episodic memory. If it detects a pattern of changes (minimum 2 commits) related to a specific target, it automatically generates an "Evolving Pattern" proposal to capture the emerging knowledge.
+**Behavioral Detections:** The reflection engine analyzes recent events (errors, successes) indexed into episodic memory. If it detects an emerging pattern, it automatically generates a `DecisionStream` to capture the knowledge.
+
+**Git Evolution:** When `enable_git` is active, the engine also analyzes recent commits. If it detects a pattern of changes (minimum 1 commit) related to a specific target, it initializes a `DecisionStream` tracking the codebase evolution.
+
+#### `accept_proposal()` (Legacy)
+
+```python
+memory.accept_proposal(proposal_id: str) -> MemoryDecision
+```
+
+Converts a legacy `draft` proposal into an active decision. Provided for backward compatibility.
 
 ---
 

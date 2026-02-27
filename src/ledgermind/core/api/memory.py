@@ -4,6 +4,7 @@ import json
 import logging
 import shutil
 import subprocess
+import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union, Tuple
 
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 from ledgermind.core.core.router import MemoryRouter
 from ledgermind.core.core.schemas import (
     MemoryEvent, MemoryDecision, ResolutionIntent, TrustBoundary, 
-    DecisionContent, SEMANTIC_KINDS, KIND_DECISION, KIND_PROPOSAL,
+    DecisionContent, DecisionStream, DecisionPhase, DecisionVitality, ProposalStatus, SEMANTIC_KINDS, KIND_DECISION, KIND_PROPOSAL, KIND_INTERVENTION,
     LedgermindConfig
 )
 from ledgermind.core.core.exceptions import InvariantViolation, ConflictError
@@ -23,6 +24,7 @@ from ledgermind.core.reasoning.conflict import ConflictEngine
 from ledgermind.core.reasoning.resolution import ResolutionEngine
 from ledgermind.core.reasoning.decay import DecayEngine, DecayReport
 from ledgermind.core.reasoning.reflection import ReflectionEngine
+from ledgermind.core.reasoning.lifecycle import LifecycleEngine
 from ledgermind.core.reasoning.git_indexer import GitIndexer
 from ledgermind.core.stores.vector import VectorStore
 from ledgermind.core.core.targets import TargetRegistry
@@ -213,7 +215,7 @@ class Memory:
                       source: str, 
                       kind: str, 
                       content: str, 
-                      context: Optional[Union[DecisionContent, Dict[str, Any]]] = None,
+                      context: Optional[Union[DecisionContent, DecisionStream, Dict[str, Any]]] = None,
                       intent: Optional[ResolutionIntent] = None,
                       namespace: Optional[str] = None) -> MemoryDecision:
         """
@@ -230,13 +232,24 @@ class Memory:
                 reason="Trust Boundary Violation"
             )
 
+        # 2.9: Special path for manual KIND_INTERVENTION
+        if kind == KIND_INTERVENTION:
+            stream = DecisionStream(
+                decision_id=str(uuid.uuid4()) if isinstance(context, dict) and not context.get('decision_id') else (context.get('decision_id') if isinstance(context, dict) else getattr(context, 'decision_id', str(uuid.uuid4()))),
+                target=context.get('target', 'unknown') if isinstance(context, dict) else getattr(context, 'target', 'unknown'),
+                title=context.get('title', content) if isinstance(context, dict) else getattr(context, 'title', content),
+                rationale=context.get('rationale', content) if isinstance(context, dict) else getattr(context, 'rationale', content),
+                namespace=namespace or self.namespace
+            )
+            stream = self.reflection_engine.lifecycle.process_intervention(stream, datetime.now())
+            context = stream
+
         # Build and Validate event
         event = MemoryEvent(
             source=source,
             kind=kind,
             content=content,
-            context=context or {},
-            parent_event_id=context.get('parent_event_id') if isinstance(context, dict) else getattr(context, 'parent_event_id', None)
+            context=context or {}
         )
         
         # 2.5: Prevent duplicate processing (Deep check including context, ignoring links)
@@ -290,12 +303,15 @@ class Memory:
                         raise ConflictError(f"Conflict detected during transaction: {conflict_msg}")
 
                     # 2. Prepare context for new decision
-                    if isinstance(event.context, DecisionContent):
+                    if isinstance(event.context, (DecisionContent, DecisionStream)):
                         if intent and intent.resolution_type == "supersede":
                             event.context.supersedes = intent.target_decision_ids
                         event.context.namespace = effective_namespace
                         if isinstance(context, dict) and 'evidence_event_ids' in context:
                             event.context.evidence_event_ids = context['evidence_event_ids']
+                        
+                        # IMPORTANT: Convert Pydantic model to DICT with JSON-safe values (Enums to strings)
+                        event.context = event.context.model_dump(mode='json')
 
                     elif isinstance(event.context, dict):
                         if intent and intent.resolution_type == "supersede":
@@ -400,6 +416,20 @@ class Memory:
         """
         self.semantic._validate_fid(decision_id)
         
+        # Ensure updates are JSON-safe (Enums to strings, datetimes to ISO strings)
+        def _json_safe(v):
+            if hasattr(v, 'value'): # Enum
+                return v.value
+            if isinstance(v, datetime):
+                return v.isoformat()
+            if isinstance(v, list):
+                return [_json_safe(item) for item in v]
+            if isinstance(v, dict):
+                return {k: _json_safe(val) for k, val in v.items()}
+            return v
+
+        updates = {k: _json_safe(v) for k, v in updates.items()}
+
         # 0. Performance & Cleanliness Optimization: Skip if no actual changes
         current_meta = self.semantic.meta.get_by_fid(decision_id)
         if current_meta:
@@ -597,15 +627,20 @@ class Memory:
                 msg += f"Did you mean: {', '.join(suggestions)}?"
             raise ConflictError(msg)
 
-        ctx = {
-            "title": title,
-            "target": target,
-            "status": "active",
-            "rationale": rationale,
-            "consequences": consequences or [],
-            "evidence_event_ids": evidence_ids or [],
-            "namespace": effective_namespace
-        }
+        import uuid
+        ctx = DecisionStream(
+            decision_id=str(uuid.uuid4()),
+            title=title,
+            target=target,
+            rationale=rationale,
+            consequences=consequences or [],
+            evidence_event_ids=evidence_ids or [],
+            namespace=effective_namespace,
+            phase=DecisionPhase.EMERGENT,
+            vitality=DecisionVitality.ACTIVE,
+            first_seen=datetime.now(),
+            last_seen=datetime.now()
+        )
         decision = self.process_event(
             source="agent",
             kind=KIND_DECISION,
@@ -634,15 +669,20 @@ class Memory:
             rationale=rationale,
             target_decision_ids=old_decision_ids
         )
-        ctx = {
-            "title": title,
-            "target": target,
-            "status": "active",
-            "rationale": rationale,
-            "consequences": consequences or [],
-            "evidence_event_ids": evidence_ids or [],
-            "namespace": effective_namespace
-        }
+        import uuid
+        ctx = DecisionStream(
+            decision_id=str(uuid.uuid4()),
+            title=title,
+            target=target,
+            rationale=rationale,
+            consequences=consequences or [],
+            evidence_event_ids=evidence_ids or [],
+            namespace=effective_namespace,
+            phase=DecisionPhase.EMERGENT,
+            vitality=DecisionVitality.ACTIVE,
+            first_seen=datetime.now(),
+            last_seen=datetime.now()
+        )
         decision = self.process_event(
             source="agent",
             kind=KIND_DECISION,
@@ -674,8 +714,9 @@ class Memory:
             raise ValueError(f"File {proposal_id} is not a proposal")
             
         ctx = data.get("context", {})
-        if ctx.get("status") != "draft":
-            raise ValueError(f"Proposal {proposal_id} is already {ctx.get('status')}")
+        current_status = str(ctx.get("status", "")).lower()
+        if current_status != "draft":
+            raise ValueError(f"Proposal {proposal_id} is already {current_status}")
 
         with self.semantic.transaction():
             supersedes = ctx.get("suggested_supersedes", [])
@@ -786,12 +827,19 @@ class Memory:
             link_count, _ = self.episodic.count_links_for_semantic(final_id)
             boost = min(link_count * 0.2, 1.0) 
             
-            status_multiplier = 1.0
-            if status == "active": status_multiplier = 1.5
-            elif status in ("rejected", "falsified"): status_multiplier = 0.2
-            elif status in ("superseded", "deprecated"): status_multiplier = 0.3
+            # Dynamic Lifecycle Multiplier
+            phase = meta.get('phase', 'pattern')
+            vitality = meta.get('vitality', 'active')
             
-            final_score = (scores[fid] / max_rrf) * (1.0 + boost) * status_multiplier
+            phase_weights = {"canonical": 1.5, "emergent": 1.2, "pattern": 1.0}
+            vitality_weights = {"active": 1.0, "decaying": 0.5, "dormant": 0.2}
+            
+            lifecycle_multiplier = phase_weights.get(phase, 1.0) * vitality_weights.get(vitality, 1.0)
+            
+            if status in ("rejected", "falsified"): lifecycle_multiplier *= 0.2
+            elif status in ("superseded", "deprecated"): lifecycle_multiplier *= 0.3
+            
+            final_score = (scores[fid] / max_rrf) * (1.0 + boost) * lifecycle_multiplier
             
             all_candidates.append({
                 "id": final_id,
@@ -894,9 +942,21 @@ class Memory:
         }
 
     def get_stats(self) -> Dict[str, Any]:
-        """Returns diagnostic statistics."""
+        """Returns diagnostic statistics including lifecycle distribution."""
+        all_meta = self.semantic.meta.list_all()
+        
+        phases = {}
+        vitality = {}
+        for m in all_meta:
+            p = m.get('phase', 'pattern')
+            phases[p] = phases.get(p, 0) + 1
+            v = m.get('vitality', 'active')
+            vitality[v] = vitality.get(v, 0) + 1
+
         return {
-            "semantic_decisions": len(self.get_decisions()),
+            "semantic_total": len(all_meta),
+            "phases": phases,
+            "vitality": vitality,
             "namespace": self.namespace,
             "storage_path": self.storage_path
         }

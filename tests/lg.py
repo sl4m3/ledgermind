@@ -84,8 +84,16 @@ def run_lifecycle_test(args):
             return
         
         prop_id = proposals[0]
-        bridge.memory.accept_proposal(prop_id)
-        console.print(f"[green]✔ Decision created for {target}[/green]")
+        meta = bridge.memory.semantic.meta.get_by_fid(prop_id)
+        current_status = "unknown"
+        if meta:
+            current_status = str(json.loads(meta.get('context_json', '{}')).get('status', 'draft')).lower()
+        
+        if current_status == "draft":
+            bridge.memory.accept_proposal(prop_id)
+            console.print(f"[green]✔ Decision created for {target}[/green]")
+        else:
+            console.print(f"[yellow]! Skipping accept_proposal for {prop_id} (Status: {current_status})[/yellow]")
         
         # --- STAGE 2.1: GIT SYNC TEST ---
         console.print("\n[bold cyan]Stage 2.1: Git Sync Test (Real Commit Indexing)[/bold cyan]")
@@ -170,7 +178,10 @@ def run_lifecycle_test(args):
         console.print("[dim]Evolving decision (this involves vector similarity check)...[/dim]")
         
         # Get the ID of the ACTIVE decision to verify it gets superseded
-        active_results = [r for r in bridge.search_decisions(target, mode="audit") if r['status'] == 'active' and r['id'].startswith('decision')]
+        # Look for the decision we just created/accepted for 'target'
+        active_results = bridge.memory.search_decisions(target, limit=5)
+        active_results = [r for r in active_results if r['is_active']]
+        
         if not active_results:
             console.print("[red]FAIL: Active decision not found for evolution.[/red]")
             return

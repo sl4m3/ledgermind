@@ -103,9 +103,9 @@ memory.supersede_decision(
 
 ---
 
-## Workflow 4: Reflection Cycle — From Errors to Rules
+## Workflow 4: Lifecycle Engine — From Errors to Canonical Rules
 
-**Scenario:** An agent encounters repeated Redis connection failures. The system generates diagnostic proposals.
+**Scenario:** An agent encounters repeated Redis connection failures. The system recognizes this as an emerging pattern and models it through lifecycle phases.
 
 ```python
 from ledgermind.core.api.bridge import IntegrationBridge
@@ -124,23 +124,18 @@ bridge.record_interaction(
 )
 
 # Trigger reflection (automatic in MCP mode every 4 hours)
-proposal_ids = bridge.memory.run_reflection()
-print(f"Generated {len(proposal_ids)} proposals")
+stream_ids = bridge.memory.run_reflection()
+print(f"Generated {len(stream_ids)} streams")
 ```
 
-**What the ReflectionEngine does:**
+**What the Reflection & Lifecycle Engines do:**
 1. Clusters events by `target` — errors targeting "redis" form a cluster.
 2. **Target Inheritance:** Prompts and results inherit the "redis" target from nearby actions.
-3. **Probabilistic Scoring:** `success` is measured as a float (e.g. 0.8 success weight).
-4. `errors (3) >= error_threshold (1)` → triggers hypothesis generation.
-5. **Procedural Distillation:** The engine extracts the "golden path" of actions that led to success and populates `procedural.steps`.
-6. Two competing proposals are created:
-   - **H1 "Structural flaw in redis"** — `confidence=0.5`, posits a logical config error
-   - **H2 "Environmental noise in redis"** — `confidence=0.4`, posits transient failures
-7. H1 and H2 are cross-linked via `alternative_ids`.
-8. On next cycle, if more errors → H1 confidence rises.
-9. If a successful Redis operation appears → H1 confidence drops (falsification).
-10. When H1 reaches `confidence ≥ 0.9` and `ready_for_review=True` and `objections=[]` → **auto-accepted**.
+3. The `ReflectionEngine` passes these temporal signals to the `LifecycleEngine`.
+4. A new `DecisionStream` is created starting in the `PATTERN` phase.
+5. As reinforcement density increases and the cluster shows stability (variance of event intervals), the stream transitions to `EMERGENT`.
+6. **Procedural Distillation:** The engine extracts the "golden path" of actions that led to success and populates `procedural.steps`.
+7. Over time, without manual intervention, an `EMERGENT` stream with high temporal stability and coverage will automatically crystallize into the `CANONICAL` phase. If activity ceases, its `vitality` transitions to `DECAYING` and eventually `DORMANT`.
 
 ---
 
@@ -158,22 +153,20 @@ print(f"Indexed {indexed} commits")
 # The ReflectionEngine will pick these up in its next cycle
 ```
 
-### From Commits to Hypotheses
+### From Commits to Behavioral Patterns
 
-When the `ReflectionEngine` detects a target that has **2 or more commits** (and
-no existing active decision), it generates an **"Evolving Pattern"** proposal.
+When the `ReflectionEngine` detects a target that has **1 or more commits** (and
+no existing active stream), it generates an **"Evolving Pattern"** stream.
 
 **Example Evolution Chain:**
 1.  `git commit -m "feat(auth): add JWT support"`
 2.  `git commit -m "feat(auth): implement refresh tokens"`
 3.  `memory.sync_git()` -> indexes both commits.
 4.  `memory.run_reflection()` -> notices `auth` has 2 commits.
-5.  System creates a proposal: **"Evolving Pattern in auth"** with a rationale
-    summarizing the commit messages.
+5.  System initializes a `DecisionStream` in the `PATTERN` phase for `auth`.
 
 This ensures your knowledge base stays in sync with your actual code evolution,
-proactively suggesting when a new area of the codebase needs formal
-documentation.
+proactively moving successful patterns toward the `EMERGENT` and `CANONICAL` phases over time based on temporal density.
 
 In MCP mode, this runs automatically every 5 minutes via `BackgroundWorker._run_git_sync()` (last 5 commits).
 
@@ -227,36 +220,43 @@ The `context_block` looks like:
 
 ---
 
-## Workflow 7: Proposal Review and Acceptance
+## Workflow 7: Stream Review and Manual Interventions
 
-**Scenario:** A human reviews auto-generated proposals before they become decisions.
+**Scenario:** A human reviews autonomous streams or explicitly forces an intervention.
 
 ```python
-# Find all draft proposals
+# Find all active streams in the EMERGENT phase
 results = memory.search_decisions("", mode="audit")
-drafts = [r for r in results if r["kind"] == "proposal" and r["status"] == "draft"]
+emergent = [r for r in results if r["kind"] == "decision" and getattr(r, 'phase', '') == "emergent"]
 
-for d in drafts:
-    print(f"[{d['score']:.2f}] {d['title']} (target: {d['target']})")
+for d in emergent:
+    print(f"[{d['score']:.2f}] {d['title']} (target: {d['target']}) - Vitality: {d.get('vitality')}")
 
-# Review a specific proposal
+# Review a specific stream
 import os
 from ledgermind.core.stores.semantic_store.loader import MemoryLoader
 
-path = os.path.join(memory.semantic.repo_path, drafts[0]["id"])
+path = os.path.join(memory.semantic.repo_path, emergent[0]["id"])
 with open(path) as f:
     data, body = MemoryLoader.parse(f.read())
     ctx = data["context"]
-    print(f"Confidence: {ctx['confidence']}")
-    print(f"Strengths: {ctx['strengths']}")
-    print(f"Objections: {ctx['objections']}")
+    print(f"Phase: {ctx['phase']}")
+    print(f"Reinforcement Density: {ctx['reinforcement_density']}")
+    print(f"Coverage: {ctx['coverage']}")
 
-# Accept it
-decision = memory.accept_proposal(drafts[0]["id"])
-print(f"Accepted → {decision.metadata['file_id']}")
-
-# Or reject it
-memory.reject_proposal(drafts[0]["id"], reason="Not enough evidence yet.")
+# Apply a manual intervention to force a pattern
+# Interventions skip standard frequency checks but still follow vitality decay
+decision = memory.process_event(
+    source="user",
+    kind="intervention",
+    content="Manual architectural override",
+    context={
+        "target": "web_framework",
+        "title": "Force Gin Framework",
+        "rationale": "High throughput demands this transition.",
+        "provenance": "external"
+    }
+)
 ```
 
 ---
