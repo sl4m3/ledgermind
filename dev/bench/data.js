@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772230986361,
+  "lastUpdate": 1772231019362,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3648,6 +3648,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005305062286839621",
             "extra": "mean: 4.58285880000718 msec\nrounds: 65"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "28d7d53e7ea0769db91b62c3b8e1d01479fab1a7",
+          "message": "feat(core): formalize Balanced Normative Model (Proposals vs Decisions)",
+          "timestamp": "2026-02-28T01:19:39+03:00",
+          "tree_id": "ba33edae8bfbcacc66ca34427bdf0c454c9ea9c1",
+          "url": "https://github.com/sl4m3/ledgermind/commit/28d7d53e7ea0769db91b62c3b8e1d01479fab1a7"
+        },
+        "date": 1772231019041,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 24.513755803357377,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0014069699267527283",
+            "extra": "mean: 40.79342260001795 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 218.8401881446905,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005167327078277563",
+            "extra": "mean: 4.569544600002036 msec\nrounds: 65"
           }
         ]
       }
