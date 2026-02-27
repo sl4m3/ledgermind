@@ -85,7 +85,7 @@ def test_intervention_override():
     stream = engine.process_intervention(stream, now)
     assert stream.phase == DecisionPhase.EMERGENT
     assert stream.estimated_removal_cost == 0.8
-    assert stream.scope == PatternScope.SYSTEM
+    assert stream.scope == PatternScope.LOCAL
     
     # Even interventions decay
     future = now + timedelta(days=40)
