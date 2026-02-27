@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772200162750,
+  "lastUpdate": 1772202839237,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3230,6 +3230,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00047467564019390524",
             "extra": "mean: 4.42019734999614 msec\nrounds: 60"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "63ea7cd9d94a999c7842c99fe4f95f08e8e89806",
+          "message": "fix(core): enhance lifecycle robustness and decay synchronization\n\n- lifecycle: allow earlier phase transitions for high-confidence patterns\n- reflection: synchronize last_seen with DB timestamps for accurate decay metrics\n- reflection: filter reinforcement evidence by specific event kinds (PR #30)\n- semantic: preserve existing phase/vitality during metadata synchronization\n- stores: ensure truth resolution handles broken chains by returning last valid node\n- tests: update lg.py to simulate aging across both semantic and episodic stores",
+          "timestamp": "2026-02-27T17:29:20+03:00",
+          "tree_id": "0cfd686400ecf2b146155325912acd00532074dc",
+          "url": "https://github.com/sl4m3/ledgermind/commit/63ea7cd9d94a999c7842c99fe4f95f08e8e89806"
+        },
+        "date": 1772202838436,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 27.1290504404825,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0014296668113206654",
+            "extra": "mean: 36.86085519999551 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 349.7938834135912,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003466839166476305",
+            "extra": "mean: 2.8588264329871507 msec\nrounds: 97"
           }
         ]
       }
