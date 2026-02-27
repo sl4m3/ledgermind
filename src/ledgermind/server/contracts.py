@@ -5,7 +5,15 @@ from pydantic import BaseModel, Field
 # --- API Versioning ---
 def _get_version():
     # Primary version should match pyproject.toml and VERSION file
-    return "2.8.7"
+    try:
+        # VERSION file is in the same directory as this 'server' package's parent
+        version_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "VERSION")
+        if os.path.exists(version_path):
+            with open(version_path, "r", encoding="utf-8") as f:
+                return f.read().strip()
+    except Exception:
+        pass
+    return "3.0.0" # Fallback
 
 MCP_API_VERSION = _get_version()
 
