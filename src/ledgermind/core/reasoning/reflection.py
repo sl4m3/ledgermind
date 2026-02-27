@@ -222,18 +222,35 @@ class ReflectionEngine:
     def _get_all_streams(self) -> Dict[str, Dict[str, Any]]:
         streams = {}
         # Fetch proposals, decisions and interventions which might be encoded as streams
-        metas = self.semantic.meta.list_all() # assuming we have list_all or similar, let's fetch draft_proposals + active decisions
-        # Or better, fetch anything that parses as DecisionStream
+        metas = self.semantic.meta.list_all()
+        # Filter by kind and validate structure (Issue #7)
         for m in metas:
+            if m.get('kind') not in (KIND_PROPOSAL, KIND_DECISION, KIND_INTERVENTION):
+                continue
+                
             fid = m['fid']
             try:
                 ctx = json.loads(m.get('context_json', '{}'))
-                if "phase" in ctx or "decision_id" in ctx: # Heuristic for stream
-                    streams[fid] = {
-                        'kind': m.get('kind'),
-                        'content': m.get('content'),
-                        'timestamp': m.get('timestamp'),
-                        'context': ctx
-                    }
+                # Robust check: must have either phase or decision_id
+                if "phase" in ctx or "decision_id" in ctx:
+                    # Validate via Pydantic to ensure it's a valid stream
+                    try:
+                        DecisionStream(**ctx)
+                        streams[fid] = {
+                            'kind': m.get('kind'),
+                            'content': m.get('content'),
+                            'timestamp': m.get('timestamp'),
+                            'context': ctx
+                        }
+                    except Exception:
+                        # Fallback for old records: if it has decision_id but fails validation, 
+                        # it might be a pre-v2.9 stream. We'll include it for the migrator.
+                        if "decision_id" in ctx:
+                             streams[fid] = {
+                                'kind': m.get('kind'),
+                                'content': m.get('content'),
+                                'timestamp': m.get('timestamp'),
+                                'context': ctx
+                            }
             except Exception: continue
         return streams

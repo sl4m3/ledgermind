@@ -478,22 +478,40 @@ class Memory:
                     except Exception as ve:
                         logger.warning(f"Vector re-indexing failed for {decision_id}: {ve}")
             
-            # 3. Create episodic event to log the update
+            # 3. Create episodic event to log the update (Issue #11: Log phase changes for all)
             meta = self.semantic.meta.get_by_fid(decision_id)
-            if meta and meta.get('kind') != KIND_PROPOSAL:
-                event = MemoryEvent(
-                    source="system",
-                    kind="commit_change",
-                    content=f"Updated {meta.get('kind')}: {meta.get('title')}",
-                    context={
-                        "original_kind": meta.get('kind', 'decision'),
-                        "updates": updates,
-                        "target": meta.get('target'),
-                        "rationale": commit_msg
-                    }
-                )
-                if not self.episodic.find_duplicate(event, linked_id=decision_id):
-                    self.episodic.append(event, linked_id=decision_id)
+            if meta:
+                # Check for phase transition
+                old_phase = current_ctx.get('phase')
+                new_phase = updates.get('phase')
+                
+                if new_phase and old_phase != new_phase:
+                    self.episodic.append(MemoryEvent(
+                        source="system",
+                        kind="commit_change",
+                        content=f"Lifecycle: {old_phase} → {new_phase} for {meta.get('title')}",
+                        context={
+                            "target": meta.get('target'),
+                            "fid": decision_id,
+                            "old_phase": old_phase,
+                            "new_phase": new_phase
+                        }
+                    ), linked_id=decision_id)
+
+                if meta.get('kind') != KIND_PROPOSAL:
+                    event = MemoryEvent(
+                        source="system",
+                        kind="commit_change",
+                        content=f"Updated {meta.get('kind')}: {meta.get('title')}",
+                        context={
+                            "original_kind": meta.get('kind', 'decision'),
+                            "updates": updates,
+                            "target": meta.get('target'),
+                            "rationale": commit_msg
+                        }
+                    )
+                    if not self.episodic.find_duplicate(event, linked_id=decision_id):
+                        self.episodic.append(event, linked_id=decision_id)
             
         return True
 
@@ -736,31 +754,38 @@ class Memory:
             except Exception: pass
             evidence_ids = list(grounding_ids)
             
-            if supersedes:
-                decision = self.supersede_decision(
-                    title=ctx.get("title"),
-                    target=ctx.get("target"),
-                    rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
-                    old_decision_ids=supersedes,
-                    consequences=ctx.get("suggested_consequences", []),
-                    evidence_ids=evidence_ids
-                )
-            else:
-                decision = self.record_decision(
-                    title=ctx.get("title"),
-                    target=ctx.get("target"),
-                    rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
-                    consequences=ctx.get("suggested_consequences", []),
-                    evidence_ids=evidence_ids
-                )
-            
-            if decision.should_persist:
-                new_id = decision.metadata.get("file_id")
-                self.semantic.update_decision(
-                    proposal_id, 
-                    {"status": "accepted", "converted_to": new_id}, 
-                    commit_msg=f"Accepted and converted to {new_id}"
-                )
+            try:
+                if supersedes:
+                    decision = self.supersede_decision(
+                        title=ctx.get("title"),
+                        target=ctx.get("target"),
+                        rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
+                        old_decision_ids=supersedes,
+                        consequences=ctx.get("suggested_consequences", []),
+                        evidence_ids=evidence_ids
+                    )
+                else:
+                    decision = self.record_decision(
+                        title=ctx.get("title"),
+                        target=ctx.get("target"),
+                        rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
+                        consequences=ctx.get("suggested_consequences", []),
+                        evidence_ids=evidence_ids
+                    )
+                
+                if decision.should_persist:
+                    new_id = decision.metadata.get("file_id")
+                    self.semantic.update_decision(
+                        proposal_id, 
+                        {"status": "accepted", "converted_to": new_id}, 
+                        commit_msg=f"Accepted and converted to {new_id}"
+                    )
+            except Exception as e:
+                # Explicitly rollback proposal to draft (Issue #9)
+                # Note: Transaction rollback will also handle this, but this adds extra insurance for the episodic log or other non-transactional components.
+                logger.warning(f"Proposal conversion failed: {e}. Ensuring status remains 'draft'.")
+                self.semantic.update_decision(proposal_id, {"status": "draft"}, f"Conversion failed: {str(e)}")
+                raise
         return decision
 
     def reject_proposal(self, proposal_id: str, reason: str):

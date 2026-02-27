@@ -49,9 +49,13 @@ class MergeEngine:
                 # We use a strict threshold
                 results = self.memory.search_decisions(content, limit=5, mode="strict")
                 
+                # Normalize scores by the maximum found to account for lifecycle multipliers (Issue #10)
+                max_score = max((r['score'] for r in results), default=1.0)
+                
                 duplicates = []
                 for res in results:
-                    if res['id'] != fid and res['score'] >= threshold:
+                    normalized_score = res['score'] / max_score if max_score > 0 else 0
+                    if res['id'] != fid and normalized_score >= threshold:
                         duplicates.append(res)
                 
                 if duplicates:

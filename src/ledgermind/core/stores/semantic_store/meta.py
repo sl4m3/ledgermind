@@ -314,9 +314,9 @@ class SemanticMetaStore:
             # Replicate broken link behavior:
             # If we stopped, but the record is not active and claims to have a successor,
             # it means the successor was not found (broken link).
-            # The iterative loop returns None in this case because get_by_fid returns None.
             if status != "active" and successor:
-                return None
+                logger.warning(f"Broken chain at {fid}: successor {successor} not found. Returning last valid link.")
+                return res
 
             return res
 
