@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772207440962,
+  "lastUpdate": 1772207825061,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3382,6 +3382,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00041295079874871337",
             "extra": "mean: 2.8680283163230436 msec\nrounds: 98"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "066be875bf27cfcc58b1ad36d2d8e0574bda027b",
+          "message": "docs: release v3.0.0: document DecisionStream lifecycle and procedural distillation",
+          "timestamp": "2026-02-27T18:53:06+03:00",
+          "tree_id": "71c40dfb8792b8a81a2af44b2e1fc4084282b5a9",
+          "url": "https://github.com/sl4m3/ledgermind/commit/066be875bf27cfcc58b1ad36d2d8e0574bda027b"
+        },
+        "date": 1772207824779,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 22.519664046789796,
+            "unit": "iter/sec",
+            "range": "stddev: 0.008187815475613642",
+            "extra": "mean: 44.40563579999548 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 221.12604131483835,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00048594233784267463",
+            "extra": "mean: 4.522307703126671 msec\nrounds: 64"
           }
         ]
       }
