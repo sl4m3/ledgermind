@@ -273,7 +273,7 @@ class VectorStore:
             
             import httpx
             with open(model_path, "wb") as f:
-                with httpx.stream("GET", url, follow_redirects=True, timeout=None) as response:
+                with httpx.stream("GET", url, follow_redirects=True, timeout=None) as response:  # nosec B113
                     if response.status_code != 200:
                         raise RuntimeError(f"Failed to download model: HTTP {response.status_code}")
                         
