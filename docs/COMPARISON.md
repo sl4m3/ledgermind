@@ -20,7 +20,7 @@ How LedgerMind compares to other AI memory frameworks.
 | **Self-healing** | Yes (stale lock removal, meta-sync) | No | No | No |
 | **MCP compatible** | Yes (15 tools) | No | No | No |
 | **REST + WebSocket** | Yes | No | No | Limited |
-| **Epistemic model** | Yes (proposals, falsification) | No | No | No |
+| **Epistemic model** | Yes (Decision streams, temporal signals) | No | No | No |
 | **Git-native** | Yes (commits as audit log) | No | No | No |
 | **Prometheus metrics** | Yes | No | No | Limited |
 

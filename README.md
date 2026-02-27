@@ -81,10 +81,10 @@ without any intervention from the developer or the agent.
 | **VS Code Hardcore Mode** | Dedicated VS Code extension for proactive context injection, terminal monitoring, and automated conversation logging without manual tool calls. |
 | **Project Bootstrapping** | `bootstrap_project_context` tool for deep analysis of project structure and automatic initialization of the agent's knowledge base. |
 | **Autonomous Heartbeat** | A background worker runs every 5 minutes: Git sync, reflection, decay, self-healing. |
-| **Git Evolution** | Automatically generates "Evolving Pattern" proposals based on code changes (minimum 2 commits). |
+| **Git Evolution** | Automatically tracks code changes to build evolving `DecisionStream` patterns over time. |
 | **Deep Truth Resolution** | Improved recursive resolution of superseded chains to ensure only the latest active truth is returned. |
 | **Self-Healing Index** | Automatically rebuilds the SQLite metadata index from Markdown source files if corruption or desync is detected. |
-| **Probabilistic Reflection** | Discover patterns using float success weights (0.0-1.0) and Target Inheritance for better clustering. |
+| **Lifecycle & Vitality Engine** | Replaces manual decisions with autonomous `DecisionStream` lifecycle phases (`PATTERN` -> `EMERGENT` -> `CANONICAL`) incorporating temporal signal analysis (burst protection, reinforcement density, and vitality decay). |
 | **Procedural Distillation** | Automatically converts successful trajectories into step-by-step instructions (`procedural.steps`). |
 | **Intelligent Conflict Resolution** | Vector similarity analysis automatically supersedes outdated decisions (threshold: 70%) or triggers LLM arbitration (50-70%). |
 | **Multi-agent Namespacing** | Logical partitioning of memory for multiple agents within a single project. |

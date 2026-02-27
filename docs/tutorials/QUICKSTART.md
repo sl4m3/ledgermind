@@ -164,7 +164,7 @@ print("✓ Interactions recorded")
 proposal_ids = memory.run_reflection()
 
 if proposal_ids:
-    print(f"✓ Generated {len(proposal_ids)} proposals")
+    print(f"✓ Generated {len(proposal_ids)} decision streams")
     for pid in proposal_ids:
         print(f"  → {pid}")
 ```
@@ -173,7 +173,7 @@ The Reflection Engine analyzed the error, generated a hypothesis proposal, and s
 
 ---
 
-## Step 8: Review Proposals and Accept
+## Step 8: Review Emergent Decision Streams
 
 ```python
 # Search for draft proposals
@@ -271,8 +271,8 @@ def run_demo():
 
     # Reflect
     print("\n--- Running reflection ---")
-    proposals = memory.run_reflection()
-    print(f"  Generated {len(proposals)} proposals")
+    streams = memory.run_reflection()
+    print(f"  Generated or updated {len(streams)} streams")
 
     # Stats
     stats = bridge.get_stats()
