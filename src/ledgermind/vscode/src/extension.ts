@@ -7,6 +7,23 @@ export function activate(context: vscode.ExtensionContext) {
 
     const getProjectPath = () => vscode.workspace.workspaceFolders?.[0].uri.fsPath || '.';
 
+    // Create Status Bar Item
+    const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    statusBarItem.text = '$(database) LedgerMind';
+    statusBarItem.tooltip = 'LedgerMind Zero-Touch Bridge Active';
+    statusBarItem.show();
+    context.subscriptions.push(statusBarItem);
+
+    const setBusy = (busy: boolean) => {
+        if (busy) {
+            statusBarItem.text = '$(sync~spin) LedgerMind';
+            statusBarItem.tooltip = 'LedgerMind: Syncing Context...';
+        } else {
+            statusBarItem.text = '$(database) LedgerMind';
+            statusBarItem.tooltip = 'LedgerMind Zero-Touch Bridge Active';
+        }
+    };
+
     // 1. HARDCORE RECORDING: Слушаем ВСЕ чат-взаимодействия (VS Code Native Chat)
     // Работает для Copilot и других встроенных чатов
     if ('chat' in (vscode as any)) {
@@ -19,7 +36,9 @@ export function activate(context: vscode.ExtensionContext) {
                 
                 const cmd = `ledgermind-mcp bridge-record --path "${projectPath}" --prompt "${prompt.replace(/"/g, '\\"')}" --response "${response.replace(/"/g, '\\"')}" --success --cli "vscode-chat"`;
                 
+                setBusy(true);
                 exec(cmd, (err) => {
+                    setBusy(false);
                     if (err) console.error('LedgerMind Chat Record Error:', err);
                 });
             })
@@ -36,6 +55,7 @@ export function activate(context: vscode.ExtensionContext) {
                 const cleanData = e.data.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
                 
                 const cmd = `ledgermind-mcp bridge-record --path "${projectPath}" --prompt "Terminal Output" --response "${cleanData.replace(/"/g, '\\"')}" --success --cli "vscode-terminal"`;
+                // Don't set busy for terminal as it's too frequent
                 exec(cmd);
             }
         })
@@ -51,7 +71,9 @@ export function activate(context: vscode.ExtensionContext) {
         const query = prompt || "Current project state and relevant decisions";
         const cmd = `ledgermind-mcp bridge-context --path "${projectPath}" --prompt "${query.replace(/"/g, '\\"')}"`;
         
+        setBusy(true);
         exec(cmd, (err, stdout) => {
+            setBusy(false);
             if (!err && stdout) {
                 const content = `<!-- LEDGERMIND AUTONOMOUS CONTEXT - DO NOT EDIT -->\n${stdout}`;
                 vscode.workspace.fs.writeFile(
