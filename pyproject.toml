@@ -72,5 +72,6 @@ include = ["ledgermind*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 asyncio_mode = "strict"
 addopts = "-n 4 --dist loadscope --durations=5"
