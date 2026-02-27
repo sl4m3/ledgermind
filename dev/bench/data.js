@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772211332956,
+  "lastUpdate": 1772211780747,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3496,6 +3496,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0009569268411361105",
             "extra": "mean: 4.642754546877015 msec\nrounds: 64"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "2b5434c33a0c1804af05dc650214a7b61f32b456",
+          "message": "fix(integrity): ensure cache isolation in IntegrityChecker for multi-test environments",
+          "timestamp": "2026-02-27T19:58:54+03:00",
+          "tree_id": "232f6bd2c1bc1be12116ca906caa8ba796c4d9db",
+          "url": "https://github.com/sl4m3/ledgermind/commit/2b5434c33a0c1804af05dc650214a7b61f32b456"
+        },
+        "date": 1772211780107,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 22.213472384802785,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0029338742330501256",
+            "extra": "mean: 45.017725400020936 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 218.21155087541078,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00045453547221443953",
+            "extra": "mean: 4.582708825395573 msec\nrounds: 63"
           }
         ]
       }
