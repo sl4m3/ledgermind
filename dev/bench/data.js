@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772207080674,
+  "lastUpdate": 1772207440962,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3344,6 +3344,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005069276580429469",
             "extra": "mean: 4.47684739681913 msec\nrounds: 63"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "efb05842842af99beedd355edcf78b0dfc8203db",
+          "message": "test(core): fix confidence momentum range in reproduction test\n\n- tests: update test_repro_issue_6_confidence_momentum to reflect 0.5 momentum in LifecycleEngine",
+          "timestamp": "2026-02-27T18:46:35+03:00",
+          "tree_id": "18885ef5c344d9028a8837cd2394c2a60678e045",
+          "url": "https://github.com/sl4m3/ledgermind/commit/efb05842842af99beedd355edcf78b0dfc8203db"
+        },
+        "date": 1772207440012,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 25.308785788574397,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0044773047001311446",
+            "extra": "mean: 39.51197060000595 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 348.67159236490744,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00041295079874871337",
+            "extra": "mean: 2.8680283163230436 msec\nrounds: 98"
           }
         ]
       }
