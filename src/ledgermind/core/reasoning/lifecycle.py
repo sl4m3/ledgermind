@@ -122,8 +122,10 @@ class LifecycleEngine:
         stream.estimated_removal_cost = self.estimate_removal_cost(stream)
         stream.estimated_utility = self.estimate_utility(stream)
         
-        # Calculate combined confidence
-        stream.confidence = 0.4 * stream.estimated_utility + 0.4 * stream.estimated_removal_cost + 0.2 * stream.stability_score
+        # Calculate combined confidence with momentum (Issue #6)
+        calculated_conf = 0.4 * stream.estimated_utility + 0.4 * stream.estimated_removal_cost + 0.2 * stream.stability_score
+        momentum = 0.3
+        stream.confidence = stream.confidence * (1.0 - momentum) + calculated_conf * momentum
         
         if stream.phase == DecisionPhase.PATTERN:
             # Transition to EMERGENT requires some minimum evidence
