@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772211780747,
+  "lastUpdate": 1772223008734,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3534,6 +3534,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00045453547221443953",
             "extra": "mean: 4.582708825395573 msec\nrounds: 63"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "b9a1b3849e7b339911dd30f67292c433b802ad7a",
+          "message": "feat(core): enhance reflection intelligence and implement session-based distillation",
+          "timestamp": "2026-02-27T23:06:00+03:00",
+          "tree_id": "1dbc064227ca1eb37c6470eab698517e2755a190",
+          "url": "https://github.com/sl4m3/ledgermind/commit/b9a1b3849e7b339911dd30f67292c433b802ad7a"
+        },
+        "date": 1772223008225,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 22.291967646313218,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0037458452679262947",
+            "extra": "mean: 44.85920739999756 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 220.22703545796892,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005097315856301334",
+            "extra": "mean: 4.540768566041263 msec\nrounds: 53"
           }
         ]
       }
