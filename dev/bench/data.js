@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772199241895,
+  "lastUpdate": 1772200162750,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3192,6 +3192,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005096848523462671",
             "extra": "mean: 4.508778873016473 msec\nrounds: 63"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "f06a7f8b1425566f53e808785bae0dc0319a1e84",
+          "message": "feat(lifecycle): enhance knowledge durability and observability metrics\n\n- implement hit_count and confidence-based removal cost in lifecycle\n- add reactive dormant-to-active transitions for knowledge streams\n- implement debouncing and command filtering for VSCode terminal watcher\n- add Prometheus metrics for lifecycle phases, vitality, and promotions\n- inject latest metadata into reflection streams from database",
+          "timestamp": "2026-02-27T16:34:56+03:00",
+          "tree_id": "347554ec6f3c7fbf7c0bdb45448a16e1877779fa",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f06a7f8b1425566f53e808785bae0dc0319a1e84"
+        },
+        "date": 1772200162273,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 23.077772587481967,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004265889801090385",
+            "extra": "mean: 43.33173820000411 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 226.23424268621704,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00047467564019390524",
+            "extra": "mean: 4.42019734999614 msec\nrounds: 60"
           }
         ]
       }
