@@ -136,8 +136,9 @@ class LifecycleEngine:
         stream.estimated_utility = self.estimate_utility(stream)
         
         # Calculate combined confidence with momentum (Issue #6)
-        calculated_conf = 0.4 * stream.estimated_utility + 0.4 * stream.estimated_removal_cost + 0.2 * stream.stability_score
-        momentum = 0.3
+        # Increased weights for utility and stability to allow faster growth for successful patterns
+        calculated_conf = 0.4 * stream.estimated_utility + 0.3 * stream.estimated_removal_cost + 0.3 * stream.stability_score
+        momentum = 0.5 # Increased from 0.3 for faster adaptation
         stream.confidence = stream.confidence * (1.0 - momentum) + calculated_conf * momentum
         
         if stream.phase == DecisionPhase.PATTERN:
