@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772208694859,
+  "lastUpdate": 1772211332956,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3458,6 +3458,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005362825089883656",
             "extra": "mean: 4.563099215685644 msec\nrounds: 51"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "09ab56b6b47bf46dbaff8a4e07699a15cdc3b641",
+          "message": "perf(core): optimize record_decision with incremental validation and embedding caching",
+          "timestamp": "2026-02-27T19:51:18+03:00",
+          "tree_id": "b9f346ca7c8f3683a2d3b8eedf4ca4b1e6e549e7",
+          "url": "https://github.com/sl4m3/ledgermind/commit/09ab56b6b47bf46dbaff8a4e07699a15cdc3b641"
+        },
+        "date": 1772211331902,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 23.924692265295004,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0017023437419301307",
+            "extra": "mean: 41.79782080000223 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 215.38937497194587,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009569268411361105",
+            "extra": "mean: 4.642754546877015 msec\nrounds: 64"
           }
         ]
       }
