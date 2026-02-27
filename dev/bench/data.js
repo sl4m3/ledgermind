@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772203884229,
+  "lastUpdate": 1772207080674,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3306,6 +3306,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0005634861551618839",
             "extra": "mean: 4.521332444444252 msec\nrounds: 63"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "b2fbb6e73300f555e52f75f7c6b6c37099ad1c5b",
+          "message": "fix(core): enhance reflection intelligence and implement explicit MemP linking\n\n- reflection: prevent self-reflection loops by filtering meta-event kinds\n- reflection: expand target blacklist to eliminate generic context bleeding (core, test, dev)\n- reflection: implement kind-based weighting for evidence (commits weigh more than logs)\n- distillation: add target inheritance to resolve 'unknown' procedural instructions\n- lifecycle: increase confidence momentum and stability impact for faster adaptation\n- bridge: implement structured procedural guide injection into agent context\n- schemas: add dedicated fields for pattern-to-procedure crystallization",
+          "timestamp": "2026-02-27T18:39:46+03:00",
+          "tree_id": "e521493585cf6ad3f7d471e10bcd6d687b2790ba",
+          "url": "https://github.com/sl4m3/ledgermind/commit/b2fbb6e73300f555e52f75f7c6b6c37099ad1c5b"
+        },
+        "date": 1772207079753,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 22.91162969762613,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0023701244066297988",
+            "extra": "mean: 43.645956799991836 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 223.37147357547093,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005069276580429469",
+            "extra": "mean: 4.47684739681913 msec\nrounds: 63"
           }
         ]
       }
