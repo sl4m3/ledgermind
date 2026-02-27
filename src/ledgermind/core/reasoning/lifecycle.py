@@ -128,6 +128,8 @@ class LifecycleEngine:
         """
         Evaluates and transitions Phase based on temporal signals and cost.
         PATTERN -> EMERGENT -> CANONICAL
+        
+        Phase represents the temporal stability of the knowledge.
         """
         old_phase = stream.phase
         
@@ -136,22 +138,16 @@ class LifecycleEngine:
         stream.estimated_utility = self.estimate_utility(stream)
         
         # Calculate combined confidence with momentum (Issue #6)
-        # Increased weights for utility and stability to allow faster growth for successful patterns
         calculated_conf = 0.4 * stream.estimated_utility + 0.3 * stream.estimated_removal_cost + 0.3 * stream.stability_score
-        momentum = 0.5 # Increased from 0.3 for faster adaptation
+        momentum = 0.5 
         stream.confidence = stream.confidence * (1.0 - momentum) + calculated_conf * momentum
         
         if stream.phase == DecisionPhase.PATTERN:
-            # Transition to EMERGENT requires some minimum evidence or confidence
-            if stream.frequency >= 3 or stream.estimated_removal_cost >= 0.4 or stream.confidence >= 0.5:
-                # Interventions skip strict lifetime checks typically
-                # For patterns, we allow earlier crystallization if the signal is strong
-                if stream.lifetime_days > 0.5 or stream.frequency >= 5 or getattr(stream, 'provenance', 'internal') == 'external' or stream.estimated_removal_cost >= 0.5:
+            if stream.frequency >= 3 or stream.confidence >= 0.5:
+                if stream.lifetime_days > 0.5 or stream.frequency >= 5:
                     stream.phase = DecisionPhase.EMERGENT
                     
         elif stream.phase == DecisionPhase.EMERGENT:
-            # Transition to CANONICAL is very strict to prevent burst-crystallization
-            # Requires good coverage, high stability, high cost, and good frequency
             if (stream.coverage > 0.3 and 
                 stream.stability_score > 0.6 and 
                 stream.estimated_removal_cost > 0.5 and
@@ -162,23 +158,43 @@ class LifecycleEngine:
         if stream.phase != old_phase:
             if PHASE_TRANSITIONS:
                 PHASE_TRANSITIONS.labels(from_phase=old_phase.value, to_phase=stream.phase.value).inc()
-            if STREAM_PROMOTIONS:
-                STREAM_PROMOTIONS.labels(target_phase=stream.phase.value).inc()
 
         return stream
 
+    def evaluate_normative_authority(self, stream: DecisionStream) -> str:
+        """
+        Decides if a PROPOSAL should become a DECISION based on a Balanced Model.
+        
+        Formula: (Confidence * 0.4) + (Success_Signals * 0.4) + (Removal_Cost * 0.2)
+        """
+        # Patterns stay as Proposals (safety first)
+        if stream.phase == DecisionPhase.PATTERN:
+            return "proposal"
+
+        # Success signals based on frequency and utility
+        success_signals = (stream.estimated_utility + min(stream.frequency / 20.0, 0.5)) / 1.5
+        
+        # Normative score
+        authority_score = (stream.confidence * 0.4) + (success_signals * 0.4) + (stream.estimated_removal_cost * 0.2)
+        
+        # Dynamic Thresholds
+        threshold = 0.7 if stream.phase == DecisionPhase.EMERGENT else 0.6
+        
+        if authority_score >= threshold:
+            return "decision"
+            
+        return "proposal"
+
     def process_intervention(self, stream: DecisionStream, now: datetime) -> DecisionStream:
         """
-        Special path for manual KIND_INTERVENTION events.
-        They get high initial cost and skip direct to EMERGENT usually, but are still subject to vitality decay.
+        Immediate normative act. Grants DECISION status and EMERGENT phase.
         """
-        stream.scope = PatternScope.SYSTEM
+        stream.phase = DecisionPhase.EMERGENT
+        stream.vitality = DecisionVitality.ACTIVE
         stream.first_seen = now
         stream.last_seen = now
         stream.estimated_removal_cost = 0.8
         stream.estimated_utility = 0.5
-        stream.phase = DecisionPhase.EMERGENT
-        stream.vitality = DecisionVitality.ACTIVE
         stream.confidence = 0.7
         return stream
 
