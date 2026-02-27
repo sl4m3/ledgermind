@@ -310,9 +310,9 @@ Every 1 hour:
 Every 4 hours:
   └── Reflection cycle:
       ├── Cluster episodic events by target
-      ├── Generate/update competing hypotheses
-      ├── Apply falsification to existing proposals
-      └── Auto-accept high-confidence proposals (≥ 0.9)
+      ├── Detect behavioral patterns and temporal signals
+      ├── Evaluate reinforcement density and stream stability
+      └── Update phases and vitality (`PATTERN` -> `EMERGENT` -> `CANONICAL`)
 ```
 
 ### Recommendations for Production
