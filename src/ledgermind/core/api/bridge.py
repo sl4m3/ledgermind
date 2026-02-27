@@ -51,6 +51,23 @@ class IntegrationBridge:
                     
                 score = item.get('score', 0)
                 if score >= self.relevance_threshold:
+                    # Parse full context to get procedural info (stored in context_json in meta)
+                    ctx = {}
+                    if 'context_json' in item:
+                        try:
+                            import json
+                            ctx = json.loads(item['context_json'])
+                        except: pass
+                    else:
+                        # Fallback: load from disk if meta doesn't have it (though meta should have context_json)
+                        try:
+                            file_path = os.path.join(self.memory_path, "semantic", fid)
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                raw = f.read()
+                                data, _ = MemoryLoader.parse(raw)
+                                ctx = data.get("context", {})
+                        except: pass
+
                     memories.append({
                         "id": fid,
                         "title": item.get('title'),
@@ -60,7 +77,12 @@ class IntegrationBridge:
                         "content": item.get('content'),
                         "rationale": item.get('rationale'),
                         "consequences": item.get('consequences'),
-                        "expected_outcome": item.get('expected_outcome')
+                        "expected_outcome": item.get('expected_outcome'),
+                        "procedural": ctx.get('procedural'),
+                        "procedural_ids": ctx.get('procedural_ids', []),
+                        "phase": ctx.get('phase'),
+                        "vitality": ctx.get('vitality'),
+                        "confidence": ctx.get('confidence')
                     })
             return memories
         except Exception as e:
@@ -88,6 +110,20 @@ class IntegrationBridge:
         # Add instruction for the agent on how to use paths
         for m in memories:
             m["instruction"] = f"CRITICAL: Key fields (rationale, consequences, expected_outcome, content) are already injected for your convenience. Use 'cat {m['path']}' ONLY if you need to see the raw YAML frontmatter or full history of this record."
+            
+            # Format procedural steps for better readability if present
+            if m.get("procedural") and isinstance(m["procedural"], dict):
+                steps = m["procedural"].get("steps", [])
+                if steps:
+                    formatted_steps = []
+                    for i, s in enumerate(steps):
+                        action = s.get("action", "")
+                        rationale = s.get("rationale", "")
+                        step_str = f"{i+1}. {action}"
+                        if rationale:
+                            step_str += f" (Rationale: {rationale})"
+                        formatted_steps.append(step_str)
+                    m["procedural_guide"] = formatted_steps
 
         json_data = json.dumps({
             "source": "ledgermind",

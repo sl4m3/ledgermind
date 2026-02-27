@@ -111,7 +111,17 @@ class DistillationEngine:
                 ))
                 evidence_ids.append(ev.get('id', 0))
 
-        target = result_event.get('context', {}).get('target', 'unknown') or 'unknown'
+        target = result_event.get('context', {}).get('target')
+        
+        # Target Inheritance: If result has no target, look back in trajectory
+        if not target or target == 'unknown':
+            for ev in reversed(trajectory):
+                candidate = ev.get('context', {}).get('target')
+                if candidate and candidate != 'unknown':
+                    target = candidate
+                    break
+        
+        target = target or 'unknown'
         
         # Если шагов не нашлось, все равно добавим результат как улику
         evidence_ids.append(result_event.get('id', 0))
