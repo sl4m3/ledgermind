@@ -35,7 +35,7 @@
 ## 📈 Recent Activity
 
 **Last 14 days:**
-- **2,353 Git clones** (647 unique cloners)
+- **3,407 Git clones** (863 unique cloners)
 - Strong PyPI growth (hundreds of downloads in recent days)
 
 **Installed & used in:**
