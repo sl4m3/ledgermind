@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import * as path from 'path';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -34,10 +34,15 @@ export function activate(context: vscode.ExtensionContext) {
                 const prompt = e.request.prompt;
                 const response = e.response.map((r: any) => r.value || '').join('\n');
                 
-                const cmd = `ledgermind-mcp bridge-record --path "${projectPath}" --prompt "${prompt.replace(/"/g, '\\"')}" --response "${response.replace(/"/g, '\\"')}" --success --cli "vscode-chat"`;
-                
                 setBusy(true);
-                exec(cmd, (err) => {
+                execFile('ledgermind-mcp', [
+                    'bridge-record',
+                    '--path', projectPath,
+                    '--prompt', prompt,
+                    '--response', response,
+                    '--success',
+                    '--cli', 'vscode-chat'
+                ], (err) => {
                     setBusy(false);
                     if (err) console.error('LedgerMind Chat Record Error:', err);
                 });
@@ -54,9 +59,14 @@ export function activate(context: vscode.ExtensionContext) {
                 // Очистка данных от ANSI-кодов
                 const cleanData = e.data.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
                 
-                const cmd = `ledgermind-mcp bridge-record --path "${projectPath}" --prompt "Terminal Output" --response "${cleanData.replace(/"/g, '\\"')}" --success --cli "vscode-terminal"`;
-                // Don't set busy for terminal as it's too frequent
-                exec(cmd);
+                execFile('ledgermind-mcp', [
+                    'bridge-record',
+                    '--path', projectPath,
+                    '--prompt', 'Terminal Output',
+                    '--response', cleanData,
+                    '--success',
+                    '--cli', 'vscode-terminal'
+                ]);
             }
         })
     );
@@ -69,10 +79,13 @@ export function activate(context: vscode.ExtensionContext) {
         const shadowFilePath = path.join(projectPath, 'ledgermind_context.md');
         
         const query = prompt || "Current project state and relevant decisions";
-        const cmd = `ledgermind-mcp bridge-context --path "${projectPath}" --prompt "${query.replace(/"/g, '\\"')}"`;
         
         setBusy(true);
-        exec(cmd, (err, stdout) => {
+        execFile('ledgermind-mcp', [
+            'bridge-context',
+            '--path', projectPath,
+            '--prompt', query
+        ], (err, stdout) => {
             setBusy(false);
             if (!err && stdout) {
                 const content = `<!-- LEDGERMIND AUTONOMOUS CONTEXT - DO NOT EDIT -->\n${stdout}`;
@@ -90,7 +103,13 @@ export function activate(context: vscode.ExtensionContext) {
             updateShadowContext(`Changes in ${path.basename(doc.fileName)}`);
             // Также записываем сохранение как эпизод
             const projectPath = getProjectPath();
-            exec(`ledgermind-mcp bridge-record --path "${projectPath}" --prompt "Edit file" --response "Updated ${doc.fileName}" --success`);
+            execFile('ledgermind-mcp', [
+                'bridge-record',
+                '--path', projectPath,
+                '--prompt', 'Edit file',
+                '--response', `Updated ${doc.fileName}`,
+                '--success'
+            ]);
         }),
         vscode.window.onDidChangeActiveTextEditor(() => updateShadowContext())
     );
