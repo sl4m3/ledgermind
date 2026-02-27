@@ -27,6 +27,18 @@ logger = logging.getLogger("ledgermind.server")
 # But they ARE in origin/main so I'll keep them as they were in origin/main if they were added there.
 # Looking at the conflict, they were added to server.py in origin/main.
 
+def redact_payload(data: Any) -> Any:
+    """Redacts potentially sensitive fields from audit logs."""
+    if isinstance(data, dict):
+        redacted = data.copy()
+        for key in ["content", "rationale", "rationale_val"]:
+            if key in redacted and isinstance(redacted[key], str):
+                val = redacted[key]
+                if len(val) > 40:
+                    redacted[key] = f"{val[:15]}...[REDACTED]...{val[-15:]}"
+        return redacted
+    return data
+
 def measure_and_log(tool_name: str, role: str = "agent", include_commit_hash: bool = False):
     def decorator(func):
         @functools.wraps(func)
@@ -37,7 +49,8 @@ def measure_and_log(tool_name: str, role: str = "agent", include_commit_hash: bo
                 result = func(self, request, *args, **kwargs)
 
                 # Success Logging
-                req_dump = request.model_dump() if hasattr(request, "model_dump") else str(request)
+                req_data = request.model_dump() if hasattr(request, "model_dump") else str(request)
+                req_dump = redact_payload(req_data)
 
                 commit_hash = None
                 if include_commit_hash and hasattr(self, "_get_commit_hash"):
@@ -50,7 +63,8 @@ def measure_and_log(tool_name: str, role: str = "agent", include_commit_hash: bo
 
             except Exception as e:
                 # Error Logging
-                req_dump = request.model_dump() if hasattr(request, "model_dump") else str(request)
+                req_data = request.model_dump() if hasattr(request, "model_dump") else str(request)
+                req_dump = redact_payload(req_data)
                 self.audit_logger.log_access(role, tool_name, req_dump, False, error=str(e))
                 TOOL_CALLS.labels(tool=tool_name, status="error").inc()
 
