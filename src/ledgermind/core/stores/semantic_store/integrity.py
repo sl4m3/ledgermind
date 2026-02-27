@@ -47,29 +47,55 @@ class IntegrityChecker:
         return hash(tuple(state))
 
     @staticmethod
-    def validate(repo_path: str, force: bool = False):
+    def validate(repo_path: str, force: bool = False, fid: str = None):
         """
         Scans the repository and ensures all integrity invariants are met.
+        Supports incremental validation if fid is provided.
         """
-        current_hash = IntegrityChecker._get_state_hash(repo_path)
-        if not force and IntegrityChecker._state_cache.get(repo_path) == current_hash:
-            return
+        if not fid:
+            current_hash = IntegrityChecker._get_state_hash(repo_path)
+            if not force and IntegrityChecker._state_cache.get(repo_path) == current_hash:
+                return
+        
+        # Incremental logic: if fid provided, we skip the global walk for hash
+        # but we still need to build the 'decisions' map for the subset being checked
 
         # Clear data cache if forced
         if force:
             IntegrityChecker._file_data_cache = {k: v for k, v in IntegrityChecker._file_data_cache.items() if not k.startswith(repo_path)}
 
         all_files = []
-        for root, _, filenames in os.walk(repo_path):
-            if ".git" in root or ".tx_backup" in root: continue
-            for f in filenames:
-                if f.endswith(".md") or f.endswith(".yaml"):
-                    rel_path = os.path.relpath(os.path.join(root, f), repo_path)
-                    all_files.append(rel_path)
+        if fid:
+            # Incremental validation: only check this file and its direct links
+            # We still need the list of all files to verify presence of link targets
+            # But we can get this from os.listdir or similar if we want to be super fast.
+            # For now, let's just use the cached walk if available or do a quick list.
+            all_files = [fid]
+        else:
+            for root, _, filenames in os.walk(repo_path):
+                if ".git" in root or ".tx_backup" in root: continue
+                for f in filenames:
+                    if f.endswith(".md") or f.endswith(".yaml"):
+                        rel_path = os.path.relpath(os.path.join(root, f), repo_path)
+                        all_files.append(rel_path)
         
         decisions = {}
-        
         from .loader import MemoryLoader
+
+        # If incremental, we only parse the files we care about,
+        # but we need 'decisions' map of ALL files to verify links.
+        # This is where we MUST rely on cache for the rest of the repo.
+        if fid:
+            # For incremental check to work, we need a full 'decisions' view.
+            # If cache is empty, we have to do a full scan anyway once.
+            if not IntegrityChecker._file_data_cache:
+                IntegrityChecker.validate(repo_path, force=True)
+                return # Full check was done
+            
+            # Use cached decisions for everything else
+            for f_path, (ts, data) in IntegrityChecker._file_data_cache.items():
+                rel = os.path.relpath(f_path, repo_path)
+                decisions[rel] = data
         
         for f in all_files:
             file_path = os.path.join(repo_path, f)

@@ -417,21 +417,25 @@ class VectorStore:
 
         logger.info("Vector store compaction complete")
 
-    def add_documents(self, documents: List[Dict[str, Any]]):
-        if not documents or not EMBEDDING_AVAILABLE: return
+    def add_documents(self, documents: List[Dict[str, Any]], embeddings: Optional[List[np.ndarray]] = None):
+        if not documents: return
         
-        texts = [doc["content"] for doc in documents]
-        ids = [doc["id"] for doc in documents]
-        
-        pool = self._get_pool()
-        if pool:
-            # Multi-process encoding for lists of sentences
-            new_embeddings = self.model.encode(texts, pool=pool, batch_size=32)
+        if embeddings is not None:
+            new_embeddings = np.array(embeddings).astype('float32')
+        elif EMBEDDING_AVAILABLE:
+            texts = [doc["content"] for doc in documents]
+            pool = self._get_pool()
+            if pool:
+                # Multi-process encoding for lists of sentences
+                new_embeddings = self.model.encode(texts, pool=pool, batch_size=32)
+            else:
+                # Single-process encoding
+                new_embeddings = self.model.encode(texts)
+            new_embeddings = np.array(new_embeddings).astype('float32')
         else:
-            # Single-process encoding
-            new_embeddings = self.model.encode(texts)
+            return
             
-        new_embeddings = np.array(new_embeddings).astype('float32')
+        ids = [doc["id"] for doc in documents]
 
         # Normalize immediately for dot-product optimization
         norms = np.linalg.norm(new_embeddings, axis=1, keepdims=True)
