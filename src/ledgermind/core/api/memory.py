@@ -753,15 +753,15 @@ class Memory:
         if current_status != "draft":
             raise ValueError(f"Proposal {proposal_id} is already {current_status}")
 
-        with self.semantic.transaction():
-            supersedes = ctx.get("suggested_supersedes", [])
-            grounding_ids = set(ctx.get("evidence_event_ids", []))
-            try:
-                grounding_ids.update(self.episodic.get_linked_event_ids(proposal_id))
-            except Exception: pass
-            evidence_ids = list(grounding_ids)
-            
-            try:
+        try:
+            with self.semantic.transaction():
+                supersedes = ctx.get("suggested_supersedes", [])
+                grounding_ids = set(ctx.get("evidence_event_ids", []))
+                try:
+                    grounding_ids.update(self.episodic.get_linked_event_ids(proposal_id))
+                except Exception: pass
+                evidence_ids = list(grounding_ids)
+                
                 if supersedes:
                     decision = self.supersede_decision(
                         title=ctx.get("title"),
@@ -787,12 +787,15 @@ class Memory:
                         {"status": "accepted", "converted_to": new_id}, 
                         commit_msg=f"Accepted and converted to {new_id}"
                     )
-            except Exception as e:
-                # Explicitly rollback proposal to draft (Issue #9)
-                # Note: Transaction rollback will also handle this, but this adds extra insurance for the episodic log or other non-transactional components.
-                logger.warning(f"Proposal conversion failed: {e}. Ensuring status remains 'draft'.")
+        except Exception as e:
+            # Explicitly rollback proposal to draft (Issue #9)
+            # This is now OUTSIDE the transaction above, so it will persist even if the transaction failed.
+            logger.warning(f"Proposal conversion failed: {e}. Ensuring status remains 'draft'.")
+            try:
                 self.semantic.update_decision(proposal_id, {"status": "draft"}, f"Conversion failed: {str(e)}")
-                raise
+            except Exception as ue:
+                logger.error(f"Critical: Failed to reset proposal status to draft: {ue}")
+            raise
         return decision
 
     def reject_proposal(self, proposal_id: str, reason: str):
@@ -853,8 +856,12 @@ class Memory:
             current_layer_ids = [m['superseded_by'] for m in new_batch if m.get('superseded_by')]
             current_layer_ids = [fid for fid in current_layer_ids if fid and fid not in request_cache]
             iteration += 1
+        
+        if current_layer_ids:
+            logger.warning(f"Deep supersession chain detected (>5 levels). Falling back to CTE for {len(current_layer_ids)} records.")
 
-        all_candidates = []
+        # Aggregate scores for identical truth records (RRF Aggregation)
+        final_candidates = {} 
         for fid in sorted_fids:
             meta = self._resolve_to_truth(fid, mode, cache=request_cache)
             if not meta: continue
@@ -866,6 +873,13 @@ class Memory:
             if mode == "strict" and status != "active": continue
 
             final_id = meta['fid']
+            match_score = scores[fid] / max_rrf
+
+            if final_id in final_candidates:
+                # Accumulate score contribution from this historical/related match
+                final_candidates[final_id]['base_score'] += match_score
+                continue
+
             link_count, _ = self.episodic.count_links_for_semantic(final_id)
             boost = min(link_count * 0.2, 1.0) 
             
@@ -881,11 +895,11 @@ class Memory:
             if status in ("rejected", "falsified"): lifecycle_multiplier *= 0.2
             elif status in ("superseded", "deprecated"): lifecycle_multiplier *= 0.3
             
-            final_score = (scores[fid] / max_rrf) * (1.0 + boost) * lifecycle_multiplier
-            
-            all_candidates.append({
+            final_candidates[final_id] = {
                 "id": final_id,
-                "score": final_score,
+                "base_score": match_score,
+                "boost": boost,
+                "lifecycle_multiplier": lifecycle_multiplier,
                 "status": status,
                 "title": meta.get("title", "unknown"),
                 "preview": meta.get("title", "unknown"),
@@ -897,7 +911,13 @@ class Memory:
                 "evidence_count": link_count,
                 "vitality": vitality,
                 "phase": phase
-            })
+            }
+
+        all_candidates = []
+        for cand in final_candidates.values():
+            # Apply multipliers to the aggregated base score
+            cand['score'] = cand['base_score'] * (1.0 + cand['boost']) * cand['lifecycle_multiplier']
+            all_candidates.append(cand)
 
         all_candidates.sort(key=lambda x: x['score'], reverse=True)
         final_results = []

@@ -35,7 +35,7 @@ class TestDecorator:
             return server
 
     def test_handle_record_decision_success(self, server):
-        req = RecordDecisionRequest(title="Test", target="Target", rationale="Rationale is long enough now", consequences=[], namespace="default")
+        req = RecordDecisionRequest(title="Test", target="Target", rationale="Short but valid rationale", consequences=[], namespace="default")
         server.memory.record_decision.return_value.metadata = {"file_id": "dec_123"}
 
         with patch('ledgermind.server.server.TOOL_CALLS') as mock_calls, \
@@ -59,7 +59,7 @@ class TestDecorator:
             )
 
     def test_handle_record_decision_failure(self, server):
-        req = RecordDecisionRequest(title="Test", target="Target", rationale="Rationale is long enough now", consequences=[], namespace="default")
+        req = RecordDecisionRequest(title="Test", target="Target", rationale="Short but valid rationale", consequences=[], namespace="default")
         server.memory.record_decision.side_effect = Exception("Memory Error")
 
         with patch('ledgermind.server.server.TOOL_CALLS') as mock_calls, \
@@ -83,7 +83,7 @@ class TestDecorator:
             )
 
     def test_handle_supersede_decision_success(self, server):
-        req = SupersedeDecisionRequest(title="Test", target="Target", rationale="Rationale is long enough now for supersede", old_decision_ids=["old_1"], consequences=[], namespace="default")
+        req = SupersedeDecisionRequest(title="Test", target="Target", rationale="Short valid rationale for supersede", old_decision_ids=["old_1"], consequences=[], namespace="default")
         server.memory.supersede_decision.return_value.metadata = {"file_id": "dec_456"}
 
         with patch('ledgermind.server.server.TOOL_CALLS') as mock_calls, \
@@ -121,3 +121,21 @@ class TestDecorator:
             server.audit_logger.log_access.assert_called_with(
                 "agent", "search_decisions", req.model_dump(), True, commit_hash=None
             )
+
+    def test_handle_record_decision_redaction(self, server):
+        # Long rationale that should be redacted
+        long_rationale = "This is a very long rationale that should definitely be redacted by the new redaction helper we just implemented."
+        req = RecordDecisionRequest(title="Test", target="Target", rationale=long_rationale, consequences=[], namespace="default")
+        server.memory.record_decision.return_value.metadata = {"file_id": "dec_123"}
+
+        with patch('ledgermind.server.server.TOOL_CALLS'), \
+             patch('ledgermind.server.server.TOOL_LATENCY'):
+
+            server.handle_record_decision(req)
+
+            # Extract the actual data passed to log_access
+            call_args = server.audit_logger.log_access.call_args[0]
+            req_dump = call_args[2]
+
+            assert "[REDACTED]" in req_dump["rationale"]
+            assert len(req_dump["rationale"]) < len(long_rationale)

@@ -14,12 +14,18 @@ class FileSystemLock:
     Cross-platform file locking mechanism (using fcntl on Unix/Android).
     Thread-safe and process-safe.
     """
-    _thread_lock = threading.RLock() # Class-level lock for all instances
+    _locks = {}
+    _locks_mutex = threading.Lock()
 
     def __init__(self, lock_path: str, timeout: int = 60):
-        self.lock_path = lock_path
+        self.lock_path = os.path.abspath(lock_path)
         self.timeout = timeout
         self._fd = None
+        
+        with self._locks_mutex:
+            if self.lock_path not in self._locks:
+                self._locks[self.lock_path] = threading.RLock()
+            self._thread_lock = self._locks[self.lock_path]
 
     def acquire(self, exclusive: bool = True, timeout: Optional[int] = None):
         # 1. Acquire thread lock first
