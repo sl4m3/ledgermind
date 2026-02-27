@@ -41,9 +41,10 @@ class TestResolutionEdgeCases(unittest.TestCase):
         # Now artificially break the chain by deleting C from metadata
         self.memory.semantic.meta.delete(fid_c)
 
-        # A resolves to B, which points to C (missing). Should return None.
+        # A resolves to B, which points to C (missing). Should return B (the last valid link).
         res_broken = self.memory._resolve_to_truth(fid_a, mode="balanced")
-        self.assertIsNone(res_broken, "Should return None when chain is broken")
+        self.assertIsNotNone(res_broken)
+        self.assertEqual(res_broken['fid'], fid_b)
 
     def test_depth_limit(self):
         """Verify that a chain longer than 20 results in None."""

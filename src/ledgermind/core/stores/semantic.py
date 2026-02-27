@@ -174,8 +174,8 @@ class SemanticStore:
                         keywords=sync_keywords,
                         confidence=sync_ctx.get("confidence", 1.0) if sync_ctx else 1.0,
                         context_json=json.dumps(sync_ctx or {}),
-                        phase=sync_ctx.get("phase", "pattern"),
-                        vitality=sync_ctx.get("vitality", "active"),
+                        phase=sync_ctx.get("phase", existing.get('phase', 'pattern') if existing else 'pattern'),
+                        vitality=sync_ctx.get("vitality", existing.get('vitality', 'active') if existing else 'active'),
                         reinforcement_density=sync_ctx.get("reinforcement_density", 0.0),
                         stability_score=sync_ctx.get("stability_score", 0.0),
                         coverage=sync_ctx.get("coverage", 0.0)
@@ -415,6 +415,15 @@ class SemanticStore:
             
             final_target_upd = ctx.get("target") or old_data.get("context", {}).get("target") or "unknown"
             final_ns_upd = ctx.get("namespace") or old_data.get("context", {}).get("namespace") or "default"
+            
+            # Use existing timestamp from meta if file doesn't have one and we are not forcing it
+            if not ts:
+                existing_meta = self.meta.get_by_fid(filename)
+                if existing_meta:
+                    ts = existing_meta.get('timestamp')
+                    if isinstance(ts, str):
+                        try: ts = datetime.fromisoformat(ts)
+                        except ValueError: ts = None
 
             try:
                 self._upsert_metadata(

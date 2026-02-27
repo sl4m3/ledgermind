@@ -141,10 +141,11 @@ class LifecycleEngine:
         stream.confidence = stream.confidence * (1.0 - momentum) + calculated_conf * momentum
         
         if stream.phase == DecisionPhase.PATTERN:
-            # Transition to EMERGENT requires some minimum evidence
-            if stream.frequency >= 3 or stream.estimated_removal_cost >= 0.4:
+            # Transition to EMERGENT requires some minimum evidence or confidence
+            if stream.frequency >= 3 or stream.estimated_removal_cost >= 0.4 or stream.confidence >= 0.5:
                 # Interventions skip strict lifetime checks typically
-                if stream.lifetime_days > 1.0 or getattr(stream, 'provenance', 'internal') == 'external' or stream.estimated_removal_cost >= 0.5:
+                # For patterns, we allow earlier crystallization if the signal is strong
+                if stream.lifetime_days > 0.5 or stream.frequency >= 5 or getattr(stream, 'provenance', 'internal') == 'external' or stream.estimated_removal_cost >= 0.5:
                     stream.phase = DecisionPhase.EMERGENT
                     
         elif stream.phase == DecisionPhase.EMERGENT:
