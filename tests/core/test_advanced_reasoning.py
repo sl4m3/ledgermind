@@ -65,11 +65,14 @@ def test_arbiter_callback_logic_supersede(temp_memory_path, monkeypatch):
     
     # Mock the vector model to return controlled similarity (0.6)
     mock_model = MagicMock()
-    # Sequence of returns: first call (record V1), second call (record V2)
+    # Sequence of returns: 
+    # 1. record Domain A (add_documents)
+    # 2. record Domain B (similarity check in record_decision)
+    # 3. supersede Domain B (add_documents in process_event)
     v1 = np.zeros(384, dtype='float32'); v1[0] = 1.0
     v2 = np.zeros(384, dtype='float32'); v2[0] = 0.6; v2[1] = 0.8 # Cosine sim = 0.6
     
-    mock_model.encode.side_effect = [np.array([v1]), np.array([v2])]
+    mock_model.encode.side_effect = [np.array([v1]), np.array([v2]), np.array([v2])]
     mock_model.get_sentence_embedding_dimension.return_value = 384
     
     # Inject mock into cache
