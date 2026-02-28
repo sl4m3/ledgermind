@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772286726870,
+  "lastUpdate": 1772291351355,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4256,6 +4256,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000005935096867349819",
             "extra": "mean: 58.10022646021743 usec\nrounds: 3356"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "eb04b8ce6436c87298f12a0bf601f314a8b0d16c",
+          "message": "feat(cli): enhance init command with interactive arrow-key menus\n\n- Switched from 'rich.prompt' to 'questionary' for the 'ledgermind init' command.\n- Users can now use arrow keys to seamlessly select embedding models, clients, and arbitration modes.\n- Added 'questionary' to core dependencies.\n- Updated smoke tests with accurate questionary mocking.",
+          "timestamp": "2026-02-28T18:06:54+03:00",
+          "tree_id": "2ae285be85d3fca4664e939faf348c72dad36e35",
+          "url": "https://github.com/sl4m3/ledgermind/commit/eb04b8ce6436c87298f12a0bf601f314a8b0d16c"
+        },
+        "date": 1772291350999,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 22.98139151587377,
+            "unit": "iter/sec",
+            "range": "stddev: 0.012954600891052518",
+            "extra": "mean: 43.51346607142032 msec\nrounds: 42"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 23997.885793913934,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000004321824858116724",
+            "extra": "mean: 41.67033748671346 usec\nrounds: 2969"
           }
         ]
       }
