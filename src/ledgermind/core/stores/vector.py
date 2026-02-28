@@ -517,7 +517,7 @@ class VectorStore:
         
         if embeddings is not None:
             new_embeddings = np.array(embeddings).astype('float32')
-        elif _is_transformers_available():
+        elif self.model is not None:
             texts = [doc["content"] for doc in documents]
             pool = self._get_pool()
             if pool:
