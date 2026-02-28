@@ -185,13 +185,20 @@ class EpisodicStore:
         """Checks if an identical event (source, kind, content, context) already exists."""
         # Handle context serialization for comparison
         context_data = event.context
-        if hasattr(context_data, 'model_dump'):
-            context_dict = context_data.model_dump(mode='json')
+        
+        # Optimization: if context is empty or very small, use simple string
+        if not context_data:
+            context_json = "{}"
+        elif isinstance(context_data, dict):
+            # Avoid expensive sort_keys if not needed, but for duplicates we need stability
+            context_json = json.dumps(context_data, sort_keys=True, default=str)
+        elif hasattr(context_data, 'model_dump'):
+            context_json = json.dumps(context_data.model_dump(mode='json'), sort_keys=True)
         else:
-            context_dict = context_data
-        context_json = json.dumps(context_dict, sort_keys=True)
+            context_json = json.dumps(context_data, sort_keys=True, default=str)
 
         with self._get_conn() as conn:
+            # Use the indexed columns first
             sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ?"
             params = [event.source, event.kind, event.content, context_json]
             
