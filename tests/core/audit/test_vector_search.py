@@ -18,11 +18,12 @@ def mock_vector_store(temp_storage):
     import ledgermind.core.stores.vector
     
     # Enable the engine flag so VectorStore thinks it can encode
-    ledgermind.core.stores.vector.EMBEDDING_AVAILABLE = True
+    ledgermind.core.stores.vector.LLAMA_AVAILABLE = True
     
     vs = VectorStore(temp_storage, dimension=4)
-    vs._model = MagicMock()
-    vs._model.get_sentence_embedding_dimension.return_value = 4
+    # Inject mock into cache to prevent real loading/downloading logic
+    mock_model = MagicMock()
+    mock_model.get_sentence_embedding_dimension.return_value = 4
     def mock_encode(texts):
         # Create unique vectors for each text to test direction
         embs = []
@@ -33,7 +34,8 @@ def mock_vector_store(temp_storage):
             else: emb[2] = 1.0
             embs.append(emb)
         return np.array(embs, dtype='float32')
-    vs._model.encode = mock_encode
+    mock_model.encode = mock_encode
+    ledgermind.core.stores.vector._MODEL_CACHE[vs.model_name] = mock_model
     
     return vs
 
@@ -60,7 +62,7 @@ def test_vector_store_persistence(temp_storage):
     _MODEL_CACHE.clear()
     
     # Enable the engine flag
-    ledgermind.core.stores.vector.EMBEDDING_AVAILABLE = True
+    ledgermind.core.stores.vector.LLAMA_AVAILABLE = True
     
     vs = VectorStore(temp_storage, dimension=4)
     # Mocking the model to return 4-dim vectors
