@@ -80,12 +80,15 @@ async def sse_events(mem: Memory = Depends(get_memory)):
             
         mem.events.subscribe(on_change)
         
-        while True:
-            change = await queue.get()
-            yield {
-                "event": change["event"],
-                "data": json.dumps(change["data"])
-            }
+        try:
+            while True:
+                change = await queue.get()
+                yield {
+                    "event": change["event"],
+                    "data": json.dumps(change["data"])
+                }
+        finally:
+            mem.events.unsubscribe(on_change)
 
     return EventSourceResponse(event_generator())
 
@@ -125,6 +128,8 @@ async def websocket_endpoint(
             await websocket.send_json({"status": "received", "echo": data})
     except WebSocketDisconnect:
         logger.info("WebSocket client disconnected")
+    finally:
+        mem.events.unsubscribe(on_change)
 
 @app.get("/health")
 async def health():
