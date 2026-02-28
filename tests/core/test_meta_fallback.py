@@ -22,7 +22,7 @@ def test_fallback_search(store):
 
     # Search for "Python"
     results = store.keyword_search("Python")
-    titles = [r['title'] for r in results]
+    titles = [r[1] for r in results] # Index 1 is title in raw tuples
     assert "Python Optimization" in titles
     assert "Python Memory" in titles
     assert "Java Performance" not in titles
@@ -31,11 +31,11 @@ def test_fallback_search(store):
     # With AND logic, should match "Python Memory" (has both)
     # "Python Optimization" has "Python" but not "Memory" -> Should NOT match
     results = store.keyword_search("Python Memory")
-    titles = [r['title'] for r in results]
+    titles = [r[1] for r in results]
     assert "Python Memory" in titles
     assert "Python Optimization" not in titles
 
     # Search for "fast"
     results = store.keyword_search("fast")
-    titles = [r['title'] for r in results]
+    titles = [r[1] for r in results]
     assert "Python Optimization" in titles
