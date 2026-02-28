@@ -659,19 +659,25 @@ class Memory:
                                 sim = 0.71
 
                         if sim > 0.70:
-                            res = self.supersede_decision(
-                                title=title,
-                                target=target,
-                                rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
-                                old_decision_ids=[old_fid],
-                                consequences=consequences,
-                                evidence_ids=evidence_ids,
-                                namespace=effective_namespace,
-                                vector=new_vec # Reuse the vector we just computed
-                            )
-                            return res
+                            try:
+                                res = self.supersede_decision(
+                                    title=title,
+                                    target=target,
+                                    rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
+                                    old_decision_ids=[old_fid],
+                                    consequences=consequences,
+                                    evidence_ids=evidence_ids,
+                                    namespace=effective_namespace,
+                                    vector=new_vec # Reuse the vector we just computed
+                                )
+                                return res
+                            except ConflictError:
+                                # Re-raise conflict errors to avoid double reporting
+                                raise
+                            except Exception as e:
+                                logger.warning(f"Auto-resolution failed for {old_fid}: {e}")
             except Exception as e:
-                logger.warning(f"Auto-resolution failed: {e}")
+                logger.warning(f"Similarity check failed: {e}")
             
             suggestions = self.targets.suggest(target)
             msg = f"CONFLICT: Target '{target}' in namespace '{effective_namespace}' already has active decisions: {active_conflicts}. "
