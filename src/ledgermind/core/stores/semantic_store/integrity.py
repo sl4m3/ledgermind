@@ -52,8 +52,8 @@ class IntegrityChecker:
         Scans the repository and ensures all integrity invariants are met.
         Supports incremental validation if fid is provided.
         """
+        current_hash = IntegrityChecker._get_state_hash(repo_path)
         if not fid:
-            current_hash = IntegrityChecker._get_state_hash(repo_path)
             if not force and IntegrityChecker._state_cache.get(repo_path) == current_hash:
                 return
         
