@@ -143,6 +143,9 @@ class SemanticMetaStore:
                phase: str = "pattern", vitality: str = "active", reinforcement_density: float = 0.0, 
                stability_score: float = 0.0, coverage: float = 0.0):
         """Atomic upsert of decision metadata with content caching."""
+        # Ensure timestamp is in ISO format string
+        ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
+
         self._conn.execute("""
             INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -160,7 +163,7 @@ class SemanticMetaStore:
                 reinforcement_density=excluded.reinforcement_density,
                 stability_score=excluded.stability_score,
                 coverage=excluded.coverage
-        """, (fid, target, title, status, kind, timestamp.isoformat(), superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage))
+        """, (fid, target, title, status, kind, ts_str, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage))
 
 
     def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
