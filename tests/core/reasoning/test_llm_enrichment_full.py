@@ -119,7 +119,7 @@ def test_process_batch_filters_and_updates(test_memory, sample_proposal):
     
     # Run batch enrichment in 'optimal' mode (mocked)
     enricher = LLMEnricher(mode="optimal")
-    with patch.object(enricher, '_call_optimal_model', return_value="Enriched!"):
+    with patch.object(enricher, '_call_model', return_value="Enriched!"):
         enricher.process_batch(test_memory)
 
     # Sync meta to ensure we read fresh data from DB
@@ -148,7 +148,7 @@ def test_process_batch_handles_errors_gracefully(test_memory, sample_proposal):
     
     enricher = LLMEnricher(mode="optimal")
     # Simulate LLM crash
-    with patch.object(enricher, '_call_optimal_model', side_effect=RuntimeError("LLM Down")):
+    with patch.object(enricher, '_call_model', side_effect=RuntimeError("LLM Down")):
         enricher.process_batch(test_memory)
     
     # Sync and verify status remained 'pending'
