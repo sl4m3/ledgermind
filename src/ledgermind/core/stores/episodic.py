@@ -186,30 +186,30 @@ class EpisodicStore:
         # Handle context serialization for comparison
         context_data = event.context
         
-        # Optimization: if context is empty or very small, use simple string
+        # Optimization: use pre-calculated or simple serialization
         if not context_data:
             context_json = "{}"
         elif isinstance(context_data, dict):
-            # Avoid expensive sort_keys if not needed, but for duplicates we need stability
-            context_json = json.dumps(context_data, sort_keys=True, default=str)
+            # Sort keys only for consistency, avoid default=str if possible
+            context_json = json.dumps(context_data, sort_keys=True)
         elif hasattr(context_data, 'model_dump'):
+            # Expensive path for Pydantic objects
             context_json = json.dumps(context_data.model_dump(mode='json'), sort_keys=True)
         else:
             context_json = json.dumps(context_data, sort_keys=True, default=str)
 
         with self._get_conn() as conn:
             # Use the indexed columns first
-            sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ?"
-            params = [event.source, event.kind, event.content, context_json]
-            
-            if not ignore_links:
+            if ignore_links:
+                sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? LIMIT 1"
+                params = [event.source, event.kind, event.content, context_json]
+            else:
                 if linked_id is not None:
-                    sql += " AND linked_id = ?"
-                    params.append(linked_id)
+                    sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? AND linked_id = ? LIMIT 1"
+                    params = [event.source, event.kind, event.content, context_json, linked_id]
                 else:
-                    sql += " AND linked_id IS NULL"
-                
-            sql += " LIMIT 1"
+                    sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? AND linked_id IS NULL LIMIT 1"
+                    params = [event.source, event.kind, event.content, context_json]
             
             cursor = conn.execute(sql, params)
             row = cursor.fetchone()
