@@ -626,65 +626,76 @@ class Memory:
 
         active_conflicts = self.semantic.list_active_conflicts(target, namespace=effective_namespace)
         new_vec_cached = None
-        if active_conflicts:
+        
+        if self.vector:
             try:
+                # Always compute vector for new decision to ensure consistency
                 from ledgermind.core.stores.vector import _is_transformers_available
-                if _is_transformers_available() and self.vector and self.vector._vectors is not None:
-                    import numpy as np
-                    from difflib import SequenceMatcher
-                    
+                
+                # We can compute vector if transformers are available OR if we have a custom model (mock)
+                can_compute = _is_transformers_available() or (hasattr(self.vector, "model") and self.vector.model is not None)
+                
+                if can_compute:
                     new_text = f"{title}\n{rationale}"
                     new_vec = self.vector.model.encode([new_text])[0]
                     new_vec_cached = new_vec # Cache for later indexing
-                    new_norm = np.linalg.norm(new_vec)
-                    
-                    for old_fid in active_conflicts:
-                        old_meta = self.semantic.meta.get_by_fid(old_fid)
-                        old_vec = self.vector.get_vector(old_fid)
-                        if old_vec is None or not old_meta:
-                            continue
-                            
-                        old_norm = np.linalg.norm(old_vec)
-                        sim = float(np.dot(new_vec, old_vec) / (new_norm * old_norm + 1e-9))
+    
+                    if active_conflicts:
+                        import numpy as np
+                        from difflib import SequenceMatcher
                         
-                        old_title = old_meta.get('title', '')
-                        title_sim = SequenceMatcher(None, title.lower(), old_title.lower()).ratio()
-                        if title_sim > 0.90:
-                            sim = max(sim, 0.71)
+                        new_norm = np.linalg.norm(new_vec)
+                        
+                        for old_fid in active_conflicts:
+                            old_meta = self.semantic.meta.get_by_fid(old_fid)
+                            old_vec = self.vector.get_vector(old_fid)
+                            if old_vec is None or not old_meta:
+                                continue
+        
+                            old_norm = np.linalg.norm(old_vec)
+                            sim = float(np.dot(new_vec, old_vec) / (new_norm * old_norm + 1e-9))
 
-                        if 0.50 <= sim < 0.70 and arbiter_callback:
-                            new_data = {"title": title, "rationale": rationale}
-                            old_data = {"title": old_title, "rationale": old_meta.get('content', '')}
-                            if arbiter_callback(new_data, old_data) == "SUPERSEDE":
-                                sim = 0.71
+                            logger.debug(f"Conflict Check: {old_fid} | Sim: {sim:.4f} | Arbiter: {bool(arbiter_callback)}")
 
-                        if sim > 0.70:
-                            try:
-                                res = self.supersede_decision(
-                                    title=title,
-                                    target=target,
-                                    rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
-                                    old_decision_ids=[old_fid],
-                                    consequences=consequences,
-                                    evidence_ids=evidence_ids,
-                                    namespace=effective_namespace,
-                                    vector=new_vec # Reuse the vector we just computed
-                                )
-                                return res
-                            except ConflictError:
-                                # Re-raise conflict errors to avoid double reporting
-                                raise
-                            except Exception as e:
-                                logger.warning(f"Auto-resolution failed for {old_fid}: {e}")
+                            old_title = old_meta.get('title', '')
+
+                            title_sim = SequenceMatcher(None, title.lower(), old_title.lower()).ratio()
+                            if title_sim > 0.90:
+                                sim = max(sim, 0.71)
+        
+                            if 0.50 <= sim < 0.70 and arbiter_callback:
+                                new_data = {"title": title, "rationale": rationale}
+                                old_data = {"title": old_title, "rationale": old_meta.get('content', '')}
+                                if arbiter_callback(new_data, old_data) == "SUPERSEDE":
+                                    sim = 0.71
+        
+                            if sim > 0.70:
+                                try:
+                                    res = self.supersede_decision(
+                                        title=title,
+                                        target=target,
+                                        rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
+                                        old_decision_ids=[old_fid],
+                                        consequences=consequences,
+                                        evidence_ids=evidence_ids,
+                                        namespace=effective_namespace,
+                                        vector=new_vec # Reuse the vector we just computed
+                                    )
+                                    return res
+                                except ConflictError:
+                                    # Re-raise conflict errors to avoid double reporting
+                                    raise
+                                except Exception as e:
+                                    logger.warning(f"Auto-resolution failed for {old_fid}: {e}")
             except Exception as e:
                 logger.warning(f"Similarity check failed: {e}")
             
-            suggestions = self.targets.suggest(target)
-            msg = f"CONFLICT: Target '{target}' in namespace '{effective_namespace}' already has active decisions: {active_conflicts}. "
-            if suggestions:
-                msg += f"Did you mean: {', '.join(suggestions)}?"
-            raise ConflictError(msg)
-
+            if active_conflicts:
+                suggestions = self.targets.suggest(target)
+                msg = f"CONFLICT: Target '{target}' in namespace '{effective_namespace}' already has active decisions: {active_conflicts}. "
+                if suggestions:
+                    msg += f"Did you mean: {', '.join(suggestions)}?"
+                raise ConflictError(msg)
         import uuid
         ctx = DecisionStream(
             decision_id=str(uuid.uuid4()),
