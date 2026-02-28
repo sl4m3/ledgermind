@@ -53,6 +53,7 @@ Memory (core/api/memory.py)
 │
 ├── VectorStore            Cosine similarity index (NumPy matrix)
 │   ├── GGUF Support       4-bit quantization via llama-cpp-python
+│   ├── Lazy Loading       ML libraries (transformers) loaded only on demand
 │   ├── Embedding Cache    Lru-style cache prevents redundant llama.cpp calls
 │   ├── Model Caching      Singleton pattern avoids redundant RAM usage
 │   └── Auto-Dimension     Dynamic detection (e.g. 1024 for Jina v5 Small)
@@ -146,10 +147,13 @@ search_decisions(query, limit, mode)
 4. Resolve to Truth                         — follow superseded_by chains
         │
         ▼
-5. Evidence boost                           — +20% score per episodic link
+5. Normative Weighting             — apply Kind (+35%) and Phase (1.5x) multipliers
         │
         ▼
-6. Truncate & Paginate                      — apply final ranking and limit
+6. Evidence boost                   — +20% score per episodic link
+        │
+        ▼
+7. Truncate & Paginate              — apply final ranking and limit
 ```
 
 ---
