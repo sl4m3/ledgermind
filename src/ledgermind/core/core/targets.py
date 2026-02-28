@@ -1,6 +1,7 @@
 import json
 import os
 import logging
+from datetime import datetime
 from typing import List, Dict, Optional
 from difflib import get_close_matches
 
@@ -76,17 +77,22 @@ class TargetRegistry:
 
     def register(self, name: str, description: str = "", aliases: List[str] = None):
         """Registers a new canonical target."""
+        changed = False
         if name not in self.targets:
             self.targets[name] = {
                 "description": description,
-                "created_at": str(os.path.getctime(self.file_path)) if os.path.exists(self.file_path) else None
+                "created_at": str(datetime.now()) # Use datetime for consistency
             }
+            changed = True
         
         if aliases:
             for a in aliases:
-                self.aliases[a] = name
+                if self.aliases.get(a) != name:
+                    self.aliases[a] = name
+                    changed = True
         
-        self._save()
+        if changed:
+            self._save()
 
     def suggest(self, query: str, limit: int = 3) -> List[str]:
         """Suggests existing targets similar to the query."""
