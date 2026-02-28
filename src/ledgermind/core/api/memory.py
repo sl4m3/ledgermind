@@ -107,7 +107,7 @@ class Memory:
             model_name=self.config.vector_model,
             workers=self.config.vector_workers
         )
-        self.vector.load()
+        # Deferred loading (VectorStore will load on first document addition or search)
 
         self.conflict_engine = ConflictEngine(self.semantic.repo_path, meta_store=self.semantic.meta)
         self.resolution_engine = ResolutionEngine(self.semantic.repo_path)
