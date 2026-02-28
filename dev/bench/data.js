@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772301980417,
+  "lastUpdate": 1772303701625,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4446,6 +4446,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000006482674958635194",
             "extra": "mean: 57.48403260185154 usec\nrounds: 3190"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "48c5af02df1c33ac4d46583ea8283cc2819b119d",
+          "message": "perf(core): reach maximum recording throughput by removing synchronous integrity checks and optimizing SQL",
+          "timestamp": "2026-02-28T21:32:50+03:00",
+          "tree_id": "46fdaaf13997476405465981fe901f12e6acefd5",
+          "url": "https://github.com/sl4m3/ledgermind/commit/48c5af02df1c33ac4d46583ea8283cc2819b119d"
+        },
+        "date": 1772303700660,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 24.310402061133935,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011884415042793318",
+            "extra": "mean: 41.134654930234255 msec\nrounds: 43"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17603.96232123591,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005563889287164389",
+            "extra": "mean: 56.80539311275881 usec\nrounds: 3630"
           }
         ]
       }
