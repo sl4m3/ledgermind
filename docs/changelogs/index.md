@@ -4,6 +4,14 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.0.4] - 2026-02-28
+
+- **Bolt Optimization:** Eliminated N+1 database queries in context retrieval.
+- **Sentinel Stability:** Fixed memory leaks in event listener management.
+- **Integrity Fixes:** Resolved critical validation bugs during incremental saves.
+- **Security Hardening:** Sanitized test environments and hardened SQL batching.
+- **VS Code:** Improved status bar accessibility and extension reliability.
+
 ## [v3.0.3] - 2026-02-28
 
 - **Extreme Startup Optimization:** Implemented lazy loading for heavy machine 
