@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772307188014,
+  "lastUpdate": 1772307736253,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4636,6 +4636,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000022292716417628823",
             "extra": "mean: 162.39400000017667 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "96d607389f19cc470c0067393cb1d034f63cf0bb",
+          "message": "perf: optimize keyword_search with subquery and tuple mapping to restore 14000+ ops",
+          "timestamp": "2026-02-28T22:39:20+03:00",
+          "tree_id": "da2aae77034e61f5ba44da415eb512b7d7f507d3",
+          "url": "https://github.com/sl4m3/ledgermind/commit/96d607389f19cc470c0067393cb1d034f63cf0bb"
+        },
+        "date": 1772307735968,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 69.71371852347566,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003091179484064434",
+            "extra": "mean: 14.344378999999208 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 16531.33016530017,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015504275742361144",
+            "extra": "mean: 60.491200042633864 usec\nrounds: 5"
           }
         ]
       }
