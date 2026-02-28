@@ -76,13 +76,6 @@ class IntegrityChecker:
         decisions = {}
         from .loader import MemoryLoader
 
-        # Build 'decisions' view for link validation
-        repo_abs = os.path.abspath(repo_path)
-        for f_path, (ts, cached_data) in IntegrityChecker._file_data_cache.items():
-            if f_path.startswith(repo_abs):
-                rel = os.path.relpath(f_path, repo_path)
-                decisions[rel] = cached_data
-        
         for f in all_files:
             if f == fid and data is not None:
                 decisions[f] = data

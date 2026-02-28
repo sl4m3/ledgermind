@@ -247,8 +247,8 @@ class SemanticMetaStore:
         except Exception:
             # Fallback to simple LIKE
             pattern = f"%{query.lower()}%"
-            sql = "SELECT fid, title, target, status, kind, timestamp, namespace FROM semantic_meta WHERE (target LIKE ? OR title LIKE ?) AND namespace = ? LIMIT ?"
-            cursor = self._conn.execute(sql, (pattern, pattern, namespace, limit))
+            sql = "SELECT fid, title, target, status, kind, timestamp, namespace FROM semantic_meta WHERE (target LIKE ? OR title LIKE ? OR keywords LIKE ? OR content LIKE ?) AND namespace = ? LIMIT ?"
+            cursor = self._conn.execute(sql, (pattern, pattern, pattern, pattern, namespace, limit))
             return [{
                 "fid": r[0], "title": r[1], "target": r[2], "status": r[3], 
                 "kind": r[4], "timestamp": r[5], "namespace": r[6]

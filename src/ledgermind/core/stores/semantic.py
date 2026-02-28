@@ -333,11 +333,10 @@ class SemanticStore:
                 self._current_tx.stage_file(relative_path)
 
             if effective_namespace: os.makedirs(os.path.join(self.repo_path, effective_namespace), exist_ok=True)
-            
-            data = event.model_dump()
+
+            data = event.model_dump(mode='json')
             body = f"# {event.content}\n\nRecorded from source: {event.source}\n"
-            content = MemoryLoader.stringify(data, body)
-            
+            content = MemoryLoader.stringify(data, body)            
             with open(full_path, "w", encoding="utf-8") as f: 
                 f.write(content)
             

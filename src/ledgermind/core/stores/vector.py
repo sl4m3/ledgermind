@@ -403,16 +403,6 @@ class VectorStore:
             except Exception as e:
                 logger.debug(f"Error stopping pool: {e}")
             self._pool = None
-            
-        # Clean up model cache to prevent late-shutdown TypeError in llama-cpp
-        global _MODEL_CACHE
-        for model in list(_MODEL_CACHE.values()):
-            if hasattr(model, 'close'):
-                try:
-                    model.close()
-                except Exception:
-                    pass
-        _MODEL_CACHE.clear()
 
     def __del__(self):
         try:

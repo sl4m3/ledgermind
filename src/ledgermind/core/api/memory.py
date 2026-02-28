@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 from ledgermind.core.core.router import MemoryRouter
 from ledgermind.core.core.schemas import (
     MemoryEvent, MemoryDecision, ResolutionIntent, TrustBoundary, 
-    DecisionContent, DecisionStream, DecisionPhase, DecisionVitality, ProposalStatus, SEMANTIC_KINDS, KIND_DECISION, KIND_PROPOSAL, KIND_INTERVENTION,
+    DecisionContent, DecisionStream, ProposalContent, DecisionPhase, DecisionVitality, ProposalStatus, SEMANTIC_KINDS, KIND_DECISION, KIND_PROPOSAL, KIND_INTERVENTION,
     LedgermindConfig
 )
 from ledgermind.core.core.exceptions import InvariantViolation, ConflictError
@@ -342,7 +342,7 @@ class Memory:
                         raise ConflictError(f"Conflict detected during transaction: {conflict_msg}")
 
                     # 2. Prepare context for new decision
-                    if isinstance(event.context, (DecisionContent, DecisionStream)):
+                    if isinstance(event.context, (DecisionContent, DecisionStream, ProposalContent)):
                         if intent and intent.resolution_type == "supersede":
                             event.context.supersedes = intent.target_decision_ids
                         event.context.namespace = effective_namespace
@@ -643,8 +643,7 @@ class Memory:
                 from ledgermind.core.stores.vector import _is_transformers_available
                 can_compute = _is_transformers_available() or (hasattr(self.vector, "model") and self.vector.model is not None)
                 
-                if active_conflicts and can_compute:
-                    # Only compute vector immediately if we need to resolve conflicts
+                if can_compute:
                     import numpy as np
                     from difflib import SequenceMatcher
                     
@@ -653,47 +652,48 @@ class Memory:
                     new_vec_cached = new_vec # Cache for later indexing
                     new_norm = np.linalg.norm(new_vec)
                     
-                    for old_fid in active_conflicts:
-                        old_meta = self.semantic.meta.get_by_fid(old_fid)
-                        old_vec = self.vector.get_vector(old_fid)
-                        if old_vec is None or not old_meta:
-                            continue
-        
-                        old_norm = np.linalg.norm(old_vec)
-                        sim = float(np.dot(new_vec, old_vec) / (new_norm * old_norm + 1e-9))
+                    if active_conflicts:
+                        for old_fid in active_conflicts:
+                            old_meta = self.semantic.meta.get_by_fid(old_fid)
+                            old_vec = self.vector.get_vector(old_fid)
+                            if old_vec is None or not old_meta:
+                                continue
+            
+                            old_norm = np.linalg.norm(old_vec)
+                            sim = float(np.dot(new_vec, old_vec) / (new_norm * old_norm + 1e-9))
 
-                        logger.debug(f"Conflict Check: {old_fid} | Sim: {sim:.4f} | Arbiter: {bool(arbiter_callback)}")
+                            logger.debug(f"Conflict Check: {old_fid} | Sim: {sim:.4f} | Arbiter: {bool(arbiter_callback)}")
 
-                        old_title = old_meta.get('title', '')
+                            old_title = old_meta.get('title', '')
 
-                        title_sim = SequenceMatcher(None, title.lower(), old_title.lower()).ratio()
-                        if title_sim > 0.90:
-                            sim = max(sim, 0.71)
-        
-                        if 0.50 <= sim < 0.70 and arbiter_callback:
-                            new_data = {"title": title, "rationale": rationale}
-                            old_data = {"title": old_title, "rationale": old_meta.get('content', '')}
-                            if arbiter_callback(new_data, old_data) == "SUPERSEDE":
-                                sim = 0.71
-        
-                        if sim > 0.70:
-                            try:
-                                res = self.supersede_decision(
-                                    title=title,
-                                    target=target,
-                                    rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
-                                    old_decision_ids=[old_fid],
-                                    consequences=consequences,
-                                    evidence_ids=evidence_ids,
-                                    namespace=effective_namespace,
-                                    vector=new_vec # Reuse the vector we just computed
-                                )
-                                return res
-                            except ConflictError:
-                                # Re-raise conflict errors to avoid double reporting
-                                raise
-                            except Exception as e:
-                                logger.warning(f"Auto-resolution failed for {old_fid}: {e}")
+                            title_sim = SequenceMatcher(None, title.lower(), old_title.lower()).ratio()
+                            if title_sim > 0.90:
+                                sim = max(sim, 0.71)
+            
+                            if 0.50 <= sim < 0.70 and arbiter_callback:
+                                new_data = {"title": title, "rationale": rationale}
+                                old_data = {"title": old_title, "rationale": old_meta.get('content', '')}
+                                if arbiter_callback(new_data, old_data) == "SUPERSEDE":
+                                    sim = 0.71
+            
+                            if sim > 0.70:
+                                try:
+                                    res = self.supersede_decision(
+                                        title=title,
+                                        target=target,
+                                        rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
+                                        old_decision_ids=[old_fid],
+                                        consequences=consequences,
+                                        evidence_ids=evidence_ids,
+                                        namespace=effective_namespace,
+                                        vector=new_vec # Reuse the vector we just computed
+                                    )
+                                    return res
+                                except ConflictError:
+                                    # Re-raise conflict errors to avoid double reporting
+                                    raise
+                                except Exception as e:
+                                    logger.warning(f"Auto-resolution failed for {old_fid}: {e}")
             except Exception as e:
                 logger.warning(f"Similarity check failed: {e}")
             
@@ -861,17 +861,21 @@ class Memory:
         k = 60 # RRF constant
         
         # Fast path for simple keyword search in high-performance scenarios
-        if mode == "lite" or (len(query) < 20 and " " not in query.strip()):
+        if mode == "lite":
             kw_results = self.semantic.meta.keyword_search(query, limit=limit, namespace=effective_namespace)
             if kw_results:
                 # Minimum mapping needed for consistency
+                fids = [r['fid'] for r in kw_results]
+                link_counts = self.episodic.count_links_for_semantic_batch(fids)
                 return [{
                     "id": r['fid'],
                     "title": r.get('title', 'unknown'),
+                    "preview": r.get('title', 'unknown'),
                     "target": r.get('target', 'unknown'),
                     "status": r.get('status', 'active'),
                     "score": 1.0,
-                    "kind": r.get('kind', 'decision')
+                    "kind": r.get('kind', 'decision'),
+                    "evidence_count": link_counts.get(r['fid'], (0, 0))[0]
                 } for r in kw_results]
 
         if namespace:

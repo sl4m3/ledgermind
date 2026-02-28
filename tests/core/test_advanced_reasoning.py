@@ -17,6 +17,7 @@ def test_deep_grounding_inheritance(temp_memory_path, monkeypatch):
     associated with its predecessors.
     """
     from ledgermind.core.stores import vector
+    from ledgermind.core.stores.vector import _MODEL_CACHE
     monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", False)
     
     memory = Memory(storage_path=temp_memory_path, vector_model=None)
@@ -65,6 +66,7 @@ def test_arbiter_callback_logic_supersede(temp_memory_path, monkeypatch):
     import numpy as np
     from unittest.mock import MagicMock
     from ledgermind.core.stores import vector
+    from ledgermind.core.stores.vector import _MODEL_CACHE
     
     # Mock the vector model to return controlled similarity (0.6)
     mock_model = MagicMock()
@@ -80,9 +82,9 @@ def test_arbiter_callback_logic_supersede(temp_memory_path, monkeypatch):
     mock_model.encode.side_effect = mock_encode
     mock_model.get_sentence_embedding_dimension.return_value = 384
     
-    # Inject mock into cache and bypass availability check
-    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", True)
-    vector._MODEL_CACHE["mock-model"] = mock_model
+    monkeypatch.setattr("ledgermind.core.stores.vector.EMBEDDING_AVAILABLE", True)
+    from ledgermind.core.stores.vector import _MODEL_CACHE
+    _MODEL_CACHE["mock-model"] = mock_model
     
     memory = Memory(storage_path=temp_memory_path, vector_model="mock-model")
     target = "Arbiter-Supersede"
@@ -117,14 +119,16 @@ def test_arbiter_callback_logic_auto_supersede_over_0_7(temp_memory_path, monkey
     import numpy as np
     from unittest.mock import MagicMock
     from ledgermind.core.stores import vector
+    from ledgermind.core.stores.vector import _MODEL_CACHE
     
     mock_model = MagicMock()
     # Support multiple calls: record A, record B, supersede
     mock_model.encode.return_value = np.array([[1.0] * 384], dtype='float32')
     mock_model.get_sentence_embedding_dimension.return_value = 384
     
-    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", True)
-    vector._MODEL_CACHE["mock-model-high"] = mock_model
+    monkeypatch.setattr("ledgermind.core.stores.vector.EMBEDDING_AVAILABLE", True)
+    from ledgermind.core.stores.vector import _MODEL_CACHE
+    _MODEL_CACHE["mock-model-high"] = mock_model
     
     memory = Memory(storage_path=temp_memory_path, vector_model="mock-model-high")
     target = "Arbiter-Auto"
@@ -162,6 +166,7 @@ def test_hybrid_search_rrf_and_grounding_boost(temp_memory_path, monkeypatch):
     and that 'Evidence Boost' elevates grounded decisions.
     """
     from ledgermind.core.stores import vector
+    from ledgermind.core.stores.vector import _MODEL_CACHE
     monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", False)
     
     memory = Memory(storage_path=temp_memory_path, vector_model=None)
