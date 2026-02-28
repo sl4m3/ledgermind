@@ -35,11 +35,13 @@ def test_benchmark_record_decision(memory_instance, benchmark):
     benchmark(record)
 
 def test_benchmark_search_decisions(memory_instance, benchmark):
-    # Seed some data
-    for i in range(10):
-        memory_instance.record_decision(f"Decision {i}", f"target_{i}", f"Rationale for decision {i} with sufficient length for validation")
+    # Seed some data ONCE before the benchmark runs, using transaction for speed
+    with memory_instance.semantic.transaction():
+        for i in range(10):
+            memory_instance.record_decision(f"Decision {i}", f"target_{i}", f"Rationale for decision {i} with sufficient length for validation")
     
     def search():
-        memory_instance.search_decisions("finding", limit=5)
+        # Clean query to avoid regex/cleaning overhead if we want to measure pure SQLite/FTS5
+        memory_instance.search_decisions("Decision", limit=5)
     
     benchmark(search)
