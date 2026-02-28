@@ -974,8 +974,11 @@ class Memory:
 
         all_candidates = []
         for cand in final_candidates.values():
-            # Apply multipliers to the aggregated base score
-            cand['score'] = cand['base_score'] * (1.0 + cand['boost']) * cand['lifecycle_multiplier']
+            # Apply multipliers to the aggregated base score + evidence boost
+            # We use addition for boosts and multipliers for lifecycle focus
+            # Final score is clipped to [0, 1] range for threshold consistency
+            raw_score = (cand['base_score'] + cand['boost']) * cand['lifecycle_multiplier']
+            cand['score'] = min(1.0, raw_score)
             all_candidates.append(cand)
 
         all_candidates.sort(key=lambda x: x['score'], reverse=True)

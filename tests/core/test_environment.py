@@ -27,7 +27,8 @@ class TestEnvironmentCheck(unittest.TestCase):
              patch('ledgermind.core.api.memory.os.access') as mock_access, \
              patch('ledgermind.core.api.memory.shutil.disk_usage') as mock_disk_usage, \
              patch('ledgermind.core.api.memory.subprocess.run') as mock_run, \
-             patch('ledgermind.core.stores.vector.EMBEDDING_AVAILABLE', True, create=True):
+             patch('ledgermind.core.stores.vector.EMBEDDING_AVAILABLE', True), \
+             patch('ledgermind.core.stores.vector.LLAMA_AVAILABLE', True):
 
             memory.config = MagicMock()
             memory.config.vector_model = "test_model.bin"
@@ -45,9 +46,6 @@ class TestEnvironmentCheck(unittest.TestCase):
             mock_disk_usage.return_value = usage_mock
 
             # Git check
-            # First call: git --version (check=True)
-            # Second call: git config user.name
-            # Third call: git config user.email
             def run_side_effect(args, **kwargs):
                 if args[0] == 'git':
                     if args[1] == '--version':
@@ -199,6 +197,7 @@ class TestEnvironmentCheck(unittest.TestCase):
              self.assertFalse(results["vector_available"])
              # The message varies based on which engine was checked first, but both contain "disabled"
              self.assertTrue(any("disabled" in w.lower() for w in results["warnings"]))
+
     @patch('ledgermind.core.api.memory.Memory.__init__', return_value=None)
     def test_check_environment_storage_locked(self, mock_init):
         memory = Memory()
