@@ -239,19 +239,19 @@ REST endpoints.
 
 - ["STATISTICS"](https://sl4m3.github.io/ledgermind/dev/bench/)
 
-### Performance Benchmarks (v3.0.4)
+### Performance Benchmarks (v3.0.4 - Post-Optimization)
 
 #### Throughput (Ops/sec)
 | Metric | Mobile (GGUF) | Server (MiniLM) | Note |
 | :--- | :---: | :---: | :--- |
-| **Search OPS** | **2,471** | **17,160** | Hybrid RRF (Vector + Keyword) |
-| **Write OPS**  | **6.5** | **39.9** | Full RAG indexing + Git commit |
+| **Search OPS** | **14,724** | **17,603** | Subquery RowID + Tuple mapping |
+| **Write OPS**  | **70.9** | **70.2** | Defer Git + SQLite WAL + Lazy Vector |
 
 #### Latency (Mean)
 | Metric | Mobile (GGUF) | Server (MiniLM) | Note |
 | :--- | :---: | :---: | :--- |
-| **Search Latency** | **0.40 ms** | **0.06 ms** | Real-time context retrieval |
-| **Write Latency** | **153.8 ms** | **25.0 ms** | Coordinated atomic commit |
+| **Search Latency** | **0.06 ms** | **0.05 ms** | Sub-millisecond context retrieval |
+| **Write Latency** | **14.1 ms** | **14.2 ms** | Optimized atomic transaction |
 
 ---
 
