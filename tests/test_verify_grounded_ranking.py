@@ -10,7 +10,7 @@ class TestGroundedRanking(unittest.TestCase):
         if os.path.exists(self.test_dir):
             shutil.rmtree(self.test_dir)
         os.makedirs(self.test_dir)
-        self.memory = Memory(storage_path=self.test_dir)
+        self.memory = Memory(storage_path=self.test_dir, vector_model="all-MiniLM-L6-v2")
 
     def tearDown(self):
         if os.path.exists(self.test_dir):
@@ -18,22 +18,29 @@ class TestGroundedRanking(unittest.TestCase):
 
     def test_evidence_boost(self):
         print("Testing Evidence-based Ranking Boost...")
-        # 1. Create two similar decisions
-        dec1 = self.memory.record_decision("Network Policy A Title", "net_a", "Standard security rationale long enough")
-        dec2 = self.memory.record_decision("Network Policy B Title", "net_b", "Standard security rationale long enough")
+        from ledgermind.core.core.schemas import KIND_PROPOSAL, MemoryEvent
         
-        fid1 = dec1.metadata['file_id']
-        fid2 = dec2.metadata['file_id']
+        # 1. Create two similar proposals (Kind boost 1.0)
+        prop1 = MemoryEvent(
+            source="agent", kind=KIND_PROPOSAL, content="Network Policy A",
+            context={"title": "Network Policy A", "target": "net", "rationale": "Rationale A longer than 10", "status": "draft", "confidence": 0.5}
+        )
+        prop2 = MemoryEvent(
+            source="agent", kind=KIND_PROPOSAL, content="Network Policy B",
+            context={"title": "Network Policy B", "target": "net", "rationale": "Rationale B longer than 10", "status": "draft", "confidence": 0.5}
+        )
         
-        # 2. Add evidence (links) only to dec2
-        for i in range(10):
-            # Record some interactions and link them to dec2
-            ev = self.memory.process_event("user", "prompt", f"Check net interaction {i}")
+        fid1 = self.memory.semantic.save(prop1)
+        fid2 = self.memory.semantic.save(prop2)
+        
+        # 2. Add some evidence (links) only to prop2
+        for i in range(3):
+            ev = self.memory.process_event("user", "prompt", f"Grounded interaction {i}")
             ev_id = ev.metadata['event_id']
             self.memory.link_evidence(ev_id, fid2)
             
-        # 3. Search - dec2 should have a higher score than dec1 due to evidence boost
-        results = self.memory.search_decisions("Standard security", limit=10)
+        # 3. Search - prop2 should have a higher score than prop1 due to evidence boost
+        results = self.memory.search_decisions("network policy", limit=10, mode="audit")
         
         # Sort results by score to check order
         res_map = {r['id']: r for r in results}
