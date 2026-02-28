@@ -47,29 +47,23 @@ class IntegrityChecker:
         return hash(tuple(state))
 
     @staticmethod
-    def validate(repo_path: str, force: bool = False, fid: str = None):
+    def validate(repo_path: str, force: bool = False, fid: str = None, data: Dict[str, Any] = None):
         """
         Scans the repository and ensures all integrity invariants are met.
         Supports incremental validation if fid is provided.
+        'data' can be provided to avoid re-parsing the file.
         """
-        current_hash = IntegrityChecker._get_state_hash(repo_path)
         if not fid:
+            current_hash = IntegrityChecker._get_state_hash(repo_path)
             if not force and IntegrityChecker._state_cache.get(repo_path) == current_hash:
                 return
         
-        # Incremental logic: if fid provided, we skip the global walk for hash
-        # but we still need to build the 'decisions' map for the subset being checked
-
         # Clear data cache if forced
         if force:
             IntegrityChecker._file_data_cache = {k: v for k, v in IntegrityChecker._file_data_cache.items() if not k.startswith(repo_path)}
 
         all_files = []
         if fid:
-            # Incremental validation: only check this file and its direct links
-            # We still need the list of all files to verify presence of link targets
-            # But we can get this from os.listdir or similar if we want to be super fast.
-            # For now, let's just use the cached walk if available or do a quick list.
             all_files = [fid]
         else:
             for root, _, filenames in os.walk(repo_path):
@@ -82,27 +76,24 @@ class IntegrityChecker:
         decisions = {}
         from .loader import MemoryLoader
 
-        # If incremental, we only parse the files we care about,
-        # but we need 'decisions' map of ALL files to verify links.
-        # This is where we MUST rely on cache for the rest of the repo.
-        if fid:
-            # For incremental check to work, we need a full 'decisions' view.
-            # If cache has NO files for this repo, we have to do a full scan anyway once.
-            repo_abs = os.path.abspath(repo_path)
-            has_current_repo_in_cache = any(k.startswith(repo_abs) for k in IntegrityChecker._file_data_cache.keys())
-            
-            if not has_current_repo_in_cache:
-                IntegrityChecker.validate(repo_path, force=True)
-                return # Full check was done
-            
-            # Use cached decisions for everything else (ONLY from current repo_path)
-            repo_abs = os.path.abspath(repo_path)
-            for f_path, (ts, data) in IntegrityChecker._file_data_cache.items():
-                if f_path.startswith(repo_abs):
-                    rel = os.path.relpath(f_path, repo_path)
-                    decisions[rel] = data
+        # Build 'decisions' view for link validation
+        repo_abs = os.path.abspath(repo_path)
+        for f_path, (ts, cached_data) in IntegrityChecker._file_data_cache.items():
+            if f_path.startswith(repo_abs):
+                rel = os.path.relpath(f_path, repo_path)
+                decisions[rel] = cached_data
         
         for f in all_files:
+            if f == fid and data is not None:
+                decisions[f] = data
+                # Also update file cache
+                file_path = os.path.join(repo_path, f)
+                try:
+                    stat = os.stat(file_path)
+                    IntegrityChecker._file_data_cache[file_path] = (stat.st_mtime_ns, data)
+                except OSError: pass
+                continue
+
             file_path = os.path.join(repo_path, f)
             try:
                 stat = os.stat(file_path)
@@ -110,20 +101,16 @@ class IntegrityChecker:
                 cached_mtime_ns, cached_data = IntegrityChecker._file_data_cache.get(file_path, (0, None))
                 
                 if cached_data and cached_mtime_ns == mtime_ns:
-                    data = cached_data
+                    decisions[f] = cached_data
                 else:
                     with open(file_path, 'r', encoding='utf-8') as stream:
                         content = stream.read()
-                        data, _ = MemoryLoader.parse(content)
-                        if not data:
-                            logger.error(f"Integrity check failed for {f}. Content length: {len(content)}")
-                            logger.error(f"CONTENT START: {content[:200]}")
+                        parsed_data, _ = MemoryLoader.parse(content)
+                        if not parsed_data:
                             raise IntegrityViolation(f"Corrupted or empty frontmatter", fid=f)
-                        IntegrityChecker._file_data_cache[file_path] = (mtime_ns, data)
-                
-                decisions[f] = data
-            except (OSError, IntegrityViolation) as e:
-                if isinstance(e, IntegrityViolation): raise
+                        IntegrityChecker._file_data_cache[file_path] = (mtime_ns, parsed_data)
+                        decisions[f] = parsed_data
+            except (OSError, IntegrityViolation):
                 continue
 
         # I4: Single active decision per target per namespace

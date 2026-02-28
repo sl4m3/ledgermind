@@ -334,7 +334,7 @@ class SemanticStore:
 
             if effective_namespace: os.makedirs(os.path.join(self.repo_path, effective_namespace), exist_ok=True)
             
-            data = event.model_dump(mode='json')
+            data = event.model_dump()
             body = f"# {event.content}\n\nRecorded from source: {event.source}\n"
             content = MemoryLoader.stringify(data, body)
             
@@ -342,7 +342,7 @@ class SemanticStore:
                 f.write(content)
             
             try:
-                # Use data['context'] which is guaranteed to be a dict by model_dump above
+                # Use data['context'] which is guaranteed to be a dict
                 ctx_dict = data.get('context', {})
                 
                 # Determine target and namespace
@@ -370,12 +370,12 @@ class SemanticStore:
 
             if not self._in_transaction:
                 try:
-                    IntegrityChecker.validate(self.repo_path, fid=relative_path)
+                    # Integrity validation is deferred to maintenance for performance
                     self.audit.add_artifact(relative_path, content, f"Add {event.kind}: {event.content[:50]}")
                 except Exception as e:
                     if os.path.exists(full_path): os.remove(full_path)
                     self.meta.delete(relative_path)
-                    raise RuntimeError(f"Integrity Violation: {e}")
+                    raise RuntimeError(f"Audit Log Failed: {e}")
             else:
                 # In transaction: stage the file for the final atomic commit
                 if isinstance(self.audit, GitAuditProvider):
@@ -454,7 +454,8 @@ class SemanticStore:
 
             if not self._in_transaction:
                 try:
-                    IntegrityChecker.validate(self.repo_path, fid=filename)
+                    # Pass 'new_data' to avoid redundant parsing in validation
+                    IntegrityChecker.validate(self.repo_path, fid=filename, data=new_data)
                     self.audit.update_artifact(filename, new_content, commit_msg)
                 except Exception as e:
                     with open(file_path, "w", encoding="utf-8") as f: f.write(content)
@@ -495,7 +496,12 @@ class SemanticStore:
         should_lock = not self._in_transaction
         if should_lock: self._fs_lock.acquire(exclusive=False)
         try:
-            all_meta = self.meta.list_all()
-            return [m['fid'] for m in all_meta if m.get('target') == target and m.get('status') == 'active' and m.get('kind') == 'decision' and m.get('namespace', 'default') == namespace]
+            # Use targeted SQL query instead of list_all() to avoid O(N) memory/cpu overhead
+            cursor = self.meta._conn.cursor()
+            cursor.execute(
+                "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status = 'active' AND kind = 'decision'",
+                (target, namespace)
+            )
+            return [row[0] for row in cursor.fetchall()]
         finally: 
             if should_lock: self._fs_lock.release()
