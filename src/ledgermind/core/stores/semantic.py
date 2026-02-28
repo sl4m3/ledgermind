@@ -161,6 +161,12 @@ class SemanticStore:
                     if isinstance(sync_keywords, list):
                         sync_keywords = ", ".join(sync_keywords)
 
+                    # Get link stats from episodic store
+                    link_c, link_s = 0, 0.0
+                    try:
+                        link_c, link_s = self.episodic.count_links_for_semantic(fid)
+                    except Exception: pass
+
                     self.meta.upsert(
                         fid=fid,
                         target=sync_target,
@@ -178,7 +184,8 @@ class SemanticStore:
                         vitality=sync_ctx.get("vitality", existing.get('vitality', 'active') if existing else 'active'),
                         reinforcement_density=sync_ctx.get("reinforcement_density", 0.0),
                         stability_score=sync_ctx.get("stability_score", 0.0),
-                        coverage=sync_ctx.get("coverage", 0.0)
+                        coverage=sync_ctx.get("coverage", 0.0),
+                        link_count=link_c
                     )
         except Exception as e:
             logger.error(f"Failed to index {fid}: {e}")
