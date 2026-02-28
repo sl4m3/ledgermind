@@ -4,6 +4,19 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.0.3] - 2026-02-28
+
+- **Extreme Startup Optimization:** Implemented lazy loading for heavy machine 
+  learning libraries, reducing initialization time by up to 20 seconds.
+- **Programmatic Normative Ranking:** Fully automated Kind-based (+35% Decision 
+  boost) and Phase-based (1.5x Canonical multiplier) search weighting.
+- **Robust Vector Logic:** Fixed `AxisError` and dimension mismatch bugs in 
+  single-document indexing and search.
+- **Config Priority:** Database settings now override hardcoded defaults for 
+  better environment-specific tuning.
+- **Improved Mock Support:** Enhanced vector store resilience for 
+  complex testing scenarios.
+
 ## [v3.0.2] - 2026-02-28
 
 - **Balanced Ranking Model:** Kind-based weighting (Decision vs. Proposal) 
