@@ -19,11 +19,18 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install -e .[all,dev]
+        pip install -e .[dev]
+
+    - name: Download GGUF Model
+      run: |
+        # Create models directory at the expected location (../.ledgermind/models relative to repo root)
+        mkdir -p ../.ledgermind/models
+        curl -L -o ../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf https://huggingface.co/jinaai/jina-embeddings-v5-text-small-text-matching-GGUF/resolve/main/v5-small-text-matching-Q4_K_M.gguf
 
     - name: Run Benchmarks
       run: |
-        pytest tests/core/performance/test_bench_ops.py -n0 --benchmark-json output.json
+        # Use single worker for benchmarks to ensure stability
+        pytest tests/core/performance/test_bench_ops.py -n0 --benchmark-json output.json --benchmark-min-rounds=5
 
     - name: Upload Benchmark Results
       uses: actions/upload-artifact@v4
