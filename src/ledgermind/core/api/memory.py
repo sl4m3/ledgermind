@@ -65,11 +65,11 @@ class Memory:
             self.config = config
         else:
             self.config = LedgermindConfig(
-                storage_path=storage_path or "./memory",
+                storage_path=storage_path or "../.ledgermind",
                 ttl_days=ttl_days or 30,
                 trust_boundary=trust_boundary or TrustBoundary.AGENT_WITH_INTENT,
                 namespace=namespace or "default",
-                vector_model=vector_model or "all-MiniLM-L6-v2",
+                vector_model=vector_model or "../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
                 vector_workers=vector_workers if vector_workers is not None else 0
             )
 
@@ -83,7 +83,7 @@ class Memory:
         except PermissionError:
             raise ValueError(f"No permission to create storage path: {self.storage_path}")
             
-        # Pluggable Storage Logic
+        # 1. Initialize Storage (Metadata must be ready first)
         if semantic_store:
             self.semantic = semantic_store
             self.episodic: Union[EpisodicStore, EpisodicProvider] = episodic_store or EpisodicStore(os.path.join(self.storage_path, "episodic.db"))
@@ -96,6 +96,12 @@ class Memory:
             )
             self.episodic: Union[EpisodicStore, EpisodicProvider] = episodic_store or EpisodicStore(os.path.join(self.storage_path, "episodic.db"))
 
+        # 2. Sync Config from DB (Overrides defaults if present)
+        db_model = self.semantic.meta.get_config("vector_model")
+        if db_model:
+            self.config.vector_model = db_model
+
+        # 3. Initialize Vector Engine
         self.vector = VectorStore(
             os.path.join(self.storage_path, "vector_index"),
             model_name=self.config.vector_model,
@@ -149,20 +155,25 @@ class Memory:
 
         # 0.1 Check Vector Search (Optional)
         logger.debug("Checking vector search availability...")
-        from ledgermind.core.stores.vector import EMBEDDING_AVAILABLE, LLAMA_AVAILABLE
+        from ledgermind.core.stores.vector import _is_transformers_available, _is_llama_available, EMBEDDING_AVAILABLE, LLAMA_AVAILABLE
         
         config = getattr(self, 'config', None)
         vector_model = config.vector_model if config else "all-MiniLM-L6-v2"
         is_gguf = vector_model.endswith(".gguf")
-        results["vector_available"] = (LLAMA_AVAILABLE if is_gguf else EMBEDDING_AVAILABLE)
         
+        # Only trigger lazy check for the engine we actually intend to use
         if is_gguf:
-            if not LLAMA_AVAILABLE:
+            llama_avail = LLAMA_AVAILABLE if LLAMA_AVAILABLE is not None else _is_llama_available()
+            results["vector_available"] = llama_avail
+            if not llama_avail:
                 results["warnings"].append("llama-cpp-python not installed. GGUF vector search is disabled.")
             elif not os.path.exists(vector_model):
                 results["warnings"].append(f"GGUF model missing from {vector_model}. It will be downloaded on first use.")
-        elif not EMBEDDING_AVAILABLE:
-            results["warnings"].append("Sentence-transformers not installed. Vector search is disabled.")
+        else:
+            transformers_avail = EMBEDDING_AVAILABLE if EMBEDDING_AVAILABLE is not None else _is_transformers_available()
+            results["vector_available"] = transformers_avail
+            if not transformers_avail:
+                results["warnings"].append("Sentence-transformers not installed. Vector search is disabled.")
 
         # 1. Check Git
         if Memory._git_available is None:
@@ -615,8 +626,8 @@ class Memory:
         new_vec_cached = None
         if active_conflicts:
             try:
-                from ledgermind.core.stores.vector import EMBEDDING_AVAILABLE
-                if EMBEDDING_AVAILABLE and self.vector._vectors is not None:
+                from ledgermind.core.stores.vector import _is_transformers_available
+                if _is_transformers_available() and self.vector and self.vector._vectors is not None:
                     import numpy as np
                     from difflib import SequenceMatcher
                     
@@ -839,13 +850,37 @@ class Memory:
         scores = {}
         for rank, item in enumerate(vec_results):
             fid = item['id']
-            scores[fid] = scores.get(fid, 0.0) + (1.0 / (k + rank + 1))
+            # Dynamic Weighting based on Decision Stream Metadata (PR #42)
+            meta = self.semantic.meta.get_by_fid(fid)
+            weight = 1.0
+            if meta:
+                if meta.get('kind') == 'decision':
+                    weight *= 1.35
+                phase = meta.get('phase', '').lower()
+                if phase == 'canonical':
+                    weight *= 1.5
+                elif phase == 'emergent':
+                    weight *= 1.2
+            
+            scores[fid] = scores.get(fid, 0.0) + (weight / (k + rank + 1))
             
         for rank, item in enumerate(kw_results):
             fid = item['fid']
-            scores[fid] = scores.get(fid, 0.0) + (1.0 / (k + rank + 1))
+            # Apply same weighting to keyword results
+            meta = self.semantic.meta.get_by_fid(fid)
+            weight = 1.0
+            if meta:
+                if meta.get('kind') == 'decision':
+                    weight *= 1.35
+                phase = meta.get('phase', '').lower()
+                if phase == 'canonical':
+                    weight *= 1.5
+                elif phase == 'emergent':
+                    weight *= 1.2
+            
+            scores[fid] = scores.get(fid, 0.0) + (weight / (k + rank + 1))
 
-        max_rrf = 2.0 / (k + 1.0)
+        max_rrf = 3.0 / (k + 1.0) # Theoretical max boost
         sorted_fids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
         
         # Batch Fetch Optimization (PR #25)
