@@ -72,17 +72,12 @@ class IntegrationBridge:
                         "id": fid,
                         "title": item.get('title'),
                         "target": item.get('target'),
-                        "status": item.get('status'),
                         "path": os.path.join(self.memory_path, "semantic", fid),
                         "content": item.get('content'),
                         "rationale": item.get('rationale'),
                         "consequences": item.get('consequences'),
                         "expected_outcome": item.get('expected_outcome'),
-                        "procedural": ctx.get('procedural'),
-                        "procedural_ids": ctx.get('procedural_ids', []),
-                        "phase": ctx.get('phase'),
-                        "vitality": ctx.get('vitality'),
-                        "confidence": ctx.get('confidence')
+                        "procedural": ctx.get('procedural') # Temporarily keep for get_context_for_prompt formatting
                     })
             return memories
         except Exception as e:
@@ -109,7 +104,7 @@ class IntegrationBridge:
         
         # Add instruction for the agent on how to use paths
         for m in memories:
-            m["instruction"] = f"CRITICAL: Key fields (rationale, consequences, expected_outcome, content) are already injected for your convenience. Use 'cat {m['path']}' ONLY if you need to see the raw YAML frontmatter or full history of this record."
+            m["instruction"] = f"Key fields are injected. Use 'cat {m['path']}' if you need full history."
             
             # Format procedural steps for better readability if present
             if m.get("procedural") and isinstance(m["procedural"], dict):
@@ -124,6 +119,10 @@ class IntegrationBridge:
                             step_str += f" (Rationale: {rationale})"
                         formatted_steps.append(step_str)
                     m["procedural_guide"] = formatted_steps
+            
+            # Remove raw procedural data to save tokens (it is now in procedural_guide)
+            if "procedural" in m:
+                del m["procedural"]
 
         json_data = json.dumps({
             "source": "ledgermind",
