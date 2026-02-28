@@ -124,13 +124,13 @@ class ReflectionEngine:
                     
                     if relevant_streams:
                         for fid, data in relevant_streams:
-                            self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list)
+                            self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode)
                             processed_fids.add(fid)
                             result_ids.append(fid)
                     else:
                         # New pattern based on accumulated session weight
                         if stats['weight'] >= 1.0 or stats['commits'] >= 1:
-                            new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map, procedural_links=procedural_list)
+                            new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode)
                             if new_fid: result_ids.append(new_fid)
 
             # 3. Apply Vitality Decay for unprocessed streams (always run this)
@@ -163,7 +163,8 @@ class ReflectionEngine:
 
     def _process_stream(self, fid: str, data: Dict[str, Any], stats: Dict[str, Any], now: datetime, 
                         event_map: Optional[Dict[int, Any]] = None, 
-                        procedural_links: Optional[List[ProposalContent]] = None):
+                        procedural_links: Optional[List[ProposalContent]] = None,
+                        arbitration_mode: str = "lite"):
         stream = DecisionStream(**data['context'])
         
         # Collect timestamps
@@ -234,10 +235,8 @@ class ReflectionEngine:
 
     def _create_pattern_stream(self, target: str, stats: Dict[str, Any], now: datetime, 
                                event_map: Optional[Dict[int, Any]] = None,
-                               procedural_links: Optional[List[ProposalContent]] = None) -> str:
-        # Read config to check if enrichment is enabled
-        arbitration_mode = self.semantic.meta.get_config("arbitration_mode", "lite")
-
+                               procedural_links: Optional[List[ProposalContent]] = None,
+                               arbitration_mode: str = "lite") -> str:
         stream = DecisionStream(
             decision_id=str(uuid.uuid4()),
             target=target,
