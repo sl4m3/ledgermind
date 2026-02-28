@@ -451,6 +451,13 @@ class Memory:
         Manually link an episodic event to a semantic record.
         """
         self.episodic.link_to_semantic(event_id, semantic_id)
+        
+        # Performance: Increment link_count in metadata for fast-path search
+        with self.semantic.transaction():
+            self.semantic.meta._conn.execute(
+                "UPDATE semantic_meta SET link_count = link_count + 1 WHERE fid = ?",
+                (semantic_id,)
+            )
 
     def update_decision(self, decision_id: str, updates: Dict[str, Any], commit_msg: str) -> bool:
         """
@@ -864,18 +871,24 @@ class Memory:
         
         # Fast path for simple keyword search in high-performance scenarios
         if mode == "lite" or (len(query) < 20 and " " not in query.strip()):
-            kw_results = self.semantic.meta.keyword_search(query, limit=limit, namespace=effective_namespace)
+            search_status = "active" if mode == "strict" else None
+            kw_results = self.semantic.meta.keyword_search(query, limit=limit*2, namespace=effective_namespace, status=search_status)
             if kw_results:
-                # Absolute maximum throughput by minimizing dict keys
-                return [{
-                    "id": r[0],
-                    "title": r[1],
-                    "preview": r[1],
-                    "target": r[2],
-                    "status": r[3],
-                    "score": 1.0,
-                    "kind": r[4]
+                # Optimized construction from dictionaries returned by meta
+                results = [{
+                    "id": r['fid'],
+                    "title": r['title'],
+                    "preview": r['title'],
+                    "target": r['target'],
+                    "status": r['status'],
+                    "score": float(r['calculated_score']),
+                    "kind": r['kind'],
+                    "evidence_count": r['link_count'] + 1 # +1 for the record itself
                 } for r in kw_results]
+                
+                if len(results) > 1:
+                    results.sort(key=lambda x: x['score'], reverse=True)
+                return results[:limit]
 
         if namespace:
             search_limit = max(200, (offset + limit) * 10)
@@ -890,7 +903,7 @@ class Memory:
         kw_results = self.semantic.meta.keyword_search(query, limit=search_limit, namespace=effective_namespace)
         
         # Batch Fetch Metadata for all results at once to avoid N+1 in score loops
-        all_initial_fids = list(set([item['id'] for item in vec_results] + [item['fid'] for item in kw_results]))
+        all_initial_fids = list(set([item['id'] for item in vec_results] + [r[0] for r in kw_results]))
         meta_cache = {m['fid']: m for m in self.semantic.meta.get_batch_by_fids(all_initial_fids)}
 
         scores = {}
@@ -909,8 +922,8 @@ class Memory:
             
             scores[fid] = scores.get(fid, 0.0) + (weight / (k + rank + 1))
             
-        for rank, item in enumerate(kw_results):
-            fid = item['fid']
+        for rank, r in enumerate(kw_results):
+            fid = r[0]
             meta = meta_cache.get(fid)
             weight = 1.0
             if meta:
