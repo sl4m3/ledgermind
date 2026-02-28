@@ -99,13 +99,18 @@ class GitAuditProvider(AuditProvider):
             logger.warning(f"Failed to purge {relative_path} from git: {e}")
 
     def commit_transaction(self, message: str):
-        self.run(["add", "."])
-        # Only commit if there are staged changes
-        res = self.run(["status", "--porcelain"])
-        if res.stdout.strip():
+        # We assume files were already added via self.run(["add", ...]) in save/update
+        # but to be sure we can do a single add . if it's cheap enough.
+        # However, calling git status is slow. Let's just try to commit.
+        try:
             self.run(["commit", "-m", message])
-        else:
-            logger.debug("No changes to commit in transaction.")
+        except Exception as e:
+            # If nothing to commit, run() returns CalledProcessError which we handled
+            # but here we might want to be more explicit or just ignore.
+            if "nothing to commit" in str(e):
+                logger.debug("No changes to commit in transaction.")
+            else:
+                raise e
 
     def get_history(self, relative_path: str) -> List[dict]:
         """Retrieves commit history for a specific file."""
