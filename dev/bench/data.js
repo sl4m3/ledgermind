@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772291351355,
+  "lastUpdate": 1772300493997,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4294,6 +4294,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000004321824858116724",
             "extra": "mean: 41.67033748671346 usec\nrounds: 2969"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "866905fc312e082c0639f623ea1c5ffee0660671",
+          "message": "fix(core): resolve transaction savepoint errors and synchronize test suite\n\n- Fixed implicit DDL commits in ReflectionEngine by moving config reading outside the transaction block.\n- Updated hook integration tests to reflect localized project storage paths.\n- Removed deprecated test files and synchronized LLM enrichment tests with new unified call structure.\n- Ensured CI stability by fixing NameErrors in test assertions.",
+          "timestamp": "2026-02-28T20:37:49+03:00",
+          "tree_id": "00a071fe31b01340ee84c534de0a29e2a9ab692a",
+          "url": "https://github.com/sl4m3/ledgermind/commit/866905fc312e082c0639f623ea1c5ffee0660671"
+        },
+        "date": 1772300493487,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 24.45599611027156,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011676573694453784",
+            "extra": "mean: 40.88976770731487 msec\nrounds: 41"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17260.777050553435,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006117512592567944",
+            "extra": "mean: 57.93481933467977 usec\nrounds: 3548"
           }
         ]
       }
