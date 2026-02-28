@@ -18,9 +18,9 @@ def mock_vector_store(temp_storage):
     import ledgermind.core.stores.vector
     
     # Enable the engine flag so VectorStore thinks it can encode
-    ledgermind.core.stores.vector.LLAMA_AVAILABLE = True
+    ledgermind.core.stores.vector.EMBEDDING_AVAILABLE = True
     
-    vs = VectorStore(temp_storage, dimension=4)
+    vs = VectorStore(temp_storage, dimension=4, model_name="all-MiniLM-L6-v2")
     # Inject mock into cache to prevent real loading/downloading logic
     mock_model = MagicMock()
     mock_model.get_sentence_embedding_dimension.return_value = 4
@@ -35,7 +35,7 @@ def mock_vector_store(temp_storage):
             embs.append(emb)
         return np.array(embs, dtype='float32')
     mock_model.encode = mock_encode
-    ledgermind.core.stores.vector._MODEL_CACHE[vs.model_name] = mock_model
+    ledgermind.core.stores.vector._MODEL_CACHE["all-MiniLM-L6-v2"] = mock_model
     
     return vs
 
@@ -62,21 +62,21 @@ def test_vector_store_persistence(temp_storage):
     _MODEL_CACHE.clear()
     
     # Enable the engine flag
-    ledgermind.core.stores.vector.LLAMA_AVAILABLE = True
+    ledgermind.core.stores.vector.EMBEDDING_AVAILABLE = True
     
-    vs = VectorStore(temp_storage, dimension=4)
+    vs = VectorStore(temp_storage, dimension=4, model_name="all-MiniLM-L6-v2")
     # Mocking the model to return 4-dim vectors
     mock_model = MagicMock()
     mock_model.get_sentence_embedding_dimension.return_value = 4
     mock_model.encode.side_effect = lambda texts: np.array([np.array([0.1, 0.2, 0.3, 0.4], dtype='float32') for _ in texts])
     
     # Inject mock into cache
-    _MODEL_CACHE[vs.model_name] = mock_model
+    ledgermind.core.stores.vector._MODEL_CACHE["all-MiniLM-L6-v2"] = mock_model
     
     vs.add_documents([{"id": "persist1", "content": "test content"}])
     vs.save()
 
-    vs2 = VectorStore(temp_storage, dimension=4)
+    vs2 = VectorStore(temp_storage, dimension=4, model_name="all-MiniLM-L6-v2")
     vs2.load()
     assert len(vs2._doc_ids) == 1
     assert vs2._doc_ids[0] == "persist1"
