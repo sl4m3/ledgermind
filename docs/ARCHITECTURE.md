@@ -68,6 +68,7 @@ Memory (core/api/memory.py)
 ├── DistillationEngine     Distills successful trajectories → ProceduralProposals
 ├── GitIndexer             Imports Git commits into episodic memory
 ├── TargetRegistry         Canonical names + alias resolution (targets.json)
+├── LLMEnricher            Asynchronous conversion of raw logs to human-readable text
 └── MemoryRouter           Routes MemoryEvent to the correct store
 ```
 
@@ -80,7 +81,8 @@ The `ReflectionEngine` and `LifecycleEngine` work together to observe behavior a
 *   **Behavioral Detections:** `ReflectionEngine` clusters episodic events (successes, errors, commits) into implicit patterns.
 *   **Temporal Signals:** `LifecycleEngine` evaluates reinforcement density, stability (variance of intervals), and lifetime coverage to protect against short-term bursts of activity.
 *   **Decision Streams:** Instead of manually creating "decisions", the system automatically transitions knowledge through `PATTERN`, `EMERGENT`, and `CANONICAL` phases.
-*   **Procedural Distillation:** Successful "trajectories" are automatically distilled into step-by-step instructions.
+*   **Procedural Distillation:** Successful "trajectories" are automatically distilled into step-by-step instructions. These raw proposals are tagged as `pending` enrichment.
+*   **Asynchronous Enrichment:** During background maintenance, the `LLMEnricher` processes `pending` proposals, securely translating machine execution logs into coherent, human-readable hypotheses using either a local LLM (e.g., Ollama) or a cloud API, depending on the configured `arbitration_mode`.
 
 ---
 
