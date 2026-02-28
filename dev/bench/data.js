@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772232010842,
+  "lastUpdate": 1772242715639,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3724,6 +3724,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000512176881164671",
             "extra": "mean: 4.59969198386771 msec\nrounds: 62"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "012e5783da07a66cbc0b782d743a27357e67c32d",
+          "message": "chore: release v3.0.3: extreme performance optimization and programmatic normative ranking\n\n- Bump version to 3.0.3 in VERSION and documentation.\n- Create v3.0.3 changelog and update latest/index.\n- Update ARCHITECTURE.md with lazy loading and search weighting stages.\n- Update CONFIGURATION.md with startup optimization and config priority sections.\n- Document Jina v5 Q4 GGUF as the new standard default for mobile environments.",
+          "timestamp": "2026-02-28T04:33:54+03:00",
+          "tree_id": "137bd5729acbee474dfdc4f75888a604778bd5ba",
+          "url": "https://github.com/sl4m3/ledgermind/commit/012e5783da07a66cbc0b782d743a27357e67c32d"
+        },
+        "date": 1772242714509,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 42.89919743066128,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0019203031369560558",
+            "extra": "mean: 23.310459399999672 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17652.0894479577,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000053019135759622606",
+            "extra": "mean: 56.650517376326654 usec\nrounds: 3827"
           }
         ]
       }
