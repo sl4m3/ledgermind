@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772301447995,
+  "lastUpdate": 1772301980417,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4408,6 +4408,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00000583873451442873",
             "extra": "mean: 58.2159121705993 usec\nrounds: 3188"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "03d394232206c5256cc26852d0725528c72186c9",
+          "message": "perf(core): restore recording speed by deferring vector indexing and caching components",
+          "timestamp": "2026-02-28T21:03:36+03:00",
+          "tree_id": "f87588708256c039c48715ee1db53120152d590a",
+          "url": "https://github.com/sl4m3/ledgermind/commit/03d394232206c5256cc26852d0725528c72186c9"
+        },
+        "date": 1772301979875,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 23.591808747927647,
+            "unit": "iter/sec",
+            "range": "stddev: 0.011778706500006881",
+            "extra": "mean: 42.38759353658469 msec\nrounds: 41"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17396.13514810703,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006482674958635194",
+            "extra": "mean: 57.48403260185154 usec\nrounds: 3190"
           }
         ]
       }
