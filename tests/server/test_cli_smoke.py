@@ -42,8 +42,15 @@ def test_cli_init_and_check(tmp_path):
     memory_path = str(tmp_path / "ledgermind")
     
     # Test init
-    result = run_cli(["init", "--path", memory_path])
-    assert result.returncode == 0
+    with patch('ledgermind.server.cli.questionary.text') as mock_text, \
+         patch('ledgermind.server.cli.questionary.select') as mock_select:
+        # Mock answers: Project Path, Memory Path
+        mock_text.return_value.ask.side_effect = [str(tmp_path), memory_path]
+        # Mock answers: Embedder, Client, Mode
+        mock_select.return_value.ask.side_effect = ["jina-v5-4bit", "none", "lite"]
+        result = run_cli(["init", "--path", memory_path])
+
+    assert result.returncode == 0, f"init failed: {result.stderr}"
     assert "Initialization complete" in result.stdout
     assert os.path.exists(memory_path)
     
@@ -55,7 +62,11 @@ def test_cli_init_and_check(tmp_path):
 
 def test_cli_stats(tmp_path):
     memory_path = str(tmp_path / "ledgermind")
-    run_cli(["init", "--path", memory_path])
+    with patch('ledgermind.server.cli.questionary.text') as mock_text, \
+         patch('ledgermind.server.cli.questionary.select') as mock_select:
+        mock_text.return_value.ask.side_effect = [str(tmp_path), memory_path]
+        mock_select.return_value.ask.side_effect = ["jina-v5-4bit", "none", "lite"]
+        run_cli(["init", "--path", memory_path])
     
     # Test stats
     result = run_cli(["stats", "--path", memory_path])
@@ -65,7 +76,11 @@ def test_cli_stats(tmp_path):
 
 def test_cli_verbose_logging(tmp_path):
     memory_path = str(tmp_path / "ledgermind")
-    run_cli(["init", "--path", memory_path])
+    with patch('ledgermind.server.cli.questionary.text') as mock_text, \
+         patch('ledgermind.server.cli.questionary.select') as mock_select:
+        mock_text.return_value.ask.side_effect = [str(tmp_path), memory_path]
+        mock_select.return_value.ask.side_effect = ["jina-v5-4bit", "none", "lite"]
+        run_cli(["init", "--path", memory_path])
     
     # Test check with verbose
     result = run_cli(["--verbose", "check", "--path", memory_path])
