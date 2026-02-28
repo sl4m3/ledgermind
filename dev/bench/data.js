@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772303701625,
+  "lastUpdate": 1772304481552,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4484,6 +4484,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000005563889287164389",
             "extra": "mean: 56.80539311275881 usec\nrounds: 3630"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "c6fb959b8cb6430f84539ceccc3cf3c27a18520e",
+          "message": "perf(core): restore v3.0.3 recording speed by optimizing SQLite pragmas and serialization",
+          "timestamp": "2026-02-28T21:45:47+03:00",
+          "tree_id": "d5161140da11f6ae1561b757a97462bbd6b22a5e",
+          "url": "https://github.com/sl4m3/ledgermind/commit/c6fb959b8cb6430f84539ceccc3cf3c27a18520e"
+        },
+        "date": 1772304480989,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 25.314287415332057,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01142591343168119",
+            "extra": "mean: 39.50338335000225 msec\nrounds: 40"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 13723.978766115144,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010007005375934985",
+            "extra": "mean: 72.86516665772069 usec\nrounds: 6"
           }
         ]
       }
