@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772318690204,
+  "lastUpdate": 1772319619912,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4940,6 +4940,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000008053599669691542",
             "extra": "mean: 56.09440000284849 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "9c05c498bc75fe7a07b3252e540a885a50effe26",
+          "message": "test: integrate Bandit SAST and honest performance benchmarks\n\n- Added Bandit security scan as Stage 2 in run_tests.sh.\n- Suppressed safe SQL injection warnings in SemanticMetaStore using # nosec.\n- Split search benchmarks into fast-path (FTS5) and hybrid-path (RRF) for transparent metrics.\n- Verified all 233 tests and lifecycle validation pass with new security constraints.",
+          "timestamp": "2026-03-01T01:58:08+03:00",
+          "tree_id": "052a8a4aad51dcd67f8ebb886d689a2c4f33b15e",
+          "url": "https://github.com/sl4m3/ledgermind/commit/9c05c498bc75fe7a07b3252e540a885a50effe26"
+        },
+        "date": 1772319619456,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 71.28284891891518,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003075664122458298",
+            "extra": "mean: 14.028619999987768 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 18762.148490029853,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008602159591810993",
+            "extra": "mean: 53.29880000317644 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 614.0144374402042,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011748787423079344",
+            "extra": "mean: 1.6286262000107854 msec\nrounds: 5"
           }
         ]
       }
