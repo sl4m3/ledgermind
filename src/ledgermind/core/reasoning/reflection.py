@@ -235,6 +235,9 @@ class ReflectionEngine:
     def _create_pattern_stream(self, target: str, stats: Dict[str, Any], now: datetime, 
                                event_map: Optional[Dict[int, Any]] = None,
                                procedural_links: Optional[List[ProposalContent]] = None) -> str:
+        # Read config to check if enrichment is enabled
+        arbitration_mode = self.semantic.meta.get_config("arbitration_mode", "lite")
+
         stream = DecisionStream(
             decision_id=str(uuid.uuid4()),
             target=target,
@@ -247,6 +250,9 @@ class ReflectionEngine:
             last_seen=now,
             frequency=len(stats['all_ids'])
         )
+
+        if arbitration_mode != "lite":
+            stream.enrichment_status = "pending"
 
         # Link procedural instructions if provided
         if procedural_links:
