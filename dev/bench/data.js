@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772306732685,
+  "lastUpdate": 1772307188014,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4598,6 +4598,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00011974469511207133",
             "extra": "mean: 1.507278199983375 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "09ee3939bb443360bd227c115d44c940fc8c6d5b",
+          "message": "perf: implement fast-path for simple search queries and batch meta fetch to restore search speed",
+          "timestamp": "2026-02-28T22:30:40+03:00",
+          "tree_id": "8f80293ab077178235567e94d66b479e504d3c68",
+          "url": "https://github.com/sl4m3/ledgermind/commit/09ee3939bb443360bd227c115d44c940fc8c6d5b"
+        },
+        "date": 1772307186997,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 70.90057183153293,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003240475928469393",
+            "extra": "mean: 14.104258600002595 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 6157.862975226376,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000022292716417628823",
+            "extra": "mean: 162.39400000017667 usec\nrounds: 5"
           }
         ]
       }
