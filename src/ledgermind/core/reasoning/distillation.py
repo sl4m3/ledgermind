@@ -144,20 +144,25 @@ class DistillationEngine:
                 
                 if not raw_rationale:
                     if kind == 'prompt':
-                        raw_rationale = f"User initiative: {content[:100]}..."
+                        raw_rationale = f"User initiative: {content[:3000]}"
+                        if len(content) > 3000: raw_rationale += "..."
                     elif kind in ('result', 'decision'):
                         raw_rationale = "System outcome or decision state"
                     elif kind == 'commit_change':
-                        raw_rationale = content[:150]
+                        raw_rationale = content[:3000]
+                        if len(content) > 3000: raw_rationale += "..."
                         if changed_files:
-                            raw_rationale += f" | Files: {', '.join(changed_files[:3])}"
+                            raw_rationale += f"\nFiles: {', '.join(changed_files)}"
                     else:
                         raw_rationale = f"Action: {kind}"
 
-                action_text = f"[{kind.upper()}] {content[:200]}..."
+                action_text = f"[{kind.upper()}] {content[:3000]}"
+                if len(content) > 3000: action_text += "..."
+                
                 if kind == 'commit_change':
                     commit_hash = ctx.get('hash', 'unknown')[:8]
-                    action_text = f"[COMMIT] {commit_hash}: {content[:150]}..."
+                    action_text = f"[COMMIT] {commit_hash}: {content[:3000]}"
+                    if len(content) > 3000: action_text += "..."
 
                 steps.append(ProceduralStep(
                     action=action_text,

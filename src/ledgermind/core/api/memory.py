@@ -1080,6 +1080,13 @@ class Memory:
         from ledgermind.core.reasoning.merging import MergeEngine
         merger = MergeEngine(self)
         merges = merger.scan_for_duplicates()
+
+        # 3. LLM Enrichment (Independent & Asynchronous)
+        from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
+        arbitration_mode = self.semantic.meta.get_config("arbitration_mode", "lite")
+        enricher = LLMEnricher(mode=arbitration_mode)
+        enricher.process_batch(self)
+
         return {
             "decay": decay_report.__dict__,
             "reflection": {"proposals_created": len(reflection_proposals)},
