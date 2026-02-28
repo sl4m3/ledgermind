@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772319619912,
+  "lastUpdate": 1772320293959,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4985,6 +4985,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00011748787423079344",
             "extra": "mean: 1.6286262000107854 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "960c9dce1692467d0de1a25d3e1dcac92bfb3cb2",
+          "message": "release: v3.1.0 - Autonomous Knowledge Enrichment and Search Fast-Path\n\n- Updated VERSION to 3.1.0.\n- Created detailed v3.1.0 changelog and updated latest/index trackers.\n- Refreshed README with new core capabilities and honest benchmarks.\n- Updated ARCHITECTURE.md to reflect the new Search Fast-Path and LLMEnricher layers.\n- Ensured universal 'enrichment_status' tagging across all reasoning engines (Distillation, Merging, Reflection).",
+          "timestamp": "2026-03-01T02:09:15+03:00",
+          "tree_id": "dadfa4fec75a6713c39af58b29f134af86dbf2de",
+          "url": "https://github.com/sl4m3/ledgermind/commit/960c9dce1692467d0de1a25d3e1dcac92bfb3cb2"
+        },
+        "date": 1772320292958,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 70.34508923107542,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002894702608407511",
+            "extra": "mean: 14.215633400010574 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 19238.242547047124,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007960539952464058",
+            "extra": "mean: 51.97980000275493 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 611.2157104891662,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010162625308615021",
+            "extra": "mean: 1.6360836000103518 msec\nrounds: 5"
           }
         ]
       }
