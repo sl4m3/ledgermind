@@ -15,7 +15,7 @@ def temp_memory_path(tmp_path):
 
 def test_transaction_atomicity_rollback(temp_memory_path):
     """Ensures rollback of SQLite and Filesystem on Git failure."""
-    memory = Memory(storage_path=temp_memory_path)
+    memory = Memory(vector_model="all-MiniLM-L6-v2", storage_path=temp_memory_path)
     target = "Atomicity-Test-Target"
     
     memory.record_decision(
@@ -55,7 +55,7 @@ def test_transaction_atomicity_rollback(temp_memory_path):
 
 def test_concurrency_locking_parallel_evolution(temp_memory_path):
     """Ensures thread-safety and ConflictEngine blocking during parallel evolution."""
-    memory = Memory(storage_path=temp_memory_path)
+    memory = Memory(vector_model="all-MiniLM-L6-v2", storage_path=temp_memory_path)
     target = "Concurrency-Test-Target"
     
     initial_res = memory.record_decision(
@@ -93,7 +93,7 @@ def test_concurrency_locking_parallel_evolution(temp_memory_path):
 
 def test_namespace_isolation(temp_memory_path):
     """Ensures targets are isolated between namespaces."""
-    memory = Memory(storage_path=temp_memory_path)
+    memory = Memory(vector_model="all-MiniLM-L6-v2", storage_path=temp_memory_path)
     target = "Cross-Namespace-Target"
     
     memory.record_decision(title="Prod Config", target=target, rationale="Prod rules.", namespace="prod")
@@ -105,7 +105,7 @@ def test_namespace_isolation(temp_memory_path):
 
 def test_hard_purge_gdpr(temp_memory_path):
     """Ensures forget() removes record from disk and metadata."""
-    memory = Memory(storage_path=temp_memory_path)
+    memory = Memory(vector_model="all-MiniLM-L6-v2", storage_path=temp_memory_path)
     res = memory.record_decision(title="Secret", target="Sensitive", rationale="Sensitive info.")
     fid = res.metadata["file_id"]
     
@@ -115,7 +115,7 @@ def test_hard_purge_gdpr(temp_memory_path):
 
 def test_path_traversal_protection(temp_memory_path):
     """Ensures _validate_fid blocks path traversal attempts."""
-    memory = Memory(storage_path=temp_memory_path)
+    memory = Memory(vector_model="all-MiniLM-L6-v2", storage_path=temp_memory_path)
     
     malicious_fids = [
         "../../etc/passwd",
@@ -131,7 +131,7 @@ def test_path_traversal_protection(temp_memory_path):
 
 def test_accept_proposal_rollback_preserves_draft_status(temp_memory_path):
     """Ensures that if accept_proposal fails, the proposal remains 'draft' on disk."""
-    memory = Memory(storage_path=temp_memory_path)
+    memory = Memory(vector_model="all-MiniLM-L6-v2", storage_path=temp_memory_path)
     
     # 1. Create a proposal
     from ledgermind.core.core.schemas import KIND_PROPOSAL, MemoryEvent

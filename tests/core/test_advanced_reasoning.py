@@ -16,7 +16,7 @@ def test_deep_grounding_inheritance(temp_memory_path):
     Ensures that a new decision version inherits links to all episodic events 
     associated with its predecessors.
     """
-    memory = Memory(storage_path=temp_memory_path)
+    memory = Memory(storage_path=temp_memory_path, vector_model="all-MiniLM-L6-v2")
     target = "Inheritance-Test"
     
     # 1. Record an event with UNIQUE content
@@ -57,9 +57,26 @@ def test_deep_grounding_inheritance(temp_memory_path):
     assert ev_id_3 in links_v2
     assert len(links_v2) >= 3
 
-def test_arbiter_callback_logic_supersede(temp_memory_path):
+def test_arbiter_callback_logic_supersede(temp_memory_path, monkeypatch):
     """Scenario 1: Arbiter decides to SUPERSEDE in the Gray Zone (0.5-0.7)."""
-    memory = Memory(storage_path=temp_memory_path)
+    import ledgermind.core.stores.vector
+    import numpy as np
+    from unittest.mock import MagicMock
+    
+    # Mock the vector model to return controlled similarity (0.6)
+    mock_model = MagicMock()
+    # Sequence of returns: first call (record V1), second call (record V2)
+    v1 = np.zeros(384, dtype='float32'); v1[0] = 1.0
+    v2 = np.zeros(384, dtype='float32'); v2[0] = 0.6; v2[1] = 0.8 # Cosine sim = 0.6
+    
+    mock_model.encode.side_effect = [np.array([v1]), np.array([v2])]
+    mock_model.get_sentence_embedding_dimension.return_value = 384
+    
+    # Inject mock into cache
+    ledgermind.core.stores.vector._MODEL_CACHE["all-MiniLM-L6-v2"] = mock_model
+    ledgermind.core.stores.vector.EMBEDDING_AVAILABLE = True
+    
+    memory = Memory(storage_path=temp_memory_path, vector_model="all-MiniLM-L6-v2")
     target = "Arbiter-Supersede"
     
     # Common core context to stabilize similarity
@@ -87,9 +104,20 @@ def test_arbiter_callback_logic_supersede(temp_memory_path):
     )
     
     assert arbiter_called, "Arbiter should be called in gray zone"
-def test_arbiter_callback_logic_auto_supersede_over_0_7(temp_memory_path):
+def test_arbiter_callback_logic_auto_supersede_over_0_7(temp_memory_path, monkeypatch):
     """Scenario 2: Automatic supersede happens for sim > 0.7, ignoring arbiter."""
-    memory = Memory(storage_path=temp_memory_path)
+    import ledgermind.core.stores.vector
+    import numpy as np
+    from unittest.mock import MagicMock
+    
+    mock_model = MagicMock()
+    mock_model.encode.return_value = np.array([[1.0] * 384], dtype='float32')
+    mock_model.get_sentence_embedding_dimension.return_value = 384
+    
+    ledgermind.core.stores.vector._MODEL_CACHE["all-MiniLM-L6-v2"] = mock_model
+    ledgermind.core.stores.vector.EMBEDDING_AVAILABLE = True
+    
+    memory = Memory(storage_path=temp_memory_path, vector_model="all-MiniLM-L6-v2")
     target = "Arbiter-Auto"
     
     # Titles almost identical to hit > 0.7
@@ -124,7 +152,7 @@ def test_hybrid_search_rrf_and_grounding_boost(temp_memory_path):
     Ensures that RRF correctly fuses Keyword and Vector results, 
     and that 'Evidence Boost' elevates grounded decisions.
     """
-    memory = Memory(storage_path=temp_memory_path)
+    memory = Memory(storage_path=temp_memory_path, vector_model="all-MiniLM-L6-v2")
     
     # 1. Record Decision A (Vector match + Grounding boost)
     res_a = memory.record_decision(

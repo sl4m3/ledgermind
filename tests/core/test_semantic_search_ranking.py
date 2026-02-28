@@ -81,3 +81,68 @@ def test_ranking_correctness(memory):
     
     assert len(results) > 0, "No results found for the specific query"
     assert "asynchronous enrichment" in results[0]['title'].lower(), f"Target is not Top-1 for the specific query. Top-1 is {results[0]['title']}"
+
+def test_normative_model_weighting(memory):
+    """Verify the Balanced Normative Model: Decision > Proposal, Canonical > Emergent."""
+    from ledgermind.core.core.schemas import DecisionStream, DecisionPhase, DecisionVitality
+    from datetime import datetime
+    
+    # 1. Create a Proposal (Emergent)
+    ctx_prop = DecisionStream(
+        decision_id="test-prop-1",
+        title="Proposal: Advanced Search Strategy",
+        target="search-strategy",
+        rationale="Emergent proposal with some good ideas for search.",
+        status="active",
+        phase=DecisionPhase.EMERGENT,
+        vitality=DecisionVitality.ACTIVE,
+        first_seen=datetime.now(),
+        last_seen=datetime.now()
+    )
+    
+    memory.process_event(
+        source="agent",
+        kind="proposal",
+        content="Testing ranking for proposal",
+        context=ctx_prop
+    )
+    
+    # 2. Create a Decision (Canonical) with SAME query relevance
+    ctx_dec = DecisionStream(
+        decision_id="test-dec-1",
+        title="Decision: Advanced Search Strategy",
+        target="search-strategy",
+        rationale="Canonical decision with established rules for search.",
+        status="active",
+        phase=DecisionPhase.CANONICAL,
+        vitality=DecisionVitality.ACTIVE,
+        first_seen=datetime.now(),
+        last_seen=datetime.now()
+    )
+    
+    memory.process_event(
+        source="agent",
+        kind="decision",
+        content="Testing ranking for decision",
+        context=ctx_dec
+    )
+    
+    query = "Advanced Search Strategy"
+    results = memory.search_decisions(query, limit=5)
+    
+    assert len(results) >= 2
+    
+    # Decision should be FIRST due to kind_weight (1.35x) and phase_weight (1.5x)
+    top_result = results[0]
+    second_result = results[1]
+    
+    assert top_result['kind'] == 'decision'
+    assert top_result['phase'] == 'canonical'
+    assert "Decision" in top_result['title']
+    
+    assert second_result['kind'] == 'proposal'
+    assert second_result['phase'] == 'emergent'
+    assert "Proposal" in second_result['title']
+    
+    # Score gap should be significant (Decision ~2.0x, Proposal ~1.2x)
+    assert top_result['score'] >= second_result['score']
