@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772309597187,
+  "lastUpdate": 1772309947595,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4750,6 +4750,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008582990682617526",
             "extra": "mean: 1.2767551999843363 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "d6dd3994abb8431b2c69d6bec886abdcf44fd05b",
+          "message": "perf: restore search fast-path with lifecycle-aware ranking\n\n- Re-enabled automatic fast-path for short, simple queries to fix 25x performance regression.\n- Implemented basic weighting (phase, vitality) in fast-path results to maintain ranking integrity.\n- Ensures benchmarks pass while preserving behavioral correctness for common queries.",
+          "timestamp": "2026-02-28T23:16:56+03:00",
+          "tree_id": "69e9f7c3cc28ad0de2c73a6401a7600eed5aefbf",
+          "url": "https://github.com/sl4m3/ledgermind/commit/d6dd3994abb8431b2c69d6bec886abdcf44fd05b"
+        },
+        "date": 1772309946694,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 69.6775167055584,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004004611628852178",
+            "extra": "mean: 14.351831800001946 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 1804.7811540785144,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000027883223125089586",
+            "extra": "mean: 554.0837999888026 usec\nrounds: 5"
           }
         ]
       }
