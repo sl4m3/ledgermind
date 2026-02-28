@@ -104,13 +104,12 @@ without any intervention from the developer or the agent.
 ## Installation
 
 ```bash
-# Basic install
+# Install LedgerMind (includes Jina v5 4-bit vector support by default)
 pip install ledgermind
 
-# With 4-bit vector search (recommended for CPU/Mobile)
-pkg install clang cmake ninja
-pip install llama-cpp-python
-pip install ledgermind[vector]
+# Note for Termux/Mobile users: 
+# You may need to install build tools first for llama-cpp-python:
+# pkg install clang cmake ninja
 ```
 
 **Requirements:** Python 3.10+, Git installed and configured in PATH.
@@ -119,7 +118,21 @@ pip install ledgermind[vector]
 
 ## Quick Start
 
-### Option A: Zero-Touch Automation (Recommended)
+### 1. Initialization
+
+After installation, run the interactive setup to configure your memory storage, vector models, and client hooks:
+
+```bash
+ledgermind init
+```
+
+This will guide you through:
+1. Setting the memory storage path (default: `../.ledgermind`).
+2. Choosing your embedding model (default: `jina-v5-4bit`).
+3. Installing automatic context hooks for your preferred client (Cursor, Claude, Gemini).
+4. Selecting an Arbitration Mode (`lite`, `optimal`, `rich`) for conflict resolution.
+
+### 2. Zero-Touch Automation (Recommended)
 
 The easiest way to use LedgerMind is to install the **LedgerMind Hooks Pack**. This automatically configures your LLM client to retrieve context before every prompt and record every interaction without the agent needing to manually call MCP tools.
 
