@@ -3,6 +3,7 @@ import time
 import uuid
 import os
 from ledgermind.core.api.memory import Memory
+from ledgermind.core.core.schemas import LedgermindConfig
 
 @pytest.fixture
 def memory_instance(tmp_path):
@@ -15,11 +16,11 @@ def memory_instance(tmp_path):
         if os.path.exists(standard_model):
             model_path = standard_model
 
-    config = {
-        "storage_path": storage_path,
-        "vector_model": model_path if model_path else "models/v5-small-text-matching-Q4_K_M.gguf",
-        "vector_workers": 0 # Use 0 for auto/single thread in benchmarks
-    }
+    config = LedgermindConfig(
+        storage_path=storage_path,
+        vector_model=model_path if model_path else "models/v5-small-text-matching-Q4_K_M.gguf",
+        vector_workers=0 # Use 0 for auto/single thread in benchmarks
+    )
     return Memory(config=config)
 
 def test_benchmark_record_decision(memory_instance, benchmark):
