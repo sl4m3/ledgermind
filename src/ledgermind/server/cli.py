@@ -109,8 +109,9 @@ def init_project(path: str):
             import time
             try:
                 with open(model_path, "wb") as f:
-                    with httpx.stream("GET", custom_url, follow_redirects=True, timeout=None) as response:
+                    with httpx.stream("GET", custom_url, follow_redirects=True, timeout=60.0) as response:
                         response.raise_for_status()
+
                         total = int(response.headers.get("Content-Length", 0))
                         downloaded = 0
                         last_log = time.time()
