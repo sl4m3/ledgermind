@@ -72,6 +72,7 @@ class SemanticMetaStore:
                 "reinforcement_density": "REAL DEFAULT 0.0",
                 "stability_score": "REAL DEFAULT 0.0",
                 "coverage": "REAL DEFAULT 0.0",
+                "link_count": "INTEGER DEFAULT 0",
                 "context_json": "TEXT DEFAULT '{}'"
             }
             for col, definition in cols.items():
@@ -149,14 +150,14 @@ class SemanticMetaStore:
                title: str = "", superseded_by: Optional[str] = None, namespace: str = "default",
                content: str = "", keywords: str = "", confidence: float = 1.0, context_json: str = "{}",
                phase: str = "pattern", vitality: str = "active", reinforcement_density: float = 0.0, 
-               stability_score: float = 0.0, coverage: float = 0.0):
+               stability_score: float = 0.0, coverage: float = 0.0, link_count: int = 0):
         """Atomic upsert of decision metadata with content caching."""
         # Ensure timestamp is in ISO format string
         ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
 
         self._conn.execute("""
-            INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage, link_count)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(fid) DO UPDATE SET
                 title=excluded.title,
                 status=excluded.status,
@@ -170,8 +171,9 @@ class SemanticMetaStore:
                 vitality=excluded.vitality,
                 reinforcement_density=excluded.reinforcement_density,
                 stability_score=excluded.stability_score,
-                coverage=excluded.coverage
-        """, (fid, target, title, status, kind, ts_str, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage))
+                coverage=excluded.coverage,
+                link_count=excluded.link_count
+        """, (fid, target, title, status, kind, ts_str, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage, link_count))
 
 
     def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
@@ -200,9 +202,6 @@ class SemanticMetaStore:
 
     def keyword_search(self, query: str, limit: int = 10, namespace: str = "default") -> List[Dict[str, Any]]:
         """Search using FTS5 (BM25) with absolute maximum performance."""
-        # tuples are faster than sqlite3.Row
-        self._conn.row_factory = None
-        
         try:
             if not query.strip(): return []
             
@@ -211,17 +210,15 @@ class SemanticMetaStore:
 
             # Determine query pattern
             words = clean_query.split()
-            if len(words) > 5:
-                 fts_query = " ".join(words[1:-1])
-            elif len(words) == 1:
-                 fts_query = clean_query + "*"
-            else:
-                 fts_query = clean_query
+            fts_query = clean_query + "*" if len(words) == 1 else clean_query
             
-            # FASTEST PATH: Use subquery for RowIDs then fetch metadata. 
-            # SQLite handles this much better than a JOIN for FTS5.
+            # FASTEST PATH: Use sqlite3.Row for zero-overhead dict conversion
+            original_factory = self._conn.row_factory
+            self._conn.row_factory = sqlite3.Row
+            cur = self._conn.cursor()
+            
             sql = """
-                SELECT fid, title, target, status, kind, timestamp, namespace
+                SELECT fid, title, target, status, kind, timestamp, namespace, phase, vitality, link_count
                 FROM semantic_meta 
                 WHERE rowid IN (
                     SELECT rowid FROM semantic_fts 
@@ -230,29 +227,28 @@ class SemanticMetaStore:
                 LIMIT ?
             """
             
-            cursor = self._conn.execute(sql, (fts_query, namespace, limit))
-            rows = cursor.fetchall()
+            cur.execute(sql, (fts_query, namespace, limit))
+            rows = cur.fetchall()
             
             if not rows and len(words) > 1:
                  fts_query_or = " OR ".join(words)
-                 cursor = self._conn.execute(sql, (fts_query_or, namespace, limit))
-                 rows = cursor.fetchall()
+                 cur.execute(sql, (fts_query_or, namespace, limit))
+                 rows = cur.fetchall()
             
-            # Use list comprehension with zip or direct indexing for speed
-            return [{
-                "fid": r[0], "title": r[1], "target": r[2], "status": r[3], 
-                "kind": r[4], "timestamp": r[5], "namespace": r[6]
-            } for r in rows]
+            res = [dict(r) for r in rows]
+            cur.close()
+            self._conn.row_factory = original_factory
+            return res
             
         except Exception:
-            # Fallback to simple LIKE
+            self._conn.row_factory = original_factory
             pattern = f"%{query.lower()}%"
-            sql = "SELECT fid, title, target, status, kind, timestamp, namespace FROM semantic_meta WHERE (target LIKE ? OR title LIKE ? OR keywords LIKE ? OR content LIKE ?) AND namespace = ? LIMIT ?"
-            cursor = self._conn.execute(sql, (pattern, pattern, pattern, pattern, namespace, limit))
-            return [{
-                "fid": r[0], "title": r[1], "target": r[2], "status": r[3], 
-                "kind": r[4], "timestamp": r[5], "namespace": r[6]
-            } for r in cursor.fetchall()]
+            sql = "SELECT fid, title, target, status, kind, timestamp, namespace, phase, vitality, link_count FROM semantic_meta WHERE (target LIKE ? OR title LIKE ? OR keywords LIKE ? OR content LIKE ?) AND namespace = ? LIMIT ?"
+            cur = self._conn.cursor()
+            cur.execute(sql, (pattern, pattern, pattern, pattern, namespace, limit))
+            res = [dict(r) for r in cur.fetchall()]
+            cur.close()
+            return res
 
     def resolve_to_truth(self, fid: str) -> Optional[Dict[str, Any]]:
         """
