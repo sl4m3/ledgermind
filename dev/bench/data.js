@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772308471189,
+  "lastUpdate": 1772309597187,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4712,6 +4712,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000007227262773424558",
             "extra": "mean: 51.0132000044905 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "ce0cf5ae48e703c509883a0de3d4342113f2f3e1",
+          "message": "fix(core): resolve CI pipeline failures and search consistency issues\n\n- Fix JSON serialization of datetime and Enums in SemanticStore.\n- Ensure vectors are always computed in record_decision for reliable conflict resolution.\n- Fix SearchResponse validation by adding missing preview and evidence_count fields to fast-path search.\n- Restrict search fast-path to 'lite' mode for proper lifecycle ranking in standard queries.\n- Prevent VectorStore.close() from clearing global _MODEL_CACHE to fix test isolation.\n- Expand fallback LIKE-based keyword search to include content and keywords fields.\n- Fix stale cache issue in IntegrityChecker and improve test monkeypatching.\n- Update documentation to reflect v3.0.4+ architecture and Zero-Touch hooks.",
+          "timestamp": "2026-02-28T23:11:07+03:00",
+          "tree_id": "be984f73cab81f514b447d6c3c7a2102b70110fb",
+          "url": "https://github.com/sl4m3/ledgermind/commit/ce0cf5ae48e703c509883a0de3d4342113f2f3e1"
+        },
+        "date": 1772309596854,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 68.32947351520515,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000614390665517105",
+            "extra": "mean: 14.634973000011087 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 783.2355020071728,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008582990682617526",
+            "extra": "mean: 1.2767551999843363 msec\nrounds: 5"
           }
         ]
       }
