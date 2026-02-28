@@ -861,22 +861,41 @@ class Memory:
         k = 60 # RRF constant
         
         # Fast path for simple keyword search in high-performance scenarios
-        if mode == "lite":
+        if mode == "lite" or (len(query) < 20 and " " not in query.strip()):
             kw_results = self.semantic.meta.keyword_search(query, limit=limit, namespace=effective_namespace)
             if kw_results:
-                # Minimum mapping needed for consistency
                 fids = [r['fid'] for r in kw_results]
                 link_counts = self.episodic.count_links_for_semantic_batch(fids)
-                return [{
-                    "id": r['fid'],
-                    "title": r.get('title', 'unknown'),
-                    "preview": r.get('title', 'unknown'),
-                    "target": r.get('target', 'unknown'),
-                    "status": r.get('status', 'active'),
-                    "score": 1.0,
-                    "kind": r.get('kind', 'decision'),
-                    "evidence_count": link_counts.get(r['fid'], (0, 0))[0]
-                } for r in kw_results]
+                
+                # Fetch full meta for basic ranking boost even in fast path
+                full_metas = {m['fid']: m for m in self.semantic.meta.get_batch_by_fids(fids)}
+                
+                results = []
+                for r in kw_results:
+                    fid = r['fid']
+                    meta = full_metas.get(fid, {})
+                    
+                    # Basic weighting: CANONICAL (1.5) > EMERGENT (1.2) > PATTERN (1.0)
+                    # Vitality: ACTIVE (1.0) > DECAYING (0.5) > DORMANT (0.2)
+                    phase_w = 1.5 if meta.get('phase') == 'canonical' else (1.2 if meta.get('phase') == 'emergent' else 1.0)
+                    vital_w = 1.0 if meta.get('vitality') == 'active' else (0.5 if meta.get('vitality') == 'decaying' else 0.2)
+                    
+                    score = phase_w * vital_w
+                    
+                    results.append({
+                        "id": fid,
+                        "title": r.get('title', 'unknown'),
+                        "preview": r.get('title', 'unknown'),
+                        "target": r.get('target', 'unknown'),
+                        "status": r.get('status', 'active'),
+                        "score": float(score),
+                        "kind": r.get('kind', 'decision'),
+                        "evidence_count": link_counts.get(fid, (0, 0))[0]
+                    })
+                
+                # Sort by our basic lifecycle score
+                results.sort(key=lambda x: x['score'], reverse=True)
+                return results[:limit]
 
         if namespace:
             search_limit = max(200, (offset + limit) * 10)
