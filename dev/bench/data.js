@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772282767830,
+  "lastUpdate": 1772282939507,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4066,6 +4066,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000070768552353861076",
             "extra": "mean: 56.26384973217604 usec\nrounds: 3354"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "82b416df7f094eba44a919ec2bbf3aa817864deb",
+          "message": "Merge pull request #35 from sl4m3/sentinel-fix-memory-leak-7066481095563683461\n\n🛡️ Sentinel: [MEDIUM] Fix missing event listener cleanup (Memory Leak / DoS)",
+          "timestamp": "2026-02-28T15:42:34+03:00",
+          "tree_id": "632141765a57ed7ca015ea3f9075a445b31b6fff",
+          "url": "https://github.com/sl4m3/ledgermind/commit/82b416df7f094eba44a919ec2bbf3aa817864deb"
+        },
+        "date": 1772282938075,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 17.460315592338034,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03027596718668326",
+            "extra": "mean: 57.2727334000092 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 11055.906960881106,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00096011030193903",
+            "extra": "mean: 90.44938633603557 usec\nrounds: 3396"
           }
         ]
       }
