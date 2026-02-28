@@ -184,7 +184,8 @@ class TestEnvironmentCheck(unittest.TestCase):
              patch('ledgermind.core.api.memory.shutil.disk_usage') as mock_disk, \
              patch('ledgermind.core.api.memory.subprocess.run') as mock_run, \
              patch('ledgermind.core.stores.vector.LLAMA_AVAILABLE', False), \
-             patch('ledgermind.core.stores.vector.EMBEDDING_AVAILABLE', False):
+             patch('ledgermind.core.stores.vector.EMBEDDING_AVAILABLE', False), \
+             patch.dict('sys.modules', {'llama_cpp': MagicMock()}):
 
              Memory._git_available = True
              mock_run.return_value.stdout = "config"
