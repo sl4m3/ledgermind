@@ -90,6 +90,19 @@ class EpisodicStore:
             with conn:
                 conn.execute("UPDATE events SET linked_id = NULL WHERE linked_id = ?", (semantic_id,))
 
+    def get_by_ids(self, ids: List[int]) -> List[Dict[str, Any]]:
+        """Fetches multiple events by their IDs."""
+        if not ids:
+            return []
+        
+        # Use parameterized query with correct number of placeholders
+        placeholders = ",".join(["?"] * len(ids))
+        query = f"SELECT * FROM events WHERE id IN ({placeholders}) ORDER BY id ASC"
+        
+        with self._get_conn() as conn:
+            rows = conn.execute(query, ids).fetchall()
+            return [dict(row) for row in rows]
+
     def query(self, limit: int = 100, status: Optional[str] = 'active', after_id: Optional[int] = None, order: str = 'DESC') -> List[Dict[str, Any]]:
         with self._get_conn() as conn:
             query_parts = []
