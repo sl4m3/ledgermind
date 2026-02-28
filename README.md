@@ -244,14 +244,15 @@ REST endpoints.
 #### Throughput (Ops/sec)
 | Metric | Mobile (GGUF) | Server (MiniLM) | Note |
 | :--- | :---: | :---: | :--- |
-| **Search OPS** | **14,724** | **17,603** | Subquery RowID + Tuple mapping |
-| **Write OPS**  | **70.9** | **70.2** | Defer Git + SQLite WAL + Lazy Vector |
+| **Search OPS** | **13,000** | **16,531** | Optimized Subquery RowID |
+| **Write OPS**  | **8.6** | **69.7** | Pure Core / Git Audit Trace |
 
 #### Latency (Mean)
 | Metric | Mobile (GGUF) | Server (MiniLM) | Note |
 | :--- | :---: | :---: | :--- |
-| **Search Latency** | **0.06 ms** | **0.05 ms** | Sub-millisecond context retrieval |
-| **Write Latency** | **14.1 ms** | **14.2 ms** | Optimized atomic transaction |
+| **Search Latency** | **0.07 ms** | **0.06 ms** | Sub-millisecond context retrieval |
+| **Write Latency** | **115.6 ms** | **14.3 ms** | Optimized atomic transaction |
+
 
 ---
 
