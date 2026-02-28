@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772281310735,
+  "lastUpdate": 1772281395146,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3914,6 +3914,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000005403884954261987",
             "extra": "mean: 56.86683582480381 usec\nrounds: 3612"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "05bf26fb8dc06936960a4774bfd5e5bf4d23138f",
+          "message": "docs: expand performance benchmarks with throughput and latency tables",
+          "timestamp": "2026-02-28T15:18:58+03:00",
+          "tree_id": "50b24c74c4b6f478caeef20d3ea0ae90ac495dd8",
+          "url": "https://github.com/sl4m3/ledgermind/commit/05bf26fb8dc06936960a4774bfd5e5bf4d23138f"
+        },
+        "date": 1772281394592,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 39.94302877874875,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0013977343294690001",
+            "extra": "mean: 25.03565779999235 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17160.315387268623,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007737122649930008",
+            "extra": "mean: 58.27398724512418 usec\nrounds: 2901"
           }
         ]
       }
