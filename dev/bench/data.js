@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772309947595,
+  "lastUpdate": 1772310765387,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4788,6 +4788,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000027883223125089586",
             "extra": "mean: 554.0837999888026 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "22eb1c57e4a7b055dc063d894187de8a617cc232",
+          "message": "perf: ultra-fast search fast-path with indexed link counts\n\n- Added 'link_count' column to semantic_meta for O(1) retrieval during search.\n- Optimized keyword_search using sqlite3.Row for zero-overhead dict conversion.\n- Re-enabled high-performance fast-path in search_decisions.\n- Quieted missing vector engine warnings to speed up recording in tests.\n- Synchronized local package via editable install to ensure correct benchmark results.",
+          "timestamp": "2026-02-28T23:30:30+03:00",
+          "tree_id": "e1a479db935b6cea629ce719f788268f02968493",
+          "url": "https://github.com/sl4m3/ledgermind/commit/22eb1c57e4a7b055dc063d894187de8a617cc232"
+        },
+        "date": 1772310765064,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 70.3949721095442,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002892580038206851",
+            "extra": "mean: 14.205559999993511 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 13413.996163854523,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000024410250646109247",
+            "extra": "mean: 74.54899999856934 usec\nrounds: 5"
           }
         ]
       }
