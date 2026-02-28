@@ -221,13 +221,12 @@ REST endpoints.
 
 - ["STATISTICS"](https://sl4m3.github.io/ledgermind/dev/bench/)
 
-### Retrieval Performance (Jina v5 Small Q4_K_M)
+### Performance Benchmarks (v3.0.3)
 
-| Metric | Mean | Note |
+| Metric | Ops/sec | Note |
 | :--- | :---: | :--- |
-| **Search p95 (ms)** | **28.4 ms** | Hybrid RRF (Vector + Keyword) |
-| **Write p95 (ms)** | **242.1 ms** | Optimized Metadata Indexing |
-| **Memory OPS** | **16.2 ops/s** | Parallelized write throughput |
+| **Search OPS** | **2,471 - 24,199** | GGUF (Mobile) vs MiniLM (Server) |
+| **Write OPS**  | **6.5 - 54.4** | Full RAG indexing + Git commit |
 
 ---
 
