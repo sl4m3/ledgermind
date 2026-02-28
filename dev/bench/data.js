@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772242715639,
+  "lastUpdate": 1772247734111,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3762,6 +3762,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000053019135759622606",
             "extra": "mean: 56.650517376326654 usec\nrounds: 3827"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "44ff2f15299f0566ae4268abc32294c0bb8a26bc",
+          "message": "fix(tests): resolve FileNotFoundError and TypeError warnings during teardown\n\n- VectorStore: Make save-on-close completely silent and fail-safe against test directory removal.\n- VectorStore: Ensure clean _MODEL_CACHE destruction to prevent llama-cpp __del__ exceptions during late interpreter shutdown.\n- lg.py: Properly mock Llama model to prevent 'Vector indexing failed' during lifecycle validation.\n- test_environment.py: Update assertions to handle new vector_available warning strings.\n- test_vector_search.py: Inject VectorStore mock correctly into cache.",
+          "timestamp": "2026-02-28T05:58:03+03:00",
+          "tree_id": "3c4137d49d27db0cb079d5751456455d2a7d2675",
+          "url": "https://github.com/sl4m3/ledgermind/commit/44ff2f15299f0566ae4268abc32294c0bb8a26bc"
+        },
+        "date": 1772247733369,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 43.302139020869994,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0011196653040549333",
+            "extra": "mean: 23.093547400003445 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17480.252640655024,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006103399833691125",
+            "extra": "mean: 57.207411160307345 usec\nrounds: 3602"
           }
         ]
       }
