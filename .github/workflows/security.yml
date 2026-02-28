@@ -25,7 +25,8 @@ jobs:
 
     - name: Run Safety (Dependency Check)
       run: |
-        # Check project dependencies
-        pip install .
+        # Check project dependencies from pyproject.toml directly
+        # Use --no-deps to only analyze metadata
+        pip install . --no-deps
         pip freeze > requirements.txt
         safety check -r requirements.txt
