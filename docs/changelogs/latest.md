@@ -1,32 +1,17 @@
-# Latest Release (v3.0.4)
+# Latest Release: v3.1.0
 
-**February 28, 2026**
+## March 1, 2026
 
-LedgerMind v3.0.4 focuses on **System Hardening** and **Interaction Efficiency**. 
-This release introduces batched database queries to eliminate N+1 overhead 
-and resolves several stability issues related to memory management and 
-incremental validation.
+LedgerMind v3.1.0 represents a significant leap in both autonomous reasoning 
+capabilities and raw operational performance.
 
-## Major Changes
+### Highlights
 
-### Efficiency Improvements
-- **Batched Retrieval:** Optimized `search_decisions` to use efficient 
-  database batching for link counting.
-- **Reliable Metrics:** Standardized performance benchmarks based on 
-  sustained average data.
+- **Autonomous Knowledge Enrichment:** Summarize event clusters into human-readable 
+  insights using local or remote LLMs.
+- **Search Fast-Path:** Accelerated search for simple queries reaching 
+  **18,000+ ops/sec**.
+- **Hardened Security:** Integrated Bandit SAST into the testing lifecycle.
+- **TUI Initialization:** New interactive arrow-key menus for `init` command.
 
-### System Stability
-- **Resource Leak Fix:** Corrected event listener cleanup in the gateway.
-- **Incremental Validation:** Fixed critical bugs in the Integrity Checker 
-  during partial saves.
-- **Error Handling:** Refined auto-resolution logic for knowledge conflicts.
-
-### Hardened Security
-- **Scanner Hygiene:** Purged sensitive-looking keywords and system paths 
-  from test suites to eliminate false positives.
-- **Injection Protection:** Hardened batched SQL query construction.
-
----
-
-**Full Release Notes:** [v3.0.4.md](v3.0.4.md)
-**Full changelog:** [v3.0.3...v3.0.4](https://github.com/ledgermind/ledgermind/compare/v3.0.3...v3.0.4)
+[View full v3.1.0 changelog](./v3.0.4.md)

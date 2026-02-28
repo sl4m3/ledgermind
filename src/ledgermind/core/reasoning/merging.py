@@ -91,7 +91,8 @@ class MergeEngine:
             confidence=0.99,
             suggested_supersedes=target_ids,
             strengths=["Reduces redundancy", "Improves retrieval precision"],
-            suggested_consequences=["Original decisions will be superseded"]
+            suggested_consequences=["Original decisions will be superseded"],
+            enrichment_status="pending"
         )
         
         try:
