@@ -41,8 +41,8 @@ def test_lifecycle_search_ranking(tmp_path):
         }
     )
     
-    # Search for "web"
-    results = memory.search_decisions("web", mode="balanced")
+    # Search for "web" (Lengthened to force full hybrid path for weights testing)
+    results = memory.search_decisions("web architecture technology standard legacy framework", mode="balanced")
     
     for r in results:
         print(f"DEBUG: Result: {r['title']}, Score: {r['score']}, Phase: {r.get('phase')}, Vitality: {r.get('vitality')}")

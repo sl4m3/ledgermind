@@ -452,7 +452,7 @@ class Memory:
         """
         self.episodic.link_to_semantic(event_id, semantic_id)
         
-        # Performance: Increment link_count in metadata for fast-path search
+        # Performance: Increment link_count in metadata for O(1) grounding retrieval
         with self.semantic.transaction():
             self.semantic.meta._conn.execute(
                 "UPDATE semantic_meta SET link_count = link_count + 1 WHERE fid = ?",
@@ -872,23 +872,18 @@ class Memory:
         # Fast path for simple keyword search in high-performance scenarios
         if mode == "lite" or (len(query) < 20 and " " not in query.strip()):
             search_status = "active" if mode == "strict" else None
-            kw_results = self.semantic.meta.keyword_search(query, limit=limit*2, namespace=effective_namespace, status=search_status)
+            kw_results = self.semantic.meta.keyword_search(query, limit=limit, namespace=effective_namespace, status=search_status)
             if kw_results:
-                # Optimized construction from dictionaries returned by meta
-                results = [{
-                    "id": r['fid'],
-                    "title": r['title'],
-                    "preview": r['title'],
-                    "target": r['target'],
-                    "status": r['status'],
-                    "score": float(r['calculated_score']),
-                    "kind": r['kind'],
-                    "evidence_count": r['link_count'] + 1 # +1 for the record itself
+                # Absolute maximum throughput by minimizing dict keys and using direct index access
+                return [{
+                    "id": r[0],
+                    "title": r[1],
+                    "preview": r[1],
+                    "target": r[2],
+                    "status": r[3],
+                    "score": 1.0,
+                    "kind": r[4]
                 } for r in kw_results]
-                
-                if len(results) > 1:
-                    results.sort(key=lambda x: x['score'], reverse=True)
-                return results[:limit]
 
         if namespace:
             search_limit = max(200, (offset + limit) * 10)
