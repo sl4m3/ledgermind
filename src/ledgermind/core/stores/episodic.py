@@ -141,6 +141,25 @@ class EpisodicStore:
             ).fetchone()
             return (row[0] or 0, row[1] or 0.0)
 
+    def count_links_for_semantic_batch(self, semantic_ids: List[str]) -> Dict[str, Tuple[int, float]]:
+        """Returns a mapping of semantic_id -> (count, total_strength) for multiple semantic decisions efficiently."""
+        if not semantic_ids:
+            return {}
+
+        placeholders = ','.join('?' for _ in semantic_ids)
+        with self._get_conn() as conn:
+            cursor = conn.execute(
+                f"SELECT linked_id, COUNT(*), SUM(link_strength) FROM events WHERE linked_id IN ({placeholders}) GROUP BY linked_id",
+                semantic_ids
+            )
+            results = {row[0]: (row[1] or 0, row[2] or 0.0) for row in cursor.fetchall()}
+
+            # Ensure all requested IDs are in the result
+            for sid in semantic_ids:
+                if sid not in results:
+                    results[sid] = (0, 0.0)
+            return results
+
     def mark_archived(self, event_ids: List[int]):
         if not event_ids: return
         placeholders = ','.join(['?'] * len(event_ids))
