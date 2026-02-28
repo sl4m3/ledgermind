@@ -181,6 +181,19 @@ class GGUFEmbeddingAdapter:
 # Module-level cache for models
 _MODEL_CACHE = {}
 
+import atexit
+def _cleanup_model_cache():
+    global _MODEL_CACHE
+    for model in list(_MODEL_CACHE.values()):
+        if hasattr(model, 'close'):
+            try:
+                model.close()
+            except Exception:
+                pass
+    _MODEL_CACHE.clear()
+
+atexit.register(_cleanup_model_cache)
+
 class VectorStore:
     """
     A simple vector store using NumPy for cosine similarity.
