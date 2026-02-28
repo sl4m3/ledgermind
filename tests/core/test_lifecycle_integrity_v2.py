@@ -13,7 +13,7 @@ from ledgermind.core.stores.semantic_store.meta import SemanticMetaStore
 @pytest.fixture
 def memory(tmp_path):
     storage = tmp_path / "memory"
-    mem = Memory(vector_model="all-MiniLM-L6-v2", storage_path=str(storage), namespace="test")
+    mem = Memory(vector_model="v5-small-text-matching-Q4_K_M.gguf", storage_path=str(storage), namespace="test")
     yield mem
     mem.close()
 

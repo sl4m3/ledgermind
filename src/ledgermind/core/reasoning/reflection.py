@@ -41,7 +41,7 @@ class ReflectionEngine:
     """
     BLACKLISTED_TARGETS = {
         "general", "general_development", "general_task", "unknown", "none", "null",
-        "reflection_engine", "bridge", "memory", "tmp", "ledgermind"
+        "reflection_engine"
     }
 
     def __init__(self, episodic_store: EpisodicStore, semantic_store: SemanticStore, 
@@ -121,8 +121,8 @@ class ReflectionEngine:
                             processed_fids.add(fid)
                             result_ids.append(fid)
                     else:
-                        # New pattern
-                        if stats['commits'] >= 1 or stats['successes'] >= 1 or stats['errors'] >= 1:
+                        # New pattern based on accumulated session weight
+                        if stats['weight'] >= 1.0 or stats['commits'] >= 1:
                             new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map, procedural_links=procedural_list)
                             if new_fid: result_ids.append(new_fid)
 
@@ -141,6 +141,16 @@ class ReflectionEngine:
                         logger.info(f"Applying vitality decay to {fid}: {old_vit} -> {stream.vitality} (days={days:.2f})")
                         self.processor.update_decision(fid, stream.model_dump(), commit_msg="Lifecycle: Vitality decay update.")
                         result_ids.append(fid)
+
+            # 4. Log Reflection Summary if any changes were made
+            if result_ids:
+                summary_event = MemoryEvent(
+                    source="reflection_engine",
+                    kind="reflection_summary",
+                    content=f"Reflection cycle completed. Distilled or updated {len(set(result_ids))} knowledge records.",
+                    context={"updated_fids": list(set(result_ids))}
+                )
+                self.episodic.append(summary_event)
                 
         return result_ids, max_id
 
@@ -275,7 +285,7 @@ class ReflectionEngine:
         META_KINDS = {KIND_PROPOSAL, "context_snapshot", "context_injection"}
         
         # Russian success indicators
-        RU_SUCCESS_KEYWORDS = {"успешно", "прошли", "исправлено", "завершено", "ок", "выполнено"}
+        RU_SUCCESS_KEYWORDS = {"успешно", "прошли", "исправлено", "завершено", "ок", "выполнено", "готово", "работает", "прошел", "починил", "успех"}
 
         for ev in events:
             # 1. Anti-Self-Reflection: Skip events from engine or meta-events
@@ -347,8 +357,10 @@ class ReflectionEngine:
             elif ev['kind'] == 'commit_change': 
                 clusters[target]['commits'] += 1
                 clusters[target]['weight'] += 2.0
-            elif ev['kind'] in ('call', 'task', 'prompt'):
-                clusters[target]['weight'] += 0.1
+            elif ev['kind'] in ('call', 'task'):
+                clusters[target]['weight'] += 0.3
+            elif ev['kind'] == 'prompt':
+                clusters[target]['weight'] += 0.2
             
             try: clusters[target]['last_seen'] = max(clusters[target]['last_seen'], ev['timestamp'])
             except: pass

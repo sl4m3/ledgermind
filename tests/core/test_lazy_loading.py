@@ -44,7 +44,7 @@ sys.modules['sentence_transformers'] = MagicMock()
 sys.modules['transformers'] = MagicMock()
 
 from ledgermind.core.stores.vector import VectorStore
-vs = VectorStore('{test_dir}', model_name='all-MiniLM-L6-v2')
+vs = VectorStore('{test_dir}', model_name='v5-small-text-matching-Q4_K_M.gguf')
 
 try:
     _ = vs.model

@@ -28,7 +28,7 @@ def run_benchmark():
     # The `add_documents` method calls `self.model.encode`.
     # But we can manipulate `_vectors` directly for benchmarking the search part.
 
-    store = VectorStore(storage_path=base_dir, model_name="all-MiniLM-L6-v2")
+    store = VectorStore(storage_path=base_dir, model_name="v5-small-text-matching-Q4_K_M.gguf")
 
     # Mock the internal vectors to avoid using the model for 20k items (which would be slow)
     dim = 384
