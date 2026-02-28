@@ -63,18 +63,25 @@ class ReflectionEngine:
         result_ids = []
         max_id = after_id
         
+        # Read config BEFORE entering the transaction to prevent implicit DDL commits in SQLite
+        arbitration_mode = self.semantic.meta.get_config("arbitration_mode", "lite")
 
         with self.semantic.transaction():
             # 0. Distillation (Procedural Patterns)
             distiller = DistillationEngine(self.episodic, window_size=self.policy.distillation_window_size)
             procedural_proposals = distiller.distill_trajectories(after_id=after_id)
-            
+
             # Group procedural proposals by target for linking
             target_to_procedural = {}
-            
+
             for prop in procedural_proposals:
                 if prop.target in self.BLACKLISTED_TARGETS or prop.target.lower().startswith("general"):
                     continue
+
+                if arbitration_mode != "lite":
+                    # Mark for asynchronous enrichment
+                    prop.context["enrichment_status"] = "pending"
+
                 
                 if prop.target not in target_to_procedural:
                     target_to_procedural[prop.target] = []
