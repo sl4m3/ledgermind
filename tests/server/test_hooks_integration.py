@@ -47,25 +47,29 @@ def test_install_claude_hooks(mock_home, tmp_path):
         if result.returncode != 0:
             sys.__stderr__.write(f"STDERR: {result.stderr}\n")
         assert result.returncode == 0
-        assert "Installed Claude hooks successfully" in result.stdout
-
-        # Verify files
-        hooks_dir = mock_home / ".claude" / "hooks"
+        assert "Installed Claude hooks locally in" in result.stdout
+        # Verify files are in project dir, NOT global dir
+        project_hooks_dir = project_path / ".ledgermind" / "hooks"
         settings_file = mock_home / ".claude" / "settings.json"
         
-        assert (hooks_dir / "ledgermind_before_prompt.sh").exists()
-        assert (hooks_dir / "ledgermind_after_interaction.sh").exists()
+        assert (project_hooks_dir / "ledgermind_before_prompt.sh").exists()
+        assert (project_hooks_dir / "ledgermind_after_interaction.sh").exists()
         assert settings_file.exists()
         
+        # Verify settings.json points to the project hooks
+        with open(settings_file, "r") as f:
+            settings = json.load(f)
+            assert str(project_hooks_dir / "ledgermind_before_prompt.sh") in settings["hooks"]["UserPromptSubmit"]
+        
         # Verify content
-        before_content = (hooks_dir / "ledgermind_before_prompt.sh").read_text()
+        before_content = (project_hooks_dir / "ledgermind_before_prompt.sh").read_text()
         assert "bridge-context" in before_content
         assert '--cli "claude"' in before_content
         assert ".ledgermind" in before_content
 
         with open(settings_file) as f:
             settings = json.load(f)
-            assert settings["hooks"]["UserPromptSubmit"] == str(hooks_dir / "ledgermind_before_prompt.sh")
+            assert settings["hooks"]["UserPromptSubmit"] == str(project_hooks_dir / "ledgermind_before_prompt.sh")
 
 def test_install_cursor_hooks(mock_home, tmp_path):
     project_path = tmp_path / "project"
@@ -76,23 +80,27 @@ def test_install_cursor_hooks(mock_home, tmp_path):
         if result.returncode != 0:
             sys.__stderr__.write(f"STDERR: {result.stderr}\n")
         assert result.returncode == 0
-        assert "Installed Cursor hooks successfully" in result.stdout
-
-        hooks_dir = mock_home / ".cursor" / "hooks"
+        assert "Installed Cursor hooks locally in" in result.stdout
+        project_hooks_dir = project_path / ".ledgermind" / "hooks"
         hooks_file = mock_home / ".cursor" / "hooks.json"
         
-        assert (hooks_dir / "ledgermind_before.sh").exists()
+        assert (project_hooks_dir / "ledgermind_before.sh").exists()
         assert hooks_file.exists()
         
+        # Verify JSON points to the project hooks
+        with open(hooks_file, "r") as f:
+            config = json.load(f)
+            assert str(project_hooks_dir / "ledgermind_before.sh") in config["beforeSubmitPrompt"]
+        
         # Verify content
-        before_content = (hooks_dir / "ledgermind_before.sh").read_text()
+        before_content = (project_hooks_dir / "ledgermind_before.sh").read_text()
         assert "bridge-context" in before_content
         assert '--cli "cursor"' in before_content
         assert ".ledgermind" in before_content
 
         with open(hooks_file) as f:
             config = json.load(f)
-            assert config["beforeSubmitPrompt"] == str(hooks_dir / "ledgermind_before.sh")
+            assert config["beforeSubmitPrompt"] == str(project_hooks_dir / "ledgermind_before.sh")
 
 def test_install_gemini_hooks(mock_home, tmp_path):
     project_path = tmp_path / "project"
@@ -105,7 +113,8 @@ def test_install_gemini_hooks(mock_home, tmp_path):
         assert result.returncode == 0
         assert "Installed Gemini CLI hooks successfully" in result.stdout
 
-        hook_file = mock_home / ".gemini" / "hooks" / "ledgermind_hook.py"
+        project_hooks_dir = project_path / ".gemini" / "hooks"
+        hook_file = project_hooks_dir / "ledgermind_hook.py"
         assert hook_file.exists()
         content = hook_file.read_text()
         assert "bridge.get_context_for_prompt" in content
