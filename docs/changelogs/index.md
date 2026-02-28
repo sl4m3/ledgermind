@@ -4,6 +4,19 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.1.0] - 2026-03-01
+
+- **Autonomous Knowledge Enrichment:** Summarize event clusters into 
+  human-readable insights using local or remote LLMs.
+- **Search Fast-Path:** Simple keyword queries accelerated to 18,000+ ops/sec 
+  via optimized SQLite FTS5.
+- **SAST Integration:** Bandit security scanning now part of the standard 
+  test suite and CI pipeline.
+- **Interactive TUI:** New arrow-key navigation for project initialization 
+  via `init` command.
+- **Lazy Component Loading:** Reduced startup time by 60% by deferring 
+  vector store initialization.
+
 ## [v3.0.4] - 2026-02-28
 
 - **Bolt Optimization:** Eliminated N+1 database queries in context retrieval.

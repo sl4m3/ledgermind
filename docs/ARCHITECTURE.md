@@ -76,13 +76,14 @@ Memory (core/api/memory.py)
 
 ## Lifecycle and Knowledge Synthesis
 
-The `ReflectionEngine` and `LifecycleEngine` work together to observe behavior and promote knowledge:
+The `ReflectionEngine`, `DistillationEngine`, and `LLMEnricher` work together 
+to observe behavior and promote knowledge:
 
 *   **Behavioral Detections:** `ReflectionEngine` clusters episodic events (successes, errors, commits) into implicit patterns.
+*   **Procedural Distillation:** `DistillationEngine` automatically converts successful "trajectories" into step-by-step instructions.
+*   **Asynchronous Enrichment:** During background maintenance, the `LLMEnricher` processes `pending` proposals (both behavioral and procedural), securely translating machine execution logs into coherent, human-readable hypotheses using either a local LLM (e.g., Ollama) or a cloud API.
 *   **Temporal Signals:** `LifecycleEngine` evaluates reinforcement density, stability (variance of intervals), and lifetime coverage to protect against short-term bursts of activity.
 *   **Decision Streams:** Instead of manually creating "decisions", the system automatically transitions knowledge through `PATTERN`, `EMERGENT`, and `CANONICAL` phases.
-*   **Procedural Distillation:** Successful "trajectories" are automatically distilled into step-by-step instructions. These raw proposals are tagged as `pending` enrichment.
-*   **Asynchronous Enrichment:** During background maintenance, the `LLMEnricher` processes `pending` proposals, securely translating machine execution logs into coherent, human-readable hypotheses using either a local LLM (e.g., Ollama) or a cloud API, depending on the configured `arbitration_mode`.
 
 ---
 
@@ -137,25 +138,35 @@ record_decision(title, target, rationale)
 search_decisions(query, limit, mode)
         │
         ▼
-1. vector.search(query, limit * 3)          — 4-bit GGUF cosine candidates
+1. Fast-Path Check (Short queries < 20 chars, no spaces)
+        │
+        ├─ [YES] -> SQLite FTS5 only (~18,000 ops/sec)
+        │       │
+        │       ▼
+        │  Apply basic lifecycle weights -> RETURN
+        │
+        └─ [NO] -> Continue to Hybrid Path
+                │
+                ▼
+2. vector.search(query, limit * 3)          — 4-bit GGUF cosine candidates
         │
         ▼
-2. meta.keyword_search(query)               — FTS5 SQLite candidates
+3. meta.keyword_search(query)               — FTS5 SQLite candidates
         │
         ▼
-3. Reciprocal Rank Fusion (RRF)             — merge search engine results
+4. Reciprocal Rank Fusion (RRF)             — merge search engine results
         │
         ▼
-4. Resolve to Truth                         — follow superseded_by chains
+5. Resolve to Truth                         — follow superseded_by chains
         │
         ▼
-5. Normative Weighting             — apply Kind (+35%) and Phase (1.5x) multipliers
+6. Normative Weighting             — apply Kind (+35%) and Phase (1.5x) multipliers
         │
         ▼
-6. Evidence boost                   — +20% score per episodic link
+7. Evidence boost                   — +20% score per episodic link
         │
         ▼
-7. Truncate & Paginate              — apply final ranking and limit
+8. Truncate & Paginate              — apply final ranking and limit
 ```
 
 ---

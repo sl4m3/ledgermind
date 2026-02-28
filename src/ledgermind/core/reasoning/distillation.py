@@ -191,5 +191,6 @@ class DistillationEngine:
             keywords=self._extract_keywords(title, target, rationale),
             confidence=0.85, # Increased confidence for multi-session patterns
             evidence_event_ids=evidence_ids,
-            procedural=procedural
+            procedural=procedural,
+            enrichment_status="pending"
         )
