@@ -904,8 +904,8 @@ class Memory:
         if current_layer_ids:
             logger.warning(f"Deep supersession chain detected (>5 levels). Falling back to CTE for {len(current_layer_ids)} records.")
 
-        # Aggregate scores for identical truth records (RRF Aggregation)
-        final_candidates = {} 
+        # Gather all resolved truth records to batch query links
+        resolved_records = []
         for fid in sorted_fids:
             meta = self._resolve_to_truth(fid, mode, cache=request_cache)
             if not meta: continue
@@ -916,15 +916,24 @@ class Memory:
             status = meta.get("status", "unknown")
             if mode == "strict" and status != "active": continue
 
+            resolved_records.append((fid, meta, scores[fid] / max_rrf))
+
+        # Batch Fetch Links (N+1 Query Optimization)
+        unique_final_ids = list(set([r[1]['fid'] for r in resolved_records]))
+        link_counts = self.episodic.count_links_for_semantic_batch(unique_final_ids)
+
+        # Aggregate scores for identical truth records (RRF Aggregation)
+        final_candidates = {}
+        for fid, meta, match_score in resolved_records:
             final_id = meta['fid']
-            match_score = scores[fid] / max_rrf
+            status = meta.get("status", "unknown")
 
             if final_id in final_candidates:
                 # Accumulate score contribution from this historical/related match
                 final_candidates[final_id]['base_score'] += match_score
                 continue
 
-            link_count, _ = self.episodic.count_links_for_semantic(final_id)
+            link_count = link_counts.get(final_id, (0, 0.0))[0]
             boost = min(link_count * 0.2, 1.0) 
             
             # Dynamic Lifecycle Multiplier (Balanced Model)
