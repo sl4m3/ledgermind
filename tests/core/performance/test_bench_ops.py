@@ -19,7 +19,8 @@ def memory_instance(tmp_path):
     config = LedgermindConfig(
         storage_path=storage_path,
         vector_model=model_path if model_path else "models/v5-small-text-matching-Q4_K_M.gguf",
-        vector_workers=0 # Use 0 for auto/single thread in benchmarks
+        vector_workers=0,
+        enable_git=False # Disable git for pure core performance benchmarking
     )
     return Memory(config=config)
 
@@ -29,19 +30,18 @@ def test_benchmark_record_decision(memory_instance, benchmark):
         memory_instance.record_decision(
             title=f"Performance Test {u}",
             target=f"perf_target_{u}",
-            rationale="Benchmarking the overhead of a single decision recording including git and sqlite."
+            rationale="Benchmarking the overhead of a single decision recording without git."
         )
     
     benchmark(record)
 
 def test_benchmark_search_decisions(memory_instance, benchmark):
-    # Seed some data ONCE before the benchmark runs, using transaction for speed
-    with memory_instance.semantic.transaction():
-        for i in range(10):
-            memory_instance.record_decision(f"Decision {i}", f"target_{i}", f"Rationale for decision {i} with sufficient length for validation")
+    # Seed some data ONCE before the benchmark runs
+    for i in range(10):
+        memory_instance.record_decision(f"Decision {i}", f"target_{i}", f"Rationale for decision {i} with sufficient length for validation")
     
     def search():
-        # Clean query to avoid regex/cleaning overhead if we want to measure pure SQLite/FTS5
+        # Measure pure search speed
         memory_instance.search_decisions("Decision", limit=5)
     
     benchmark(search)
