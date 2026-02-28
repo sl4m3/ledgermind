@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772304481552,
+  "lastUpdate": 1772306152033,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4522,6 +4522,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000010007005375934985",
             "extra": "mean: 72.86516665772069 usec\nrounds: 6"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "f0f78b275b5aa1235267ad3b8548d6f630243dbb",
+          "message": "perf: restore recording speed to 40+ it/s and limit rounds to 5",
+          "timestamp": "2026-02-28T22:12:43+03:00",
+          "tree_id": "9a73653f505c78295054679241145af9cc40296b",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f0f78b275b5aa1235267ad3b8548d6f630243dbb"
+        },
+        "date": 1772306151102,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 68.41920077588247,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00031766298911672247",
+            "extra": "mean: 14.615780200000472 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 13204.318339918642,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002064654080278733",
+            "extra": "mean: 75.73280000201521 usec\nrounds: 5"
           }
         ]
       }
