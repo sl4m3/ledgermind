@@ -16,7 +16,7 @@ def memory_instance(tmp_path):
     # But to avoid download/load time, maybe we can mock vector store or just ignore errors
     # Memory catches vector errors usually.
     # Set vector_workers=0 to avoid multiprocessing issues in tests
-    mem = Memory(vector_model="all-MiniLM-L6-v2", storage_path=storage_path, vector_workers=0)
+    mem = Memory(vector_model="v5-small-text-matching-Q4_K_M.gguf", storage_path=storage_path, vector_workers=0)
 
     yield mem
     mem.close()

@@ -10,7 +10,7 @@ def memory(tmp_path):
     storage_path = str(tmp_path / "test_memory")
     m = Memory(
         storage_path=storage_path,
-        vector_model="all-MiniLM-L6-v2" # Standard model for testing
+        vector_model="v5-small-text-matching-Q4_K_M.gguf" # Standard model for testing
     )
     
     # Pre-seed with the specific data needed for the tests

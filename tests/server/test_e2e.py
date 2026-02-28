@@ -10,7 +10,7 @@ from ledgermind.server.background import BackgroundWorker
 @pytest.fixture
 def real_memory(tmp_path):
     storage = str(tmp_path / "e2e_storage")
-    return Memory(vector_model="all-MiniLM-L6-v2", storage_path=storage)
+    return Memory(vector_model="v5-small-text-matching-Q4_K_M.gguf", storage_path=storage)
 
 def test_e2e_record_and_search(real_memory):
     """E2E: Запись через сервер и поиск результата."""
