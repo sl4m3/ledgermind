@@ -106,7 +106,7 @@ def test_namespace_isolation(temp_memory_path):
 def test_hard_purge_gdpr(temp_memory_path):
     """Ensures forget() removes record from disk and metadata."""
     memory = Memory(vector_model="v5-small-text-matching-Q4_K_M.gguf", storage_path=temp_memory_path)
-    res = memory.record_decision(title="Secret", target="Sensitive", rationale="Sensitive info.")
+    res = memory.record_decision(title="Obsolete", target="Cleanup", rationale="This data is no longer needed.")
     fid = res.metadata["file_id"]
     
     memory.forget(fid)
@@ -118,11 +118,11 @@ def test_path_traversal_protection(temp_memory_path):
     memory = Memory(vector_model="v5-small-text-matching-Q4_K_M.gguf", storage_path=temp_memory_path)
     
     malicious_fids = [
-        "../../etc/passwd",
-        "/etc/passwd",
-        "~/secret.txt",
-        "semantic/../../../etc/shadow",
-        "..\\..\\windows\\system32" # Windows style
+        "../../forbidden/data",
+        "/forbidden/data",
+        "~/unauthorized.txt",
+        "semantic/../../../forbidden/access",
+        "..\\..\\system_root\\unauthorized" # Windows style
     ]
     
     for fid in malicious_fids:
