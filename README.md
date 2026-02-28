@@ -126,11 +126,15 @@ After installation, run the interactive setup to configure your memory storage, 
 ledgermind init
 ```
 
-This will guide you through:
-1. Setting the memory storage path (default: `../.ledgermind`).
-2. Choosing your embedding model (default: `jina-v5-4bit`).
-3. Installing automatic context hooks for your preferred client (Cursor, Claude, Gemini).
-4. Selecting an Arbitration Mode (`lite`, `optimal`, `rich`) for conflict resolution.
+This will guide you interactively through:
+1. **Project Location:** Setting the current codebase path.
+2. **Memory Path:** Configuring isolated memory storage (default: `../.ledgermind`).
+3. **Embedding Model:** Choosing between `jina-v5-4bit` (default) or a custom GGUF/HF model.
+4. **Client Hooks:** Installing automatic context hooks for your preferred client directly into the project directory.
+5. **Arbitration Mode:** Selecting a conflict resolution and hypothesis enrichment strategy:
+   - `lite`: Fast, purely algorithmic.
+   - `optimal`: Uses local LLMs (e.g., Ollama) to translate raw execution logs into human-readable architecture hypotheses.
+   - `rich`: Uses cloud LLMs (OpenAI, Anthropic) for maximum insight generation.
 
 ### 2. Zero-Touch Automation (Recommended)
 
