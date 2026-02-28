@@ -40,6 +40,28 @@ memory = Memory(config=config)
 
 ---
 
+## Startup Optimization (Lazy Loading)
+
+LedgerMind implements **Lazy Library Loading** to ensure zero-latency startup in mobile environments like Termux.
+
+- **On-Demand Imports:** Heavy machine learning libraries (`transformers`, `sentence-transformers`) are only imported when a standard (non-GGUF) model is accessed for the first time.
+- **Instant Hook Execution:** When using GGUF models (the default), these libraries are never loaded, reducing hook execution time from ~20 seconds to near-instant.
+
+## Configuration Priority
+
+The system follows a strict hierarchy when resolving configuration values:
+
+1.  **Database Overrides:** Values stored in the `sys_config` table of `semantic_meta.db` always take precedence. This allows you to change models or paths without modifying code.
+2.  **Explicit Object Init:** Parameters passed directly to the `LedgermindConfig` constructor or `Memory()` class.
+3.  **Core Defaults:** Hardcoded internal fallback values.
+
+To change the active model via database (recommended for persistent tuning):
+```bash
+sqlite3 ../.ledgermind/semantic/semantic_meta.db "INSERT OR REPLACE INTO sys_config (key, value) VALUES ('vector_model', '/path/to/your/model.gguf');"
+```
+
+---
+
 ## Client-Specific Configuration
 
 ### VS Code (Hardcore Mode)
