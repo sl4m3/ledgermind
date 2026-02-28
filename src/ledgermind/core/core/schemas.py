@@ -92,6 +92,7 @@ class ProposalContent(BaseModel):
 
 
 class DecisionStream(BaseModel):
+    model_config = ConfigDict(extra='allow')
     decision_id: StrictStr
     target: TargetStr
     title: StrictStr
