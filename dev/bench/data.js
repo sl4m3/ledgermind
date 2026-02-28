@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772310765387,
+  "lastUpdate": 1772316453017,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4826,6 +4826,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000024410250646109247",
             "extra": "mean: 74.54899999856934 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "ca1453844b8c017496b71342fa197120f4a9809a",
+          "message": "perf: restore peak search throughput by simplifying fast-path results\n\n- Removed evidence_count and ranking overhead from search fast-path.\n- Optimized keyword_search to return Row objects directly for zero-copy performance.\n- Achieved ~12k iter/sec in Termux, targetting 17k+ on GitHub Actions infrastructure.\n- Restored the lightweight 'DecisionStream' baseline for short, simple queries.",
+          "timestamp": "2026-03-01T01:05:02+03:00",
+          "tree_id": "854f7403d1d19c00e716b8be979065686b90241a",
+          "url": "https://github.com/sl4m3/ledgermind/commit/ca1453844b8c017496b71342fa197120f4a9809a"
+        },
+        "date": 1772316452063,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 71.5783101858869,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002511685900363457",
+            "extra": "mean: 13.97071259999052 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 18517.558353102588,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007899828525114701",
+            "extra": "mean: 54.002799987529215 usec\nrounds: 5"
           }
         ]
       }
