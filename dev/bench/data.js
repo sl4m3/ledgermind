@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772247734111,
+  "lastUpdate": 1772248636585,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3800,6 +3800,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000006103399833691125",
             "extra": "mean: 57.207411160307345 usec\nrounds: 3602"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "982bd3d740fc0a0fad4b6f5ba0dd329628fe8d44",
+          "message": "test: isolate GGUF usage and fix test runner warnings\n\n- Reverted tests in test_advanced_reasoning.py and test_injection_logic.py to use sentence-transformers (all-MiniLM-L6-v2) to prevent concurrent download races in CI with xdist.\n- Added atexit handler in VectorStore to guarantee clean teardown of llama-cpp objects.\n- Suppressed FileNotFoundError during VectorStore teardown when temporary test directories are removed.\n- Refined test mocks and assertions to match correct model paths and dependency boundaries.",
+          "timestamp": "2026-02-28T06:13:08+03:00",
+          "tree_id": "34bce45fc94149e428e25cb8b3eca89af09cdfda",
+          "url": "https://github.com/sl4m3/ledgermind/commit/982bd3d740fc0a0fad4b6f5ba0dd329628fe8d44"
+        },
+        "date": 1772248636081,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 54.456950713100596,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012632746978311824",
+            "extra": "mean: 18.363128800001505 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 24199.57527410223,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000027218889926125073",
+            "extra": "mean: 41.323039296072885 usec\nrounds: 3181"
           }
         ]
       }
