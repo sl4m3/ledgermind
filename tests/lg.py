@@ -108,9 +108,19 @@ def run_lifecycle_test(args):
     os.makedirs(tmp_dir, exist_ok=True)
     
     try:
+        # Mock llama-cpp if not really needed for the lifecycle logic test
+        import ledgermind.core.stores.vector
+        ledgermind.core.stores.vector.LLAMA_AVAILABLE = True
+        from unittest.mock import MagicMock
+        import numpy as np
+        mock_model = MagicMock()
+        mock_model.encode.return_value = np.array([[0.1]*1024], dtype='float32')
+        mock_model.get_sentence_embedding_dimension.return_value = 1024
+        ledgermind.core.stores.vector._MODEL_CACHE["v5-small-text-matching-Q4_K_M.gguf"] = mock_model
+
         bridge = IntegrationBridge(
             memory_path=tmp_dir, 
-            vector_model="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
+            vector_model="v5-small-text-matching-Q4_K_M.gguf",
             default_cli=[args.cli]
         )
         target = f"Autonomy-Core-{uuid.uuid4().hex[:4]}"
