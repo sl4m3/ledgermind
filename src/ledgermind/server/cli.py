@@ -138,12 +138,14 @@ def init_project(path: str):
         # Create memory structure. VectorStore init will auto-download GGUF if missing and URL is known.
         memory = Memory(storage_path=custom_path, vector_model=model_path)
         
-        # Save Arbitration Mode to config
+        # Save Arbitration Mode and Client to config
         memory.semantic.meta.set_config("arbitration_mode", mode)
+        memory.semantic.meta.set_config("client", client)
 
         console.print(f"[green]✓ Created memory structure at {custom_path}[/green]")
         console.print(f"[green]✓ Configured vector model: {model_name}[/green]")
         console.print(f"[green]✓ Set arbitration mode: {mode}[/green]")
+        console.print(f"[green]✓ Registered client: {client}[/green]")
 
         if client != "none":
             console.print(f"\nInstalling hooks for {client} in {project_path}...")

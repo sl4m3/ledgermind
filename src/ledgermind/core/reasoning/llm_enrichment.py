@@ -13,9 +13,10 @@ class LLMEnricher:
     using local or remote LLMs based on the selected arbitration mode.
     """
     
-    def __init__(self, mode: str = "lite"):
+    def __init__(self, mode: str = "lite", client_name: str = "none"):
         self.mode = mode.lower()
-        self.client = httpx.Client(timeout=30.0)
+        self.client_name = client_name.lower()
+        self.client = httpx.Client(timeout=60.0)
 
     def process_batch(self, memory: Any):
         """
@@ -25,13 +26,11 @@ class LLMEnricher:
             return
 
         # 1. Find pending proposals
-        # We query for kind='proposal' and then filter by metadata in memory
         from ledgermind.core.core.schemas import KIND_PROPOSAL
         results = memory.search_decisions(query="", limit=100, mode="audit")
         pending_fids = []
         for res in results:
             if res.get('kind') == KIND_PROPOSAL and res.get('status') == 'draft':
-                # Check context for pending status
                 meta = memory.semantic.meta.get_by_fid(res['id'])
                 if meta and meta.get('context_json'):
                     ctx = json.loads(meta['context_json'])
@@ -41,24 +40,22 @@ class LLMEnricher:
         if not pending_fids:
             return
 
-        logger.info(f"Found {len(pending_fids)} proposals pending enrichment (mode={self.mode}).")
+        # Update client name from config if not provided
+        if self.client_name == "none":
+            self.client_name = memory.semantic.meta.get_config("client", "none").lower()
+
+        logger.info(f"Found {len(pending_fids)} proposals pending enrichment (mode={self.mode}, client={self.client_name}).")
 
         for fid in pending_fids:
             try:
-                # Load full proposal
                 from ledgermind.core.stores.semantic_store.loader import MemoryLoader
                 loader = MemoryLoader(memory.storage_path)
                 proposal = loader.load_proposal(fid)
                 if not proposal: continue
 
-                # Enrich
                 enriched = self.enrich_proposal(proposal)
-                
-                # Update status and save
                 enriched.context["enrichment_status"] = "completed"
                 
-                # Use semantic.save to overwrite with enriched content
-                # We need to wrap it in a transaction for safety
                 with memory.semantic.transaction():
                     memory.semantic.save(enriched, fid=fid)
                 
@@ -83,7 +80,12 @@ class LLMEnricher:
             if self.mode == "optimal":
                 enriched_rationale = self._call_optimal_model(raw_text)
             elif self.mode == "rich":
-                enriched_rationale = self._call_rich_model(raw_text)
+                # Priority 1: Local Authorized CLI
+                enriched_rationale = self._call_cli_model(raw_text)
+                
+                # Priority 2: Direct API Fallback
+                if not enriched_rationale:
+                    enriched_rationale = self._call_rich_model(raw_text)
 
             if enriched_rationale:
                 proposal.rationale = f"{enriched_rationale}\n\n*Original Data:* {proposal.rationale}"
@@ -91,6 +93,29 @@ class LLMEnricher:
             logger.warning(f"LLM Enrichment failed (fallback to lite): {e}")
 
         return proposal
+
+    def _call_cli_model(self, raw_text: str) -> Optional[str]:
+        """Attempts to use an already authorized CLI client like gemini or claude."""
+        import subprocess
+        prompt = self._build_prompt(raw_text)
+        
+        try:
+            if self.client_name == "gemini":
+                # Gemini CLI headless mode
+                cmd = ["gemini", "--prompt", prompt]
+                result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=60)
+                return result.stdout.strip()
+            
+            elif self.client_name == "claude":
+                # Claude Code CLI (non-interactive prompt)
+                cmd = ["claude", prompt]
+                result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=60)
+                return result.stdout.strip()
+                
+        except Exception as e:
+            logger.debug(f"CLI enrichment failed for {self.client_name}: {e}")
+        
+        return None
 
     def _format_raw_text(self, proposal: ProposalContent) -> str:
         text = f"Target: {proposal.target}\n"

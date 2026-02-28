@@ -26,26 +26,20 @@ Once installed, LedgerMind automatically:
 
 ### Installation
 
-Run the installer from your project directory (where you want the memory to live):
+Run the interactive installer from your project directory:
 
 ```bash
-# For VS Code (Hardcore Zero-Touch)
-ledgermind install vscode
-
-# For Claude Code (CLI)
-ledgermind install claude
-
-# For Cursor IDE
-ledgermind install cursor
-
-# For Gemini CLI
-ledgermind install gemini
+ledgermind init
 ```
+
+During initialization, you will be asked to choose a client. LedgerMind will install the hooks **locally within your project directory** (e.g., in `.ledgermind/hooks/` or `.gemini/hooks/`) and update your client's global configuration to point to these local scripts. 
+
+**Why Local?** This architecture ensures strict isolation. Your global client knows how to trigger hooks, but the hooks themselves are tied directly to the codebase and memory database of the specific project you are working in.
 
 ### How it Works Under the Hood
 
 - **VS Code (Hardcore):** Installs a background extension that monitors file saves, terminal data, and chat interactions. It maintains a `ledgermind_context.md` "shadow file" for proactive context injection.
-- **Claude/Cursor/Gemini:** Injects native client hooks (e.g., `UserPromptSubmit` in Claude, `beforeSubmitPrompt` in Cursor, or `ledgermind_hook.py` in Gemini).
+- **Claude/Cursor/Gemini:** Injects native client hooks (e.g., `UserPromptSubmit` in Claude, `beforeSubmitPrompt` in Cursor, or `ledgermind_hook.py` in Gemini). These scripts are saved inside your project folder.
 
 These hooks call the lightweight **Bridge API** via CLI (`bridge-context` and `bridge-record`). This approach bypasses the need for a running MCP server and executes memory operations in milliseconds directly against the SQLite/Git stores.
 

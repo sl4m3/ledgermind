@@ -22,20 +22,26 @@ pip install ledgermind
 
 ## Step 2: Initialize
 
-```python
-from ledgermind.core.api.bridge import IntegrationBridge
+LedgerMind comes with a rich interactive setup tool to configure your environment, install Zero-Touch hooks, and select your AI enrichment preferences.
 
-# This creates ../.ledgermind/ in the parent directory (outside project root)
-# Placing memory one level up is the recommended standard for best isolation.
-bridge = IntegrationBridge(memory_path="../.ledgermind")
-memory = bridge.memory
-
-print("✓ Memory initialized")
+In your terminal, navigate to your project directory and run:
+```bash
+ledgermind init
 ```
 
-Or via CLI:
-```bash
-ledgermind-mcp init --path ../.ledgermind
+You will be prompted to select:
+1. **Project Path**: Confirm your codebase location.
+2. **Memory Path**: The system will suggest `../.ledgermind` (placing memory one level up is the recommended standard for best isolation).
+3. **Embedder**: Choose `jina-v5-4bit` (default) for fast local vector search.
+4. **Client Hooks**: Choose your IDE/Agent (Cursor, Claude, Gemini). Hooks will be installed locally in your project.
+5. **Arbitration Mode**: Select `optimal` to allow local LLMs to generate human-readable hypotheses, or `lite` for raw speed.
+
+*Alternative (Programmatic Initialization):*
+```python
+from ledgermind.core.api.bridge import IntegrationBridge
+bridge = IntegrationBridge(memory_path="../.ledgermind")
+memory = bridge.memory
+print("✓ Memory initialized")
 ```
 
 ---
