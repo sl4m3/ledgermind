@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772301046867,
+  "lastUpdate": 1772301447995,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4370,6 +4370,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000005444426302646725",
             "extra": "mean: 57.48233833123589 usec\nrounds: 3068"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "96351495c0794a1955adb3eba908695b2cf8b75a",
+          "message": "fix(core): resolve NameError and stabilize vector conflict resolution",
+          "timestamp": "2026-02-28T20:55:12+03:00",
+          "tree_id": "554c123e71230e8b7fa3afb327432c6eb25a8e54",
+          "url": "https://github.com/sl4m3/ledgermind/commit/96351495c0794a1955adb3eba908695b2cf8b75a"
+        },
+        "date": 1772301447663,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 24.26914053881151,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01210443525904387",
+            "extra": "mean: 41.20459059523709 msec\nrounds: 42"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17177.434187916555,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000583873451442873",
+            "extra": "mean: 58.2159121705993 usec\nrounds: 3188"
           }
         ]
       }
