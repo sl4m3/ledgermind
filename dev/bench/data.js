@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772284366882,
+  "lastUpdate": 1772285441961,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4180,6 +4180,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000010266851043617253",
             "extra": "mean: 58.81256136098438 usec\nrounds: 2909"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "bd566b91d26b5e29fe8c868bd3925366d178483c",
+          "message": "fix(core): resolve conflict auto-resolution failure and fix syntax error\n\n- Memory.record_decision: Corrected nested try-except blocks and ensured ConflictError is re-raised.\n- MetadataStore.upsert: Handled timestamp passed as string (fixes AttributeError in update_decision).\n- tests: Ensured enough encode() returns in mock_model side effects to prevent StopIteration.\n- test_injection_logic: Refined negative filtering test with longer rationale to pass validation.",
+          "timestamp": "2026-02-28T16:26:28+03:00",
+          "tree_id": "b76fc48546378368433a4d5989790d6e4663a626",
+          "url": "https://github.com/sl4m3/ledgermind/commit/bd566b91d26b5e29fe8c868bd3925366d178483c"
+        },
+        "date": 1772285441565,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 41.1830147146031,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0015489604656385419",
+            "extra": "mean: 24.28185520001307 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17337.068827231273,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000698065622567871",
+            "extra": "mean: 57.67987714447459 usec\nrounds: 3321"
           }
         ]
       }
