@@ -158,7 +158,7 @@ class VectorStore:
     A simple vector store using NumPy for cosine similarity.
     Reliable and stable in environments like Termux.
     """
-    def __init__(self, storage_path: str, model_name: str = "all-MiniLM-L6-v2", dimension: int = 384, workers: int = 0):
+    def __init__(self, storage_path: str, model_name: str = "../../models/v5-small-text-matching-Q4_K_M.gguf", dimension: int = 384, workers: int = 0):
         self.storage_path = storage_path
         self.index_path = os.path.join(storage_path, "vectors.npy")
         self.meta_path = os.path.join(storage_path, "vector_meta.npy")

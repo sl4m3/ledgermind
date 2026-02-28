@@ -158,7 +158,9 @@ class Memory:
         from ledgermind.core.stores.vector import _is_transformers_available, _is_llama_available, EMBEDDING_AVAILABLE, LLAMA_AVAILABLE
         
         config = getattr(self, 'config', None)
-        vector_model = config.vector_model if config else "all-MiniLM-L6-v2"
+        from ledgermind.core.core.schemas import LedgermindConfig
+        default_config = LedgermindConfig()
+        vector_model = config.vector_model if config else default_config.vector_model
         is_gguf = vector_model.endswith(".gguf")
         
         # Only trigger lazy check for the engine we actually intend to use
