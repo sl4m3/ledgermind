@@ -9,6 +9,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Create Status Bar Item
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+    statusBarItem.name = 'LedgerMind Status';
     statusBarItem.text = '$(database) LedgerMind';
     statusBarItem.tooltip = 'LedgerMind Zero-Touch Bridge Active';
     statusBarItem.show();
