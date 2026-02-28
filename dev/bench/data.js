@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772285441961,
+  "lastUpdate": 1772286726870,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4218,6 +4218,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00000698065622567871",
             "extra": "mean: 57.67987714447459 usec\nrounds: 3321"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "009d9cb88ff948258139faff9ed6b6c459dfd7af",
+          "message": "chore: release v3.0.4: system hardening, stability fixes, and bolt performance optimization\n\n- Bump version to 3.0.4 across project files.\n- Integrate Bolt optimization (eliminate N+1 queries in search).\n- Fix Sentinel memory leaks in event listeners.\n- Resolve critical bugs in incremental integrity validation and conflict resolution.\n- Sanitize security test data and paths.\n- Update release documentation and changelogs.",
+          "timestamp": "2026-02-28T16:47:54+03:00",
+          "tree_id": "8616356523a48e79b1f25f3f6cddb0543cf3caff",
+          "url": "https://github.com/sl4m3/ledgermind/commit/009d9cb88ff948258139faff9ed6b6c459dfd7af"
+        },
+        "date": 1772286726430,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 43.07217935890411,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012233531961030905",
+            "extra": "mean: 23.21684239999513 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17211.63687175511,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005935096867349819",
+            "extra": "mean: 58.10022646021743 usec\nrounds: 3356"
           }
         ]
       }
