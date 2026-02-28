@@ -200,7 +200,8 @@ class SemanticMetaStore:
 
     def keyword_search(self, query: str, limit: int = 10, namespace: str = "default") -> List[Dict[str, Any]]:
         """Search using FTS5 (BM25) or fallback to LIKE with namespace filtering."""
-        self._conn.row_factory = sqlite3.Row
+        # Use standard tuple factory for speed in performance-critical search
+        self._conn.row_factory = None
         cursor = self._conn.cursor()
         
         try:
@@ -220,23 +221,48 @@ class SemanticMetaStore:
             else:
                  fts_query = clean_query
             
+            # Select explicit columns instead of * for row mapping
             sql = """
-                SELECT m.*, fts.rank 
+                SELECT m.fid, m.target, m.title, m.status, m.kind, m.timestamp, m.namespace, m.keywords, fts.rank 
                 FROM semantic_meta m
                 JOIN semantic_fts fts ON m.rowid = fts.rowid
                 WHERE semantic_fts MATCH ? AND m.namespace = ?
                 ORDER BY rank LIMIT ?
             """
             cursor.execute(sql, (fts_query, namespace, limit))
-            res = [dict(row) for row in cursor.fetchall()]
+            
+            results = []
+            for row in cursor.fetchall():
+                results.append({
+                    "fid": row[0],
+                    "target": row[1],
+                    "title": row[2],
+                    "status": row[3],
+                    "kind": row[4],
+                    "timestamp": row[5],
+                    "namespace": row[6],
+                    "keywords": row[7],
+                    "rank": row[8]
+                })
             
             # Fallback to OR search if AND fails
-            if not res and len(words) > 3:
+            if not results and len(words) > 3:
                  fts_query_or = clean_query.replace(" ", " OR ")
                  cursor.execute(sql, (fts_query_or, namespace, limit * 2))
-                 res = [dict(row) for row in cursor.fetchall()]
+                 for row in cursor.fetchall():
+                    results.append({
+                        "fid": row[0],
+                        "target": row[1],
+                        "title": row[2],
+                        "status": row[3],
+                        "kind": row[4],
+                        "timestamp": row[5],
+                        "namespace": row[6],
+                        "keywords": row[7],
+                        "rank": row[8]
+                    })
             
-            return res
+            return results
             
         except Exception as e:
             # Fallback to LIKE implementation
