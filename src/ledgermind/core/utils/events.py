@@ -22,10 +22,21 @@ class EventEmitter:
 
     def emit(self, event_type: str, data: Any):
         """Dispatches an event to all subscribers."""
+        loop = None
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            pass
+
         for callback in self._subscribers:
             try:
                 if asyncio.iscoroutinefunction(callback):
-                    asyncio.create_task(callback(event_type, data))
+                    if loop and loop.is_running():
+                        loop.create_task(callback(event_type, data))
+                    else:
+                        # Fallback for sync environments: we can't run async callbacks without a loop
+                        # but we should not crash or log heavily if this is expected.
+                        logger.debug(f"Skipping async subscriber {callback} for {event_type}: no running event loop.")
                 else:
                     callback(event_type, data)
             except Exception as e:
