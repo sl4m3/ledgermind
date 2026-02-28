@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772282939507,
+  "lastUpdate": 1772283993892,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4104,6 +4104,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00096011030193903",
             "extra": "mean: 90.44938633603557 usec\nrounds: 3396"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "4865aa76ed098f03c69cf1f7e13ccf84131ffed2",
+          "message": "fix(core): resolve integrity validation bug and align grounded ranking tests\n\n- Fix UnboundLocalError in IntegrityChecker.validate during incremental runs.\n- Adapt test_evidence_boost to use Proposals, avoiding Decision kind-boost clipping at 1.0.\n- Ensure consistent model usage (MiniLM) for deterministic ranking verification in tests.",
+          "timestamp": "2026-02-28T16:02:28+03:00",
+          "tree_id": "399650fd7db96e49224f486c9a471a9b613a7da2",
+          "url": "https://github.com/sl4m3/ledgermind/commit/4865aa76ed098f03c69cf1f7e13ccf84131ffed2"
+        },
+        "date": 1772283993462,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 42.636446499114655,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001461946575511938",
+            "extra": "mean: 23.454112200010968 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17111.772572488702,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006494163709352549",
+            "extra": "mean: 58.43929936327818 usec\nrounds: 3454"
           }
         ]
       }
