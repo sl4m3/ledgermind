@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772283993892,
+  "lastUpdate": 1772284366882,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4142,6 +4142,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000006494163709352549",
             "extra": "mean: 58.43929936327818 usec\nrounds: 3454"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "a39c6d9a8208ff439eae4276d2cd2f22ee229da1",
+          "message": "fix(security): resolve potential SQL injection warning in batched query\n\n- Tagged dynamically generated placeholder query with # nosec B608.\n- Ensured parameters are passed via tuple to protect against actual injection.",
+          "timestamp": "2026-02-28T16:08:35+03:00",
+          "tree_id": "8b9fb587befe74555aa36b27e99284d47d6bdce0",
+          "url": "https://github.com/sl4m3/ledgermind/commit/a39c6d9a8208ff439eae4276d2cd2f22ee229da1"
+        },
+        "date": 1772284365842,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 39.56803575365684,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012228995545267793",
+            "extra": "mean: 25.272925000012947 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17003.170357810486,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010266851043617253",
+            "extra": "mean: 58.81256136098438 usec\nrounds: 2909"
           }
         ]
       }
