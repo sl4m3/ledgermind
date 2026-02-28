@@ -1,12 +1,20 @@
+import re
 import sqlite3
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from contextlib import contextmanager
-
-import re
+from functools import lru_cache
 
 logger = logging.getLogger(__name__)
+
+@lru_cache(maxsize=128)
+def _clean_query(query: str) -> str:
+    """Pre-cleans query for FTS5 with caching."""
+    # Clean query of FTS5 special characters to avoid syntax errors or weird matching
+    # Keep alphanumerics (including Unicode) and spaces.
+    clean = re.sub(r'[^\w\s]', ' ', query)
+    return " ".join(clean.split())
 
 class SemanticMetaStore:
     """
@@ -197,15 +205,10 @@ class SemanticMetaStore:
         
         try:
             # FTS Search
-            # Simple sanitization for FTS5 syntax
-            safe_query = query.replace('"', '""')
-            if not safe_query.strip(): return []
+            if not query.strip(): return []
             
-            # Clean query of FTS5 special characters to avoid syntax errors or weird matching
-            # Keep alphanumerics (including Unicode) and spaces.
-            clean_query = re.sub(r'[^\w\s]', ' ', query)
-            # Remove double spaces
-            clean_query = " ".join(clean_query.split())
+            clean_query = _clean_query(query)
+            if not clean_query: return []
 
             # Use simple token search if query is simple, else use exact phrase
             words = clean_query.split()
