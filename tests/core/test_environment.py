@@ -27,7 +27,10 @@ class TestEnvironmentCheck(unittest.TestCase):
              patch('ledgermind.core.api.memory.os.access') as mock_access, \
              patch('ledgermind.core.api.memory.shutil.disk_usage') as mock_disk_usage, \
              patch('ledgermind.core.api.memory.subprocess.run') as mock_run, \
-             patch('ledgermind.core.stores.vector.EMBEDDING_AVAILABLE', True):
+             patch('ledgermind.core.stores.vector.EMBEDDING_AVAILABLE', True, create=True):
+
+            memory.config = MagicMock()
+            memory.config.vector_model = "test_model.bin"
 
             # 1. Lock check (file does not exist)
             # 2. Storage path exists

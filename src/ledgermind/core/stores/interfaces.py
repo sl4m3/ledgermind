@@ -18,6 +18,14 @@ class EpisodicProvider(ABC):
         pass
 
     @abstractmethod
+    def count_links_for_semantic(self, semantic_id: str) -> Tuple[int, float]:
+        pass
+
+    @abstractmethod
+    def count_links_for_semantic_batch(self, semantic_ids: List[str]) -> Dict[str, Tuple[int, float]]:
+        pass
+
+    @abstractmethod
     def mark_archived(self, event_ids: List[int]):
         pass
 
