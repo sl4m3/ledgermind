@@ -149,7 +149,7 @@ class EpisodicStore:
         placeholders = ','.join('?' for _ in semantic_ids)
         with self._get_conn() as conn:
             cursor = conn.execute(
-                f"SELECT linked_id, COUNT(*), SUM(link_strength) FROM events WHERE linked_id IN ({placeholders}) GROUP BY linked_id",
+                f"SELECT linked_id, COUNT(*), SUM(link_strength) FROM events WHERE linked_id IN ({placeholders}) GROUP BY linked_id", # nosec B608
                 semantic_ids
             )
             results = {row[0]: (row[1] or 0, row[2] or 0.0) for row in cursor.fetchall()}
