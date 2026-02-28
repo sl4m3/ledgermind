@@ -2,7 +2,7 @@ import logging
 import json
 import httpx
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from ledgermind.core.core.schemas import ProposalContent, ProceduralContent
 
 logger = logging.getLogger(__name__)
@@ -25,17 +25,10 @@ class LLMEnricher:
         if self.mode == "lite":
             return
 
-        # 1. Find pending proposals
-        from ledgermind.core.core.schemas import KIND_PROPOSAL
-        results = memory.search_decisions(query="", limit=100, mode="audit")
-        pending_fids = []
-        for res in results:
-            if res.get('kind') == KIND_PROPOSAL and res.get('status') == 'draft':
-                meta = memory.semantic.meta.get_by_fid(res['id'])
-                if meta and meta.get('context_json'):
-                    ctx = json.loads(meta['context_json'])
-                    if ctx.get('enrichment_status') == 'pending':
-                        pending_fids.append(res['id'])
+        # 1. Find pending proposals via direct SQLite query for speed and reliability
+        query = "SELECT fid FROM semantic_meta WHERE kind = 'proposal' AND status = 'draft' AND context_json LIKE '%\"enrichment_status\": \"pending\"%'"
+        rows = memory.semantic.meta._conn.execute(query).fetchall()
+        pending_fids = [row[0] for row in rows]
 
         if not pending_fids:
             return
@@ -48,18 +41,50 @@ class LLMEnricher:
 
         for fid in pending_fids:
             try:
+                # Load full proposal
                 from ledgermind.core.stores.semantic_store.loader import MemoryLoader
-                loader = MemoryLoader(memory.storage_path)
-                proposal = loader.load_proposal(fid)
-                if not proposal: continue
+                from ledgermind.core.core.schemas import ProposalContent
+                
+                file_path = os.path.join(memory.semantic.repo_path, fid)
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                data, body = MemoryLoader.parse(content)
+                if not data: continue
+                
+                # Context is stored in the 'context' key of the YAML
+                proposal_data = data.get('context', {})
+                if not proposal_data: continue
+                
+                proposal = ProposalContent(**proposal_data)
 
+                # Enrich
+                raw_rationale = proposal.rationale
                 enriched = self.enrich_proposal(proposal)
-                enriched.context["enrichment_status"] = "completed"
                 
-                with memory.semantic.transaction():
-                    memory.semantic.save(enriched, fid=fid)
-                
-                logger.info(f"Successfully enriched proposal {fid}")
+                # If rationale didn't change and we are not in lite mode, 
+                # it means enrichment failed or skipped.
+                status = "completed"
+                if self.mode != "lite" and enriched.rationale == raw_rationale:
+                    # Check if it was a transient error (already logged in enrich_proposal)
+                    # We keep it pending if nothing changed and it's not a 'lite' intention
+                    status = "pending"
+
+                if status == "completed":
+                    # Use update_decision to synchronize file and database
+                    updates = {
+                        "rationale": enriched.rationale,
+                        "enrichment_status": "completed"
+                    }
+                    
+                    with memory.semantic.transaction():
+                        memory.semantic.update_decision(
+                            filename=fid,
+                            updates=updates,
+                            commit_msg=f"Enrich proposal {fid} via LLM ({self.mode})"
+                        )
+                    
+                    logger.info(f"Successfully enriched proposal {fid}")
             except Exception as e:
                 logger.error(f"Failed to enrich proposal {fid}: {e}")
 

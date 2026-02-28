@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Literal, Dict, Any, Optional, List, Annotated, Union
-from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator, ConfigDict
 from enum import Enum
 
 class TrustBoundary(str, Enum):
@@ -59,6 +59,7 @@ class ProceduralContent(BaseModel):
     success_evidence_ids: List[int]
 
 class ProposalContent(BaseModel):
+    model_config = ConfigDict(extra='allow')
     title: StrictStr
     target: TargetStr
     status: ProposalStatus = ProposalStatus.DRAFT
