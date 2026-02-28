@@ -20,7 +20,7 @@ def memory_instance(tmp_path):
         storage_path=storage_path,
         vector_model=model_path if model_path else "models/v5-small-text-matching-Q4_K_M.gguf",
         vector_workers=0,
-        enable_git=False # Disable git for pure core performance benchmarking
+        enable_git=True # Enable git for honest full-stack performance benchmarking
     )
     return Memory(config=config)
 
@@ -30,7 +30,7 @@ def test_benchmark_record_decision(memory_instance, benchmark):
         memory_instance.record_decision(
             title=f"Performance Test {u}",
             target=f"perf_target_{u}",
-            rationale="Benchmarking the overhead of a single decision recording without git."
+            rationale="Benchmarking the full overhead including git audit trail and sqlite."
         )
     
     benchmark(record)
