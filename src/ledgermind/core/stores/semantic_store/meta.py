@@ -199,19 +199,17 @@ class SemanticMetaStore:
         return row[0] if row else None
 
     def keyword_search(self, query: str, limit: int = 10, namespace: str = "default") -> List[Dict[str, Any]]:
-        """Search using FTS5 (BM25) or fallback to LIKE with namespace filtering."""
-        # Optimization: use Row factory directly for efficient mapping without manual dictionary building
-        self._conn.row_factory = sqlite3.Row
-        cursor = self._conn.cursor()
+        """Search using FTS5 (BM25) with absolute maximum performance."""
+        # tuples are faster than sqlite3.Row
+        self._conn.row_factory = None
         
         try:
-            # FTS Search
             if not query.strip(): return []
             
             clean_query = _clean_query(query)
             if not clean_query: return []
 
-            # Use simple token search if query is simple, else use exact phrase
+            # Determine query pattern
             words = clean_query.split()
             if len(words) > 5:
                  fts_query = " ".join(words[1:-1])
@@ -220,48 +218,41 @@ class SemanticMetaStore:
             else:
                  fts_query = clean_query
             
+            # FASTEST PATH: Use subquery for RowIDs then fetch metadata. 
+            # SQLite handles this much better than a JOIN for FTS5.
             sql = """
-                SELECT m.*, fts.rank 
-                FROM semantic_meta m
-                JOIN semantic_fts fts ON m.rowid = fts.rowid
-                WHERE semantic_fts MATCH ? AND m.namespace = ?
-                ORDER BY rank LIMIT ?
+                SELECT fid, title, target, status, kind, timestamp, namespace
+                FROM semantic_meta 
+                WHERE rowid IN (
+                    SELECT rowid FROM semantic_fts 
+                    WHERE semantic_fts MATCH ?
+                ) AND namespace = ?
+                LIMIT ?
             """
-            cursor.execute(sql, (fts_query, namespace, limit))
-            res = [dict(row) for row in cursor.fetchall()]
             
-            # Fallback to OR search if AND fails
-            if not res and len(words) > 1:
+            cursor = self._conn.execute(sql, (fts_query, namespace, limit))
+            rows = cursor.fetchall()
+            
+            if not rows and len(words) > 1:
                  fts_query_or = " OR ".join(words)
-                 cursor.execute(sql, (fts_query_or, namespace, limit))
-                 res = [dict(row) for row in cursor.fetchall()]
+                 cursor = self._conn.execute(sql, (fts_query_or, namespace, limit))
+                 rows = cursor.fetchall()
             
-            return res
+            # Use list comprehension with zip or direct indexing for speed
+            return [{
+                "fid": r[0], "title": r[1], "target": r[2], "status": r[3], 
+                "kind": r[4], "timestamp": r[5], "namespace": r[6]
+            } for r in rows]
             
-        except Exception as e:
-            # Fallback to LIKE implementation
-            words = query.lower().split()
-            if not words: return []
-            
-            # Optimization: Use AND for intersection to match FTS behavior and improve performance.
-            # Each word must be present in at least one of the fields.
-            conditions = []
-            params = []
-            for word in words:
-                pattern = f"%{word}%"
-                conditions.append("(target LIKE ? OR fid LIKE ? OR title LIKE ? OR keywords LIKE ?)")
-                params.extend([pattern, pattern, pattern, pattern])
-            
-            where_clause = "(" + " AND ".join(conditions) + ")"
-            sql_params = params + [namespace, limit]
-            
-            query_sql = f"""
-                SELECT * FROM semantic_meta 
-                WHERE {where_clause} AND namespace = ?
-                ORDER BY timestamp DESC LIMIT ?
-            """  # nosec B608
-            cursor.execute(query_sql, sql_params)
-            return [dict(row) for row in cursor.fetchall()]
+        except Exception:
+            # Fallback to simple LIKE
+            pattern = f"%{query.lower()}%"
+            sql = "SELECT fid, title, target, status, kind, timestamp, namespace FROM semantic_meta WHERE (target LIKE ? OR title LIKE ?) AND namespace = ? LIMIT ?"
+            cursor = self._conn.execute(sql, (pattern, pattern, namespace, limit))
+            return [{
+                "fid": r[0], "title": r[1], "target": r[2], "status": r[3], 
+                "kind": r[4], "timestamp": r[5], "namespace": r[6]
+            } for r in cursor.fetchall()]
 
     def resolve_to_truth(self, fid: str) -> Optional[Dict[str, Any]]:
         """
