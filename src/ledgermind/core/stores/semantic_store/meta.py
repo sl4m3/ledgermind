@@ -232,7 +232,7 @@ class SemanticMetaStore:
                     WHERE semantic_fts MATCH ?
                 ) AND namespace = ? {status_clause}
                 LIMIT ?
-            """
+            """  # nosec B608
             
             rows = self._conn.execute(sql, params).fetchall()
             
@@ -248,7 +248,7 @@ class SemanticMetaStore:
             self._conn.row_factory = original_factory
             pattern = f"%{query.lower()}%"
             status_clause = "AND status = ?" if status else ""
-            sql = f"SELECT fid, title, target, status, kind, timestamp, namespace, phase, vitality, link_count, (CASE phase WHEN 'canonical' THEN 1.5 WHEN 'emergent' THEN 1.2 ELSE 1.0 END * CASE vitality WHEN 'active' THEN 1.0 WHEN 'decaying' THEN 0.5 ELSE 0.2 END) as calculated_score FROM semantic_meta WHERE (target LIKE ? OR title LIKE ? OR keywords LIKE ? OR content LIKE ?) AND namespace = ? {status_clause} LIMIT ?"
+            sql = f"SELECT fid, title, target, status, kind, timestamp, namespace, phase, vitality, link_count, (CASE phase WHEN 'canonical' THEN 1.5 WHEN 'emergent' THEN 1.2 ELSE 1.0 END * CASE vitality WHEN 'active' THEN 1.0 WHEN 'decaying' THEN 0.5 ELSE 0.2 END) as calculated_score FROM semantic_meta WHERE (target LIKE ? OR title LIKE ? OR keywords LIKE ? OR content LIKE ?) AND namespace = ? {status_clause} LIMIT ?"  # nosec B608
             params = [pattern, pattern, pattern, pattern, namespace]
             if status: params.append(status)
             params.append(limit)

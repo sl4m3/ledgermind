@@ -35,13 +35,26 @@ def test_benchmark_record_decision(memory_instance, benchmark):
     
     benchmark(record)
 
-def test_benchmark_search_decisions(memory_instance, benchmark):
-    # Seed some data ONCE before the benchmark runs
-    for i in range(10):
-        memory_instance.record_decision(f"Decision {i}", f"target_{i}", f"Rationale for decision {i} with sufficient length for validation")
+def test_benchmark_search_fast_path(memory_instance, benchmark):
+    """Measures performance of the optimized SQLite FTS5 fast-path."""
+    # Seed data
+    for i in range(20):
+        memory_instance.record_decision(f"Decision {i}", f"target_{i}", f"Rationale for {i}")
     
-    def search():
-        # Measure pure search speed
+    def search_fast():
+        # Triggers fast-path: short query, no spaces
         memory_instance.search_decisions("Decision", limit=5)
     
-    benchmark(search)
+    benchmark(search_fast)
+
+def test_benchmark_search_hybrid_rrf(memory_instance, benchmark):
+    """Measures performance of the full Hybrid RRF path (Vector + Keyword + Ranking)."""
+    # Seed data
+    for i in range(20):
+        memory_instance.record_decision(f"Decision {i}", f"target_{i}", f"Rationale for {i}")
+    
+    def search_hybrid():
+        # Triggers full path: query > 20 chars or contains spaces
+        memory_instance.search_decisions("Search for specific decision using long hybrid prompt", limit=5)
+    
+    benchmark(search_hybrid)
