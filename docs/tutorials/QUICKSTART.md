@@ -14,8 +14,8 @@ Build your first autonomous agent with LedgerMind in 5 minutes.
 ## Step 1: Install
 
 ```bash
-# With vector search (strongly recommended)
-pip install ledgermind[vector]
+# Vector search is included by default
+pip install ledgermind
 ```
 
 ---
@@ -220,7 +220,7 @@ else:
 health = bridge.check_health()
 print(f"Git available:    {'✓' if health['git_available'] else '✗'}")
 print(f"Storage writable: {'✓' if health['storage_writable'] else '✗'}")
-print(f"Vector search:    {'✓' if health['vector_available'] else '✗ (pip install ledgermind[vector])'}")
+print(f"Vector search:    {'✓' if health['vector_available'] else '✗'}")
 
 stats = bridge.get_stats()
 print(f"\nEpisodic events:  {stats['episodic_count']}")
