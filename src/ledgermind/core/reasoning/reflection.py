@@ -80,7 +80,7 @@ class ReflectionEngine:
 
                 if arbitration_mode != "lite":
                     # Mark for asynchronous enrichment
-                    prop.context["enrichment_status"] = "pending"
+                    prop.enrichment_status = "pending"
 
                 
                 if prop.target not in target_to_procedural:
