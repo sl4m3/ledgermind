@@ -2,6 +2,7 @@ import argparse
 import os
 import json
 import logging
+import questionary
 from typing import Optional
 from ledgermind.server.server import MCPServer
 from ledgermind.core.utils.logging import setup_logging
@@ -13,21 +14,158 @@ def export_schemas():
     print(json.dumps(spec, indent=2))
 
 def init_project(path: str):
-    """Initializes a new memory project structure."""
+    """Interactive initialization of Ledgermind."""
+    from rich.console import Console
+    from rich.panel import Panel
     from ledgermind.core.api.memory import Memory
+    from ledgermind.server.installers import install_client
+
+    console = Console()
+    console.print(Panel("[bold cyan]Welcome to LedgerMind Setup[/bold cyan]", expand=False))
+
+    # 1. Project Path
+    console.print("\n[bold yellow]Step 1: Project Location[/bold yellow]")
+    console.print("Where is the codebase for this agent? (Hooks will be installed here)")
+    project_path = questionary.text("Project Path:", default=os.getcwd()).ask()
+    if project_path is None: return
+    project_path = os.path.abspath(project_path)
+
+    # 2. Memory Path
+    console.print("\n[bold yellow]Step 2: Knowledge Core Location[/bold yellow]")
+    console.print("Where should the memory database be stored?")
+    console.print("We recommend placing it outside the project root (e.g., ../.ledgermind)")
+    default_mem_path = os.path.abspath(os.path.join(project_path, "..", ".ledgermind"))
+    custom_path = questionary.text("Memory Path:", default=default_mem_path).ask()
+    if custom_path is None: return
     
-    print(f"Initializing Ledgermind project at {path}...")
+    # 3. Embedder
+    console.print("\n[bold yellow]Step 3: Embedding Model[/bold yellow]")
+    console.print("LedgerMind uses a vector engine to semantically search your memory.")
+    console.print("By default, we recommend the lightweight Jina v5 4-bit model (~60MB).")
+    embedder = questionary.select(
+        "Choose embedder:",
+        choices=["jina-v5-4bit", "custom"],
+        default="jina-v5-4bit"
+    ).ask()
+    if embedder is None: return
     
-    # Initialize directory structure and Git repo via Core API
+    model_name = "v5-small-text-matching-Q4_K_M.gguf"
+    custom_url = None
+    
+    if embedder == "custom":
+        console.print("You can provide a direct URL to a .gguf file to download it now,")
+        console.print("OR provide an absolute path to an already downloaded .gguf file.")
+        user_input = questionary.text("Enter URL or absolute path:").ask()
+        if user_input is None: return
+        
+        if user_input.startswith("http://") or user_input.startswith("https://"):
+            custom_url = user_input
+            model_name = os.path.basename(custom_url.split("?")[0])
+            if not model_name.endswith(".gguf"):
+                model_name += ".gguf"
+        else:
+            model_name = user_input # Treat as absolute path or standard HF name
+
+    # 4. Client
+    console.print("\n[bold yellow]Step 4: Client Hooks[/bold yellow]")
+    console.print(f"We can install hooks to seamlessly capture context for your preferred client in {project_path}.")
+    client = questionary.select(
+        "Which client do you use?",
+        choices=["cursor", "claude", "gemini", "vscode", "none"],
+        default="none"
+    ).ask()
+    if client is None: return
+    
+    # 5. Arbitration Mode
+    console.print("\n[bold yellow]Step 5: Arbitration Mode[/bold yellow]")
+    console.print("How should LedgerMind resolve memory conflicts and summarize knowledge?")
+    console.print("  [bold]lite[/bold]    - Algorithmic resolution only (Fast, no LLM required)")
+    console.print("  [bold]optimal[/bold] - Local LLM via Ollama/DeepSeek (Private, medium speed)")
+    console.print("  [bold]rich[/bold]    - Cloud LLM via client (Highest quality, uses API)")
+    mode = questionary.select(
+        "Select mode:",
+        choices=["lite", "optimal", "rich"],
+        default="lite"
+    ).ask()
+    if mode is None: return
+
+    # Initialize
+    console.print("\n[bold green]Initializing system...[/bold green]")
     try:
-        Memory(storage_path=path)
-        print(f"✓ Created memory structure at {path}")
+        if os.path.isabs(model_name):
+            model_path = model_name
+            if not os.path.exists(model_path):
+                 console.print(f"[yellow]Warning: Custom model path does not exist yet: {model_path}[/yellow]")
+        else:
+            model_path = os.path.join(custom_path, "models", model_name) if model_name.endswith(".gguf") else model_name
+        
+        # Ensure memory directory exists first
+        os.makedirs(custom_path, exist_ok=True)
+        os.makedirs(os.path.join(custom_path, "models"), exist_ok=True)
+
+        if custom_url:
+            console.print(f"Downloading custom model from {custom_url}...")
+            import httpx
+            import time
+            try:
+                with open(model_path, "wb") as f:
+                    with httpx.stream("GET", custom_url, follow_redirects=True, timeout=None) as response:
+                        response.raise_for_status()
+                        total = int(response.headers.get("Content-Length", 0))
+                        downloaded = 0
+                        last_log = time.time()
+                        for chunk in response.iter_bytes(chunk_size=1024*1024):
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if time.time() - last_log > 2.0:
+                                pct = (downloaded / total * 100) if total > 0 else 0
+                                console.print(f"  Downloading... {pct:.1f}% ({downloaded/(1024*1024):.1f}MB)")
+                                last_log = time.time()
+                console.print(f"[green]✓ Downloaded to {model_path}[/green]")
+            except Exception as e:
+                console.print(f"[bold red]✗ Failed to download custom model: {e}[/bold red]")
+                if os.path.exists(model_path): os.remove(model_path)
+                return
+
+        if embedder == "jina-v5-4bit" or model_name.endswith(".gguf"):
+            try:
+                from ledgermind.core.stores.vector import _is_llama_available
+                if not _is_llama_available():
+                    console.print("[red]Warning: llama-cpp-python is not installed. GGUF model might not work optimally until it's installed.[/red]")
+            except ImportError:
+                pass
+
+        # Create memory structure. VectorStore init will auto-download GGUF if missing and URL is known.
+        memory = Memory(storage_path=custom_path, vector_model=model_path)
+        
+        # Save Arbitration Mode to config
+        memory.semantic.meta.set_config("arbitration_mode", mode)
+
+        console.print(f"[green]✓ Created memory structure at {custom_path}[/green]")
+        console.print(f"[green]✓ Configured vector model: {model_name}[/green]")
+        console.print(f"[green]✓ Set arbitration mode: {mode}[/green]")
+
+        if client != "none":
+            console.print(f"\nInstalling hooks for {client} in {project_path}...")
+            try:
+                success = install_client(client, project_path)
+                if success:
+                    console.print(f"[green]✓ Hooks installed for {client}[/green]")
+                else:
+                    console.print(f"[bold red]✗ Failed to install hooks for {client}[/bold red]")
+            except Exception as e:
+                console.print(f"[yellow]Hook installer for '{client}' failed: {e}[/yellow]")
+
     except Exception as e:
-        print(f"✗ Error initializing storage: {e}")
+        console.print(f"[bold red]✗ Error during initialization:[/bold red] {e}")
+        import traceback
+        console.print(traceback.format_exc())
         return
 
-    print("\nInitialization complete! You can now start the server with:")
-    print(f"  ledgermind-mcp run --path {path}")
+    console.print("\n[bold cyan]Initialization complete![/bold cyan]")
+    console.print("You can now start the server with:")
+    console.print(f"  ledgermind run --path {custom_path}")
+
 
 def check_project(path: str):
     """Runs diagnostics on an existing project."""
