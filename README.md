@@ -35,18 +35,18 @@
 ## 📈 Recent Activity
 
 **Last 14 days:**
-- **3,407 Git clones** (863 unique cloners)
+- **3,751 Git clones** (950 unique cloners)
 - Strong PyPI growth (hundreds of downloads in recent days)
 
 **Installed & used in:**
-- Gemini CLI (100% zero-touch, fully stable)
+- Gemini CLI (100% fully stable)
 - Claude Code
 - Cursor
 - VS Code
 
-**Featured & Published:**
-- New article on **Dev.to**: ["True Zero-Touch Autonomus Memory for AI Agents"](https://dev.to/sl4m3/ledgermind-zero-touch-memory-that-survives-real-agent-work-46lh)
-- Automaticaly accepted to **PitchHut** directory
+**Published on Dev.to:**
+- ["True Zero-Touch Autonomus Memory for AI Agents"](https://dev.to/sl4m3/ledgermind-zero-touch-memory-that-survives-real-agent-work-46lh)
+- ["LedgerMind v3.0: Knowledge That Lives, Breathes, and Dies on Purpose"](https://dev.to/sl4m3/ledgermind-v30-knowledge-that-lives-breathes-and-dies-on-purpose-5c6)
 
 ---
 
@@ -218,6 +218,8 @@ search. Decisions with more "Evidence Links" (episodic events) receive a
 LedgerMind is optimized for high-speed operation on **Android/Termux**
 as well as containerized environments. It includes built-in security for MCP and
 REST endpoints.
+
+- ["STATISTICS"](https://sl4m3.github.io/ledgermind/dev/bench/)
 
 ### Retrieval Performance (Jina v5 Small Q4_K_M)
 
