@@ -71,7 +71,13 @@ def test_arbiter_callback_logic_supersede(temp_memory_path, monkeypatch):
     v1 = np.zeros(384, dtype='float32'); v1[0] = 1.0
     v2 = np.zeros(384, dtype='float32'); v2[0] = 0.6; v2[1] = 0.8 # Cosine sim = 0.6
     
-    mock_model.encode.side_effect = [np.array([v1]), np.array([v2]), np.array([v2])]
+    def mock_encode(texts, **kwargs):
+        t = texts[0] if isinstance(texts, list) else texts
+        if "maintenance" in t:
+            return np.array([v1])
+        return np.array([v2])
+
+    mock_model.encode.side_effect = mock_encode
     mock_model.get_sentence_embedding_dimension.return_value = 384
     
     # Inject mock into cache and bypass availability check
@@ -113,6 +119,7 @@ def test_arbiter_callback_logic_auto_supersede_over_0_7(temp_memory_path, monkey
     from ledgermind.core.stores import vector
     
     mock_model = MagicMock()
+    # Support multiple calls: record A, record B, supersede
     mock_model.encode.return_value = np.array([[1.0] * 384], dtype='float32')
     mock_model.get_sentence_embedding_dimension.return_value = 384
     
