@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772316453017,
+  "lastUpdate": 1772317832687,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4864,6 +4864,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000007899828525114701",
             "extra": "mean: 54.002799987529215 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "1112606b0834d1e2f7f6b7252404196c4ea293ec",
+          "message": "fix(core): final CI recovery with high-speed SQL ranking and test compatibility\n\n- Moved Phase/Vitality weighting into SQL CASE expressions for zero-overhead ranking.\n- Restored evidence_count in search fast-path using indexed link_count (+1 for base record).\n- Implemented strict mode status filtering directly in SQL WHERE clause.\n- Optimized keyword_search dictionary conversion for maximum throughput.\n- Guaranteed 17k+ iter/sec search performance on GitHub Actions.\n- Fixed TypeErrors and AssertionErrors in ranking and hybrid search tests.",
+          "timestamp": "2026-03-01T01:28:22+03:00",
+          "tree_id": "934d7b11635379b20cac2947fc68795a1daaddc7",
+          "url": "https://github.com/sl4m3/ledgermind/commit/1112606b0834d1e2f7f6b7252404196c4ea293ec"
+        },
+        "date": 1772317832353,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 69.13957062695683,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003176772945191937",
+            "extra": "mean: 14.46349739999846 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 12484.363333992138,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009303861419600656",
+            "extra": "mean: 80.10020000597251 usec\nrounds: 5"
           }
         ]
       }
