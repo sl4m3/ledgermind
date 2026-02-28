@@ -223,10 +223,17 @@ REST endpoints.
 
 ### Performance Benchmarks (v3.0.3)
 
-| Metric | Ops/sec | Note |
-| :--- | :---: | :--- |
-| **Search OPS** | **2,471 - 24,199** | GGUF (Mobile) vs MiniLM (Server) |
-| **Write OPS**  | **6.5 - 54.4** | Full RAG indexing + Git commit |
+#### Throughput (Ops/sec)
+| Metric | Mobile (GGUF) | Server (MiniLM) | Note |
+| :--- | :---: | :---: | :--- |
+| **Search OPS** | **2,471** | **24,199** | Hybrid RRF (Vector + Keyword) |
+| **Write OPS**  | **6.5** | **54.4** | Full RAG indexing + Git commit |
+
+#### Latency (Mean)
+| Metric | Mobile (GGUF) | Server (MiniLM) | Note |
+| :--- | :---: | :---: | :--- |
+| **Search Latency** | **0.40 ms** | **0.04 ms** | Real-time context retrieval |
+| **Write Latency** | **153.8 ms** | **18.3 ms** | Coordinated atomic commit |
 
 ---
 
