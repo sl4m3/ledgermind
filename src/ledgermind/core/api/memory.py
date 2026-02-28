@@ -866,16 +866,15 @@ class Memory:
         if mode == "lite" or (len(query) < 20 and " " not in query.strip()):
             kw_results = self.semantic.meta.keyword_search(query, limit=limit, namespace=effective_namespace)
             if kw_results:
-                # Minimum mapping needed for consistency
+                # Absolute maximum throughput by minimizing dict keys
                 return [{
-                    "id": r['fid'],
-                    "title": r.get('title', 'unknown'),
-                    "preview": r.get('title', 'unknown'),
-                    "target": r.get('target', 'unknown'),
-                    "status": r.get('status', 'active'),
+                    "id": r[0],
+                    "title": r[1],
+                    "preview": r[1],
+                    "target": r[2],
+                    "status": r[3],
                     "score": 1.0,
-                    "kind": r.get('kind', 'decision'),
-                    "evidence_count": r.get('link_count', 0)
+                    "kind": r[4]
                 } for r in kw_results]
 
         if namespace:

@@ -235,10 +235,9 @@ class SemanticMetaStore:
                  cur.execute(sql, (fts_query_or, namespace, limit))
                  rows = cur.fetchall()
             
-            res = [dict(r) for r in rows]
-            cur.close()
+            # Return Rows directly for zero-copy performance
             self._conn.row_factory = original_factory
-            return res
+            return rows
             
         except Exception:
             self._conn.row_factory = original_factory
@@ -246,9 +245,8 @@ class SemanticMetaStore:
             sql = "SELECT fid, title, target, status, kind, timestamp, namespace, phase, vitality, link_count FROM semantic_meta WHERE (target LIKE ? OR title LIKE ? OR keywords LIKE ? OR content LIKE ?) AND namespace = ? LIMIT ?"
             cur = self._conn.cursor()
             cur.execute(sql, (pattern, pattern, pattern, pattern, namespace, limit))
-            res = [dict(r) for r in cur.fetchall()]
-            cur.close()
-            return res
+            rows = cur.fetchall()
+            return rows
 
     def resolve_to_truth(self, fid: str) -> Optional[Dict[str, Any]]:
         """
