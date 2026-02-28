@@ -860,6 +860,20 @@ class Memory:
         effective_namespace = namespace or self.namespace
         k = 60 # RRF constant
         
+        # Fast path for simple keyword search in high-performance scenarios
+        if mode == "lite" or (len(query) < 20 and " " not in query.strip()):
+            kw_results = self.semantic.meta.keyword_search(query, limit=limit, namespace=effective_namespace)
+            if kw_results:
+                # Minimum mapping needed for consistency
+                return [{
+                    "id": r['fid'],
+                    "title": r.get('title', 'unknown'),
+                    "target": r.get('target', 'unknown'),
+                    "status": r.get('status', 'active'),
+                    "score": 1.0,
+                    "kind": r.get('kind', 'decision')
+                } for r in kw_results]
+
         if namespace:
             search_limit = max(200, (offset + limit) * 10)
         else:
@@ -872,16 +886,19 @@ class Memory:
             
         kw_results = self.semantic.meta.keyword_search(query, limit=search_limit, namespace=effective_namespace)
         
+        # Batch Fetch Metadata for all results at once to avoid N+1 in score loops
+        all_initial_fids = list(set([item['id'] for item in vec_results] + [item['fid'] for item in kw_results]))
+        meta_cache = {m['fid']: m for m in self.semantic.meta.get_batch_by_fids(all_initial_fids)}
+
         scores = {}
         for rank, item in enumerate(vec_results):
             fid = item['id']
-            # Dynamic Weighting based on Decision Stream Metadata (PR #42)
-            meta = self.semantic.meta.get_by_fid(fid)
+            meta = meta_cache.get(fid)
             weight = 1.0
             if meta:
                 if meta.get('kind') == 'decision':
                     weight *= 1.35
-                phase = meta.get('phase', '').lower()
+                phase = (meta.get('phase') or '').lower()
                 if phase == 'canonical':
                     weight *= 1.5
                 elif phase == 'emergent':
@@ -891,13 +908,12 @@ class Memory:
             
         for rank, item in enumerate(kw_results):
             fid = item['fid']
-            # Apply same weighting to keyword results
-            meta = self.semantic.meta.get_by_fid(fid)
+            meta = meta_cache.get(fid)
             weight = 1.0
             if meta:
                 if meta.get('kind') == 'decision':
                     weight *= 1.35
-                phase = meta.get('phase', '').lower()
+                phase = (meta.get('phase') or '').lower()
                 if phase == 'canonical':
                     weight *= 1.5
                 elif phase == 'emergent':
