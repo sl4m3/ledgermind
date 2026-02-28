@@ -26,38 +26,38 @@ class BaseInstaller:
 class ClaudeInstaller(BaseInstaller):
     def __init__(self):
         super().__init__("claude")
-        self.claude_dir = os.path.join(self.home_dir, ".claude")
-        self.hooks_dir = os.path.join(self.claude_dir, "hooks")
-        self.settings_file = os.path.join(self.claude_dir, "settings.json")
+        self.global_settings = os.path.join(self.home_dir, ".claude", "settings.json")
 
     def install(self, project_path: str):
         project_path = os.path.abspath(project_path)
+        # Hooks are now stored INSIDE the project
+        project_hooks_dir = os.path.join(project_path, ".ledgermind", "hooks")
         memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
-        os.makedirs(self.hooks_dir, exist_ok=True)
+        os.makedirs(project_hooks_dir, exist_ok=True)
         
         # 1. Create UserPromptSubmit / BeforeModel script
-        before_script_path = os.path.join(self.hooks_dir, "ledgermind_before_prompt.sh")
+        before_script_path = os.path.join(project_hooks_dir, "ledgermind_before_prompt.sh")
         self._create_hook_script(before_script_path, f"""#!/bin/bash
-# LedgerMind BeforeModel Hook
+# LedgerMind BeforeModel Hook (Local to {project_path})
 # Injects context into the prompt
 PROMPT=$(cat)
 ledgermind-mcp bridge-context --path "{memory_path}" --prompt "$PROMPT" --cli "claude"
 """)
 
         # 2. Create PostToolUse / AfterModel script
-        after_script_path = os.path.join(self.hooks_dir, "ledgermind_after_interaction.sh")
+        after_script_path = os.path.join(project_hooks_dir, "ledgermind_after_interaction.sh")
         self._create_hook_script(after_script_path, f"""#!/bin/bash
-# LedgerMind AfterModel Hook
+# LedgerMind AfterModel Hook (Local to {project_path})
 # Records the interaction (fire and forget)
 RESPONSE=$(cat)
 ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Automated tool execution" --response "$RESPONSE" --cli "claude" &
 """)
 
-        # 3. Update settings.json
+        # 3. Update global settings.json to point to these LOCAL scripts
         settings = {}
-        if os.path.exists(self.settings_file):
+        if os.path.exists(self.global_settings):
             try:
-                with open(self.settings_file, "r") as f:
+                with open(self.global_settings, "r") as f:
                     settings = json.load(f)
             except json.JSONDecodeError:
                 settings = {}
@@ -65,46 +65,47 @@ ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Automated tool exe
         if "hooks" not in settings:
             settings["hooks"] = {}
 
+        # Important: Claude global settings now point to this specific project's hooks
         settings["hooks"]["UserPromptSubmit"] = before_script_path
         settings["hooks"]["PostToolUse"] = after_script_path
         settings["hooks"]["AfterModel"] = after_script_path
 
-        with open(self.settings_file, "w") as f:
+        os.makedirs(os.path.dirname(self.global_settings), exist_ok=True)
+        with open(self.global_settings, "w") as f:
             json.dump(settings, f, indent=2)
 
-        print(f"✓ Installed Claude hooks successfully.")
+        print(f"✓ Installed Claude hooks locally in {project_hooks_dir}")
 
 
 class CursorInstaller(BaseInstaller):
     def __init__(self):
         super().__init__("cursor")
-        self.cursor_dir = os.path.join(self.home_dir, ".cursor")
-        self.hooks_dir = os.path.join(self.cursor_dir, "hooks")
-        self.hooks_file = os.path.join(self.cursor_dir, "hooks.json")
+        self.global_hooks_file = os.path.join(self.home_dir, ".cursor", "hooks.json")
 
     def install(self, project_path: str):
         project_path = os.path.abspath(project_path)
+        project_hooks_dir = os.path.join(project_path, ".ledgermind", "hooks")
         memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
-        os.makedirs(self.hooks_dir, exist_ok=True)
+        os.makedirs(project_hooks_dir, exist_ok=True)
         
-        before_script_path = os.path.join(self.hooks_dir, "ledgermind_before.sh")
+        before_script_path = os.path.join(project_hooks_dir, "ledgermind_before.sh")
         self._create_hook_script(before_script_path, f"""#!/bin/bash
-# Cursor BeforeSubmitPrompt Hook
+# Cursor BeforeSubmitPrompt Hook (Local to {project_path})
 PROMPT=$1
 ledgermind-mcp bridge-context --path "{memory_path}" --prompt "$PROMPT" --cli "cursor"
 """)
 
-        after_script_path = os.path.join(self.hooks_dir, "ledgermind_after.sh")
+        after_script_path = os.path.join(project_hooks_dir, "ledgermind_after.sh")
         self._create_hook_script(after_script_path, f"""#!/bin/bash
-# Cursor AfterAgentResponse Hook
+# Cursor AfterAgentResponse Hook (Local to {project_path})
 RESPONSE=$1
 ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Agent interaction" --response "$RESPONSE" --cli "cursor" &
 """)
 
         hooks_config = {}
-        if os.path.exists(self.hooks_file):
+        if os.path.exists(self.global_hooks_file):
             try:
-                with open(self.hooks_file, "r") as f:
+                with open(self.global_hooks_file, "r") as f:
                     hooks_config = json.load(f)
             except json.JSONDecodeError:
                 hooks_config = {}
@@ -113,24 +114,26 @@ ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Agent interaction"
         hooks_config["afterAgentResponse"] = after_script_path
         hooks_config["afterAgentThought"] = after_script_path
 
-        with open(self.hooks_file, "w") as f:
+        os.makedirs(os.path.dirname(self.global_hooks_file), exist_ok=True)
+        with open(self.global_hooks_file, "w") as f:
             json.dump(hooks_config, f, indent=2)
 
-        print(f"✓ Installed Cursor hooks successfully.")
+        print(f"✓ Installed Cursor hooks locally in {project_hooks_dir}")
 
 
 class GeminiInstaller(BaseInstaller):
     def __init__(self):
         super().__init__("gemini")
-        self.gemini_dir = os.path.join(self.home_dir, ".gemini")
-        self.hooks_dir = os.path.join(self.gemini_dir, "hooks")
 
     def install(self, project_path: str):
         project_path = os.path.abspath(project_path)
+        # Store hooks in .gemini/hooks inside the project (as in ledgermind repo)
+        project_hooks_dir = os.path.join(project_path, ".gemini", "hooks")
         memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
-        os.makedirs(self.hooks_dir, exist_ok=True)
-        # For Gemini CLI, we create a Python hook that the CLI can import or call
-        hook_file = os.path.join(self.hooks_dir, "ledgermind_hook.py")
+        os.makedirs(project_hooks_dir, exist_ok=True)
+        
+        hook_file = os.path.join(project_hooks_dir, "ledgermind_hook.py")
+
         with open(hook_file, "w") as f:
             f.write(f"""import os
 import sys
