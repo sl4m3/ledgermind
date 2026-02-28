@@ -60,7 +60,7 @@ class Memory:
         """
         Initialize the memory system.
         """
-        self.events = EventEmitter()
+        self._events = None
         if config:
             self.config = config
         else:
@@ -124,9 +124,13 @@ class Memory:
         # Performance: Pre-initialize shared reasoning components
         from ledgermind.core.reasoning.lifecycle import LifecycleEngine
         self._lifecycle = LifecycleEngine()
-        
-        # Immediate environment check
-        self.check_environment()
+
+    @property
+    def events(self):
+        if self._events is None:
+            from ledgermind.core.utils.events import EventEmitter
+            self._events = EventEmitter()
+        return self._events
 
     def check_environment(self) -> Dict[str, Any]:
         """

@@ -60,7 +60,8 @@ class EpisodicStore:
             # Handle context serialization for Pydantic models
             context_data = event.context
             if hasattr(context_data, 'model_dump'):
-                context_dict = context_data.model_dump(mode='json')
+                # Avoid expensive mode='json'
+                context_dict = context_data.model_dump()
             else:
                 context_dict = context_data
                 
@@ -71,8 +72,8 @@ class EpisodicStore:
                         event.source,
                         event.kind,
                         event.content,
-                        json.dumps(context_dict, sort_keys=True),
-                        event.timestamp.isoformat(),
+                        json.dumps(context_dict, default=str),
+                        event.timestamp.isoformat() if hasattr(event.timestamp, 'isoformat') else str(event.timestamp),
                         linked_id,
                         link_strength
                     )
