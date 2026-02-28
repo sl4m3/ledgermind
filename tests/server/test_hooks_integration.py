@@ -118,7 +118,7 @@ def test_bridge_context_cli(tmp_path):
     
     # Record a decision first so we have context
     from ledgermind.core.api.memory import Memory
-    mem = Memory(vector_model="all-MiniLM-L6-v2", storage_path=str(memory_path))
+    mem = Memory(vector_model="v5-small-text-matching-Q4_K_M.gguf", storage_path=str(memory_path))
     mem.record_decision(title="Test Rule", target="test", rationale="Important decision for testing hooks")
     
     # Use a low threshold to ensure context injection regardless of exact similarity score
