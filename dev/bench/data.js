@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772300493997,
+  "lastUpdate": 1772301046867,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4332,6 +4332,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000006117512592567944",
             "extra": "mean: 57.93481933467977 usec\nrounds: 3548"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "2ad29c87188de5a11565fc429fa98593ba43fcc9",
+          "message": "fix(ci): restore pipeline stability and resolve security scan issues",
+          "timestamp": "2026-02-28T20:48:36+03:00",
+          "tree_id": "6058a1a525d2d11d9f2c337582bd8fd9c9b09d82",
+          "url": "https://github.com/sl4m3/ledgermind/commit/2ad29c87188de5a11565fc429fa98593ba43fcc9"
+        },
+        "date": 1772301046240,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 24.01850551448347,
+            "unit": "iter/sec",
+            "range": "stddev: 0.012090900818709052",
+            "extra": "mean: 41.63456379069827 msec\nrounds: 43"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17396.647892742392,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000005444426302646725",
+            "extra": "mean: 57.48233833123589 usec\nrounds: 3068"
           }
         ]
       }
