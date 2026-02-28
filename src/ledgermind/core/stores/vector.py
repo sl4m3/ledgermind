@@ -61,6 +61,20 @@ EMBEDDING_AVAILABLE = None
 LLAMA_AVAILABLE = None
 ANNOY_AVAILABLE = None
 
+def _is_llama_available():
+    global LLAMA_AVAILABLE
+    if LLAMA_AVAILABLE is not None:
+        return LLAMA_AVAILABLE
+        
+    global _LLAMA_AVAILABLE
+    if _LLAMA_AVAILABLE is None:
+        try:
+            from llama_cpp import Llama
+            _LLAMA_AVAILABLE = True
+        except ImportError:
+            _LLAMA_AVAILABLE = False
+    return _LLAMA_AVAILABLE
+
 VECTOR_AVAILABLE = True # NumPy is always available
 
 class GGUFEmbeddingAdapter:
@@ -149,6 +163,20 @@ class GGUFEmbeddingAdapter:
 
     def get_sentence_embedding_dimension(self):
         return self.dimension
+
+    def close(self):
+        """Explicitly release resources to avoid TypeError in __del__."""
+        if hasattr(self, 'client') and self.client:
+            try:
+                # llama-cpp-python objects sometimes have internal close/del issues
+                # during late interpreter shutdown.
+                self.client.close()
+                self.client = None
+            except:
+                pass
+
+    def __del__(self):
+        self.close()
 
 # Module-level cache for models
 _MODEL_CACHE = {}
@@ -293,7 +321,7 @@ class VectorStore:
         """Downloads known GGUF models from Hugging Face if they are missing locally."""
         # Mapping of filenames to their direct HF download URLs
         KNOWN_GGUF_MODELS = {
-            "v5-small-text-matching-q4_k_m.gguf": "https://huggingface.co/jinaai/jina-embeddings-v5-text-small-text-matching-GGUF/resolve/main/jina-embeddings-v5-text-small-text-matching-Q4_K_M.gguf",
+            "v5-small-text-matching-q4_k_m.gguf": "https://huggingface.co/jinaai/jina-embeddings-v5-text-small-text-matching-GGUF/resolve/main/v5-small-text-matching-Q4_K_M.gguf",
             "jina-embeddings-v5-text-small-text-matching-q4_k_m.gguf": "https://huggingface.co/jinaai/jina-embeddings-v5-text-small-text-matching-GGUF/resolve/main/jina-embeddings-v5-text-small-text-matching-Q4_K_M.gguf"
         }
 
@@ -355,7 +383,6 @@ class VectorStore:
 
     def close(self):
         """Stops the multi-process pool and releases resources."""
-        self.save()
         if self._pool is not None:
             try:
                 self.model.stop_multi_process_pool(self._pool)
@@ -363,6 +390,23 @@ class VectorStore:
             except Exception as e:
                 logger.debug(f"Error stopping pool: {e}")
             self._pool = None
+            
+        # Clean up model cache to prevent late-shutdown TypeError in llama-cpp
+        global _MODEL_CACHE
+        for model in list(_MODEL_CACHE.values()):
+            if hasattr(model, 'close'):
+                try:
+                    model.close()
+                except Exception:
+                    pass
+        _MODEL_CACHE.clear()
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+
 
     def load(self):
         if os.path.exists(self.index_path) and os.path.exists(self.meta_path):

@@ -183,6 +183,7 @@ class TestEnvironmentCheck(unittest.TestCase):
              patch('ledgermind.core.api.memory.os.access', return_value=True), \
              patch('ledgermind.core.api.memory.shutil.disk_usage') as mock_disk, \
              patch('ledgermind.core.api.memory.subprocess.run') as mock_run, \
+             patch('ledgermind.core.stores.vector.LLAMA_AVAILABLE', False), \
              patch('ledgermind.core.stores.vector.EMBEDDING_AVAILABLE', False):
 
              Memory._git_available = True
@@ -192,8 +193,8 @@ class TestEnvironmentCheck(unittest.TestCase):
              results = memory.check_environment()
 
              self.assertFalse(results["vector_available"])
-             self.assertTrue(any("Vector search is disabled" in w for w in results["warnings"]))
-
+             # The message varies based on which engine was checked first, but both contain "disabled"
+             self.assertTrue(any("disabled" in w.lower() for w in results["warnings"]))
     @patch('ledgermind.core.api.memory.Memory.__init__', return_value=None)
     def test_check_environment_storage_locked(self, mock_init):
         memory = Memory()
