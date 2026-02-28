@@ -56,7 +56,7 @@ These hooks call the lightweight **Bridge API** via CLI (`bridge-context` and `b
 ### Installation
 
 ```bash
-pip install ledgermind[vector]
+pip install ledgermind
 ```
 
 ### Minimal Setup

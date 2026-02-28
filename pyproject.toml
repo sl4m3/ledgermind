@@ -35,7 +35,10 @@ dependencies = [
     "fastapi>=0.100.0",
     "uvicorn>=0.22.0",
     "sse-starlette>=1.6.0",
-    "prometheus-client>=0.17.0"
+    "prometheus-client>=0.17.0",
+    "annoy>=1.17.0",
+    "llama-cpp-python>=0.2.0",
+    "questionary>=2.0.0"
 ]
 
 [project.urls]
@@ -44,13 +47,6 @@ Repository = "https://github.com/sl4m3/ledgermind"
 "Bug Tracker" = "https://github.com/sl4m3/ledgermind/issues"
 
 [project.optional-dependencies]
-vector = [
-    "annoy>=1.17.0",
-    "sentence-transformers>=2.2.2"
-]
-gguf = [
-    "llama-cpp-python>=0.2.0"
-]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.20.0",
@@ -58,9 +54,6 @@ dev = [
     "pytest-xdist>=3.0.0",
     "hypothesis>=6.0.0",
     "ruff>=0.1.0"
-]
-all = [
-    "ledgermind[vector,gguf]"
 ]
 
 [project.scripts]
