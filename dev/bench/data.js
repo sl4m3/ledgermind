@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772282184766,
+  "lastUpdate": 1772282767830,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -4028,6 +4028,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00000569433492915893",
             "extra": "mean: 56.436883579444874 usec\nrounds: 3453"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e120b555c9710bd2474e63cdb9404c32a05f9ee7",
+          "message": "Merge pull request #34 from sl4m3/palette-vscode-a11y-10780441156793769683\n\nfeat(vscode): improve status bar accessibility",
+          "timestamp": "2026-02-28T15:42:10+03:00",
+          "tree_id": "f51d28ba4649d36b71e430d1dc5871f71a6dc34f",
+          "url": "https://github.com/sl4m3/ledgermind/commit/e120b555c9710bd2474e63cdb9404c32a05f9ee7"
+        },
+        "date": 1772282766762,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 43.22351014545554,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012478029232799873",
+            "extra": "mean: 23.135557400007656 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17773.40165595036,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000070768552353861076",
+            "extra": "mean: 56.26384973217604 usec\nrounds: 3354"
           }
         ]
       }
