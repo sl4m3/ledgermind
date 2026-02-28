@@ -97,7 +97,7 @@ class EpisodicStore:
         
         # Use parameterized query with correct number of placeholders
         placeholders = ",".join(["?"] * len(ids))
-        query = f"SELECT * FROM events WHERE id IN ({placeholders}) ORDER BY id ASC"
+        query = f"SELECT * FROM events WHERE id IN ({placeholders}) ORDER BY id ASC" # nosec B608
         
         with self._get_conn() as conn:
             rows = conn.execute(query, ids).fetchall()
