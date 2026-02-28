@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772281809968,
+  "lastUpdate": 1772282184766,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3990,6 +3990,44 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000005540904086460863",
             "extra": "mean: 56.74580295736412 usec\nrounds: 3314"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "1d2d3a79eb3fe3435951dc200c09ac41bbb60dcb",
+          "message": "fix(security): sanitize test data to avoid false positives in security scanners\n\n- Replace 'Secret' and 'Sensitive' keywords with neutral terms.\n- Use fictional paths in path traversal tests instead of real system paths like /etc/passwd.\n- Resolve Issue #37 (Veritas Auto-Scan exposure).",
+          "timestamp": "2026-02-28T15:32:33+03:00",
+          "tree_id": "30589677ddd7375d652179d26a4e528374e870b5",
+          "url": "https://github.com/sl4m3/ledgermind/commit/1d2d3a79eb3fe3435951dc200c09ac41bbb60dcb"
+        },
+        "date": 1772282184440,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 43.86075410601801,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012747006898460634",
+            "extra": "mean: 22.799425599998813 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_decisions",
+            "value": 17718.908922253362,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000569433492915893",
+            "extra": "mean: 56.436883579444874 usec\nrounds: 3453"
           }
         ]
       }
