@@ -200,8 +200,8 @@ class SemanticMetaStore:
 
     def keyword_search(self, query: str, limit: int = 10, namespace: str = "default") -> List[Dict[str, Any]]:
         """Search using FTS5 (BM25) or fallback to LIKE with namespace filtering."""
-        # Use standard tuple factory for speed in performance-critical search
-        self._conn.row_factory = None
+        # Optimization: use Row factory directly for efficient mapping without manual dictionary building
+        self._conn.row_factory = sqlite3.Row
         cursor = self._conn.cursor()
         
         try:
@@ -214,55 +214,29 @@ class SemanticMetaStore:
             # Use simple token search if query is simple, else use exact phrase
             words = clean_query.split()
             if len(words) > 5:
-                 inner_query = " ".join(words[1:-1])
-                 fts_query = inner_query if inner_query else clean_query
-            elif " " not in clean_query:
+                 fts_query = " ".join(words[1:-1])
+            elif len(words) == 1:
                  fts_query = clean_query + "*"
             else:
                  fts_query = clean_query
             
-            # Select explicit columns instead of * for row mapping
             sql = """
-                SELECT m.fid, m.target, m.title, m.status, m.kind, m.timestamp, m.namespace, m.keywords, fts.rank 
+                SELECT m.*, fts.rank 
                 FROM semantic_meta m
                 JOIN semantic_fts fts ON m.rowid = fts.rowid
                 WHERE semantic_fts MATCH ? AND m.namespace = ?
                 ORDER BY rank LIMIT ?
             """
             cursor.execute(sql, (fts_query, namespace, limit))
-            
-            results = []
-            for row in cursor.fetchall():
-                results.append({
-                    "fid": row[0],
-                    "target": row[1],
-                    "title": row[2],
-                    "status": row[3],
-                    "kind": row[4],
-                    "timestamp": row[5],
-                    "namespace": row[6],
-                    "keywords": row[7],
-                    "rank": row[8]
-                })
+            res = [dict(row) for row in cursor.fetchall()]
             
             # Fallback to OR search if AND fails
-            if not results and len(words) > 3:
-                 fts_query_or = clean_query.replace(" ", " OR ")
-                 cursor.execute(sql, (fts_query_or, namespace, limit * 2))
-                 for row in cursor.fetchall():
-                    results.append({
-                        "fid": row[0],
-                        "target": row[1],
-                        "title": row[2],
-                        "status": row[3],
-                        "kind": row[4],
-                        "timestamp": row[5],
-                        "namespace": row[6],
-                        "keywords": row[7],
-                        "rank": row[8]
-                    })
+            if not res and len(words) > 1:
+                 fts_query_or = " OR ".join(words)
+                 cursor.execute(sql, (fts_query_or, namespace, limit))
+                 res = [dict(row) for row in cursor.fetchall()]
             
-            return results
+            return res
             
         except Exception as e:
             # Fallback to LIKE implementation
