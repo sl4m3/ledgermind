@@ -200,8 +200,12 @@ class SemanticMetaStore:
         ).fetchone()
         return row[0] if row else None
 
-    def keyword_search(self, query: str, limit: int = 10, namespace: str = "default", status: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Search using FTS5 (BM25) with zero-overhead SQL results."""
+    def keyword_search(self, query: str, limit: int = 10, namespace: str = "default", status: Optional[str] = None) -> List[tuple]:
+        """Search using FTS5 (BM25) with absolute maximum performance (raw tuples)."""
+        # Tuples are faster than Rows or Dicts for ultra-high throughput
+        original_factory = self._conn.row_factory
+        self._conn.row_factory = None
+        
         try:
             if not query.strip(): return []
             
@@ -230,7 +234,6 @@ class SemanticMetaStore:
                 LIMIT ?
             """
             
-            # Execute query directly for maximum speed
             rows = self._conn.execute(sql, params).fetchall()
             
             if not rows and len(words) > 1:
@@ -238,25 +241,18 @@ class SemanticMetaStore:
                  params[0] = fts_query_or
                  rows = self._conn.execute(sql, params).fetchall()
             
-            # Return list of dicts for test compatibility (Optimized direct mapping)
-            return [{
-                "fid": r[0], "title": r[1], "target": r[2], "status": r[3], 
-                "kind": r[4], "timestamp": r[5], "namespace": r[6],
-                "phase": r[7], "vitality": r[8], "link_count": r[9],
-                "calculated_score": r[10]
-            } for r in rows]
+            self._conn.row_factory = original_factory
+            return rows
             
         except Exception:
+            self._conn.row_factory = original_factory
             pattern = f"%{query.lower()}%"
             status_clause = "AND status = ?" if status else ""
             sql = f"SELECT fid, title, target, status, kind, timestamp, namespace, phase, vitality, link_count, (CASE phase WHEN 'canonical' THEN 1.5 WHEN 'emergent' THEN 1.2 ELSE 1.0 END * CASE vitality WHEN 'active' THEN 1.0 WHEN 'decaying' THEN 0.5 ELSE 0.2 END) as calculated_score FROM semantic_meta WHERE (target LIKE ? OR title LIKE ? OR keywords LIKE ? OR content LIKE ?) AND namespace = ? {status_clause} LIMIT ?"
-            cur = self._conn.execute(sql, [pattern, pattern, pattern, pattern, namespace] + ([status] if status else []) + [limit])
-            return [{
-                "fid": r[0], "title": r[1], "target": r[2], "status": r[3], 
-                "kind": r[4], "timestamp": r[5], "namespace": r[6],
-                "phase": r[7], "vitality": r[8], "link_count": r[9],
-                "calculated_score": r[10]
-            } for r in cur.fetchall()]
+            params = [pattern, pattern, pattern, pattern, namespace]
+            if status: params.append(status)
+            params.append(limit)
+            return self._conn.execute(sql, params).fetchall()
 
     def resolve_to_truth(self, fid: str) -> Optional[Dict[str, Any]]:
         """
