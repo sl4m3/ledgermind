@@ -293,7 +293,7 @@ class Memory:
         )
         
         # 2.5: Prevent duplicate processing (Deep check including context, ignoring links)
-        if self.episodic.find_duplicate(event, ignore_links=True):
+        if self.episodic.find_duplicate(event, ignore_links=True).value:
             return MemoryDecision(
                 should_persist=False,
                 store_type="none",
@@ -314,7 +314,7 @@ class Memory:
         
         if decision and decision.should_persist:
             if decision.store_type == "episodic":
-                ev_id = self.episodic.append(event)
+                ev_id = self.episodic.append(event).value
                 decision.metadata["event_id"] = ev_id
                 self.events.emit("episodic_added", {"id": ev_id, "kind": event.kind})
             elif decision.store_type == "semantic":
@@ -425,7 +425,7 @@ class Memory:
                     logger.debug(f"Vector indexing deferred for {new_fid} (no pre-computed vector).")
 
                 # Immortal Link
-                ev_id = self.episodic.append(event, linked_id=new_fid)
+                ev_id = self.episodic.append(event, linked_id=new_fid).value
                 decision.metadata["event_id"] = ev_id
                 
         return decision
@@ -540,7 +540,7 @@ class Memory:
                             "old_phase": old_phase,
                             "new_phase": new_phase
                         }
-                    ), linked_id=decision_id)
+                    ), linked_id=decision_id).value
 
                 if meta.get('kind') != KIND_PROPOSAL:
                     event = MemoryEvent(
@@ -554,8 +554,8 @@ class Memory:
                             "rationale": commit_msg
                         }
                     )
-                    if not self.episodic.find_duplicate(event, linked_id=decision_id):
-                        self.episodic.append(event, linked_id=decision_id)
+                    if not self.episodic.find_duplicate(event, linked_id=decision_id).value:
+                        self.episodic.append(event, linked_id=decision_id).value
             
         return True
 

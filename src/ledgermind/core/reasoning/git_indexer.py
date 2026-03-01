@@ -141,8 +141,8 @@ class GitIndexer:
             )
             
             # Deep Duplicate Check
-            if not memory_instance.episodic.find_duplicate(event):
-                memory_instance.episodic.append(event)
+            if not memory_instance.episodic.find_duplicate(event).value:
+                memory_instance.episodic.append(event).value
                 indexed_count += 1
             
             latest_hash = commit['hash']
