@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772376269713,
+  "lastUpdate": 1772376272216,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -135,6 +135,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009503043982287246",
             "extra": "mean: 1.6262639999695239 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "58e7de0c107f23980f8e75dad369c76fd3431772",
+          "message": "⚡ Bolt: Eliminate N+1 query in grounding link retrieval (#40)\n\nOptimized `Memory.process_event` by replacing individual looped queries\nto `EpisodicStore.get_linked_event_ids` with a batched query method\n`EpisodicStore.get_linked_event_ids_batch`. The new method chunks inputs\nto avoid SQLite parameter limits, fetching all links for superseded\nitems efficiently.",
+          "timestamp": "2026-03-01T17:42:05+03:00",
+          "tree_id": "2b410c1d0a27c1bc299fa55e79bf99819b785e46",
+          "url": "https://github.com/sl4m3/ledgermind/commit/58e7de0c107f23980f8e75dad369c76fd3431772"
+        },
+        "date": 1772376271299,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 69.12289720715954,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00043167179552655187",
+            "extra": "mean: 14.466986200000065 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 19594.472789796037,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008109303333147838",
+            "extra": "mean: 51.03480000343552 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 600.8414423913571,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001241947880915225",
+            "extra": "mean: 1.6643325999950775 msec\nrounds: 5"
           }
         ]
       }
