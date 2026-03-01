@@ -179,7 +179,7 @@ class GGUFEmbeddingAdapter:
 | **jina-embeddings-v5-small** (4-bit) | ~60 MB | Mobile/Termux | Default, resource-constrained |
 | **text-embedding-3-small** | ~150 MB | Server environments | Larger, more accurate |
 | **text-embedding-3-large** | ~500 MB | Server environments | Maximum accuracy, resource-intensive |
-| **all-MiniLM** (v3) | ~120 MB | Legacy support | Alternative for older hardware |
+| **all-MiniLM** | ~120 MB | Legacy support | Alternative for older hardware |
 
 **Size Analysis**:
 
