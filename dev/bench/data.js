@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772376723723,
+  "lastUpdate": 1772377836012,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -270,6 +270,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00013564811492775876",
             "extra": "mean: 1.657692800000632 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "24377be3efe0c4a9de6b7f671fcb45a6518294aa",
+          "message": "security: fix SQL injection and harden subprocess/exception handling\n\n- Fixed critical SQL injection vulnerability in EpisodicStore (Bandit B608) by using constant SQL templates and parameterized queries.\n- Audited and marked all subprocess calls with # nosec B603 B607 to ensure path and argument safety.\n- Refined empty 'except: pass' blocks across the core reasoning and storage layers to improve debuggability and satisfy Bandit B110.\n- Resolved multiple low-severity security warnings identified in the project audit.",
+          "timestamp": "2026-03-01T18:08:05+03:00",
+          "tree_id": "938da61593f708bde2ef2973b5652b16d7680f73",
+          "url": "https://github.com/sl4m3/ledgermind/commit/24377be3efe0c4a9de6b7f671fcb45a6518294aa"
+        },
+        "date": 1772377835508,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 65.22388136412351,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00045581513271142576",
+            "extra": "mean: 15.331807600000502 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 18895.447708563857,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007103787663739774",
+            "extra": "mean: 52.92280000048777 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 582.9041216008924,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010179062131475244",
+            "extra": "mean: 1.7155479999928502 msec\nrounds: 5"
           }
         ]
       }
