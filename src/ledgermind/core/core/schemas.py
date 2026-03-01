@@ -117,7 +117,7 @@ class DecisionStream(BaseModel):
     rationale: RationaleStr
     namespace: str = "default"
     scope: PatternScope = PatternScope.LOCAL
-    status: Literal["active", "deprecated", "superseded"] = "active"
+    status: Literal["active", "deprecated", "superseded", "draft", "accepted", "rejected", "falsified"] = "active"
     
     phase: DecisionPhase = DecisionPhase.PATTERN
     vitality: DecisionVitality = DecisionVitality.ACTIVE
@@ -156,7 +156,7 @@ class DecisionStream(BaseModel):
 class DecisionContent(BaseModel):
     title: StrictStr
     target: TargetStr
-    status: Literal["active", "deprecated", "superseded"] = "active"
+    status: Literal["active", "deprecated", "superseded", "draft", "accepted", "rejected", "falsified"] = "active"
     rationale: RationaleStr
     namespace: str = "default"
     keywords: List[str] = Field(default_factory=list, description="Semantic keywords for better retrieval")

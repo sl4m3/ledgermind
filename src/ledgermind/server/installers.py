@@ -31,7 +31,7 @@ class ClaudeInstaller(BaseInstaller):
     def install(self, project_path: str):
         project_path = os.path.abspath(project_path)
         # Hooks are now stored INSIDE the project
-        project_hooks_dir = os.path.join(project_path, ".ledgermind", "hooks")
+        project_hooks_dir = os.path.join(project_path, ".claude", "hooks")
         memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
         os.makedirs(project_hooks_dir, exist_ok=True)
         
@@ -40,8 +40,7 @@ class ClaudeInstaller(BaseInstaller):
         self._create_hook_script(before_script_path, f"""#!/bin/bash
 # LedgerMind BeforeModel Hook (Local to {project_path})
 # Injects context into the prompt
-PROMPT=$(cat)
-ledgermind-mcp bridge-context --path "{memory_path}" --prompt "$PROMPT" --cli "claude"
+cat | ledgermind-mcp bridge-context --path \"{memory_path}\" --prompt \"-\" --cli \"claude\" --stdin
 """)
 
         # 2. Create PostToolUse script
@@ -49,7 +48,7 @@ ledgermind-mcp bridge-context --path "{memory_path}" --prompt "$PROMPT" --cli "c
         self._create_hook_script(after_script_path, f"""#!/bin/bash
 # LedgerMind PostToolUse Hook (Local to {project_path})
 # Records the interaction safely via stdin
-cat | ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Automated tool execution" --response "-" --cli "claude" &
+cat | ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Automated tool execution" --response "-" --cli "claude" --stdin &
 """)
 
         # 3. Update global settings.json to point to these LOCAL scripts

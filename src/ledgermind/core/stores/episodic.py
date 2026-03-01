@@ -90,7 +90,19 @@ class EpisodicStore:
                     pass
                 
                 # Performance: Add index for duplicate detection
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_events_duplicate ON events (source, kind, content)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_events_duplicate ON events (source, kind, content, timestamp)")
+
+    def _serialize_context(self, context_data: Any) -> str:
+        if not context_data:
+            return "{}"
+        if hasattr(context_data, 'model_dump'):
+            # Convert Pydantic models to dict first
+            data = context_data.model_dump(mode='json')
+        else:
+            data = context_data
+            
+        # Ensure stable serialization with sort_keys=True for duplicate detection
+        return json.dumps(data, sort_keys=True, default=str)
 
     def append(self, event: MemoryEvent, linked_id: Optional[str] = None, link_strength: float = 1.0) -> Result[int]:
         def _do_append():
@@ -100,21 +112,14 @@ class EpisodicStore:
                 return existing_result.value
 
             with self._get_conn() as conn:
-                # Handle context serialization for Pydantic models
-                context_data = event.context
-                if hasattr(context_data, 'model_dump'):
-                    # Avoid expensive mode='json'
-                    context_dict = context_data.model_dump()
-                else:
-                    context_dict = context_data
-                    
+                context_json = self._serialize_context(event.context)
                 cursor = conn.execute(
                     "INSERT INTO events (source, kind, content, context, timestamp, linked_id, link_strength) VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (
                         event.source,
                         event.kind,
                         event.content,
-                        json.dumps(context_dict, default=str),
+                        context_json,
                         event.timestamp.isoformat() if hasattr(event.timestamp, 'isoformat') else str(event.timestamp),
                         linked_id,
                         link_strength
@@ -250,37 +255,25 @@ class EpisodicStore:
             conn.execute(sql_template.format(placeholders), event_ids)
 
     def find_duplicate(self, event: MemoryEvent, linked_id: Optional[str] = None, ignore_links: bool = False) -> Result[int]:
-        """Checks if an identical event (source, kind, content, context) already exists."""
+        """Checks if an identical event (source, kind, content, context, timestamp) already exists."""
         def _do_find():
-            # Handle context serialization for comparison
-            context_data = event.context
-            
-            # Optimization: use pre-calculated or simple serialization
-            if not context_data:
-                context_json = "{}"
-            elif isinstance(context_data, dict):
-                # Sort keys only for consistency, avoid default=str if possible
-                context_json = json.dumps(context_data, sort_keys=True)
-            elif hasattr(context_data, 'model_dump'):
-                # Expensive path for Pydantic objects
-                context_json = json.dumps(context_data.model_dump(mode='json'), sort_keys=True)
-            else:
-                context_json = json.dumps(context_data, sort_keys=True, default=str)
+            context_json = self._serialize_context(event.context)
+            timestamp_str = event.timestamp.isoformat() if hasattr(event.timestamp, 'isoformat') else str(event.timestamp)
 
             with self._get_conn() as conn:
                 # Use the indexed columns first
-                if ignore_links:
-                    sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? LIMIT 1"
-                    params = [event.source, event.kind, event.content, context_json]
-                else:
-                    if linked_id is not None:
-                        sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? AND linked_id = ? LIMIT 1"
-                        params = [event.source, event.kind, event.content, context_json, linked_id]
-                    else:
-                        sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? AND linked_id IS NULL LIMIT 1"
-                        params = [event.source, event.kind, event.content, context_json]
+                base_sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? AND timestamp = ?"
+                params = [event.source, event.kind, event.content, context_json, timestamp_str]
                 
-                cursor = conn.execute(sql, params)
+                if not ignore_links:
+                    if linked_id is not None:
+                        base_sql += " AND linked_id = ?"
+                        params.append(linked_id)
+                    else:
+                        base_sql += " AND linked_id IS NULL"
+                
+                base_sql += " LIMIT 1"
+                cursor = conn.execute(base_sql, params)
                 row = cursor.fetchone()
                 return row[0] if row else 0
         return safe_execute(_do_find)

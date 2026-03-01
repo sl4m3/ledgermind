@@ -3,7 +3,7 @@ import os
 import json
 import logging
 import questionary
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from ledgermind.server.server import MCPServer
 from ledgermind.core.utils.logging import setup_logging
 
@@ -211,29 +211,89 @@ def show_stats(path: str):
     except Exception as e:
         print(f"✗ Error fetching stats: {e}")
 
-def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold: Optional[float] = None):
+def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold: Optional[float] = None, read_stdin: bool = False):
     """Bridge API: Returns context for a prompt without starting MCP server."""
     from ledgermind.core.api.bridge import IntegrationBridge
     import sys
+    import json
     try:
+        real_prompt = prompt
+        # 1. Handle stdin if requested
+        if read_stdin or prompt == "-":
+            if not sys.stdin.isatty():
+                raw_input = sys.stdin.read()
+                if raw_input:
+                    try:
+                        data = json.loads(raw_input)
+                        if isinstance(data, dict):
+                            real_prompt = data.get("userInput", data.get("prompt", raw_input))
+                        else:
+                            real_prompt = raw_input
+                    except json.JSONDecodeError:
+                        real_prompt = raw_input
+        # 2. Handle JSON in prompt argument
+        else:
+            try:
+                data = json.loads(prompt)
+                if isinstance(data, dict):
+                    real_prompt = data.get("userInput", data.get("prompt", prompt))
+            except json.JSONDecodeError:
+                pass
+
         default_cli = [cli] if cli else None
         bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, relevance_threshold=threshold if threshold is not None else 0.7)
-        ctx = bridge.get_context_for_prompt(prompt)
+        
+        # Record the prompt BEFORE fetching context
+        if real_prompt and real_prompt != "-":
+             bridge.memory.process_event(source="user", kind="prompt", content=real_prompt)
+        
+        ctx = bridge.get_context_for_prompt(real_prompt)
         sys.stdout.write(ctx)
     except Exception as e:
-        sys.stderr.write(f"✗ Error fetching context: {e}\n")
+        sys.stderr.write(f"✗ Error: {e}\n")
 
-def bridge_record(path: str, prompt: str, response: str, success: bool, metadata: str, cli: Optional[str] = None):
+def bridge_record(path: str, prompt: str, response: str, success: bool, metadata: str, cli: Optional[str] = None, read_stdin: bool = False):
     """Bridge API: Records interaction into episodic memory."""
     from ledgermind.core.api.bridge import IntegrationBridge
     import json
+    import sys
     try:
+        real_prompt = prompt
+        real_response = response
+        real_meta = json.loads(metadata) if metadata else {}
+        real_success = success
+
+        # Read from stdin if requested or if prompt/response are placeholders
+        if read_stdin or (prompt == "Automated tool execution" and response == "-"):
+            if not sys.stdin.isatty():
+                try:
+                    raw_input = sys.stdin.read()
+                    if raw_input:
+                        data = json.loads(raw_input)
+                        if isinstance(data, dict):
+                            # Try to extract from Claude Code PostToolUse format
+                            if "toolUse" in data:
+                                tool_name = data["toolUse"].get("name", "unknown")
+                                tool_input = json.dumps(data["toolUse"].get("input", {}), ensure_ascii=False)
+                                real_prompt = f"Tool Execution: {tool_name}"
+                                real_response = f"Args: {tool_input}"
+                                if "toolResult" in data:
+                                    res = data["toolResult"].get("result", "")
+                                    if not isinstance(res, str): res = json.dumps(res, ensure_ascii=False)
+                                    real_response += f"\nResult: {res}"
+                            
+                            # Try to extract from general transcript/response format
+                            elif "response" in data:
+                                real_response = data["response"]
+                                if "prompt" in data: real_prompt = data["prompt"]
+                except Exception:
+                    pass
+
         default_cli = [cli] if cli else None
         bridge = IntegrationBridge(memory_path=path, default_cli=default_cli)
-        meta = json.loads(metadata) if metadata else None
-        bridge.record_interaction(prompt=prompt, response=response, success=success, metadata=meta)
+        bridge.record_interaction(prompt=real_prompt, response=real_response, success=real_success, metadata=real_meta)
     except Exception as e:
-        print(f"✗ Error recording interaction: {e}")
+        print(f"✗ Error: {e}")
 
 def main():
     parser = argparse.ArgumentParser(description="Ledgermind MCP Server Launcher")
@@ -255,18 +315,11 @@ def main():
     # Check command
     check_parser = subparsers.add_parser("check", help="Check project health")
     check_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
-    
+
     # Stats command
-    stats_parser = subparsers.add_parser("stats", help="Show project statistics")
+    stats_parser = subparsers.add_parser("stats", help="Show memory statistics")
     stats_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
 
-    # Global options
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
-    parser.add_argument("--log-file", help="Path to log file")
-
-    # Export schema command
-    subparsers.add_parser("export-schema", help="Export JSON schemas for API contracts")
-    
     # Install hooks command
     install_parser = subparsers.add_parser("install", help="Install LedgerMind hooks into a client")
     install_parser.add_argument("client", choices=["claude", "cursor", "gemini"], help="Target client to install hooks for")
@@ -278,6 +331,7 @@ def main():
     bc_parser.add_argument("--prompt", required=True, help="User prompt")
     bc_parser.add_argument("--cli", help="Default CLI for arbitration")
     bc_parser.add_argument("--threshold", type=float, help="Relevance threshold")
+    bc_parser.add_argument("--stdin", action="store_true", help="Read from stdin")
 
     br_parser = subparsers.add_parser("bridge-record", help="Internal: record interaction")
     br_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
@@ -286,13 +340,19 @@ def main():
     br_parser.add_argument("--success", action="store_true", default=True, help="Was successful")
     br_parser.add_argument("--metadata", default=None, help="JSON metadata")
     br_parser.add_argument("--cli", help="Default CLI for arbitration")
+    br_parser.add_argument("--stdin", action="store_true", help="Read from stdin")
 
-    # Default to 'run' if no command is provided, but we need to handle arguments
-    # A simple way is to check sys.argv
+    # Global options
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument("--log-file", help="Path to log file")
+
+    # Export schema command
+    subparsers.add_parser("export-schema", help="Export JSON schemas for API contracts")
+
+    # Default to 'run' if no command is provided
     import sys
     known_commands = ["run", "init", "check", "stats", "export-schema", "install", "bridge-context", "bridge-record", "-h", "--help", "--verbose", "-v", "--log-file"]
     if len(sys.argv) > 1 and sys.argv[1] not in known_commands:
-        # Insert 'run' as the default command
         sys.argv.insert(1, "run")
 
     args = parser.parse_args()
@@ -307,9 +367,9 @@ def main():
         from ledgermind.server.installers import install_client
         install_client(args.client, args.path)
     elif args.command == "bridge-context":
-        bridge_context(args.path, args.prompt, args.cli, args.threshold)
+        bridge_context(args.path, args.prompt, args.cli, args.threshold, args.stdin)
     elif args.command == "bridge-record":
-        bridge_record(args.path, args.prompt, args.response, args.success, args.metadata, args.cli)
+        bridge_record(args.path, args.prompt, args.response, args.success, args.metadata, args.cli, args.stdin)
     elif args.command == "init":
         init_project(args.path)
     elif args.command == "check":
@@ -328,7 +388,6 @@ def main():
         from ledgermind.core.core.schemas import TrustBoundary
         from ledgermind.core.api.memory import Memory
         import signal
-        import sys
         
         memory = MCPServer.memory_instance_for_cli = None # Placeholder for signal handler access
 
@@ -354,7 +413,6 @@ def main():
         server.run()
     else:
         parser.print_help()
-
 
 if __name__ == "__main__":
     main()
