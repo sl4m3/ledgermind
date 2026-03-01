@@ -322,7 +322,7 @@ result = client.call_tool("bridge-record", {
     "metadata": {
         "tool_used": "http_client",
         "duration_seconds": 1.2,
-        "endpoint": "/api/v1/health"
+        "endpoint": "/api/3.1.2/health"
     },
     "namespace": "backend"
 })
@@ -1360,7 +1360,7 @@ result = client.call_tool("get_recent_events", {
       "namespace": "backend",
       "metadata": {
         "tool": "http_client",
-        "endpoint": "/api/v1/health",
+        "endpoint": "/api/3.1.2/health",
         "duration_ms": 1200
       },
       "linked_ids": []
