@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772378260253,
+  "lastUpdate": 1772379726987,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -360,6 +360,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00013516996056392623",
             "extra": "mean: 3.9226936000090977 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "f31021cc057ed53980a5ed8159acca3d58aa7d40",
+          "message": "feat: add minimal CI pipeline with security scanning",
+          "timestamp": "2026-03-01T18:30:31+03:00",
+          "tree_id": "7fad707225d53156a84fcdf846e00fc6ee1dd8a3",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f31021cc057ed53980a5ed8159acca3d58aa7d40"
+        },
+        "date": 1772379726519,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 68.75647385174112,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00017302596117762056",
+            "extra": "mean: 14.544084999999995 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 17933.93853436006,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009094774201981036",
+            "extra": "mean: 55.76020002990845 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 252.9829984295328,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011389014246293347",
+            "extra": "mean: 3.952834799997617 msec\nrounds: 5"
           }
         ]
       }
