@@ -85,7 +85,7 @@ Project Path: [/current/working/directory]
 
 **What this does:**
 - Sets where your source code lives
-- Determines where to install client hooks (`.ledgermind/hooks/` within your project)
+- Determines where to install client hooks (`.claude/hooks/` for Claude, `.ledgermind/hooks/` for others)
 - Used for git sync operations
 
 **Recommendation**: Use the directory containing your actual project files, not the memory storage.
@@ -433,12 +433,31 @@ your-project/.ledgermind/
 # Check Claude's global settings
 cat ~/.claude/settings.json
 
-# You should see hooks configured:
+# You should see hooks configured with matchers:
 {
   "hooks": {
-    "UserPromptSubmit": "/absolute/path/to/.ledgermind/hooks/ledgermind_before_prompt.sh",
-    "PostToolUse": "/absolute/path/to/.ledgermind/hooks/ledgermind_after_interaction.sh",
-    "AfterModel": "/absolute/path/to/.ledgermind/hooks/ledgermind_after_interaction.sh"
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/.claude/hooks/ledgermind_before_prompt.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/.claude/hooks/ledgermind_after_interaction.sh"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
