@@ -197,7 +197,7 @@ class MemoryEvent(BaseModel):
 
         # ===== LAYER 2: Length limits (DoS protection) =====
         MIN_LENGTH = 1
-        MAX_LENGTH = 100_000  # 100KB max for memory events
+        MAX_LENGTH = 500_000  # 500KB max for memory events
 
         if len(v) < MIN_LENGTH:
             raise ValueError(f'Content too short (min {MIN_LENGTH} characters)')
