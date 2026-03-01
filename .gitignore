@@ -12,7 +12,9 @@ build/
 .gemini/
 .benchmarks/
 .hypothesis/
+.jules/
 /ledgermind/
+audit/
 GEMINI.md
 run_tests.sh
 # Benchmarking data
