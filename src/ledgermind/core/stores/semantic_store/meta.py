@@ -1,6 +1,7 @@
 import re
 import sqlite3
 import logging
+import time
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from contextlib import contextmanager
@@ -28,11 +29,10 @@ class SemanticMetaStore:
 
     def _init_db(self):
         self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute("PRAGMA synchronous=OFF") # Restored from v3.0.3 for performance
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.execute("PRAGMA busy_timeout=60000")
         self._conn.execute("PRAGMA cache_size=-64000") # 64MB cache
         self._conn.execute("PRAGMA temp_store=MEMORY")
-        self._conn.execute("PRAGMA mmap_size=30000000000")
         # Ensure FTS5 is available or fallback
         try:
             self._conn.execute("SELECT 1")
@@ -146,6 +146,20 @@ class SemanticMetaStore:
             self.rollback_transaction()
             raise
 
+    def _execute_with_retry(self, sql: str, params: tuple = ()):
+        """Executes a query with built-in retry logic for 'database is locked' errors."""
+        max_retries = 5
+        retry_delay = 0.5
+        for i in range(max_retries):
+            try:
+                return self._conn.execute(sql, params)
+            except sqlite3.OperationalError as e:
+                if "database is locked" in str(e) and i < max_retries - 1:
+                    logger.warning(f"Database locked, retrying {i+1}/{max_retries}...")
+                    time.sleep(retry_delay * (i + 1))
+                    continue
+                raise
+
     def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, 
                title: str = "", superseded_by: Optional[str] = None, namespace: str = "default",
                content: str = "", keywords: str = "", confidence: float = 1.0, context_json: str = "{}",
@@ -155,7 +169,7 @@ class SemanticMetaStore:
         # Ensure timestamp is in ISO format string
         ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
 
-        self._conn.execute("""
+        self._execute_with_retry("""
             INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage, link_count)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(fid) DO UPDATE SET
