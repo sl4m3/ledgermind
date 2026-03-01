@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772386864096,
+  "lastUpdate": 1772394640864,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -585,6 +585,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00011863712907740196",
             "extra": "mean: 1.2722327999995287 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "1055480b0704d35f5ebea05d0764c054aa019545",
+          "message": "feat(reasoning): unify procedural and behavioral hypothesis lifecycles\n\n- Extended ProposalContent in schemas.py with phase, vitality, stability_score, and frequency.\n- Updated ReflectionEngine to inject decision_id into proposals, allowing them to be processed by LifecycleEngine as DecisionStreams.\n- Fixed old tests that failed to unpack the new Result type from EpisodicStore.\n- Procedural knowledge (instructions) now properly evolves from PATTERN to EMERGENT and decays if unused.",
+          "timestamp": "2026-03-01T22:37:56+03:00",
+          "tree_id": "f0d47bfba207b290a5246180a9646c2849c26413",
+          "url": "https://github.com/sl4m3/ledgermind/commit/1055480b0704d35f5ebea05d0764c054aa019545"
+        },
+        "date": 1772394640308,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 75.63081964978112,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005310005028707316",
+            "extra": "mean: 13.222122999997055 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 19684.806869451404,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009039292628933825",
+            "extra": "mean: 50.800600007505636 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 791.7910900397753,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00012495205786034334",
+            "extra": "mean: 1.2629593999974986 msec\nrounds: 5"
           }
         ]
       }
