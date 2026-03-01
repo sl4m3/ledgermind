@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772381914447,
+  "lastUpdate": 1772382983380,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -495,6 +495,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0001280498076440043",
             "extra": "mean: 1.593236399997977 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "47f53ccc978336a96feea7785be45bc815611c9f",
+          "message": "release: v3.1.1 - Critical Security Fixes and Performance Restoration\n\n- Bumped version to 3.1.1.\n- Addressed SQLi, Path Traversal, and Race Condition vulnerabilities.\n- Restored search throughput to 690+ ops/s via path validation caching.\n- Stabilized concurrent SQLite operations with retries and BEGIN IMMEDIATE.\n- Created detailed changelog and updated documentation index.",
+          "timestamp": "2026-03-01T19:33:47+03:00",
+          "tree_id": "e992a26d45dbe6d28d9aee408c4c635606b7761b",
+          "url": "https://github.com/sl4m3/ledgermind/commit/47f53ccc978336a96feea7785be45bc815611c9f"
+        },
+        "date": 1772382982494,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 70.47174731975959,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003346891934354365",
+            "extra": "mean: 14.19008380000264 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 20202.673220061588,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008280082023794546",
+            "extra": "mean: 49.49839999426331 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 620.9069811803517,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001335571314106821",
+            "extra": "mean: 1.610547199999246 msec\nrounds: 5"
           }
         ]
       }
