@@ -49,27 +49,33 @@ def test_install_claude_hooks(mock_home, tmp_path):
         assert result.returncode == 0
         assert "Installed Claude hooks locally in" in result.stdout
         # Verify files are in project dir, NOT global dir
-        project_hooks_dir = project_path / ".ledgermind" / "hooks"
+        project_hooks_dir = project_path / ".claude" / "hooks"
         settings_file = mock_home / ".claude" / "settings.json"
         
         assert (project_hooks_dir / "ledgermind_before_prompt.sh").exists()
         assert (project_hooks_dir / "ledgermind_after_interaction.sh").exists()
         assert settings_file.exists()
         
-        # Verify settings.json points to the project hooks
+        # Verify settings.json points to the project hooks and has the new matcher format
         with open(settings_file, "r") as f:
             settings = json.load(f)
-            assert str(project_hooks_dir / "ledgermind_before_prompt.sh") in settings["hooks"]["UserPromptSubmit"]
+            # Check UserPromptSubmit
+            ups = settings["hooks"]["UserPromptSubmit"]
+            assert isinstance(ups, list)
+            assert ups[0]["matcher"] == "*"
+            assert ups[0]["hooks"][0]["command"] == str(project_hooks_dir / "ledgermind_before_prompt.sh")
+            
+            # Check PostToolUse
+            ptu = settings["hooks"]["PostToolUse"]
+            assert isinstance(ptu, list)
+            assert ptu[0]["matcher"] == "*"
+            assert ptu[0]["hooks"][0]["command"] == str(project_hooks_dir / "ledgermind_after_interaction.sh")
         
         # Verify content
         before_content = (project_hooks_dir / "ledgermind_before_prompt.sh").read_text()
         assert "bridge-context" in before_content
         assert '--cli "claude"' in before_content
         assert ".ledgermind" in before_content
-
-        with open(settings_file) as f:
-            settings = json.load(f)
-            assert settings["hooks"]["UserPromptSubmit"] == str(project_hooks_dir / "ledgermind_before_prompt.sh")
 
 def test_install_cursor_hooks(mock_home, tmp_path):
     project_path = tmp_path / "project"
