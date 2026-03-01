@@ -264,7 +264,7 @@ class GGUFEmbeddingAdapter:
 
 1. **Embedding Cache**: 100-entry cache with LRU eviction
 2. **Lazy Loading**: Model loaded only on first `add_document()` or `search()`
-3. **Task Prefix**: Jina v5 uses `"text-matching: "` prefix for better retrieval
+3. **Task Prefix**: Jina 3.1.2 uses `"text-matching: "` prefix for better retrieval
 4. **NumPy Operations**: Efficient cosine similarity without external dependencies
 
 #### 3.2.4 Store Interfaces

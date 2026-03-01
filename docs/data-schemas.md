@@ -782,21 +782,21 @@ Complete reference of all fields across all models with types, defaults, and con
 
 ### Breaking Changes
 
-None in current version (v1). Data format is backward compatible.
+None in current version (3.1.2). Data format is backward compatible.
 
 ### Migration Strategies
 
 When upgrading from older versions:
 
-**Version 0.x → v1**:
+**Version 0.x → 3.1.2**:
 - Add `schema_version` field to existing events
 - Use default value of 1 for new events
 
-**Version 1 → v1.1.0+**:
+**Version 1 → 3.1.2+**:
 - No breaking changes
 - No action required
 
-**Version 1.22.0 → v1.23.0** (Current):
+**Version 1.22.0 → 3.1.2** (Current):
 - No breaking changes
 - Full backward compatibility
 - Existing data is valid as-is

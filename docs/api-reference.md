@@ -70,7 +70,7 @@ memory = Memory(
 | `ttl_days` | int | `30` | Time-to-live for episodic events (days) |
 | `trust_boundary` | TrustBoundary | `AGENT_WITH_INTENT` | Security boundary for operations |
 | `namespace` | str | `"default"` | Logical partition for isolation |
-| `vector_model` | str | `"../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf"` | Path to embedding model |
+| `vector_model` | str | `"../.ledgermind/models/3.1.2-small-text-matching-Q4_K_M.gguf"` | Path to embedding model |
 | `vector_workers` | int | `0` (auto-detect) | Number of workers for multi-process encoding |
 
 ### Core Operations
@@ -507,7 +507,7 @@ def link_evidence(self, event_id: int, semantic_id: str):
 event = MemoryEvent(
     source="agent",
     kind="result",
-    content="Successfully deployed PostgreSQL migration v2",
+    content="Successfully deployed PostgreSQL migration 3.1.2",
     context={"success": True}
 )
 
@@ -788,7 +788,7 @@ bridge = IntegrationBridge(
     memory_path="../.ledgermind",
     relevance_threshold=0.7,    # Only return results with 70%+ relevance
     retention_turns=10,          # Remember context for N turns
-    vector_model="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
+    vector_model="../.ledgermind/models/3.1.2-small-text-matching-Q4_K_M.gguf",
     default_cli=["gemini"],      # Default LLMs for arbitration
     memory_instance=None           # Optional: reuse existing Memory instance
 )
@@ -1344,7 +1344,7 @@ class LedgermindConfig(BaseModel):
     ttl_days: int = Field(default=30, ge=1)
     trust_boundary: TrustBoundary = Field(default=TrustBoundary.AGENT_WITH_INTENT)
     namespace: str = Field(default="default")
-    vector_model: str = Field(default="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
+    vector_model: str = Field(default="../.ledgermind/models/3.1.2-small-text-matching-Q4_K_M.gguf")
     vector_workers: int = Field(default=0, ge=0)
     enable_git: bool = Field(default=True)
     relevance_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
@@ -1462,7 +1462,7 @@ from ledgermind.core.api.bridge import IntegrationBridge
 # Initialize bridge
 bridge = IntegrationBridge(
     memory_path="../.ledgermind",
-    vector_model="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf"
+    vector_model="../.ledgermind/models/3.1.2-small-text-matching-Q4_K_M.gguf"
 )
 
 # Get context for a prompt
