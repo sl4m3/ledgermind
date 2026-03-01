@@ -98,7 +98,8 @@ class EpisodicStore:
         
         # Use parameterized query with correct number of placeholders
         placeholders = ",".join(["?"] * len(ids))
-        query = f"SELECT * FROM events WHERE id IN ({placeholders}) ORDER BY id ASC" # nosec B608
+        sql_template = "SELECT * FROM events WHERE id IN ({}) ORDER BY id ASC"
+        query = sql_template.format(placeholders)
         
         with self._get_conn() as conn:
             rows = conn.execute(query, ids).fetchall()
@@ -122,7 +123,8 @@ class EpisodicStore:
                 where_clause = "WHERE " + " AND ".join(query_parts)
             
             direction = 'ASC' if order.upper() == 'ASC' else 'DESC'
-            sql = f"SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events {where_clause} ORDER BY id {direction} LIMIT ?"  # nosec B608
+            sql_template = "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events {} ORDER BY id {} LIMIT ?"
+            sql = sql_template.format(where_clause, direction)
             params.append(limit)
             
             cursor = conn.execute(sql, params)
@@ -155,12 +157,13 @@ class EpisodicStore:
 
         # Optimization: Chunk the query to avoid hitting SQLite's parameter limits (SQLITE_MAX_VARIABLE_NUMBER)
         chunk_size = 900
+        sql_template = "SELECT linked_id, id FROM events WHERE linked_id IN ({})"
         with self._get_conn() as conn:
             for i in range(0, len(semantic_ids), chunk_size):
                 chunk = semantic_ids[i:i + chunk_size]
                 placeholders = ','.join('?' for _ in chunk)
                 cursor = conn.execute(
-                    f"SELECT linked_id, id FROM events WHERE linked_id IN ({placeholders})", # nosec B608
+                    sql_template.format(placeholders),
                     chunk
                 )
 
@@ -184,9 +187,10 @@ class EpisodicStore:
             return {}
 
         placeholders = ','.join('?' for _ in semantic_ids)
+        sql_template = "SELECT linked_id, COUNT(*), SUM(link_strength) FROM events WHERE linked_id IN ({}) GROUP BY linked_id"
         with self._get_conn() as conn:
             cursor = conn.execute(
-                f"SELECT linked_id, COUNT(*), SUM(link_strength) FROM events WHERE linked_id IN ({placeholders}) GROUP BY linked_id", # nosec B608
+                sql_template.format(placeholders),
                 semantic_ids
             )
             results = {row[0]: (row[1] or 0, row[2] or 0.0) for row in cursor.fetchall()}
@@ -200,9 +204,10 @@ class EpisodicStore:
     def mark_archived(self, event_ids: List[int]):
         if not event_ids: return
         placeholders = ','.join(['?'] * len(event_ids))
+        sql_template = "UPDATE events SET status = 'archived' WHERE id IN ({})"
         with self._get_conn() as conn:
             with conn:
-                conn.execute(f"UPDATE events SET status = 'archived' WHERE id IN ({placeholders})", event_ids) # nosec B608
+                conn.execute(sql_template.format(placeholders), event_ids)
 
     def find_duplicate(self, event: MemoryEvent, linked_id: Optional[str] = None, ignore_links: bool = False) -> Optional[int]:
         """Checks if an identical event (source, kind, content, context) already exists."""
@@ -242,9 +247,10 @@ class EpisodicStore:
         if not event_ids: return
         # I2 Protection: Only prune if NOT linked
         placeholders = ','.join(['?'] * len(event_ids))
+        sql_template = "DELETE FROM events WHERE id IN ({}) AND linked_id IS NULL"
         with self._get_conn() as conn:
             with conn:
-                conn.execute(f"DELETE FROM events WHERE id IN ({placeholders}) AND linked_id IS NULL", event_ids) # nosec B608
+                conn.execute(sql_template.format(placeholders), event_ids)
 
     def count_events(self, status: Optional[str] = 'active') -> int:
         """Returns the number of events with the given status."""

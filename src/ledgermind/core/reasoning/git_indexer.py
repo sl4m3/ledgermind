@@ -47,7 +47,7 @@ class GitIndexer:
                 else:
                     cmd.append(f"{since_hash}..HEAD")
             
-            res = subprocess.run(cmd, cwd=self.repo_path, capture_output=True, text=True, check=True)
+            res = subprocess.run(cmd, cwd=self.repo_path, capture_output=True, text=True, check=True) # nosec B603 B607
             if not res.stdout.strip():
                 return []
 
@@ -103,7 +103,7 @@ class GitIndexer:
                 diff_res = subprocess.run(
                     ["git", "show", "--name-only", "--format=", commit['hash']], 
                     cwd=self.repo_path, capture_output=True, text=True
-                )
+                ) # nosec B603 B607
                 changed_files = [f for f in diff_res.stdout.strip().split('\n') if f]
                 
                 # Heuristic: Infer target from common path prefix or first file

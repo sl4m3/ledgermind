@@ -322,8 +322,8 @@ class VSCodeInstaller(BaseInstaller):
         # 2. Попытка сборки (нужен npm и tsc)
         try:
             print("  → Compiling extension (npm install & tsc)...")
-            subprocess.run(["npm", "install"], cwd=ext_src, check=True, capture_output=True)
-            subprocess.run(["npm", "run", "compile"], cwd=ext_src, check=True, capture_output=True)
+            subprocess.run(["npm", "install"], cwd=ext_src, check=True, capture_output=True) # nosec B603 B607
+            subprocess.run(["npm", "run", "compile"], cwd=ext_src, check=True, capture_output=True) # nosec B603 B607
         except Exception as e:
             print(f"! Compilation failed: {e}. You may need to run 'npm install && npm run compile' in {ext_src} manually.")
 
@@ -347,7 +347,8 @@ class VSCodeInstaller(BaseInstaller):
         if os.path.exists(path):
             try:
                 with open(path, "r") as f: data = json.load(f)
-            except: data = {}
+            except Exception: 
+                data = {}
 
         # Добавляем или обновляем инструкцию
         if "global" not in data: data["global"] = ""

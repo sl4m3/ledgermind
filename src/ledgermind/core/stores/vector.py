@@ -172,7 +172,7 @@ class GGUFEmbeddingAdapter:
                 # during late interpreter shutdown.
                 self.client.close()
                 self.client = None
-            except:
+            except Exception:
                 pass
 
     def __del__(self):

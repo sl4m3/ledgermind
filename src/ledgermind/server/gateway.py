@@ -120,7 +120,9 @@ async def websocket_endpoint(
     async def on_change(event_type, data):
         try:
             await websocket.send_json({"event": event_type, "data": data})
-        except: pass # Connection might be closed
+        except Exception: 
+            # Connection might be closed, subscription cleanup will happen in finally
+            pass
 
     mem.events.subscribe(on_change)
     

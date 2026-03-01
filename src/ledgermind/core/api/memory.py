@@ -188,7 +188,7 @@ class Memory:
         # 1. Check Git
         if Memory._git_available is None:
             try:
-                subprocess.run(["git", "--version"], capture_output=True, check=True)
+                subprocess.run(["git", "--version"], capture_output=True, check=True) # nosec B603 B607
                 Memory._git_available = True
             except (subprocess.CalledProcessError, FileNotFoundError):
                 Memory._git_available = False
@@ -199,13 +199,14 @@ class Memory:
         else:
             # Check git config
             try:
-                name = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True).stdout.strip()
-                email = subprocess.run(["git", "config", "user.email"], capture_output=True, text=True).stdout.strip()
+                name = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True).stdout.strip() # nosec B603 B607
+                email = subprocess.run(["git", "config", "user.email"], capture_output=True, text=True).stdout.strip() # nosec B603 B607
                 if name and email:
                     results["git_configured"] = True
                 else:
                     results["warnings"].append("Git user.name or user.email not configured. Commits will use defaults.")
             except Exception:
+                # Configuration check is non-critical, we can ignore errors here
                 pass
             
         # 2. Check Storage Permissions and Disk Space

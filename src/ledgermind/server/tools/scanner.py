@@ -137,5 +137,6 @@ class ProjectScanner:
                         except Exception as e:
                             contents[rel_file_path] = f"[Error reading file: {e}]"
         except Exception as e:
-             pass
+             # Critical scan error, return partial results
+             logger.error(f"Project scanner failed: {e}")
         return contents

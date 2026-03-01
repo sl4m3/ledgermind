@@ -18,7 +18,7 @@ class GitAuditProvider(AuditProvider):
         cmd = ["git", "--no-pager"] + args
         for i in range(max_retries):
             try:
-                return subprocess.run(cmd, cwd=self.repo_path, check=True, capture_output=True)
+                return subprocess.run(cmd, cwd=self.repo_path, check=True, capture_output=True) # nosec B603 B607
             except subprocess.CalledProcessError as e:
                 last_error = e.stderr.decode()
                 combined = last_error + "\n" + e.stdout.decode()
@@ -85,10 +85,11 @@ class GitAuditProvider(AuditProvider):
 
     def get_head_hash(self) -> Optional[str]:
         try:
-            res = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.repo_path, capture_output=True, text=True)
+            res = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.repo_path, capture_output=True, text=True) # nosec B603 B607
             if res.returncode == 0:
                 return res.stdout.strip()
-        except Exception: pass
+        except Exception: 
+            return None
         return None
 
     def purge_artifact(self, relative_path: str):
