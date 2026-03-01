@@ -44,13 +44,12 @@ PROMPT=$(cat)
 ledgermind-mcp bridge-context --path "{memory_path}" --prompt "$PROMPT" --cli "claude"
 """)
 
-        # 2. Create PostToolUse / AfterModel script
+        # 2. Create PostToolUse script
         after_script_path = os.path.join(project_hooks_dir, "ledgermind_after_interaction.sh")
         self._create_hook_script(after_script_path, f"""#!/bin/bash
-# LedgerMind AfterModel Hook (Local to {project_path})
-# Records the interaction (fire and forget)
-RESPONSE=$(cat)
-ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Automated tool execution" --response "$RESPONSE" --cli "claude" &
+# LedgerMind PostToolUse Hook (Local to {project_path})
+# Records the interaction safely via stdin
+cat | ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Automated tool execution" --response "-" --cli "claude" &
 """)
 
         # 3. Update global settings.json to point to these LOCAL scripts
@@ -65,10 +64,27 @@ ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Automated tool exe
         if "hooks" not in settings:
             settings["hooks"] = {}
 
-        # Important: Claude global settings now point to this specific project's hooks
-        settings["hooks"]["UserPromptSubmit"] = before_script_path
-        settings["hooks"]["PostToolUse"] = after_script_path
-        settings["hooks"]["AfterModel"] = after_script_path
+        # Important: Claude Code now uses a new format with matchers and arrays.
+        # UserPromptSubmit: trigger on all prompts
+        settings["hooks"]["UserPromptSubmit"] = [
+            {
+                "matcher": "*",
+                "hooks": [{"type": "command", "command": before_script_path}]
+            }
+        ]
+        
+        # PostToolUse: trigger after any tool use (BashTool, etc)
+        settings["hooks"]["PostToolUse"] = [
+            {
+                "matcher": "*",
+                "hooks": [{"type": "command", "command": after_script_path}]
+            }
+        ]
+
+        # Note: AfterModel was reported as invalid key in new versions, 
+        # using PostToolUse for recording instead.
+        if "AfterModel" in settings["hooks"]:
+            del settings["hooks"]["AfterModel"]
 
         os.makedirs(os.path.dirname(self.global_settings), exist_ok=True)
         with open(self.global_settings, "w") as f:
