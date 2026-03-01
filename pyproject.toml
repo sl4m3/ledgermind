@@ -61,9 +61,16 @@ dev = [
 ledgermind = "ledgermind.server.cli:main"
 ledgermind-mcp = "ledgermind.server.cli:main"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["ledgermind*"]
+exclude = ["benchmarks*"]
+
+[tool.setuptools.package-data]
+ledgermind = ["VERSION"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
