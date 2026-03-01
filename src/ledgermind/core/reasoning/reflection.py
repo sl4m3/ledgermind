@@ -201,7 +201,7 @@ class ReflectionEngine:
                     try:
                         dt = datetime.fromisoformat(ev['timestamp'])
                         reinforcement_dates.append(dt)
-                    except:
+                    except (ValueError, TypeError):
                         pass
         
         if not reinforcement_dates:
@@ -276,7 +276,7 @@ class ReflectionEngine:
                         try:
                             dt = datetime.fromisoformat(ev['timestamp'])
                             reinforcement_dates.append(dt)
-                        except:
+                        except (ValueError, TypeError):
                             pass
                             
         if not reinforcement_dates:
@@ -375,7 +375,7 @@ class ReflectionEngine:
                 clusters[target]['weight'] += 0.2
             
             try: clusters[target]['last_seen'] = max(clusters[target]['last_seen'], ev['timestamp'])
-            except: pass
+            except (KeyError, TypeError): pass
         return clusters
 
     def _get_all_streams(self) -> Dict[str, Dict[str, Any]]:
@@ -420,5 +420,6 @@ class ReflectionEngine:
                                 'timestamp': m.get('timestamp'),
                                 'context': ctx
                             }
-            except Exception: continue
+            except (json.JSONDecodeError, TypeError): 
+                continue
         return streams

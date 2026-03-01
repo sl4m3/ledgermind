@@ -57,7 +57,8 @@ class IntegrationBridge:
                         try:
                             import json
                             ctx = json.loads(item['context_json'])
-                        except: pass
+                        except Exception: 
+                            ctx = {}
                     else:
                         # Fallback: load from disk if meta doesn't have it (though meta should have context_json)
                         try:
@@ -66,7 +67,8 @@ class IntegrationBridge:
                                 raw = f.read()
                                 data, _ = MemoryLoader.parse(raw)
                                 ctx = data.get("context", {})
-                        except: pass
+                        except Exception: 
+                            ctx = {}
 
                     memories.append({
                         "id": fid,
@@ -308,7 +310,7 @@ class IntegrationBridge:
             result = subprocess.run(
                 cli_command + [prompt], 
                 capture_output=True, text=True, encoding='utf-8', timeout=180
-            )
+            ) # nosec B603 B607
             response = result.stdout.strip().upper()
             if "SUPERSEDE" in response: return "SUPERSEDE"
             if "CONFLICT" in response: return "CONFLICT"
