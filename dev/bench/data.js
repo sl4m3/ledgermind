@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772382983380,
+  "lastUpdate": 1772386864096,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -540,6 +540,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0001335571314106821",
             "extra": "mean: 1.610547199999246 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "0f144ced3c6ef0d8fbfd0f1f38ef96bd0e81d472",
+          "message": "release: v3.1.2 - Production Hardening and Monitoring\n\n- Implemented unified error handling with Result pattern.\n- Added SQLAlchemy connection pooling for episodic storage.\n- Integrated comprehensive health check endpoints.\n- Hardened input sanitization for memory events.\n- Updated documentation and version to 3.1.2.",
+          "timestamp": "2026-03-01T20:38:47+03:00",
+          "tree_id": "20e9004a05dd4357d2ee656dd4ae242a795011d6",
+          "url": "https://github.com/sl4m3/ledgermind/commit/0f144ced3c6ef0d8fbfd0f1f38ef96bd0e81d472"
+        },
+        "date": 1772386863752,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 76.13874129349657,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000539220368232504",
+            "extra": "mean: 13.133918200003336 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 17320.39615463783,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015048972659834412",
+            "extra": "mean: 57.73539999154309 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 786.0196655835084,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011863712907740196",
+            "extra": "mean: 1.2722327999995287 msec\nrounds: 5"
           }
         ]
       }
