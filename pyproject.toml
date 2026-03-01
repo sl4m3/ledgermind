@@ -38,7 +38,8 @@ dependencies = [
     "prometheus-client>=0.17.0",
     "annoy>=1.17.0",
     "llama-cpp-python>=0.2.0",
-    "questionary>=2.0.0"
+    "questionary>=2.0.0",
+    "bleach>=6.0.0,<7.0.0"
 ]
 
 [project.urls]
