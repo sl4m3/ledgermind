@@ -4,6 +4,13 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.1.1] - 2026-03-01
+
+- **Critical Security:** Fixed SQL Injection, Path Traversal, and Race Conditions.
+- **Performance Fix:** Optimized path validation with `lru_cache` (690+ ops/s).
+- **SQLite Stability:** Resolved "database is locked" errors with retries and BEGIN IMMEDIATE.
+- **CI Pipeline:** Added new minimal CI with automated security scanning.
+
 ## [v3.1.0] - 2026-03-01
 
 - **Autonomous Knowledge Enrichment:** Summarize event clusters into 
