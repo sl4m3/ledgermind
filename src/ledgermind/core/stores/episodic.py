@@ -146,6 +146,29 @@ class EpisodicStore:
             cursor = conn.execute("SELECT id FROM events WHERE linked_id = ?", (semantic_id,))
             return [row[0] for row in cursor.fetchall()]
 
+    def get_linked_event_ids_batch(self, semantic_ids: List[str]) -> Dict[str, List[int]]:
+        """Returns a mapping of semantic_id -> list of linked event IDs efficiently."""
+        if not semantic_ids:
+            return {}
+
+        results = {sid: [] for sid in semantic_ids}
+
+        # Optimization: Chunk the query to avoid hitting SQLite's parameter limits (SQLITE_MAX_VARIABLE_NUMBER)
+        chunk_size = 900
+        with self._get_conn() as conn:
+            for i in range(0, len(semantic_ids), chunk_size):
+                chunk = semantic_ids[i:i + chunk_size]
+                placeholders = ','.join('?' for _ in chunk)
+                cursor = conn.execute(
+                    f"SELECT linked_id, id FROM events WHERE linked_id IN ({placeholders})", # nosec B608
+                    chunk
+                )
+
+                for row in cursor.fetchall():
+                    results[row[0]].append(row[1])
+
+        return results
+
     def count_links_for_semantic(self, semantic_id: str) -> Tuple[int, float]:
         """Returns (count, total_strength) for a given semantic decision."""
         with self._get_conn() as conn:
