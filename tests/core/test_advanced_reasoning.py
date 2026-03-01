@@ -25,7 +25,7 @@ def test_deep_grounding_inheritance(temp_memory_path, monkeypatch):
     
     # 1. Record an event with UNIQUE content
     ev_1 = MemoryEvent(source="agent", kind="result", content=f"Evidence 1 {uuid.uuid4()}")
-    ev_id_1 = memory.episodic.append(ev_1)
+    ev_id_1 = memory.episodic.append(ev_1).value
     
     # Record initial decision V1 with evidence
     res_v1 = memory.record_decision(
@@ -36,7 +36,7 @@ def test_deep_grounding_inheritance(temp_memory_path, monkeypatch):
     
     # 2. Record another event and link it to V1
     ev_2 = MemoryEvent(source="agent", kind="result", content=f"Evidence 2 {uuid.uuid4()}")
-    ev_id_2 = memory.episodic.append(ev_2)
+    ev_id_2 = memory.episodic.append(ev_2).value
     memory.link_evidence(ev_id_2, fid_v1)
     
     # Verify V1 has 2 links
@@ -46,7 +46,7 @@ def test_deep_grounding_inheritance(temp_memory_path, monkeypatch):
     
     # 3. Supersede V1 with V2
     ev_3 = MemoryEvent(source="agent", kind="result", content=f"Evidence 3 {uuid.uuid4()}")
-    ev_id_3 = memory.episodic.append(ev_3)
+    ev_id_3 = memory.episodic.append(ev_3).value
     res_v2 = memory.supersede_decision(
         title="Decision V2", target=target, rationale="Evolved version.",
         old_decision_ids=[fid_v1],
@@ -190,7 +190,7 @@ def test_hybrid_search_rrf_and_grounding_boost(temp_memory_path, monkeypatch):
     # 3. Add a few evidence links to A to boost it (+60%)
     for i in range(3):
         ev = MemoryEvent(source="agent", kind="result", content=f"Perf Evidence {uuid.uuid4()}")
-        ev_id = memory.episodic.append(ev)
+        ev_id = memory.episodic.append(ev).value
         memory.link_evidence(ev_id, fid_a)
     # 4. Search for 'performance' (Lengthened to force full hybrid path for RRF testing)
     results = memory.search_decisions("performance optimization latency speed scaling throughput", limit=2)
