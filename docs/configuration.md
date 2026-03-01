@@ -357,7 +357,7 @@ Memory Path: [../.ledgermind]
 ```
 Step 3: Embedding Model
 LedgerMind uses a vector engine to semantically search your memory.
-By default, we recommend to lightweight Jina v5 4-bit model (~60MB).
+By default, we recommend to lightweight Jina 3.1.2 4-bit model (~60MB).
 
 Choose embedder:
   jina-v5-4bit  # Recommended for mobile
@@ -485,7 +485,7 @@ python3 -m "import json; print(json.loads(open(' ~/.ledgermind/config.json').rea
 | `ttl_days` | int | `30` | 1 | 365 | Days before episodic events decay |
 | `trust_boundary` | TrustBoundary | `AGENT_WITH_INTENT` | — | — | Security boundary for operations |
 | `namespace` | str | `"default"` | — | — | Logical partition for memory isolation |
-| `vector_model` | str | `"../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf"` | — | — | Path to GGUF or Transformer model |
+| `vector_model` | str | `"../.ledgermind/models/3.1.2-small-text-matching-Q4_K_M.gguf"` | — | — | Path to GGUF or Transformer model |
 | `vector_workers` | int | `0` | 0 | 8 | Number of workers for vector encoding (0 = auto-detect) |
 | `enable_git` | bool | `true` | — | — | Enable Git audit for semantic store |
 | `relevance_threshold` | float | `0.7` | 0.0 | 1.0 | Minimum relevance score for context injection (0.0-1.0) |

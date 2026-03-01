@@ -16,7 +16,7 @@ def test_auth_enforced_when_unconfigured(client):
     """If LEDGERMIND_API_KEY is not set, access should be DENIED."""
     with patch.dict(os.environ, {}, clear=True):
         # Health check is explicitly public
-        res = client.get("/health")
+        res = client.get("/health/live")
         assert res.status_code == 200
         
         # Protected endpoints should fail if key is missing
