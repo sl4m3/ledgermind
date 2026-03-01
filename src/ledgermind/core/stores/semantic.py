@@ -25,6 +25,78 @@ from ledgermind.core.stores.semantic_store.transactions import FileSystemLock, T
 # Setup structured logging
 logger = logging.getLogger("ledgermind-core.semantic")
 
+import functools
+
+@functools.lru_cache(maxsize=1024)
+def _cached_validate_fid(repo_path_str: str, fid: str) -> str:
+    from pathlib import Path
+
+    # ===== LAYER 1: Reject obviously dangerous patterns FIRST =====
+
+    # Block null bytes (Windows path separator bypass)
+    if "\x00" in fid:
+        raise ValueError(f"Invalid file identifier (null bytes detected): {fid}")
+
+    # Block common traversal patterns
+    if ".." in fid:
+        raise ValueError(f"Invalid file identifier (parent directory traversal detected): {fid}")
+
+    # Block absolute paths (they should be relative)
+    if fid.startswith("/") or fid.startswith("\\"):
+        raise ValueError(f"Invalid file identifier (absolute path not allowed): {fid}")
+
+    # Block home directory shortcuts
+    if fid.startswith("~") or fid.startswith("$HOME"):
+        raise ValueError(f"Invalid file identifier (home directory expansion blocked): {fid}")
+
+    # ===== LAYER 2: Canonicalize BOTH paths BEFORE comparison =====
+
+    try:
+        repo_path = Path(repo_path_str)
+        resolved_repo = repo_path.resolve()
+
+        fid_path = repo_path / fid
+
+        # Resolve symbolic links and normalize path
+        # This is critical - it resolves symlinks to their targets
+        resolved_fid = fid_path.resolve()
+
+    except (OSError, ValueError) as e:
+        # Invalid path (e.g., contains null bytes after encoding)
+        raise ValueError(f"Invalid path resolution for '{fid}': {e}")
+
+    # ===== LAYER 3: Check containment AFTER canonicalization =====
+
+    try:
+        # relative_to() raises ValueError if not subpath
+        # This is the security check
+        resolved_fid.relative_to(resolved_repo)
+
+    except ValueError:
+        # Path is outside repository (or couldn't be made relative)
+        raise ValueError(f"Invalid file identifier (path outside repository): {fid}")
+
+    # ===== LAYER 4: Final safety checks =====
+
+    # Convert back to strings for final validation
+    fid_str = str(resolved_fid)
+    repo_str = str(resolved_repo)
+
+    # Ensure resolved path actually starts with repo path
+    # This catches edge cases where relative_to passed but path still escapes
+    if not fid_str.startswith(repo_str):
+        raise ValueError(f"Invalid file identifier (canonicalized path outside repository): {fid}")
+
+    # Additional: Check for suspicious patterns in canonicalized path
+    # These shouldn't exist after resolve() but check anyway
+    if any(x in fid_str for x in ["../", "..\\", "\x00"]):
+        raise ValueError(f"Invalid file identifier (suspicious pattern in canonicalized path): {fid}")
+
+    # SUCCESS: Path is validated
+    # Caller can now safely use fid_str
+    # We return the relative string path for consistency with existing codebase
+    return os.path.relpath(fid_str, repo_str)
+
 class SemanticStore:
     """
     Store for semantic memory (long-term decisions) using a pluggable 
@@ -394,87 +466,9 @@ class SemanticStore:
     def _validate_fid(self, fid: str):
         """
         Prevents Path Traversal attacks using canonical path resolution.
-        Uses pathlib for cross-platform compatibility and proper canonicalization.
-
-        Security guarantees:
-        1. All symlinks are resolved BEFORE validation
-        2. Absolute paths are checked AFTER canonicalization
-        3. Null bytes are explicitly rejected
-        4. Multiple encoding attempts are blocked
-
-        Args:
-            fid: File identifier (relative path from repo root)
-
-        Raises:
-            ValueError: If path is outside repository or contains disallowed patterns
+        Uses cached validation to avoid expensive OS calls during search loops.
         """
-        from pathlib import Path
-
-        # ===== LAYER 1: Reject obviously dangerous patterns FIRST =====
-
-        # Block null bytes (Windows path separator bypass)
-        if "\x00" in fid:
-            raise ValueError(f"Invalid file identifier (null bytes detected): {fid}")
-
-        # Block common traversal patterns
-        if ".." in fid:
-            raise ValueError(f"Invalid file identifier (parent directory traversal detected): {fid}")
-
-        # Block absolute paths (they should be relative)
-        if fid.startswith("/") or fid.startswith("\\"):
-            raise ValueError(f"Invalid file identifier (absolute path not allowed): {fid}")
-
-        # Block home directory shortcuts
-        if fid.startswith("~") or fid.startswith("$HOME"):
-            raise ValueError(f"Invalid file identifier (home directory expansion blocked): {fid}")
-
-        # ===== LAYER 2: Canonicalize BOTH paths BEFORE comparison =====
-
-        try:
-            repo_path = Path(self.repo_path)
-            resolved_repo = repo_path.resolve()
-
-            fid_path = repo_path / fid
-
-            # Resolve symbolic links and normalize path
-            # This is critical - it resolves symlinks to their targets
-            resolved_fid = fid_path.resolve()
-
-        except (OSError, ValueError) as e:
-            # Invalid path (e.g., contains null bytes after encoding)
-            raise ValueError(f"Invalid path resolution for '{fid}': {e}")
-
-        # ===== LAYER 3: Check containment AFTER canonicalization =====
-
-        try:
-            # relative_to() raises ValueError if not subpath
-            # This is the security check
-            resolved_fid.relative_to(resolved_repo)
-
-        except ValueError:
-            # Path is outside repository (or couldn't be made relative)
-            raise ValueError(f"Invalid file identifier (path outside repository): {fid}")
-
-        # ===== LAYER 4: Final safety checks =====
-
-        # Convert back to strings for final validation
-        fid_str = str(resolved_fid)
-        repo_str = str(resolved_repo)
-
-        # Ensure resolved path actually starts with repo path
-        # This catches edge cases where relative_to passed but path still escapes
-        if not fid_str.startswith(repo_str):
-            raise ValueError(f"Invalid file identifier (canonicalized path outside repository): {fid}")
-
-        # Additional: Check for suspicious patterns in canonicalized path
-        # These shouldn't exist after resolve() but check anyway
-        if any(x in fid_str for x in ["../", "..\\", "\x00"]):
-            raise ValueError(f"Invalid file identifier (suspicious pattern in canonicalized path): {fid}")
-
-        # SUCCESS: Path is validated
-        # Caller can now safely use fid_str
-        # We return the relative string path for consistency with existing codebase
-        return os.path.relpath(fid_str, repo_str)
+        return _cached_validate_fid(self.repo_path, fid)
 
     def update_decision(self, filename: str, updates: dict, commit_msg: str):
         filename = self._validate_fid(filename)
