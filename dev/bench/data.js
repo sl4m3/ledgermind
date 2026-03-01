@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772381209333,
+  "lastUpdate": 1772381914447,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -450,6 +450,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009628831648215217",
             "extra": "mean: 1.6114461999961804 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "957f979c87ca099c5aaf5bbed956a981aea48976",
+          "message": "fix(core): resolve SQLite 'database is locked' errors in concurrent environments\n\n- Switched to BEGIN IMMEDIATE for manual transactions to ensure write lock acquisition at start.\n- Implemented _execute_with_retry with exponential backoff for write operations.\n- Set PRAGMA synchronous=NORMAL for better reliability in WAL mode.\n- Resolves CI failures in multi-process concurrency tests.",
+          "timestamp": "2026-03-01T19:16:02+03:00",
+          "tree_id": "44fddf75e660856c075e30b7db1a0cb4a4071cd1",
+          "url": "https://github.com/sl4m3/ledgermind/commit/957f979c87ca099c5aaf5bbed956a981aea48976"
+        },
+        "date": 1772381913558,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 68.1436465889567,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0004157007995714561",
+            "extra": "mean: 14.674882399998523 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 18944.273525304066,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000072659514374813",
+            "extra": "mean: 52.78639999914958 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 627.6532471899774,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001280498076440043",
+            "extra": "mean: 1.593236399997977 msec\nrounds: 5"
           }
         ]
       }
