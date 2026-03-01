@@ -2,61 +2,74 @@ import sqlite3
 import os
 import sys
 
-def repair_db(db_path):
+def repair_episodic(db_path):
     if not os.path.exists(db_path):
-        print(f"Skipping: {db_path} not found.")
+        print(f"Error: Database not found at {db_path}")
         return
 
-    print(f"Checking integrity of {db_path}...")
+    print(f"Repairing episodic database: {db_path}")
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
     try:
-        conn = sqlite3.connect(db_path, isolation_level=None)
-        cursor = conn.cursor()
-        
-        # Check integrity
-        cursor.execute("PRAGMA integrity_check;")
-        result = cursor.fetchone()[0]
-        
-        if result == "ok":
-            print(f"✓ {db_path} is healthy.")
+        # 1. Count duplicates before
+        cursor.execute("""
+            SELECT COUNT(*) FROM events e1
+            WHERE EXISTS (
+                SELECT 1 FROM events e2 
+                WHERE e1.source = e2.source 
+                  AND e1.kind = e2.kind 
+                  AND e1.content = e2.content 
+                  AND e1.context = e2.context 
+                  AND e1.timestamp = e2.timestamp 
+                  AND e1.id > e2.id
+            )
+        """)
+        dup_count = cursor.fetchone()[0]
+        print(f"Found {dup_count} duplicate events.")
+
+        if dup_count > 0:
+            # 2. Delete duplicates keeping the lowest ID
+            cursor.execute("""
+                DELETE FROM events 
+                WHERE id IN (
+                    SELECT e1.id FROM events e1
+                    WHERE EXISTS (
+                        SELECT 1 FROM events e2 
+                        WHERE e1.source = e2.source 
+                          AND e1.kind = e2.kind 
+                          AND e1.content = e2.content 
+                          AND e1.context = e2.context 
+                          AND e1.timestamp = e2.timestamp 
+                          AND e1.id > e2.id
+                    )
+                )
+            """)
+            conn.commit()
+            print(f"Successfully deleted {dup_count} duplicates.")
             
-            # Check FTS integrity if it exists
-            try:
-                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%_fts';")
-                fts_tables = cursor.fetchall()
-                for (fts_table,) in fts_tables:
-                    print(f"Checking FTS integrity for {fts_table}...")
-                    cursor.execute(f"INSERT INTO {fts_table}({fts_table}) VALUES('integrity-check');")
-                print("✓ FTS integrity ok.")
-            except sqlite3.OperationalError as e:
-                if "no such table" not in str(e).lower():
-                    print(f"✗ FTS integrity error: {e}")
-                    print(f"Attempting FTS rebuild...")
-                    for (fts_table,) in fts_tables:
-                        cursor.execute(f"INSERT INTO {fts_table}({fts_table}) VALUES('rebuild');")
-                    print("✓ FTS rebuild complete.")
-
-            print("Running VACUUM...")
-            cursor.execute("VACUUM;")
-            print("✓ VACUUM complete.")
+            # 3. Rebuild index to include timestamp if not already done by the app
+            print("Rebuilding index...")
+            cursor.execute("DROP INDEX IF EXISTS idx_events_duplicate")
+            cursor.execute("CREATE INDEX idx_events_duplicate ON events (source, kind, content, timestamp)")
+            conn.commit()
+            
+            # 4. Vacuum to reclaim space
+            print("Vacuuming database...")
+            conn.execute("VACUUM")
+            print("Done.")
         else:
-            print(f"✗ {db_path} is MALFORMED: {result}")
-            print("Attempting basic recovery via .dump (requires sqlite3 CLI)...")
-            # This is a placeholder for more advanced recovery if needed
-        
-        conn.close()
-    except Exception as e:
-        print(f"✗ Error accessing {db_path}: {e}")
+            print("No duplicates found. Database is clean.")
 
-def main():
-    storage_path = sys.argv[1] if len(sys.argv) > 1 else "ledgermind"
-    
-    dbs = [
-        os.path.join(storage_path, "semantic", "metadata.db"),
-        os.path.join(storage_path, "semantic", "semantic_meta.db"),
-    ]
-    
-    for db in dbs:
-        repair_db(db)
+    except Exception as e:
+        print(f"Error during repair: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
-    main()
+    db_path = "../.ledgermind/episodic.db"
+    if len(sys.argv) > 1:
+        db_path = sys.argv[1]
+    
+    repair_episodic(db_path)

@@ -864,7 +864,7 @@ ledgermind install claude --path /path/to/project
 **Installed Files**:
 
 ```bash
-project/.ledgermind/hooks/
+project/.claude/hooks/
 ├── ledgermind_before_prompt.sh
 └── ledgermind_after_interaction.sh
 ```
@@ -884,17 +884,40 @@ project/.ledgermind/hooks/
 4. Non-blocking for minimal latency
 
 **Configuration File** (`~/.claude/settings.json`):
+### Claude Code Setup
+
+Claude Code uses a matcher-based hook system. LedgerMind installs these
+automatically, but if you need to configure them manually in
+`~/.claude/settings.json`:
 
 ```json
 {
   "hooks": {
-    "UserPromptSubmit": "/absolute/path/to/project/.ledgermind/hooks/ledgermind_before_prompt.sh",
-    "PostToolUse": "/absolute/path/to/project/.ledgermind/hooks/ledgermind_after_interaction.sh",
-    "AfterModel": "/absolute/path/to/project/.ledgermind/hooks/ledgermind_after_interaction.sh"
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/project/.claude/hooks/ledgermind_before_prompt.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/project/.claude/hooks/ledgermind_after_interaction.sh"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
-
 ### Cursor
 
 **Hook Installation**:
