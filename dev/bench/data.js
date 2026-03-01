@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772377836012,
+  "lastUpdate": 1772378260253,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -315,6 +315,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010179062131475244",
             "extra": "mean: 1.7155479999928502 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "3c9e2dd2d722f93c114e6b4979b186fd27f187dd",
+          "message": "security: fix TOCTOU path traversal vulnerability in SemanticStore\n\n- Replaced naive string-based path validation with robust canonical path resolution using pathlib.Path.resolve().\n- Explicitly blocked null bytes, absolute paths, and home directory expansion before resolution.\n- Updated update_decision to correctly use the validated and canonicalized file identifier.",
+          "timestamp": "2026-03-01T18:15:18+03:00",
+          "tree_id": "3c34912bd695a2bbb13ed617412efa208f08ccdc",
+          "url": "https://github.com/sl4m3/ledgermind/commit/3c9e2dd2d722f93c114e6b4979b186fd27f187dd"
+        },
+        "date": 1772378259328,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 68.38287346563264,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005913005577739264",
+            "extra": "mean: 14.623544599987781 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 17039.490724127892,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000021795865110252438",
+            "extra": "mean: 58.68719999853056 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 254.92686963816925,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00013516996056392623",
+            "extra": "mean: 3.9226936000090977 msec\nrounds: 5"
           }
         ]
       }
