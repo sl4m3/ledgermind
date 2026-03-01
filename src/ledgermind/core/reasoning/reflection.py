@@ -392,6 +392,10 @@ class ReflectionEngine:
                 ctx = json.loads(m.get('context_json', '{}'))
                 # Robust check: must have either phase or decision_id
                 if "phase" in ctx or "decision_id" in ctx:
+                    # Ensure decision_id exists so ProposalContent can be cast to DecisionStream
+                    if "decision_id" not in ctx:
+                        ctx["decision_id"] = fid
+                        
                     # Inject latest metrics from database into context
                     ctx['hit_count'] = m.get('hit_count', 0)
                     ctx['confidence'] = m.get('confidence', ctx.get('confidence', 1.0))

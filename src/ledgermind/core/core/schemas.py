@@ -79,6 +79,12 @@ class ProposalContent(BaseModel):
     namespace: str = "default"
     confidence: float = Field(ge=0.0, le=1.0)
     
+    # Unified Lifecycle Fields
+    phase: DecisionPhase = DecisionPhase.PATTERN
+    vitality: DecisionVitality = DecisionVitality.ACTIVE
+    stability_score: float = 0.0
+    frequency: int = 1
+    
     # Epistemic Model Fields
     keywords: List[str] = Field(default_factory=list, description="Semantic keywords for better retrieval")
     strengths: List[str] = Field(default_factory=list, description="Arguments in favor of this hypothesis")
