@@ -39,7 +39,8 @@ dependencies = [
     "annoy>=1.17.0",
     "llama-cpp-python>=0.2.0",
     "questionary>=2.0.0",
-    "bleach>=6.0.0,<7.0.0"
+    "bleach>=6.0.0,<7.0.0",
+    "psutil>=5.9.0"
 ]
 
 [project.urls]
