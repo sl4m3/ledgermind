@@ -28,7 +28,8 @@ def create_event(store, kind, content, context=None, source="agent"):
         context=context or {},
         timestamp=datetime.now()
     )
-    return store.append(event)
+    res = store.append(event)
+    return res.value if hasattr(res, 'value') else res
 
 def test_distill_basic_flow(episodic_store, distillation_engine):
     """Test basic distillation of a successful trajectory."""

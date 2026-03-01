@@ -52,10 +52,10 @@ def bump_version(new_version):
                 
                 # Update titles: # Title (vX.X.X)
                 content = re.sub(r'\(v[0-9.]+\)', f'(v{new_version})', content)
-                # Update technical notes: As of vX.X.X
-                content = re.sub(r'v[0-9.]+', lambda m: new_version if m.group(0).startswith('v') and m.group(0)[1].isdigit() else m.group(0), content)
+                # Update technical notes: As of vX.X.X (PROTECT jina-v5)
+                content = re.sub(r'(?<!jina-)v[0-9.]+', lambda m: new_version if m.group(0).startswith('v') and m.group(0)[1].isdigit() else m.group(0), content)
                 # Specific fix for "As of v..." and "In v..."
-                content = re.sub(r'(As of v|In v|version v)[0-9.]+', r'\g<1>' + new_version, content)
+                content = re.sub(r'(?<!jina-)(As of v|In v|version v)[0-9.]+', r'\g<1>' + new_version, content)
                 
                 with open(path, "w") as f:
                     f.write(content)

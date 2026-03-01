@@ -20,7 +20,7 @@ def test_replay_determinism(temp_storage):
 
     event = MemoryEvent(source="agent", kind="result", content="Evidence of result")
 
-    eid = mem1.episodic.append(event)
+    eid = mem1.episodic.append(event).value
 
     
 

@@ -138,7 +138,7 @@ from ledgermind.core.api.bridge import IntegrationBridge
 bridge = IntegrationBridge(
     memory_path="../.ledgermind",
     relevance_threshold=0.7,  # Only return 70%+ relevant results
-    vector_model="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
+    vector_model="../.ledgermind/models/3.1.2-small-text-matching-Q4_K_M.gguf",
     retention_turns=10,          # Remember context for N conversation turns
     default_cli=["gemini"],   # Use Gemini as default arbitrator
     memory_instance=None           # Optional: reuse existing Memory instance
