@@ -2,11 +2,7 @@
 
 **v3.1.0** · Autonomous Memory Management System for AI Agents
 
-
-![Banner](assets/banner.png)
-
-> *LedgerMind is not a memory store — it is a living knowledge core that thinks,
-> heals itself, and evolves without human intervention.*
+> *LedgerMind is not a memory store — it is a living knowledge core that thinks, heals itself, and evolves without human intervention.*
 
 [![License: NCSA](https://img.shields.io/badge/License-NCSA-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue)](https://python.org)
@@ -33,233 +29,415 @@
 
 ---
 
-## 📈 Recent Activity
-
-**Last 14 days:**
-- **3,751 Git clones** (950 unique cloners)
-- Strong PyPI growth (hundreds of downloads in recent days)
-
-**Installed & used in:**
-- Gemini CLI (100% fully stable)
-- Claude Code
-- Cursor
-- VS Code
-
-**Published on Dev.to:**
-- ["True Zero-Touch Autonomus Memory for AI Agents"](https://dev.to/sl4m3/ledgermind-zero-touch-memory-that-survives-real-agent-work-46lh)
-- ["LedgerMind v3.0: Knowledge That Lives, Breathes, and Dies on Purpose"](https://dev.to/sl4m3/ledgermind-v30-knowledge-that-lives-breathes-and-dies-on-purpose-5c6)
-
----
-
-## ✨ Why LedgerMind?
-
-| Feature                 | Mem0 / LangGraph | LedgerMind          |
-|-------------------------|------------------|---------------------|
-| Autonomous healing      | ❌               | ✅ (every 5 min)    |
-| Git-audit + versioning  | ❌               | ✅                  |
-| 4-bit on-device         | ❌               | ✅                  |
-| Multi-agent namespacing | Partial          | ✅ Full             |
-
----
-
 ## What is LedgerMind?
 
-Most AI memory systems are passive stores: you write, you read, and if the
-information becomes stale or contradictory — that is your problem. LedgerMind
-takes a fundamentally different approach.
+Most AI memory systems are passive stores: you write, you read, and if the information becomes stale or contradictory — that is your problem.
 
-LedgerMind is an **autonomous knowledge lifecycle manager**. It combines a
-hybrid storage engine (SQLite + Git) with a built-in reasoning layer that
-continuously monitors knowledge health, detects conflicts, distills raw
-experience into structured rules, and repairs itself — all in the background,
-without any intervention from the developer or the agent.
+**LedgerMind takes a fundamentally different approach.**
 
-### Core Capabilities
+It is an **autonomous knowledge lifecycle manager** that combines a hybrid storage engine (SQLite + Git) with a built-in reasoning layer. The system continuously monitors knowledge health, detects conflicts, distills raw experience into structured rules, and repairs itself — all in the background, without any intervention from the developer or the agent.
+
+### The Difference
+
+| Traditional Memory | LedgerMind |
+|-------------------|--------------|
+| Static storage | Autonomous reasoning engine |
+| Manual cleanup | Self-healing decay system |
+| No conflict detection | Intelligent conflict resolution |
+| Flat storage | Multi-stage lifecycle (PATTERN → EMERGENT → CANONICAL) |
+| No audit trail | Git-based cryptographic audit |
+| Single namespace | Multi-agent namespacing |
+
+---
+
+## Core Capabilities
 
 | Capability | Description |
-|---|---|
+|------------|-------------|
 | **Zero-Touch Automation** | `ledgermind install <client>` automatically injects hooks into Claude Code, Cursor, or Gemini CLI for 100% transparent memory operations without MCP tool calls. |
-| **VS Code Hardcore Mode** | Dedicated VS Code extension for proactive context injection, terminal monitoring, and automated conversation logging without manual tool calls. |
-| **Project Bootstrapping** | `bootstrap_project_context` tool for deep analysis of project structure and automatic initialization of the agent's knowledge base. |
-| **Autonomous Heartbeat** | A background worker runs every 5 minutes: Git sync, reflection, decay, self-healing. |
-| **Git Evolution** | Automatically tracks code changes to build evolving `DecisionStream` patterns over time. |
-| **Deep Truth Resolution** | Improved recursive resolution of superseded chains to ensure only the latest active truth is returned. |
+| **VS Code Hardcore Mode** | Dedicated VS Code extension for proactive context injection, terminal monitoring, and automated conversation logging. |
+| **Project Bootstrapping** | `bootstrap_project_context` tool analyzes project structure and automatically initializes the agent's knowledge base. |
+| **Autonomous Heartbeat** | Background worker runs every 5 minutes: Git sync, reflection, decay, self-healing. |
+| **Git Evolution** | Automatically tracks code changes via `GitIndexer` to build evolving `DecisionStream` patterns. |
+| **Deep Truth Resolution** | Recursive resolution of superseded chains ensures only the latest active truth is returned. |
 | **Self-Healing Index** | Automatically rebuilds the SQLite metadata index from Markdown source files if corruption or desync is detected. |
-| **Lifecycle & Vitality Engine** | Replaces manual decisions with autonomous `DecisionStream` lifecycle phases (`PATTERN` -> `EMERGENT` -> `CANONICAL`) incorporating temporal signal analysis (burst protection, reinforcement density, and vitality decay). |
-| **Procedural Distillation** | Automatically converts successful trajectories into step-by-step instructions (`procedural.steps`). |
-| **Intelligent Conflict Resolution** | Vector similarity analysis automatically supersedes outdated decisions (threshold: 70%) or triggers LLM arbitration (50-70%). |
-| **Multi-agent Namespacing** | Logical partitioning of memory for multiple agents within a single project. |
+| **Lifecycle & Vitality Engine** | Autonomous `DecisionStream` lifecycle phases (`PATTERN` → `EMERGENT` → `CANONICAL`) with temporal signal analysis. |
+| **Procedural Distillation** | `DistillationEngine` automatically converts successful trajectories into step-by-step instructions. |
+| **Intelligent Conflict Resolution** | Vector similarity automatically supersedes outdated decisions (70% threshold) or triggers LLM arbitration (50-70%). |
+| **Multi-Agent Namespacing** | Logical partitioning of memory for multiple agents within a single project. |
 | **4-bit GGUF Integration** | Optimized for Termux/Android with embedding caching for maximum stability. |
 | **Hybrid Storage** | SQLite for fast queries + Git for cryptographic audit and version history. |
 | **MCP Server** | 15 tools with namespacing and pagination support for any compatible client. |
 
 ---
 
-## Architecture at a Glance
+## Architecture Overview
+
+LedgerMind consists of several interconnected components working together to create an autonomous memory system:
 
 ![Architecture](assets/core-arc.svg)
+
+### Key Components
+
+**Memory (`core/api/memory.py`)**: The main entry point that coordinates all storage and reasoning operations.
+
+**Stores**:
+- `EpisodicStore` (`stores/episodic.py`): SQLite WAL-mode database for short-term events
+- `SemanticStore` (`stores/semantic.py`): Git + SQLite for long-term decisions with cryptographic audit
+- `VectorStore` (`stores/vector.py`): GGUF/Transformer-based semantic search with embedding cache
+
+**Reasoning Engines**:
+- `ConflictEngine`: Detects target conflicts before decisions are recorded
+- `ResolutionEngine`: Validates supersede operations ensure all conflicts are addressed
+- `DecayEngine`: Manages memory lifecycle, archiving old events, pruning archived ones
+- `ReflectionEngine`: Discovers patterns from episodic events and generates proposals
+- `LifecycleEngine`: Manages phase transitions and vitality decay for knowledge streams
+- `DistillationEngine`: Converts successful trajectories into procedural knowledge
+
+**Background Worker** (`server/background.py`): Autonomous heartbeat loop that runs every 5 minutes:
+- Health checks with stale lock breaking
+- Git sync to index new commits
+- Reflection cycle to generate proposals
+- Decay cycle to prune old data
+
+### Data Flow
+
+1. **Input**: Agent or user sends event via `Memory.process_event()`
+2. **Routing**: `MemoryRouter` determines storage type (episodic vs semantic)
+3. **Conflict Check**: `ConflictEngine` validates no active conflicts exist
+4. **Storage**: Event written to appropriate store with transaction guarantee
+5. **Indexing**: VectorStore encodes content for semantic search
+6. **Audit**: Git commit creates cryptographic trail for semantic changes
+7. **Reflection**: Background worker analyzes patterns and generates proposals
+8. **Lifecycle**: `LifecycleEngine` promotes knowledge through phases
 
 ---
 
 ## Installation
 
+### Prerequisites
+
+- **Python**: 3.10 or higher
+- **Git**: Installed and configured in PATH
+- **Dependencies**: Automatically installed via pip
+
+### Standard Installation
+
 ```bash
-# Install LedgerMind (includes Jina v5 4-bit vector support by default)
+# Install LedgerMind (includes 4-bit GGUF vector support)
 pip install ledgermind
 
-# Note for Termux/Mobile users: 
-# You may need to install build tools first for llama-cpp-python:
-# pkg install clang cmake ninja
+# Note for Termux/Mobile users:
+# You may need to install build tools first:
+pkg install clang cmake ninja
 ```
 
-**Requirements:** Python 3.10+, Git installed and configured in PATH.
+### Verification
+
+```bash
+# Verify installation
+ledgermind --help
+
+# Expected output:
+# usage: ledgermind [-h] [--verbose] [--log-file LOG_FILE] ...
+```
 
 ---
 
 ## Quick Start
 
-### 1. Initialization
+For a detailed step-by-step guide, see the [Quick Start Guide](docs/quickstart.md).
 
-After installation, run the interactive setup to configure your memory storage, vector models, and client hooks:
+### 1. Interactive Initialization
 
 ```bash
 ledgermind init
 ```
 
-This will guide you interactively through:
-1. **Project Location:** Setting the current codebase path.
-2. **Memory Path:** Configuring isolated memory storage (default: `../.ledgermind`).
-3. **Embedding Model:** Choosing between `jina-v5-4bit` (default) or a custom GGUF/HF model.
-4. **Client Hooks:** Installing automatic context hooks for your preferred client directly into the project directory.
-5. **Arbitration Mode:** Selecting a conflict resolution and hypothesis enrichment strategy:
-   - `lite`: Fast, purely algorithmic.
-   - `optimal`: Uses local LLMs (e.g., Ollama) to translate raw execution logs into human-readable architecture hypotheses.
-   - `rich`: Uses cloud LLMs (OpenAI, Anthropic) for maximum insight generation.
+This will guide you through:
 
-### 2. Zero-Touch Automation (Recommended)
+1. **Project Location**: Setting the current codebase path
+2. **Memory Path**: Configuring isolated memory storage (default: `../.ledgermind`)
+3. **Embedding Model**: Choosing between `jina-v5-4bit` (default) or a custom GGUF/HF model
+4. **Client Hooks**: Installing automatic context hooks for your preferred client
+5. **Arbitration Mode**: Selecting a conflict resolution strategy:
+   - `lite`: Fast, purely algorithmic
+   - `optimal`: Uses local LLMs (e.g., Ollama) for hypothesis enrichment
+   - `rich`: Uses cloud LLMs (OpenAI, Anthropic) for maximum insight
+
+### 2. Starting the MCP Server
+
+```bash
+# Start with default settings
+ledgermind run --path ../.ledgermind
+```
+
+---
+
+## Zero-Touch Automation
 
 The easiest way to use LedgerMind is to install the **LedgerMind Hooks Pack**. This automatically configures your LLM client to retrieve context before every prompt and record every interaction without the agent needing to manually call MCP tools.
 
-#### Client Compatibility Matrix
+### Client Compatibility Matrix
 
 | Client | Event Hooks | Status | Zero-Touch Level |
-| :--- | :--- | :---: | :--- |
+|:--------|---------------|:--------:|:------------------:|
 | **VS Code** | `onDidSave`, `ChatParticipant`, `TerminalData` | ✅ | **Hardcore** (Shadow Context) |
 | **Claude Code** | `UserPromptSubmit`, `PostToolUse` | ✅ | **Full** (Auto-record + RAG) |
 | **Cursor** | `beforeSubmitPrompt`, `afterAgentResponse` | ✅ | **Full** (Auto-record + RAG) |
 | **Gemini CLI** | `BeforeAgent`, `AfterAgent` | ✅ | **Full** (Auto-record + RAG) |
-| **Claude Desktop** | *Zero-Touch not available* | ⏳ | Manual MCP tools only |
+| **Claude Desktop** | N/A | ⏳ | Manual MCP tools only |
+
+### Installation Commands
 
 ```bash
-# Install hooks for your preferred client (vscode, claude, cursor, or gemini)
-# Memory is installed in the parent directory (../.ledgermind) by default for best isolation.
-ledgermind install gemini
-```
-*Now, simply use your client as usual. LedgerMind operates entirely in the background.*
+# Install for Claude Code
+ledgermind install claude --path /path/to/project
 
-### Option B: Library (Direct Integration)
+# Install for Cursor
+ledgermind install cursor --path /path/to/project
 
-```python
-from ledgermind.core.api.bridge import IntegrationBridge
-
-# NOTE: Using '.ledgermind' in the parent directory (outside the project root) 
-# is the recommended standard. This keeps memory isolated from project code,
-# prevents context pollution in analysis tools (like 'read_file'), and ensures
-# memory is not accidentally committed to source control.
-bridge = IntegrationBridge(
-    memory_path="../.ledgermind", 
-    vector_model="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf"
-)
-
-# Inject relevant context into your agent's prompt
-context = bridge.memory.search_decisions("database migrations", namespace="prod_agent")
-
-# Record a structured decision with namespacing
-bridge.memory.record_decision(
-    title="Use Alembic for all database migrations",
-    target="database_migrations",
-    rationale="Alembic provides version-controlled, reversible migrations.",
-    namespace="prod_agent"
-)
-```
-
-### Option B: MCP Server (Secure)
-
-```bash
-# Set your API key for security
-export LEDGERMIND_API_KEY="your-secure-key"
-
-# Start the MCP server
-ledgermind-mcp run --path ledgermind
+# Install for Gemini CLI
+ledgermind install gemini --path /path/to/project
 ```
 
 ---
 
 ## Key Workflows
 
-### Workflow 1: Multi-agent Namespacing — Isolation Within One Core
+### Workflow 1: Multi-Agent Namespacing — Isolation Within One Core
 
 ```python
 # Agent A decision
-memory.record_decision(title="Use PostgreSQL", target="db", namespace="agent_a")
+bridge.record_decision(
+    title="Use PostgreSQL",
+    target="db",
+    rationale="PostgreSQL provides ACID compliance and JSONB support.",
+    namespace="agent_a"
+)
 
 # Agent B decision (same target, different namespace)
-memory.record_decision(title="Use MongoDB", target="db", namespace="agent_b")
+bridge.record_decision(
+    title="Use MongoDB",
+    target="db",
+    rationale="MongoDB provides flexibility and horizontal scaling.",
+    namespace="agent_b"
+)
 
 # Search only returns what belongs to the agent
-memory.search_decisions("db", namespace="agent_a") # -> Returns PostgreSQL
+bridge.search_decisions("db", namespace="agent_a") # -> Returns PostgreSQL
 ```
 
 ### Workflow 2: Hybrid Search & Evidence Boost
 
-LedgerMind uses Reciprocal Rank Fusion (RRF) to combine Keyword and Vector
-search. Decisions with more "Evidence Links" (episodic events) receive a
-**+20% boost per link** to their final relevance score.
+LedgerMind uses Reciprocal Rank Fusion (RRF) to combine Keyword and Vector search. Decisions with more "Evidence Links" (episodic events) receive a **+20% boost per link** to their final relevance score.
+
+### Workflow 3: Autonomous Lifecycle — Knowledge Evolution
+
+Knowledge in LedgerMind evolves through three phases automatically:
+- **PATTERN**: Initial observation from episodic events
+- **EMERGENT**: Reinforced pattern with growing confidence
+- **CANONICAL**: Stable, proven knowledge
+
+The `LifecycleEngine` manages these transitions based on temporal signals like reinforcement density, stability score, and vitality.
 
 ---
 
 ## Documentation
 
 | Document | Description |
-|---|---|
-| [API Reference](docs/API_REFERENCE.md) | Complete reference for all public methods |
-| [Integration Guide](docs/INTEGRATION_GUIDE.md) | Library and MCP integration patterns |
-| [MCP Tools Reference](docs/MCP_TOOLS.md) | All 15 MCP tools with namespacing and offset |
-| [Architecture](docs/ARCHITECTURE.md) | Deep dive into internals and design decisions |
-| [Configuration](docs/CONFIGURATION.md) | API keys, Webhooks, and tuning |
-| [Changelog](docs/changelogs/latest.md) | Recent releases and critical fixes |
+|-----------|-------------|
+| [Quick Start](docs/quickstart.md) | Step-by-step setup guide for new users |
+| [API Reference](docs/api-reference.md) | Complete reference for all public methods and MCP tools |
+| [Integration Guide](docs/integration-guide.md) | Library and MCP integration patterns for various clients |
+| [MCP Tools](docs/mcp-tools.md) | Detailed documentation of all 15 MCP tools with examples |
+| [Architecture](docs/architecture.md) | Deep dive into internals, design decisions, and component interactions |
+| [Configuration](docs/configuration.md) | Environment variables, CLI flags, and tuning options |
+| [Data Schemas](docs/data-schemas.md) | Complete reference of all Pydantic models and data structures |
+| [Benchmarks](docs/benchmarks.md) | Performance metrics and optimization details |
+| [Workflows](docs/workflow.md) | Step-by-step guides for common operations |
+| [Compression](docs/compression.md) | Details on 4-bit quantization and storage optimization |
+| [VS Code Extension](docs/vscode-extension.md) | VS Code integration features and setup |
 
 ---
 
-## Benchmarks (February 28, 2Y, v3.0.4)
+## Performance Benchmarks
 
-LedgerMind is optimized for high-speed operation on **Android/Termux**
-as well as containerized environments. It includes built-in security for MCP and
-REST endpoints.
+LedgerMind is optimized for high-speed operation on **Android/Termux** as well as containerized environments.
 
-- ["STATISTICS"](https://sl4m3.github.io/ledgermind/dev/bench/)
+### Throughput (Operations/Second)
 
-### Performance Benchmarks (v3.0.4 - Full Audit Trail)
+| Metric | Mobile (GGUF) | Server (MiniLM) | Notes |
+|---------|:----------------:|:-----------------:|-------:|
+| **Search OPS** | 7,450 | 19,602 | Optimized Subquery RowID joins |
+| **Write OPS** | 7.0 | 70.6 | Full SQLite WAL + Git commit |
 
-#### Throughput (Ops/sec)
-| Metric | Mobile (GGUF) | Server (MiniLM) | Note |
-| :--- | :---: | :---: | :--- |
-| **Search OPS** | **7,450** | **19,602** | Optimized Subquery RowID |
-| **Write OPS**  | **7.0** | **70.6** | Full SQLite WAL + Git Commit |
+### Latency (Mean)
 
-#### Latency (Mean)
-| Metric | Mobile (GGUF) | Server (MiniLM) | Note |
-| :--- | :---: | :---: | :--- |
-| **Search Latency** | **0.13 ms** | **0.05 ms** | Sub-millisecond context retrieval |
-| **Write Latency** | **142.7 ms** | **14.1 ms** | Coordinated atomic transaction |
+| Metric | Mobile (GGUF) | Server (MiniLM) | Notes |
+|---------|:----------------:|:-----------------:|-------:|
+| **Search Latency** | 0.13 ms | 0.05 ms | Sub-millisecond context retrieval |
+| **Write Latency** | 142.7 ms | 14.1 ms | Coordinated atomic transaction |
 
+### Key Optimizations
+
+- **SQLite WAL Mode**: Concurrent reads with exclusive writes
+- **Subquery RowID Optimization**: Fast joins for evidence linking
+- **Embedding Cache**: 100-entry LRU cache for vector operations
+- **Batch Link Counting**: Single query for multiple semantic decisions
+- **Lazy Loading**: VectorStore loads models on first use
+- **4-bit Quantization**: GGUF models for mobile efficiency
+
+For detailed benchmark methodology and additional metrics, see [dev/bench/](https://sl4m3.github.io/ledgermind/dev/bench/).
+
+---
+
+## Migration from v2.x
+
+If you're upgrading from LedgerMind v2.x to v3.1.0:
+
+1. **Backup your existing memory**:
+   ```bash
+   ledgermind-mcp run --path /path/to/v2/memory
+   # Then use export_memory_bundle tool to create backup
+   ```
+
+2. **Install v3.1.0**:
+   ```bash
+   pip install --upgrade ledgermind
+   ```
+
+3. **Run initialization**:
+   ```bash
+   ledgermind init
+   # Point to a new memory path to avoid conflicts
+   ```
+
+4. **The `MigrationEngine`** automatically handles data format upgrades:
+   - Ensures `target` length >= 3
+   - Ensures `kind` field exists
+   - Ensures `namespace` field exists
+   - Fixes `rationale` if too short
+   - Converts to new lifecycle phase system
+
+---
+
+## Troubleshooting
+
+### Issue: Git Not Found
+
+**Symptom:**
+```
+Error: Git is not installed or not in PATH.
+```
+
+**Solution:**
+```bash
+# Install Git
+# Ubuntu/Debian:
+sudo apt install git
+
+# Termux:
+pkg install git
+
+# macOS:
+brew install git
+
+# Verify:
+git --version
+```
+
+### Issue: Permission Denied
+
+**Symptom:**
+```
+PermissionError: No permission to create storage path: /path/.ledgermind
+```
+
+**Solution:**
+```bash
+# Create the directory manually with proper permissions
+mkdir -p ../.ledgermind
+chmod 755 ../.ledgermind
+
+# Or install to a user-writable location:
+ledgermind init
+# When prompted for Memory Path, use: ~/.ledgermind
+```
+
+### Issue: Vector Search Disabled
+
+**Symptom:**
+```
+[WARNING] Vector search is disabled.
+```
+
+**Cause**: Either `llama-cpp-python` or `sentence-transformers` is not installed.
+
+**Solution:**
+```bash
+# For GGUF models (mobile):
+pip install llama-cpp-python
+
+# For Transformer models (server):
+pip install sentence-transformers
+
+# Then restart the server
+```
+
+### Issue: Port Already in Use
+
+**Symptom:**
+```
+Error: Port 9090 already in use
+```
+
+**Solution:**
+```bash
+# Use a different port
+ledgermind run --path ../.ledgermind --metrics-port 9091
+
+# Or find what's using the port
+lsof -i :9090  # Linux/macOS
+netstat -an | grep 9090  # Cross-platform
+```
+
+### Issue: Stale Lock File
+
+**Symptom:**
+```
+Error: Storage is currently locked by PID: 12345
+```
+
+**Solution:**
+
+The Background Worker automatically breaks stale locks after 10 minutes. If you need to break it manually:
+
+```bash
+# Remove the lock file
+rm /path/to/.ledgermind/semantic/.lock
+```
+
+For more troubleshooting help:
+1. **Check the logs**: View `.ledgermind/audit.log` for detailed error messages
+2. **Run diagnostics**: `ledgermind check --path /path/to/.ledgermind`
+3. **Enable verbose logging**: `ledgermind run --path /path/to/.ledgermind --verbose`
+
+---
+
+## Contributing
+
+LedgerMind is distributed under the **Non-Commercial Source Available License (NCSA)**.
+
+For contribution guidelines, security reporting, and development setup, see the project repository.
 
 ---
 
 ## License
 
-LedgerMind is distributed under the **Non-Commercial Source Available License
-(NCSA)**.
+Copyright © 2025 Stanislav Zotov. Distributed under the **NCSA License**.
+
+See [LICENSE](LICENSE) for the full text.
 
 ---
 
