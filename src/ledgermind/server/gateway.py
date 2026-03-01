@@ -10,9 +10,13 @@ from typing import List, Optional, Any, Dict
 from ledgermind.core.api.memory import Memory
 from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import run_in_threadpool
+from ledgermind.server.health import app as health_app, set_memory
 
 logger = logging.getLogger("agent_memory_gateway")
 app = FastAPI(title="Agent Memory REST & Real-time Gateway")
+
+# Mount health check endpoints
+app.mount("/health", health_app)
 
 API_KEY_NAME = "X-API-Key"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
@@ -136,12 +140,9 @@ async def websocket_endpoint(
     finally:
         mem.events.unsubscribe(on_change)
 
-@app.get("/health")
-async def health():
-    return {"status": "alive"}
-
 def run_gateway(memory: Memory, host: str = "0.0.0.0", port: int = 8000): # nosec B104
     global memory_instance
     memory_instance = memory
+    set_memory(memory)
     import uvicorn
     uvicorn.run(app, host=host, port=port)
