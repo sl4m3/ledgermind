@@ -9,6 +9,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool, Pool
 from sqlalchemy.orm import sessionmaker, Session
 
+from ledgermind.core.utils.result import Result, ErrorCode, safe_execute, unwrap_result
+
 class EpisodicStore:
     def __init__(self, db_path: str, pool_size: int = 3):
         self.db_path = db_path
@@ -90,34 +92,36 @@ class EpisodicStore:
                 # Performance: Add index for duplicate detection
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_events_duplicate ON events (source, kind, content)")
 
-    def append(self, event: MemoryEvent, linked_id: Optional[str] = None, link_strength: float = 1.0) -> int:
-        # Step 0: Last-resort duplicate check
-        existing_id = self.find_duplicate(event, linked_id=linked_id)
-        if existing_id:
-            return existing_id
+    def append(self, event: MemoryEvent, linked_id: Optional[str] = None, link_strength: float = 1.0) -> Result[int]:
+        def _do_append():
+            # Step 0: Last-resort duplicate check
+            existing_result = self.find_duplicate(event, linked_id=linked_id)
+            if existing_result and existing_result.value:
+                return existing_result.value
 
-        with self._get_conn() as conn:
-            # Handle context serialization for Pydantic models
-            context_data = event.context
-            if hasattr(context_data, 'model_dump'):
-                # Avoid expensive mode='json'
-                context_dict = context_data.model_dump()
-            else:
-                context_dict = context_data
-                
-            cursor = conn.execute(
-                "INSERT INTO events (source, kind, content, context, timestamp, linked_id, link_strength) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    event.source,
-                    event.kind,
-                    event.content,
-                    json.dumps(context_dict, default=str),
-                    event.timestamp.isoformat() if hasattr(event.timestamp, 'isoformat') else str(event.timestamp),
-                    linked_id,
-                    link_strength
+            with self._get_conn() as conn:
+                # Handle context serialization for Pydantic models
+                context_data = event.context
+                if hasattr(context_data, 'model_dump'):
+                    # Avoid expensive mode='json'
+                    context_dict = context_data.model_dump()
+                else:
+                    context_dict = context_data
+                    
+                cursor = conn.execute(
+                    "INSERT INTO events (source, kind, content, context, timestamp, linked_id, link_strength) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        event.source,
+                        event.kind,
+                        event.content,
+                        json.dumps(context_dict, default=str),
+                        event.timestamp.isoformat() if hasattr(event.timestamp, 'isoformat') else str(event.timestamp),
+                        linked_id,
+                        link_strength
+                    )
                 )
-            )
-            return cursor.lastrowid
+                return cursor.lastrowid
+        return safe_execute(_do_append)
 
     def link_to_semantic(self, event_id: int, semantic_id: str, strength: float = 1.0):
         with self._get_conn() as conn:
@@ -245,39 +249,41 @@ class EpisodicStore:
         with self._get_conn() as conn:
             conn.execute(sql_template.format(placeholders), event_ids)
 
-    def find_duplicate(self, event: MemoryEvent, linked_id: Optional[str] = None, ignore_links: bool = False) -> Optional[int]:
+    def find_duplicate(self, event: MemoryEvent, linked_id: Optional[str] = None, ignore_links: bool = False) -> Result[int]:
         """Checks if an identical event (source, kind, content, context) already exists."""
-        # Handle context serialization for comparison
-        context_data = event.context
-        
-        # Optimization: use pre-calculated or simple serialization
-        if not context_data:
-            context_json = "{}"
-        elif isinstance(context_data, dict):
-            # Sort keys only for consistency, avoid default=str if possible
-            context_json = json.dumps(context_data, sort_keys=True)
-        elif hasattr(context_data, 'model_dump'):
-            # Expensive path for Pydantic objects
-            context_json = json.dumps(context_data.model_dump(mode='json'), sort_keys=True)
-        else:
-            context_json = json.dumps(context_data, sort_keys=True, default=str)
-
-        with self._get_conn() as conn:
-            # Use the indexed columns first
-            if ignore_links:
-                sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? LIMIT 1"
-                params = [event.source, event.kind, event.content, context_json]
-            else:
-                if linked_id is not None:
-                    sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? AND linked_id = ? LIMIT 1"
-                    params = [event.source, event.kind, event.content, context_json, linked_id]
-                else:
-                    sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? AND linked_id IS NULL LIMIT 1"
-                    params = [event.source, event.kind, event.content, context_json]
+        def _do_find():
+            # Handle context serialization for comparison
+            context_data = event.context
             
-            cursor = conn.execute(sql, params)
-            row = cursor.fetchone()
-            return row[0] if row else None
+            # Optimization: use pre-calculated or simple serialization
+            if not context_data:
+                context_json = "{}"
+            elif isinstance(context_data, dict):
+                # Sort keys only for consistency, avoid default=str if possible
+                context_json = json.dumps(context_data, sort_keys=True)
+            elif hasattr(context_data, 'model_dump'):
+                # Expensive path for Pydantic objects
+                context_json = json.dumps(context_data.model_dump(mode='json'), sort_keys=True)
+            else:
+                context_json = json.dumps(context_data, sort_keys=True, default=str)
+
+            with self._get_conn() as conn:
+                # Use the indexed columns first
+                if ignore_links:
+                    sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? LIMIT 1"
+                    params = [event.source, event.kind, event.content, context_json]
+                else:
+                    if linked_id is not None:
+                        sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? AND linked_id = ? LIMIT 1"
+                        params = [event.source, event.kind, event.content, context_json, linked_id]
+                    else:
+                        sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? AND linked_id IS NULL LIMIT 1"
+                        params = [event.source, event.kind, event.content, context_json]
+                
+                cursor = conn.execute(sql, params)
+                row = cursor.fetchone()
+                return row[0] if row else 0
+        return safe_execute(_do_find)
 
     def physical_prune(self, event_ids: List[int]):
         if not event_ids: return

@@ -157,7 +157,7 @@ class ReflectionEngine:
                     content=f"Reflection cycle completed. Distilled or updated {len(set(result_ids))} knowledge records.",
                     context={"updated_fids": list(set(result_ids))}
                 )
-                self.episodic.append(summary_event)
+                self.episodic.append(summary_event).value
                 
         return result_ids, max_id
 
