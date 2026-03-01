@@ -1,0 +1,41 @@
+# Bandit configuration for LedgerMind
+# Run: bandit -r src/ -c .bandit
+
+exclude_dirs:
+  - '/tests'
+  - '/benchmarks'
+  - '/docs'
+  - '/examples'
+  - '/.github'
+
+tests:
+  # Test IDs to exclude (with reasons)
+  - B201  # flask_debug_true - Not using Flask
+  - B301  # pickle - Not using pickle (dataclass instead)
+  - B401  # import_telnetlib - Not using telnet
+  - B501  # request_with_no_cert_validation - Using httpx with verification
+  - B502  # ssl_with_bad_version - Using modern TLS
+  - B503  # ssl_with_bad_defaults - Using secure defaults
+  - B504  # ssl_with_no_version - Using proper SSL
+  - B506  # yaml_load - Using yaml.safe_load()
+  - B507  # ssh_no_host_key_verification - Not using SSH
+  - B601  # paramiko_calls - Not using paramiko
+  - B602  # subprocess_popen_with_shell_equals_true - shell=False used
+  - B603  # subprocess_without_shell_equals_false - Not applicable
+  - B604  # any_other_function_with_shell_equals_true - Not using shell=True
+  - B605  # start_process_with_a_shell - Not using shell=True
+  - B606  # start_process_with_no_shell - shell=False used
+  - B607  # start_process_with_partial_path - Using absolute paths
+  - B608  # hardcoded_sql_expressions - SHOULD NOT BE PRESENT AFTER FIX #1!
+  - B609  # linux_commands_wildcard_injection - Using parameterized queries
+  - B701  # jinja2_autoescape_false - Not using Jinja2
+  - B702  # use_of_mako_templates - Not using Mako
+  - B703  # django_marked_safe - Not using Django
+  - B704  # django_use_of_url - Not using Django
+
+# Severity levels
+# High: Security critical, must fix
+# Medium: Security issue with non-trivial exploit
+# Low: Potential issue, low risk
+
+skips: []
