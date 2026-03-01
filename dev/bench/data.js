@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772376272216,
+  "lastUpdate": 1772376292617,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -180,6 +180,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0001241947880915225",
             "extra": "mean: 1.6643325999950775 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1d75abde86236b000f7e984146479c7484f0b6be",
+          "message": "feat: Add accessibilityInformation to VS Code extension StatusBarItem (#42)\n\nAdded `accessibilityInformation` (with label and role) to the `StatusBarItem` in the LedgerMind VS Code extension. The label updates dynamically to announce the \"busy/syncing\" state, improving the experience for users relying on screen readers.",
+          "timestamp": "2026-03-01T17:42:31+03:00",
+          "tree_id": "5d5e781a23e10cd0bbee610bee2efedd4ce51f8a",
+          "url": "https://github.com/sl4m3/ledgermind/commit/1d75abde86236b000f7e984146479c7484f0b6be"
+        },
+        "date": 1772376292009,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 66.6075875127418,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006039401706135277",
+            "extra": "mean: 15.013304600000765 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 19406.924388410345,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000838751939917262",
+            "extra": "mean: 51.528000005873764 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 610.9890287154011,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011461889078198953",
+            "extra": "mean: 1.636690599997337 msec\nrounds: 5"
           }
         ]
       }
