@@ -5,25 +5,65 @@ from typing import List, Optional, Dict, Any, Tuple
 from contextlib import contextmanager
 from ledgermind.core.core.schemas import MemoryEvent
 
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import QueuePool, Pool
+from sqlalchemy.orm import sessionmaker, Session
+
 class EpisodicStore:
-    def __init__(self, db_path: str):
+    def __init__(self, db_path: str, pool_size: int = 3):
         self.db_path = db_path
         self._lock = threading.Lock()
+        self.pool_size = pool_size
+
+        self.engine = create_engine(
+            f"sqlite:///{db_path}",
+            poolclass=QueuePool,
+            pool_size=pool_size,
+            max_overflow=2,
+            connect_args={
+                'timeout': 30.0,
+                'check_same_thread': False,
+                'isolation_level': None,
+            },
+            echo=False,
+            pool_pre_ping=True,
+        )
+        self.Session = sessionmaker(bind=self.engine)
+
         self._init_db()
+        self._warm_up_pool()
+
+    def _warm_up_pool(self):
+        for _ in range(min(2, self.pool_size)):
+            with self._get_conn():
+                pass
 
     @contextmanager
     def _get_conn(self):
-        with self._lock:
-            conn = sqlite3.connect(self.db_path, timeout=30.0)
-            # Set factory for dict-like rows
-            conn.row_factory = sqlite3.Row
-            try:
-                yield conn
-            finally:
-                conn.close()
+        session = self.Session()
+        try:
+            conn = session.connection()
+            conn.connection.row_factory = sqlite3.Row
+            yield conn.connection
+        finally:
+            session.close()
+
+    def _get_pool_status(self) -> Dict[str, int]:
+        pool: Pool = self.engine.pool
+        return {
+            'size': pool.size(),
+            'checked_in': pool.checkedin(),
+            'checked_out': pool.checkedout(),
+            'overflow': pool.overflow(),
+        }
+
+    def close(self):
+        if hasattr(self, 'engine'):
+            self.engine.dispose()
 
     def _init_db(self):
-        with self._get_conn() as conn:
+        with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+            conn.row_factory = sqlite3.Row
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.execute("PRAGMA busy_timeout=10000")
@@ -65,31 +105,28 @@ class EpisodicStore:
             else:
                 context_dict = context_data
                 
-            with conn:
-                cursor = conn.execute(
-                    "INSERT INTO events (source, kind, content, context, timestamp, linked_id, link_strength) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        event.source,
-                        event.kind,
-                        event.content,
-                        json.dumps(context_dict, default=str),
-                        event.timestamp.isoformat() if hasattr(event.timestamp, 'isoformat') else str(event.timestamp),
-                        linked_id,
-                        link_strength
-                    )
+            cursor = conn.execute(
+                "INSERT INTO events (source, kind, content, context, timestamp, linked_id, link_strength) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    event.source,
+                    event.kind,
+                    event.content,
+                    json.dumps(context_dict, default=str),
+                    event.timestamp.isoformat() if hasattr(event.timestamp, 'isoformat') else str(event.timestamp),
+                    linked_id,
+                    link_strength
                 )
-                return cursor.lastrowid
+            )
+            return cursor.lastrowid
 
     def link_to_semantic(self, event_id: int, semantic_id: str, strength: float = 1.0):
         with self._get_conn() as conn:
-            with conn:
-                conn.execute("UPDATE events SET linked_id = ?, link_strength = ? WHERE id = ?", (semantic_id, strength, event_id))
+            conn.execute("UPDATE events SET linked_id = ?, link_strength = ? WHERE id = ?", (semantic_id, strength, event_id))
 
     def unlink_all_for_semantic(self, semantic_id: str):
         """Clears linked_id for all events pointing to this semantic decision."""
         with self._get_conn() as conn:
-            with conn:
-                conn.execute("UPDATE events SET linked_id = NULL WHERE linked_id = ?", (semantic_id,))
+            conn.execute("UPDATE events SET linked_id = NULL WHERE linked_id = ?", (semantic_id,))
 
     def get_by_ids(self, ids: List[int]) -> List[Dict[str, Any]]:
         """Fetches multiple events by their IDs."""
@@ -206,8 +243,7 @@ class EpisodicStore:
         placeholders = ','.join(['?'] * len(event_ids))
         sql_template = "UPDATE events SET status = 'archived' WHERE id IN ({})"
         with self._get_conn() as conn:
-            with conn:
-                conn.execute(sql_template.format(placeholders), event_ids)
+            conn.execute(sql_template.format(placeholders), event_ids)
 
     def find_duplicate(self, event: MemoryEvent, linked_id: Optional[str] = None, ignore_links: bool = False) -> Optional[int]:
         """Checks if an identical event (source, kind, content, context) already exists."""
@@ -249,8 +285,7 @@ class EpisodicStore:
         placeholders = ','.join(['?'] * len(event_ids))
         sql_template = "DELETE FROM events WHERE id IN ({}) AND linked_id IS NULL"
         with self._get_conn() as conn:
-            with conn:
-                conn.execute(sql_template.format(placeholders), event_ids)
+            conn.execute(sql_template.format(placeholders), event_ids)
 
     def count_events(self, status: Optional[str] = 'active') -> int:
         """Returns the number of events with the given status."""
