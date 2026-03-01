@@ -1,6 +1,6 @@
 # Benchmarks
 
-Performance benchmarks for LedgerMind v3.0.4 demonstrating mobile-optimized architecture.
+Performance benchmarks for LedgerMind demonstrating mobile-optimized architecture.
 
 ---
 
@@ -34,7 +34,7 @@ This document provides comprehensive performance metrics for LedgerMind's memory
 | **OS** | Android 13 (Termux) | Ubuntu 22.04 |
 | **Python** | 3.11.4 | 3.12.4 |
 | **SQLite** | 3.44.2 | 3.44.2 |
-| **Vector Model** | Jina v5 Small (4-bit) | MiniLM v3 |
+| **Vector Model** | Jina 3.1.1 Small (4-bit) | MiniLM 3.1.1 |
 
 ### Test Dataset
 
@@ -48,7 +48,7 @@ This document provides comprehensive performance metrics for LedgerMind's memory
 
 ## Benchmark Results
 
-### Summary Table (v3.0.4)
+### Summary Table (3.1.1)
 
 | Metric | Mobile (GGUF) | Server (MiniLM) | Ratio |
 |--------|-----------|----------|----------:----------|
@@ -388,16 +388,16 @@ conn = sqlite3.connect(self.db_path, check_same_thread=False)
 - Search throughput: +40% (subquery optimization)
 - Overall system performance: +60% (multiple optimizations)
 
-### v3.0.4 → Current (Latest)
+### v3.1.1 → Current (Latest)
 
-**Improvements in v3.0.4**:
+**Improvements in v3.1.1**:
 - Search fast-path: 18,000+ ops/sec (server), 7,450 (mobile)
 - Write throughput: 70.6 ops/sec (server), 7.0 (mobile)
 - Subquery RowID: Major query performance improvement
 
 **Key Benchmark**:
 - **Mobile**: 7,450 ops/sec (search)
-- **Server**: 19,602 ops/sec (search)
+- **Server**: 19,000 ops/sec (search)
 - **Improvement**: Subquery RowID enables **18,000+ ops/sec**
 
 ---
