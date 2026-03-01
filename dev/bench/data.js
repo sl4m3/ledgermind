@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772379726987,
+  "lastUpdate": 1772381209333,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -405,6 +405,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00011389014246293347",
             "extra": "mean: 3.952834799997617 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "02ebd2a77397e7462d37ff84596c59d3479defd9",
+          "message": "ci: fix pipeline failures by updating actions and adding missing dependencies\n\n- Updated setup-python to v5, upload-artifact to v4, and codecov to v4 to resolve deprecation failures.\n- Added explicit installation of 'pytest-cov' in the test job.\n- Switched to newer versions of core GitHub Actions for better reliability.",
+          "timestamp": "2026-03-01T19:04:22+03:00",
+          "tree_id": "a30218e37851f863159ede13414a8230590fcbe8",
+          "url": "https://github.com/sl4m3/ledgermind/commit/02ebd2a77397e7462d37ff84596c59d3479defd9"
+        },
+        "date": 1772381208726,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 65.88622326845405,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012671447401160691",
+            "extra": "mean: 15.177679800001442 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 16685.242907519787,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011262928030873784",
+            "extra": "mean: 59.93319998651714 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 620.5605871312181,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009628831648215217",
+            "extra": "mean: 1.6114461999961804 msec\nrounds: 5"
           }
         ]
       }
