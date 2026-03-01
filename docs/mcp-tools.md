@@ -6,7 +6,7 @@ Complete reference for all 15 Model Context Protocol (MCP) tools available in Le
 
 ## Introduction
 
-This document provides detailed documentation for every MCP tool available in LedgerMind v3.1.0. Each tool includes:
+This document provides detailed documentation for every MCP tool available in LedgerMind. Each tool includes:
 
 - **Purpose**: What the tool does and when to use it
 - **Parameters**: Input schema with types, defaults, and validation rules

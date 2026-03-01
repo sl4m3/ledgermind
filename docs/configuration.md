@@ -318,7 +318,7 @@ ledgermind run --verbose --log-file /var/log/ledgermind-debug.log
 **Log Format**:
 
 ```
-2026-03-01 10:30:45 | DEBUG | ledgermind.server.server | Starting MCP Server v3.1.0
+2026-03-01 10:30:45 | DEBUG | ledgermind.server.server | Starting MCP Server
 2026-03-01 10:30:46 | DEBUG | ledgermind.server.server | Storage path: /path/to/memory
 2026-03-01 10:30:47 | ERROR | ledgermind.server.server | Failed to load vector model
 ```
