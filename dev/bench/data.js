@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772376292617,
+  "lastUpdate": 1772376723723,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -225,6 +225,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00011461889078198953",
             "extra": "mean: 1.636690599997337 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "e63f887ec4c4d59fc13edddd41fa9858b2cd213a",
+          "message": "docs: remove .jules/ directory from tracking (added to .gitignore)",
+          "timestamp": "2026-03-01T17:49:21+03:00",
+          "tree_id": "5912fad5e5214bba988bfc116d57b87fe798121c",
+          "url": "https://github.com/sl4m3/ledgermind/commit/e63f887ec4c4d59fc13edddd41fa9858b2cd213a"
+        },
+        "date": 1772376722791,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 54.71663823424179,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0068873047011242935",
+            "extra": "mean: 18.27597660000606 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 19009.816668401138,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007876034964902532",
+            "extra": "mean: 52.604400002564944 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 603.2480807056764,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00013564811492775876",
+            "extra": "mean: 1.657692800000632 msec\nrounds: 5"
           }
         ]
       }
