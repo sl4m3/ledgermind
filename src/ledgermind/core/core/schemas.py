@@ -2,6 +2,18 @@ from datetime import datetime
 from typing import Literal, Dict, Any, Optional, List, Annotated, Union
 from pydantic import BaseModel, Field, StringConstraints, field_validator, model_validator, ConfigDict
 from enum import Enum
+import re
+import html
+
+try:
+    from bleach import clean
+    BLEACH_AVAILABLE = True
+except ImportError:
+    BLEACH_AVAILABLE = False
+    def clean(text, tags=None, protocols=None, strip=None, strip_comments=None):
+        if tags is None:
+            tags = []
+        return html.escape(text)
 
 class TrustBoundary(str, Enum):
     AGENT_WITH_INTENT = "agent"
@@ -168,10 +180,106 @@ class MemoryEvent(BaseModel):
 
     @field_validator('content')
     @classmethod
-    def content_not_empty(cls, v: str) -> str:
+    def sanitize_and_validate_content(cls, v: str) -> str:
+        """
+        Sanitizes content to prevent XSS, Markdown injection, and other attacks.
+        Also enforces length limits and checks for suspicious patterns.
+        """
+        # ===== LAYER 1: Empty check (existing) =====
         if not v.strip():
             raise ValueError('Content cannot be empty')
-        return v
+
+        # ===== LAYER 2: Length limits (DoS protection) =====
+        MIN_LENGTH = 1
+        MAX_LENGTH = 100_000  # 100KB max for memory events
+
+        if len(v) < MIN_LENGTH:
+            raise ValueError(f'Content too short (min {MIN_LENGTH} characters)')
+
+        if len(v) > MAX_LENGTH:
+            raise ValueError(
+                f'Content too long ({len(v)} characters, max {MAX_LENGTH})'
+            )
+
+        # ===== LAYER 3: Null byte and control character check =====
+        if '\x00' in v:
+            raise ValueError('Content contains null bytes')
+
+        # Check for excessive control characters
+        control_chars = sum(1 for c in v if ord(c) < 32 and c not in '\t\n\r')
+        if control_chars > len(v) * 0.1:  # More than 10% control chars
+            raise ValueError('Content contains too many control characters')
+
+        # ===== LAYER 4: Unicode attack patterns =====
+        # Bidirectional override attacks
+        bidi_patterns = ['\u202E', '\u202F', '\u2066', '\u2067', '\u2068', '\u2069']
+        if any(pattern in v for pattern in bidi_patterns):
+            raise ValueError('Content contains bidirectional override characters')
+
+        # Zero-width characters (can hide attacks)
+        zero_width = ['\u200B', '\u200C', '\u200D', '\uFEFF']
+        if sum(1 for c in v if c in zero_width) > 10:
+            raise ValueError('Content contains excessive zero-width characters')
+
+        # Homoglyph attacks (visually similar different characters)
+        # Check for mixed scripts (basic Latin + Cyrillic)
+        has_latin = any('\u0000' <= c <= '\u007F' for c in v)
+        has_cyrillic = any('\u0400' <= c <= '\u04FF' for c in v)
+        if has_latin and has_cyrillic:
+            raise ValueError('Content contains mixed script characters (potential homoglyph attack)')
+
+        # ===== LAYER 5: HTML/Markdown sanitization =====
+        # Use bleach to strip dangerous HTML
+        # Allow common Markdown-safe tags
+        ALLOWED_TAGS = []  # Strip ALL HTML tags for safety
+        ALLOWED_PROTOCOLS = ['http', 'https', 'ftp']
+
+        sanitized = clean(
+            v,
+            tags=ALLOWED_TAGS,
+            protocols=ALLOWED_PROTOCOLS,
+            strip=True,           # Remove unsafe tags
+            strip_comments=True   # Remove HTML comments
+        )
+
+        # ===== LAYER 6: URL/Link sanitization =====
+        # Check for dangerous URL schemes
+        dangerous_schemes = [
+            'javascript:', 'data:', 'vbscript:', 'mailto:', 'file:'
+        ]
+
+        # Check all URLs in content
+        url_pattern = r'(https?|ftp)://[^\s<>"\')]|javascript:[^\s]*;'
+        urls = re.findall(url_pattern, sanitized, re.IGNORECASE)
+
+        for url in urls:
+            if any(scheme in url.lower() for scheme in dangerous_schemes):
+                raise ValueError(
+                    f'Content contains dangerous URL scheme: {scheme}'
+                )
+
+        # ===== LAYER 7: Code injection patterns =====
+        # Check for potential code execution patterns
+        injection_patterns = [
+            r'<script[^>]*>.*?</script>',  # Script tags
+            r'on\w+\s*=\s*[\'"]',           # Event handlers (onclick, etc)
+            r'\$\{.*\}',                            # Template injection
+            r'<<<.*>>>',                         # Heredoc injection
+        ]
+
+        for pattern in injection_patterns:
+            if re.search(pattern, sanitized, re.IGNORECASE):
+                raise ValueError(
+                    'Content contains potentially dangerous code patterns'
+                )
+
+        # ===== LAYER 8: Path injection prevention =====
+        # Prevent Windows path injection in content
+        windows_path_pattern = r'[A-Za-z]:\\|\\\\.\\|\\\.\.\.'
+        if re.search(windows_path_pattern, sanitized):
+            raise ValueError('Content contains Windows path patterns')
+
+        return sanitized
 
     @model_validator(mode='after')
     def validate_semantic_context(self) -> 'MemoryEvent':
