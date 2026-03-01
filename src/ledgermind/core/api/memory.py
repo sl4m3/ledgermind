@@ -382,12 +382,16 @@ class Memory:
                     
                     # Inherit links from superseded items
                     if intent and intent.resolution_type == "supersede":
-                        for old_id in intent.target_decision_ids:
-                            try:
-                                old_links = self.episodic.get_linked_event_ids(old_id)
-                                all_grounding_ids.update(old_links)
-                            except Exception as e:
-                                logger.warning(f"Failed to fetch links from superseded item {old_id}: {e}")
+                        # ⚡ Bolt Optimization: Batch fetch all linked events for superseded decisions
+                        # This eliminates N+1 SQLite queries when superseding multiple items at once
+                        try:
+                            old_links_map = self.episodic.get_linked_event_ids_batch(intent.target_decision_ids)
+                            for old_id in intent.target_decision_ids:
+                                if old_id in old_links_map:
+                                    all_grounding_ids.update(old_links_map[old_id])
+                        except Exception as e:
+                            # Maintain the original granularity: log the failure but don't crash
+                            logger.warning(f"Failed to fetch links from superseded items {intent.target_decision_ids}: {e}")
 
                     if all_grounding_ids:
                         for ev_id in all_grounding_ids:

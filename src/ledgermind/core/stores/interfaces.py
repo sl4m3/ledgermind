@@ -33,6 +33,10 @@ class EpisodicProvider(ABC):
     def physical_prune(self, event_ids: List[int]):
         pass
 
+    @abstractmethod
+    def get_linked_event_ids_batch(self, semantic_ids: List[str]) -> Dict[str, List[int]]:
+        pass
+
 class AuditProvider(ABC):
     @abstractmethod
     def initialize(self):
