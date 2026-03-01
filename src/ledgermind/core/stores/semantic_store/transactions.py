@@ -29,184 +29,124 @@ class FileSystemLock:
 
     def acquire(self, exclusive: bool = True, timeout: Optional[int] = None):
         """
-        Acquires lock with atomic operations to prevent TOCTOU.
-
-        Uses POSIX fcntl on Unix/Android with O_EXCL for atomicity.
-        Falls back to file-based locking on other systems.
-
-        Thread-safe and process-safe.
+        Acquires lock to prevent concurrent modifications.
+        Uses POSIX fcntl on Unix/Android for highly efficient, OS-level queuing.
+        Falls back to atomic file creation (O_EXCL) on systems without fcntl.
         """
-        # ===== LAYER 1: Acquire thread lock first =====
         effective_timeout = timeout if timeout is not None else self.timeout
 
         if not self._thread_lock.acquire(timeout=effective_timeout):
             raise TimeoutError(f"Could not acquire thread lock for {self.lock_path}")
 
-        lock_acquired = False
-
         try:
-            # ===== LAYER 2: Setup file creation flags =====
-            flags = os.O_RDWR | os.O_CREAT
-
-            # CRITICAL: O_EXCL ensures atomic creation
-            # If file exists, open() fails immediately (no race window)
-            if exclusive:
-                flags |= os.O_EXCL
-
             start_time = time.time()
-
-            # ===== LAYER 3: Retry loop for lock contention =====
-            while True:
-                try:
-                    # ATOMIC OPERATION: Open file (or fail if exists with O_EXCL)
-                    # This single call creates the file AND acquires FD
-                    # No race window between check and creation
+            
+            # Fast path: POSIX fcntl (Linux, Android, macOS)
+            try:
+                import fcntl
+                flags = os.O_RDWR | os.O_CREAT
+                
+                # Open the file (creates it if it doesn't exist). 
+                # We DO NOT use O_EXCL here because fcntl manages the lock state, not the file presence.
+                if self._fd is None:
                     self._fd = os.open(self.lock_path, flags)
-
-                    # File is now open, we own the FD
-                    # Write PID atomically AFTER we have the FD
+                
+                op = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
+                
+                # If timeout is 0, we use non-blocking mode immediately
+                if timeout == 0:
                     try:
-                        os.ftruncate(self._fd, 0)
-                        os.write(self._fd, str(os.getpid()).encode())
-                    except OSError:
-                        pass
-
-                except FileExistsError:
-                    # File already exists -> lock is held by another process
-                    # Check if it's stale lock (process died)
+                        fcntl.flock(self._fd, op | fcntl.LOCK_NB)
+                        return True
+                    except (BlockingIOError, OSError):
+                        return False
+                
+                # Blocking wait with a timeout mechanism
+                while True:
                     try:
-                        with open(self.lock_path, 'r') as f:
-                            pid_str = f.read().strip()
+                        # Try to grab the lock non-blockingly first
+                        fcntl.flock(self._fd, op | fcntl.LOCK_NB)
+                        return True
+                    except (BlockingIOError, OSError):
+                        # Lock is held by someone else
+                        if time.time() - start_time >= effective_timeout:
+                            raise TimeoutError(f"Could not acquire fcntl lock on {self.lock_path} after {effective_timeout}s")
+                        # Sleep briefly to avoid pegging CPU, then retry
+                        time.sleep(0.01) # Short sleep for high performance
 
-                        if pid_str:
-                            try:
-                                pid = int(pid_str)
-                                # Check if process is still alive
-                                os.kill(pid, 0)  # Signal 0 checks if alive
-
-                                # Process is alive -> lock is valid
-                                elapsed = time.time() - start_time
-
-                                if elapsed >= effective_timeout:
-                                    if timeout == 0:
-                                        return False
-                                    raise TimeoutError(
-                                        f"Could not acquire lock on {self.lock_path} "
-                                        f"after {effective_timeout}s (held by PID {pid})"
-                                    )
-
-                                # Wait before retrying
-                                time.sleep(0.1)
-                                continue
-
-                            except (ValueError, OSError):
-                                # Invalid PID or process check failed -> Treat as stale lock
-                                pass
-
-                        # Process is dead or invalid PID -> stale lock -> Remove and retry
+            except ImportError:
+                # Fallback: Windows or environments without fcntl
+                # We use a separate .lock file with O_EXCL for atomic creation
+                semaphore_path = self.lock_path + ".lock"
+                flags = os.O_RDWR | os.O_CREAT | os.O_EXCL
+                
+                while True:
+                    try:
+                        # Atomic create
+                        self._fd = os.open(semaphore_path, flags)
                         try:
-                            os.remove(self.lock_path)
+                            os.write(self._fd, str(os.getpid()).encode())
                         except OSError:
                             pass
-                        continue
-
-                    except (OSError, IOError):
-                        # Error reading/stale check -> just wait and retry
-                        elapsed = time.time() - start_time
-
-                        if elapsed >= effective_timeout:
-                            if timeout == 0:
-                                return False
-                            raise TimeoutError(
-                                f"Could not acquire lock on {self.lock_path} "
-                                f"after {effective_timeout}s"
-                            )
-
-                        time.sleep(0.1)
-                        continue
-
-                # ===== LAYER 4: Apply fcntl lock (Unix/Linux/Android) =====
-                try:
-                    import fcntl
-
-                    op = fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH
-
-                    # Try non-blocking first
-                    try:
-                        # FD is already open, now apply fcntl lock
-                        fcntl.flock(self._fd, op | fcntl.LOCK_NB)
-                        lock_acquired = True
                         return True
-
-                    except (BlockingIOError, OSError) as e:
-                        import errno
-
-                        # Check if it's just blocked (expected for contention)
-                        if isinstance(e, BlockingIOError) or e.errno in (errno.EAGAIN, errno.EACCES):
-                            # Lock is held by another process via fcntl
-                            elapsed = time.time() - start_time
-
-                            if elapsed >= effective_timeout:
-                                if timeout == 0:
-                                    try: os.close(self._fd)
+                        
+                    except FileExistsError:
+                        # File exists -> check for stale lock
+                        try:
+                            with open(semaphore_path, 'r') as f:
+                                pid_str = f.read().strip()
+                            if pid_str:
+                                pid = int(pid_str)
+                                try:
+                                    os.kill(pid, 0)
+                                    # Process is alive, we just need to wait
+                                except OSError:
+                                    # Process is dead, remove stale lock and retry
+                                    try: os.remove(semaphore_path)
                                     except OSError: pass
-                                    self._fd = None
-                                    return False
-
-                                raise TimeoutError(
-                                    f"Could not acquire fcntl lock on {self.lock_path} "
-                                    f"after {effective_timeout}s"
-                                )
-
-                            # Wait and retry
-                            time.sleep(0.1)
-                            try: os.close(self._fd)
+                                    continue
+                        except (ValueError, OSError, IOError):
+                            # Corrupted lock file, try to remove
+                            try: os.remove(semaphore_path)
                             except OSError: pass
-                            self._fd = None
                             continue
-
-                        # Other error
-                        raise
-
-                except ImportError:
-                    # fcntl not available -> We rely on O_EXCL
-                    lock_acquired = True
-                    return True
-
-                except Exception as e:
-                    logger.error(f"Unexpected error in fcntl lock: {e}")
-                    raise RuntimeError(f"Lock acquisition failed: {e}")
-
-        except TimeoutError:
-            raise
-
+                            
+                        if time.time() - start_time >= effective_timeout:
+                            if timeout == 0: return False
+                            raise TimeoutError(f"Could not acquire file lock on {self.lock_path} after {effective_timeout}s")
+                        
+                        time.sleep(0.05)
+                        
         except Exception:
             self._thread_lock.release()
             raise
 
-        finally:
-            if not lock_acquired:
-                self._thread_lock.release()
-
     def release(self):
         try:
-            if self._fd:
+            if self._fd is not None:
+                # If we have fcntl available, release the flock
                 try:
                     import fcntl
                     fcntl.flock(self._fd, fcntl.LOCK_UN)
-                except (ImportError, OSError): pass
+                except (ImportError, OSError):
+                    pass
                 
+                # Close the file descriptor
                 try:
                     os.close(self._fd)
-                except OSError: pass
+                except OSError:
+                    pass
                 self._fd = None
-                
-            # Clean up all lock files to prevent O_EXCL false positives for next acquirer
-            for path in [self.lock_path, self.lock_path + ".lock"]:
-                if os.path.exists(path):
-                    try:
-                        os.remove(path)
-                    except OSError: pass
+
+            # Only remove the fallback .lock file.
+            # CRITICAL: We DO NOT remove self.lock_path because that destroys the i-node 
+            # and breaks fcntl queuing for other waiting processes.
+            semaphore_path = self.lock_path + ".lock"
+            if os.path.exists(semaphore_path):
+                try:
+                    os.remove(semaphore_path)
+                except OSError:
+                    pass
         finally:
             self._thread_lock.release()
 
