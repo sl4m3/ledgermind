@@ -227,12 +227,6 @@ class MemoryEvent(BaseModel):
         if sum(1 for c in v if c in zero_width) > 10:
             raise ValueError('Content contains excessive zero-width characters')
 
-        # Homoglyph attacks (visually similar different characters)
-        # Check for mixed scripts (basic Latin + Cyrillic)
-        has_latin = any('\u0000' <= c <= '\u007F' for c in v)
-        has_cyrillic = any('\u0400' <= c <= '\u04FF' for c in v)
-        if has_latin and has_cyrillic:
-            raise ValueError('Content contains mixed script characters (potential homoglyph attack)')
 
         # ===== LAYER 5: HTML/Markdown sanitization =====
         # Use bleach to strip dangerous HTML
