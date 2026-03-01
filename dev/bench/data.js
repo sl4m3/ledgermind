@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772376104233,
+  "lastUpdate": 1772376269713,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -90,6 +90,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00012396218433302248",
             "extra": "mean: 1.6465756000229703 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5f5c1d4f84d60213c21c5f9f7dc8ccbf0720609f",
+          "message": "🛡️ Sentinel: [MEDIUM] Fix API Key Timing Attack Vulnerability (#41)\n\n* Fix API key timing attack vulnerability in gateway.py and server.py\n\nReplaced standard string equality operators with `hmac.compare_digest`\nfor comparing API keys to prevent timing attacks. Handled optional API\nkey configurations gracefully to prevent regressions. Added sentinel\njournal entry.\n\n* Fix CI test failure in test_multi_process_locking\n\nIncreased `sqlite3` connection timeout to 60.0s and `PRAGMA busy_timeout` to\n60000ms in `SemanticMetaStore` to prevent \"database is locked\" OperationalErrors\nduring highly concurrent multi-process tests in CI pipelines.",
+          "timestamp": "2026-03-01T17:42:18+03:00",
+          "tree_id": "810fbdac71c5ce9a605784e10f2bda431269cf55",
+          "url": "https://github.com/sl4m3/ledgermind/commit/5f5c1d4f84d60213c21c5f9f7dc8ccbf0720609f"
+        },
+        "date": 1772376268834,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 71.16315725087168,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002664506168400499",
+            "extra": "mean: 14.052215199990314 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 18461.28852297597,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010059037673853083",
+            "extra": "mean: 54.16740000327991 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 614.9063128856939,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009503043982287246",
+            "extra": "mean: 1.6262639999695239 msec\nrounds: 5"
           }
         ]
       }
