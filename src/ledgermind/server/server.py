@@ -5,6 +5,7 @@ import enum
 import httpx
 import asyncio
 import time
+import hmac
 import threading
 import functools
 import inspect
@@ -169,8 +170,9 @@ class MCPServer:
         if ctx and hasattr(ctx, "request_context") and ctx.request_context:
             headers = getattr(ctx.request_context.request, "headers", {})
             provided_key = headers.get("X-API-Key") or headers.get("x-api-key")
-            if provided_key != self.api_key:
-                raise PermissionError("Invalid or missing X-API-Key header.")
+            if self.api_key is not None:
+                if provided_key is None or not hmac.compare_digest(provided_key, self.api_key):
+                    raise PermissionError("Invalid or missing X-API-Key header.")
 
     def _validate_isolation(self, decision_ids: List[str]):
         """
