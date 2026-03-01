@@ -255,29 +255,8 @@ class MemoryEvent(BaseModel):
         for url in urls:
             if any(scheme in url.lower() for scheme in dangerous_schemes):
                 raise ValueError(
-                    f'Content contains dangerous URL scheme: {scheme}'
+                    f'Content contains dangerous URL scheme'
                 )
-
-        # ===== LAYER 7: Code injection patterns =====
-        # Check for potential code execution patterns
-        injection_patterns = [
-            r'<script[^>]*>.*?</script>',  # Script tags
-            r'on\w+\s*=\s*[\'"]',           # Event handlers (onclick, etc)
-            r'\$\{.*\}',                            # Template injection
-            r'<<<.*>>>',                         # Heredoc injection
-        ]
-
-        for pattern in injection_patterns:
-            if re.search(pattern, sanitized, re.IGNORECASE):
-                raise ValueError(
-                    'Content contains potentially dangerous code patterns'
-                )
-
-        # ===== LAYER 8: Path injection prevention =====
-        # Prevent Windows path injection in content
-        windows_path_pattern = r'[A-Za-z]:\\|\\\\.\\|\\\.\.\.'
-        if re.search(windows_path_pattern, sanitized):
-            raise ValueError('Content contains Windows path patterns')
 
         return sanitized
 
