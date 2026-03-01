@@ -2,6 +2,7 @@ import logging
 import asyncio
 import os
 import json
+import hmac
 from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect, Security, Query
 from fastapi.security.api_key import APIKeyHeader, APIKey
 from pydantic import BaseModel
@@ -43,7 +44,9 @@ async def get_api_key(
     
     # Check both header and query param
     key = api_key_header or api_key_query
-    if key == expected_key:
+    if expected_key is None and key is None:
+        return key
+    if key is not None and expected_key is not None and hmac.compare_digest(key, expected_key):
         return key
     raise HTTPException(status_code=403, detail="Could not validate credentials")
 
@@ -107,7 +110,7 @@ async def websocket_endpoint(
         await websocket.close(code=1008) # Policy Violation
         return
 
-    if expected_key and api_key != expected_key:
+    if expected_key is not None and (api_key is None or not hmac.compare_digest(api_key, expected_key)):
         await websocket.accept()
         await websocket.close(code=4003) # Forbidden
         return

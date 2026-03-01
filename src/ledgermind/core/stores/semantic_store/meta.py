@@ -23,13 +23,13 @@ class SemanticMetaStore:
     """
     def __init__(self, db_path: str):
         self.db_path = db_path
-        self._conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0, isolation_level=None)
+        self._conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=60.0, isolation_level=None)
         self._init_db()
 
     def _init_db(self):
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=OFF") # Restored from v3.0.3 for performance
-        self._conn.execute("PRAGMA busy_timeout=30000")
+        self._conn.execute("PRAGMA busy_timeout=60000")
         self._conn.execute("PRAGMA cache_size=-64000") # 64MB cache
         self._conn.execute("PRAGMA temp_store=MEMORY")
         self._conn.execute("PRAGMA mmap_size=30000000000")
