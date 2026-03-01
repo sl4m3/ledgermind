@@ -4,6 +4,19 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.1.2] - 2026-03-01
+
+- **Unified Error Handling:** Implemented `Result` pattern with explicit error
+  codes across core components ([#62](https://github.com/sl4m3/ledgermind/pull/62)
+  by @sl4m3).
+- **Health Check System:** Detailed monitoring endpoints for databases, Git, and
+  system health ([#60](https://github.com/sl4m3/ledgermind/pull/60) by @sl4m3).
+- **Connection Pooling:** Added SQLAlchemy `QueuePool` to `EpisodicStore` for
+  better concurrency ([#65](https://github.com/sl4m3/ledgermind/pull/65) by
+  @sl4m3).
+- **Input Sanitization:** Multi-layer protection against XSS and Unicode attacks
+  ([#68](https://github.com/sl4m3/ledgermind/pull/68) by @sl4m3).
+
 ## [v3.1.1] - 2026-03-01
 
 - **Critical Security:** Fixed SQL Injection, Path Traversal, and Race Conditions.
