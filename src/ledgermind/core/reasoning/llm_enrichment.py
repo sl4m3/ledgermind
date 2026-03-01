@@ -180,12 +180,12 @@ class LLMEnricher:
         try:
             if self.client_name == "gemini":
                 cmd = ["gemini", "--prompt", prompt]
-                result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=60)
+                result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=60) # nosec B603 B607
                 return result.stdout.strip()
             
             elif self.client_name == "claude":
                 cmd = ["claude", prompt]
-                result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=60)
+                result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=60) # nosec B603 B607
                 return result.stdout.strip()
                 
         except Exception as e:

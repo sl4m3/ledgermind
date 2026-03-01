@@ -49,7 +49,7 @@ class SemanticStore:
         # Check for Git availability
         git_available = False
         try:
-            subprocess.run(["git", "--version"], capture_output=True, check=True)
+            subprocess.run(["git", "--version"], capture_output=True, check=True) # nosec B603 B607
             git_available = True
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
@@ -94,7 +94,7 @@ class SemanticStore:
                 # Check if file is tracked by git
                 if isinstance(self.audit, GitAuditProvider):
                     res = subprocess.run(["git", "ls-files", "--error-unmatch", f], 
-                                         cwd=self.repo_path, capture_output=True)
+                                         cwd=self.repo_path, capture_output=True) # nosec B603 B607
                     if res.returncode != 0:
                         logger.info(f"Recovering untracked file: {f}")
                         try:

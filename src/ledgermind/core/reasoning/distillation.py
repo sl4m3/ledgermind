@@ -128,7 +128,9 @@ class DistillationEngine:
                 try:
                     data = json.loads(content)
                     return data.get('prompt') or data.get('prompt_response') or content
-                except: pass
+                except Exception: 
+                    # Not valid JSON or missing keys, return original content
+                    pass
             return content
 
         for ev in full_events:
