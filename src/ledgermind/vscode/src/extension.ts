@@ -12,6 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.name = 'LedgerMind Status';
     statusBarItem.text = '$(database) LedgerMind';
     statusBarItem.tooltip = 'LedgerMind Zero-Touch Bridge Active';
+    statusBarItem.accessibilityInformation = { label: 'LedgerMind Zero-Touch Bridge Active', role: 'button' };
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
 
@@ -19,9 +20,11 @@ export function activate(context: vscode.ExtensionContext) {
         if (busy) {
             statusBarItem.text = '$(sync~spin) LedgerMind';
             statusBarItem.tooltip = 'LedgerMind: Syncing Context...';
+            statusBarItem.accessibilityInformation = { label: 'LedgerMind Syncing Context', role: 'button' };
         } else {
             statusBarItem.text = '$(database) LedgerMind';
             statusBarItem.tooltip = 'LedgerMind Zero-Touch Bridge Active';
+            statusBarItem.accessibilityInformation = { label: 'LedgerMind Zero-Touch Bridge Active', role: 'button' };
         }
     };
 
