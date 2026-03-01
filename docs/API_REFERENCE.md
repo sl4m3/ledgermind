@@ -335,6 +335,35 @@ Returns a formatted Markdown report designed to be consumed by an AI agent, incl
 
 ---
 
+## LLMEnricher
+
+`ledgermind.core.reasoning.llm_enrichment.LLMEnricher`
+
+Enriches machine-generated proposals into human-readable text using local or remote LLMs based on the selected arbitration mode. This class handles the translation of raw machine execution logs and behavioral patterns into coherent insights.
+
+### Constructor
+
+```python
+LLMEnricher(
+    mode: str = "lite",
+    client_name: str = "none"
+)
+```
+
+**`mode`**: Defines the arbitration mode (e.g., `lite`, `auto`). If `lite`, the enrichment pipeline is bypassed.
+
+### Methods
+
+#### `process_batch()`
+
+```python
+enricher.process_batch(memory: Any)
+```
+
+Scans the semantic store for proposals pending enrichment and processes them using the configured LLM. Modifies the semantic record in place. This is typically invoked by the background maintenance runner.
+
+---
+
 ## IntegrationBridge
 
 `ledgermind.core.api.bridge.IntegrationBridge`

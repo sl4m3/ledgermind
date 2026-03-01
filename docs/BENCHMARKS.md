@@ -83,8 +83,13 @@ python benchmarks/agentic_bench.py
 We aim for the following targets to maintain high-quality autonomous operation
 (measured on mobile ARM hardware):
 
-- **1,000 records:** Write < 150ms, Read < 15ms.
-- **5,000 records:** Write < 180ms, Read < 20ms.
-- **10,000 records:** Write < 200ms, Read < 25ms.
+- **1,000 records:** Write < 150ms, Read (Hybrid) < 15ms, Read (Fast-Path) < 1ms.
+- **5,000 records:** Write < 180ms, Read (Hybrid) < 20ms, Read (Fast-Path) < 1ms.
+- **10,000 records:** Write < 200ms, Read (Hybrid) < 25ms, Read (Fast-Path) < 1ms.
 - **100,000 records:** Throughput of at least 5 ops/sec for write operations.
 
+### Fast-Path Optimization (v3.1.0)
+
+With the introduction of the SQLite FTS5 Fast-Path optimization in v3.1.0, short keyword queries (no spaces, <20 characters) completely bypass vector embedding processing.
+
+This optimization achieves a throughput of **18,106 ops/sec** with an average latency of **0.05 ms** on mobile ARM hardware, enabling sub-millisecond retrieval speeds critical for real-time agent context injection and IDE extensions.

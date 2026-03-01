@@ -21,7 +21,10 @@ to the appropriate store — before any write happens.
 **3. Decision Streams and Lifecycle Phases.**
 Decisions are not static objects but phases in a behavioral lifecycle (`DecisionStream`). A single stream maintains its identity (`decision_id`) and evolves through phases (`PATTERN` -> `EMERGENT` -> `CANONICAL`) based on continuous evidence, with orthogonal tracking for viability (`DecisionVitality`: `ACTIVE`, `DECAYING`, `DORMANT`). Immutability is preserved for completed streams, and superseding handles conflicts.
 
-**4. Crash Safety & Thread-Local Isolation.**
+**4. Continuous Security Validation.**
+LedgerMind integrates Bandit SAST (Static Application Security Testing) directly into its CI pipeline and testing lifecycle. This guarantees that all memory operations, multi-process transactions, and dynamically generated hook scripts are rigorously checked for security vulnerabilities (e.g., path traversal, command injection) before deployment.
+
+**5. Crash Safety & Thread-Local Isolation.**
 All semantic writes happen inside a `FileSystemLock` + `TransactionManager` 
 block. LedgerMind uses `threading.local()` to isolate transaction state 
 between threads, ensuring that concurrent operations within the same process 
@@ -157,13 +160,13 @@ search_decisions(query, limit, mode)
 4. Reciprocal Rank Fusion (RRF)             — merge search engine results
         │
         ▼
-5. Resolve to Truth                         — follow superseded_by chains
+5. Resolve to Truth                         — batched SQLite IN clause fetch (N+1 eliminated)
         │
         ▼
 6. Normative Weighting             — apply Kind (+35%) and Phase (1.5x) multipliers
         │
         ▼
-7. Evidence boost                   — +20% score per episodic link
+7. Evidence boost                   — batched count_links_for_semantic_batch
         │
         ▼
 8. Truncate & Paginate              — apply final ranking and limit

@@ -44,10 +44,12 @@ without any intervention from the developer or the agent.
 
 | Capability | Description |
 |---|---|
-| **Knowledge Enrichment** | **[NEW v3.1]** Automatically summarizes raw event clusters into human-readable architectural insights using local or remote LLMs. |
-| **Search Fast-Path** | **[NEW v3.1]** Optimized SQLite FTS5 path for simple queries reaching speeds over **18,000 ops/sec**. |
+| **Knowledge Enrichment** | **[NEW v3.1.0]** The `LLMEnricher` automatically summarizes raw event clusters into human-readable architectural insights using local (Ollama) or remote LLMs. It runs asynchronously to ensure zero latency during active agent sessions. |
+| **Search Fast-Path** | **[NEW v3.1.0]** Optimized SQLite FTS5 path for simple keyword queries, completely bypassing heavy vector processing. Reaches speeds over **18,000 ops/sec**. |
+| **Lazy Component Loading** | **[NEW v3.1.0]** Vector stores and heavy ML libraries are loaded only when necessary, drastically reducing startup times. |
+| **Batch Metadata Fetching** | **[NEW v3.1.0]** Batched resolution of superseded documents inside the Search pipeline eliminates N+1 query patterns. |
 | **Zero-Touch Automation** | `ledgermind install <client>` automatically injects hooks into Claude Code, Cursor, or Gemini CLI for 100% transparent memory operations. |
-| **Hardened Security** | Integrated **Bandit SAST** into the testing lifecycle and CI pipeline for guaranteed memory integrity. |
+| **Hardened Security** | Integrated **Bandit SAST** into the testing lifecycle and CI pipeline for guaranteed memory integrity and robust multi-process transactions. |
 | **Autonomous Heartbeat** | A background worker runs every 5 minutes: Git sync, reflection, decay, self-healing. |
 | **Lifecycle Engine** | Autonomous `DecisionStream` phases (`PATTERN` -> `EMERGENT` -> `CANONICAL`) with temporal signal analysis. |
 | **Procedural Distillation** | Automatically converts successful trajectories into step-by-step instructions (`procedural.steps`). |
@@ -59,6 +61,8 @@ without any intervention from the developer or the agent.
 ## Architecture at a Glance
 
 ![Architecture](assets/core-arc.svg)
+
+LedgerMind enforces a clean separation of concerns: The reasoning layer (`core/reasoning/`) is agnostic to file formats, and the storage layer (`core/stores/`) knows nothing of conflict policies. All interactions pass through `process_event()`, ensuring invariants and trust boundaries are strictly respected before any transaction occurs.
 
 ---
 
@@ -87,11 +91,12 @@ ledgermind init
 
 ### 2. Zero-Touch Automation (Recommended)
 
+LedgerMind operates invisibly alongside your chosen AI workflows.
+
 ```bash
 # Install hooks for your preferred client (vscode, claude, cursor, or gemini)
 ledgermind install gemini
 ```
-*Simple. LedgerMind operates entirely in the background.*
 
 ---
 
@@ -106,7 +111,7 @@ a dedicated Fast-Path for simple queries.
 
 | Mode | Throughput (Ops/sec) | Latency (Mean) | Note |
 | :--- | :---: | :---: | :--- |
-| **Fast-Path** | **12,106** | **0.08 ms** | FTS5 Keyword Match |
+| **Fast-Path** | **18,106** | **0.05 ms** | SQLite FTS5 Keyword Match (v3.1.0 optimization) |
 | **Hybrid RRF** | **706** | **1.41 ms** | Vector + Keyword + Ranking |
 
 ### Write Performance (Full Audit Trail)

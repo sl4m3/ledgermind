@@ -43,6 +43,16 @@ During initialization, you will be asked to choose a client. LedgerMind will ins
 
 These hooks call the lightweight **Bridge API** via CLI (`bridge-context` and `bridge-record`). This approach bypasses the need for a running MCP server and executes memory operations in milliseconds directly against the SQLite/Git stores.
 
+### Autonomous Knowledge Enrichment (v3.1.0)
+
+During setup (`ledgermind init`), you can configure the **Arbitration Mode** to enable background Knowledge Enrichment via the `LLMEnricher`.
+
+- **Local LLMs (e.g., Ollama, Gemini CLI):** Ideal for privacy. LedgerMind will run the enrichment pipeline completely offline, querying your local CLI/server to translate raw technical clusters into human-readable insights.
+- **Remote APIs:** For higher quality summarization, LedgerMind can use cloud APIs securely.
+- **Lite Mode:** Bypasses LLM enrichment entirely for maximum performance on constrained devices.
+
+Because enrichment runs asynchronously in the background maintenance worker, it **never adds latency** to your active coding or chat sessions.
+
 ---
 
 ## Library Integration
