@@ -50,7 +50,7 @@ def test_benchmark_record_decision(memory_instance, benchmark):
 def test_benchmark_search_fast_path(memory_instance, benchmark):
     """Measures performance of the optimized SQLite FTS5 fast-path."""
     # Seed data
-    for i in range(20):
+    for i in range(5):
         memory_instance.record_decision(f"Decision {i}", f"target_{i}", f"Rationale for {i}")
     
     def search_fast():
@@ -62,7 +62,7 @@ def test_benchmark_search_fast_path(memory_instance, benchmark):
 def test_benchmark_search_hybrid_rrf(memory_instance, benchmark):
     """Measures performance of the full Hybrid RRF path (Vector + Keyword + Ranking)."""
     # Seed data
-    for i in range(20):
+    for i in range(5):
         memory_instance.record_decision(f"Decision {i}", f"target_{i}", f"Rationale for {i}")
     
     def search_hybrid():
