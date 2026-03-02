@@ -148,8 +148,24 @@ class EpisodicStore:
         query = sql_template.format(placeholders)
         
         with self._get_conn() as conn:
-            rows = conn.execute(query, ids).fetchall()
-            return [dict(row) for row in rows]
+            cursor = conn.execute(query, ids)
+            rows = cursor.fetchall()
+            
+            # Ensure we can return a list of dicts regardless of row factory behavior
+            cols = [col[0] for col in cursor.description] if cursor.description else ["id", "source", "kind", "content", "context", "timestamp", "status", "linked_id", "link_strength"]
+            
+            result = []
+            for row in rows:
+                if isinstance(row, dict):
+                    result.append(row)
+                elif hasattr(row, 'keys'):
+                    result.append(dict(row))
+                elif hasattr(row, '_mapping'):
+                    result.append(dict(row._mapping))
+                else:
+                    # It's a tuple
+                    result.append(dict(zip(cols, row)))
+            return result
 
     def query(self, limit: int = 100, status: Optional[str] = 'active', after_id: Optional[int] = None, order: str = 'DESC') -> List[Dict[str, Any]]:
         with self._get_conn() as conn:
