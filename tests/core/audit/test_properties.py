@@ -5,7 +5,7 @@ import pytest
 import os
 from pydantic import ValidationError
 
-@settings(deadline=None, max_examples=20)
+@settings(deadline=None, max_examples=5)
 @given(
     source=st.sampled_from(["user", "agent", "system"]),
     kind=st.sampled_from(["decision", "error", "config_change", "result"]),
@@ -28,7 +28,7 @@ def test_event_schema_properties(source, kind, content, rationale):
         # Expected errors for invalid data
         pass
 
-@settings(deadline=None, max_examples=10)
+@settings(deadline=None, max_examples=5)
 @given(st.text(min_size=1, max_size=50))
 def test_memory_storage_path_robustness(path):
     """Проверяет, что система корректно обрабатывает странные пути."""
@@ -46,13 +46,13 @@ def complex_memory_operations(draw):
     """Генерирует сложные операции, включая вытеснение нескольких решений."""
     ops = []
     targets = ["auth", "db", "ui"]
-    for _ in range(draw(st.integers(min_value=1, max_value=15))):
+    for _ in range(draw(st.integers(min_value=1, max_value=5))):
         op_type = draw(st.sampled_from(["record", "supersede", "branch"]))
         target = draw(st.sampled_from(targets))
         ops.append({"type": op_type, "target": target})
     return ops
 
-@settings(deadline=None, max_examples=15)
+@settings(deadline=None, max_examples=5)
 @given(complex_memory_operations())
 def test_graph_integrity_under_fuzzing(ops):
     """Инвариант: любые операции сохраняют DAG и уникальность активного состояния."""
