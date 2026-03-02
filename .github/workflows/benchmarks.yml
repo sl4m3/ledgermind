@@ -40,7 +40,7 @@ jobs:
         # Use single worker for benchmarks to ensure stability
         # Force exactly 5 rounds by setting min-rounds=5 and very small max-time
         export LEDGERMIND_MODEL_PATH=$(pwd)/.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf
-        pytest tests/core/performance/test_bench_ops.py -n0 --benchmark-json output.json --benchmark-min-rounds=5 --benchmark-max-time=0.000001
+        pytest tests/core/performance/bench_ops.py -n0 --benchmark-json output.json --benchmark-min-rounds=5 --benchmark-max-time=0.000001
 
     - name: Upload Benchmark Results
       uses: actions/upload-artifact@v4
