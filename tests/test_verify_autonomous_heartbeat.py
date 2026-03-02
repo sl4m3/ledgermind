@@ -36,7 +36,7 @@ class TestHeartbeat(unittest.TestCase):
         print("Manually triggering startup/maintenance tasks...")
         server.worker._run_health_check()
         server.worker._run_git_sync()
-        server.worker._run_reflection()
+        server.worker._run_maintenance()
         
         # 4. Git GC should NOT have run yet (since 24h haven't passed)
         last_gc_val = self.memory.semantic.meta.get_config("last_git_gc_time")

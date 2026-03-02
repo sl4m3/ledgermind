@@ -1,18 +1,18 @@
-# Latest Release: v3.2.0
+# Latest Release: v3.2.1
 
 ## March 2, 2026
 
-LedgerMind v3.2.0 focus on architectural scalability through cumulative metrics
-and enhanced interactive configuration.
+LedgerMind v3.2.1 focuses on advanced knowledge processing through iterative
+enrichment and high-signal compressive rationales.
 
 ### Highlights
 
-- **Cumulative Metrics:** Mathematical model for incremental stability and
-  frequency updates without storing historical event IDs.
-- **Interactive Model Selection:** Specify and validate custom models (e.g.,
-  `gemini-2.0-flash`) directly during project initialization.
-- **Architect Prompts:** New high-standard documentation templates for
-  knowledge enrichment.
-- **Bug Fixes:** Resolved critical UnboundLocalError in core integrity checks.
+- **Iterative Enrichment:** Recursive refinement of knowledge artifacts for
+  deeper insights.
+- **Compressive Rationale:** Condensing complex logs into concise, high-signal
+  technical intelligence.
+- **Asynchronous Reliability:** Stable, non-blocking LLM enrichment for all
+  knowledge types.
+- **Refinement:** Improved background processing resilience and stability.
 
-[View full v3.2.0 changelog](./v3.2.0.md)
+[View full v3.2.1 changelog](./v3.2.1.md)

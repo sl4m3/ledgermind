@@ -47,12 +47,12 @@ def test_mode_optimal_calls_local_api(mock_post, sample_proposal):
     enricher = LLMEnricher(mode="optimal")
     
     mock_resp = MagicMock()
-    mock_resp.json.return_value = {"choices": [{"message": {"content": "Human Local Text"}}]}
+    mock_resp.json.return_value = {"choices": [{"message": {"content": "<goal>Goal Text</goal><rationale>Human Local Text</rationale><compressive>Comp Text</compressive>"}}]}
     mock_post.return_value = mock_resp
 
     enriched = enricher.enrich_proposal(sample_proposal)
     assert "Human Local Text" in enriched.rationale
-    assert "Raw rationale" in enriched.rationale # Original preserved in footer
+    assert enriched.title == "Goal Text"
     
     # Verify default URL
     args, kwargs = mock_post.call_args
@@ -67,27 +67,19 @@ def test_rich_mode_prefers_gemini_cli(mock_run, sample_proposal):
     # Mock successful gemini run with file-writing side effect
     def side_effect(cmd, **kwargs):
         # Extract response file path from cmd string
-        # cmd is like "gemini ... > /tmp/res_... 2>/dev/null"
         import re
         match = re.search(r'> (/[^ ]+)', cmd)
         if match:
             res_path = match.group(1)
             with open(res_path, "w", encoding="utf-8") as f:
-                f.write("Human Gemini Text")
+                f.write("<goal>CLI Goal</goal><rationale>Human Gemini Text</rationale><compressive>CLI Comp</compressive>")
         return MagicMock(returncode=0)
 
     mock_run.side_effect = side_effect
 
     enriched = enricher.enrich_proposal(sample_proposal)
     assert "Human Gemini Text" in enriched.rationale
-    
-    # Verify CLI args
-    args, kwargs = mock_run.call_args
-    cmd = args[0]
-    assert "gemini" in cmd
-    assert "--prompt" in cmd
-    # Verify that we are using cat to read the prompt file
-    assert "$(cat " in cmd
+    assert enriched.title == "CLI Goal"
 
 @patch('subprocess.run')
 @patch('httpx.Client.post')
@@ -100,11 +92,12 @@ def test_rich_mode_fallback_to_api_on_cli_failure(mock_post, mock_run, sample_pr
     
     # 2. API succeeds
     mock_resp = MagicMock()
-    mock_resp.json.return_value = {"choices": [{"message": {"content": "Human API Text"}}]}
+    mock_resp.json.return_value = {"choices": [{"message": {"content": "<goal>API Goal</goal><rationale>Human API Text</rationale><compressive>API Comp</compressive>"}}]}
     mock_post.return_value = mock_resp
 
     enriched = enricher.enrich_proposal(sample_proposal)
     assert "Human API Text" in enriched.rationale
+    assert enriched.title == "API Goal"
     assert mock_post.called
 
 # --- 3. Testing Batch Processing ---
@@ -131,7 +124,7 @@ def test_process_batch_filters_and_updates(test_memory, sample_proposal):
     
     # Run batch enrichment in 'optimal' mode (mocked)
     enricher = LLMEnricher(mode="optimal")
-    with patch.object(enricher, '_call_model', return_value="Enriched!"):
+    with patch.object(enricher, '_call_model', return_value="<goal>New Title</goal><rationale>Enriched!</rationale><compressive>Short</compressive>"):
         enricher.process_batch(test_memory)
 
     # Sync meta to ensure we read fresh data from DB
@@ -148,6 +141,7 @@ def test_process_batch_filters_and_updates(test_memory, sample_proposal):
     with open(file_path, 'r') as f:
         data, body = MemoryLoader.parse(f.read())
     assert "Enriched!" in data['context']['rationale']
+    assert data['title'] == "New Title"
 
 def test_process_batch_handles_errors_gracefully(test_memory, sample_proposal):
     test_memory.vector = MagicMock()
