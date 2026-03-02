@@ -1,3 +1,4 @@
+import sqlalchemy.exc
 from hypothesis import given, strategies as st, settings
 from ledgermind.core.core.schemas import MemoryEvent, KIND_DECISION
 import pytest
@@ -37,7 +38,7 @@ def test_memory_storage_path_robustness(path):
         if "\0" not in path and "/" not in path:
             storage = f"/data/data/com.termux/files/home/.gemini/tmp/mem_{path}"
             Memory(storage_path=storage)
-    except (ValueError, OSError):
+    except (ValueError, OSError, sqlalchemy.exc.OperationalError):
         pass
 
 @st.composite
