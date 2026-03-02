@@ -176,7 +176,10 @@ class ReflectionEngine:
         # Update evidence list (queue for LLM enrichment)
         # Only add IDs that aren't already in the pending list
         new_ids = [eid for eid in stats['all_ids'] if eid not in stream.evidence_event_ids]
-        stream.evidence_event_ids.extend(new_ids)
+        if new_ids:
+            stream.evidence_event_ids.extend(new_ids)
+            if arbitration_mode != "lite":
+                stream.enrichment_status = "pending"
         
         # Link procedural instructions if provided
         if procedural_links:

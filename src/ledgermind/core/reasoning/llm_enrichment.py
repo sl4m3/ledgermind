@@ -100,23 +100,33 @@ class LLMEnricher:
                     status = "pending"
 
                 if status == "completed":
+                    # Ensure rationale is a clean string
+                    final_rationale = str(enriched.rationale)
+                    
+                    # --- OPTIMIZATION: Evidence Compression (Counter) ---
+                    orig_ids = proposal.evidence_event_ids or []
+                    total_count = len(orig_ids)
+                    # Keep only last 5 IDs for traceability
+                    compressed_ids = orig_ids[-5:] if total_count > 5 else orig_ids
+                    
                     updates = {
-                        "rationale": enriched.rationale,
+                        "rationale": final_rationale,
                         "enrichment_status": "completed",
-                        "evidence_event_ids": []
+                        "evidence_event_ids": compressed_ids,
+                        "total_evidence_count": total_count
                     }
                     
                     if is_procedural:
-                        updates["procedural"] = None
+                        updates["procedural"] = None # Clear raw steps after conversion to text
                     
                     with memory.semantic.transaction():
                         memory.semantic.update_decision(
-                            filename=fid,
-                            updates=updates,
-                            commit_msg=f"Enrich proposal {fid} via LLM ({self.mode})"
+                            fid,
+                            updates,
+                            f"Enrich proposal {fid} via LLM ({self.mode})"
                         )
                     
-                    print(f"✓ Successfully enriched: {fid}")
+                    print(f"✓ Successfully enriched and compressed: {fid} (Total evidence: {total_count})")
             except Exception as e:
                 logger.error(f"Failed to enrich proposal {fid}: {e}")
 
@@ -194,7 +204,8 @@ class LLMEnricher:
             "- Show dependencies and flow between steps.\n"
             "- Remove noise, abstract technical details where possible, but keep important parameters and outcomes.\n"
             "- Use concise, professional language.\n"
-            "- IMPORTANT: If previous context is provided, INTEGRATE the new steps into the existing guide. Re-order, group, or refine the steps to maintain a logical and coherent flow. Update the 'Overall Objective' if needed.\n\n"
+            "- IMPORTANT: If previous context is provided, INTEGRATE the new steps into the existing guide. Re-order, group, or refine the steps to maintain a logical and coherent flow. Update the 'Overall Objective' if needed.\n"
+            "- LANGUAGE: Detect the primary language used in the provided execution logs (the user's prompts) and respond ONLY in that language. Maintain technical terms in English where appropriate.\n\n"
             "OUTPUT FORMAT (strictly follow this structure):\n\n"
             "1. **Overall Objective**\n"
             "   One-sentence summary of what this procedure achieves.\n\n"
@@ -235,7 +246,8 @@ class LLMEnricher:
             "- Uncover the core objective (what problem is being solved or opportunity pursued).\n"
             "- Detect recurring patterns in the work style or architectural decisions.\n"
             "- Base every conclusion on concrete evidence from the provided cluster.\n"
-            "- IMPORTANT: If previous context is provided, INTEGRATE the new findings into a single, updated, and coherent summary. Refine the technical shift and goal if the new logs provide more clarity.\n\n"
+            "- IMPORTANT: If previous context is provided, INTEGRATE the new findings into a single, updated, and coherent summary. Refine the technical shift and goal if the new logs provide more clarity.\n"
+            "- LANGUAGE: Detect the primary language used in the provided execution logs (the user's prompts) and respond ONLY in that language. Maintain technical terms in English where appropriate.\n\n"
             "OUTPUT FORMAT (strictly follow this structure):\n\n"
             "1. **Detected Technical Shift**\n"
             "   One-sentence summary of the main change happening.\n\n"
@@ -253,24 +265,46 @@ class LLMEnricher:
         )
 
     def _call_cli_model(self, prompt: str) -> Optional[str]:
-        """Attempts to use an already authorized CLI client like gemini or claude."""
+        """
+        Attempts to use an already authorized CLI client like gemini or claude.
+        Uses a temporary file buffer for maximum reliability in Termux/Mobile.
+        """
+        import tempfile
+        import uuid
+        
+        prompt_file = os.path.join(tempfile.gettempdir(), f"lm_prompt_{uuid.uuid4().hex[:8]}.txt")
+        response_file = os.path.join(tempfile.gettempdir(), f"lm_res_{uuid.uuid4().hex[:8]}.txt")
+        
         try:
-            if self.client_name == "gemini":
-                cmd = ["gemini"]
-                if self.model_name:
-                    cmd.extend(["--model", self.model_name])
-                cmd.extend(["--prompt", prompt])
-                
-                result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=60) # nosec B603 B607
-                return result.stdout.strip()
+            # Write prompt to buffer
+            with open(prompt_file, "w", encoding="utf-8") as f:
+                f.write(prompt)
             
+            if self.client_name == "gemini":
+                # Using shell redirect for 100% reliable capture
+                cmd = f"gemini --model {self.model_name or 'gemini-2.5-flash-lite'} --prompt \"$(cat {prompt_file})\" > {response_file} 2>/dev/null"
+                subprocess.run(cmd, shell=True, check=True, timeout=120) # nosec B602
+                
             elif self.client_name == "claude":
-                cmd = ["claude", prompt]
-                result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=60) # nosec B603 B607
-                return result.stdout.strip()
+                cmd = f"claude \"$(cat {prompt_file})\" > {response_file} 2>/dev/null"
+                subprocess.run(cmd, shell=True, check=True, timeout=120) # nosec B602
+            
+            # Read response from buffer
+            if os.path.exists(response_file):
+                with open(response_file, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    # Filter out possible CLI headers
+                    if "Loaded cached credentials" in content:
+                        lines = content.split("\n")
+                        content = "\n".join([l for l in lines if "Loaded cached" not in l and "Listening for changes" not in l]).strip()
+                    return content
                 
         except Exception as e:
-            logger.debug(f"CLI enrichment failed for {self.client_name}: {e}")
+            logger.debug(f"Buffered CLI enrichment failed for {self.client_name}: {e}")
+        finally:
+            # Cleanup
+            for f in [prompt_file, response_file]:
+                if os.path.exists(f): os.remove(f)
         
         return None
 

@@ -29,6 +29,7 @@ def _is_transformers_available():
     return _TRANSFORMERS_AVAILABLE
 
 def _is_llama_available():
+    global LLAMA_AVAILABLE
     if LLAMA_AVAILABLE is not None:
         return LLAMA_AVAILABLE
         
@@ -42,6 +43,7 @@ def _is_llama_available():
     return _LLAMA_AVAILABLE
 
 def _is_annoy_available():
+    global ANNOY_AVAILABLE
     if ANNOY_AVAILABLE is not None:
         return ANNOY_AVAILABLE
         
@@ -55,25 +57,9 @@ def _is_annoy_available():
     return _ANNOY_AVAILABLE
 
 # Compatibility flags (Legacy globals)
-# We initialize them to None so tests can still patch them, 
-# but the core logic now uses _is_... functions.
 EMBEDDING_AVAILABLE = None
 LLAMA_AVAILABLE = None
 ANNOY_AVAILABLE = None
-
-def _is_llama_available():
-    global LLAMA_AVAILABLE
-    if LLAMA_AVAILABLE is not None:
-        return LLAMA_AVAILABLE
-        
-    global _LLAMA_AVAILABLE
-    if _LLAMA_AVAILABLE is None:
-        try:
-            from llama_cpp import Llama
-            _LLAMA_AVAILABLE = True
-        except ImportError:
-            _LLAMA_AVAILABLE = False
-    return _LLAMA_AVAILABLE
 
 VECTOR_AVAILABLE = True # NumPy is always available
 
@@ -288,7 +274,7 @@ class VectorStore:
             
             # Scenario A: GGUF Model (4-bit efficient)
             if self.model_name.lower().endswith(".gguf"):
-                if not LLAMA_AVAILABLE:
+                if not _is_llama_available():
                     raise ImportError("llama-cpp-python not found. Required for GGUF models. Run: pip install llama-cpp-python")
                 
                 # Auto-download for known models if file is missing
@@ -300,7 +286,7 @@ class VectorStore:
                 return _MODEL_CACHE[cache_key]
 
             # Scenario B: Standard Transformers Model
-            if not EMBEDDING_AVAILABLE:
+            if not _is_transformers_available():
                 raise ImportError("sentence-transformers not found.")
             
             # Advanced model configuration
