@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772465567851,
+  "lastUpdate": 1772469114911,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1035,6 +1035,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009453699141923938",
             "extra": "mean: 1.1257634000003236 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "6aea03984d77e149f2cfb46cc2f89ab843d8a9f2",
+          "message": "fix(core): enable reliable and asynchronous LLM enrichment for all knowledge types\n\n- BackgroundWorker: Now calls 'run_maintenance()' instead of individual methods to ensure the enrichment queue is processed asynchronously.\n- Transitions: Relaxed the I1 immutability constraint to allow the enrichment worker to safely update the 'rationale' field of decisions.\n- LLMEnricher: Fixed the CLI prompt execution to explicitly force the 'gemini-2.5-flash-lite' model and avoid resource exhaustion.\n- LLMEnricher: Ordered evidence event IDs to process oldest first and limited the log payload to 100 events to prevent ARG_MAX overflow.\n- EpisodicStore: Fixed a Row conversion TypeError that broke the 'get_by_ids' method and prevented log fetching.",
+          "timestamp": "2026-03-02T19:29:24+03:00",
+          "tree_id": "c335a5c0cd26651fc39fa36feffc52eab60eae29",
+          "url": "https://github.com/sl4m3/ledgermind/commit/6aea03984d77e149f2cfb46cc2f89ab843d8a9f2"
+        },
+        "date": 1772469114187,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 89.12697119230545,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00019067534730547324",
+            "extra": "mean: 11.219948199993723 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 20642.98778530203,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008174728447398723",
+            "extra": "mean: 48.44259999572387 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 879.5679702795885,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008890055706072232",
+            "extra": "mean: 1.1369218000083947 msec\nrounds: 5"
           }
         ]
       }
