@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772394640864,
+  "lastUpdate": 1772411755755,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -630,6 +630,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00012495205786034334",
             "extra": "mean: 1.2629593999974986 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "89f36dc2b7494188c372d9500e254b498cd54dad",
+          "message": "fix(cli): prevent duplicate prompt recording by relying on Stop hook sync",
+          "timestamp": "2026-03-02T03:29:31+03:00",
+          "tree_id": "8d687eefa3e4a6623fbaa6e4440192caac3bac7b",
+          "url": "https://github.com/sl4m3/ledgermind/commit/89f36dc2b7494188c372d9500e254b498cd54dad"
+        },
+        "date": 1772411754852,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 71.53956199307034,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001630778475136074",
+            "extra": "mean: 13.978279599990628 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 20088.792467387342,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000880896824162637",
+            "extra": "mean: 49.778999988348005 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 788.6588336034898,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00012751812006865895",
+            "extra": "mean: 1.2679753999975674 msec\nrounds: 5"
           }
         ]
       }
