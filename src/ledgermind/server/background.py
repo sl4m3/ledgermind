@@ -13,34 +13,114 @@ class BackgroundWorker:
     """
     Active Runtime Loop ("The Heartbeat") for LedgerMind.
     Ensures the system is always alive, healthy, and evolving.
-    Uses threading for compatibility with sync/async environments.
+    Uses multi-threading for independent maintenance and enrichment cycles.
     """
     def __init__(self, memory: Memory, interval_seconds: int = 300):
         self.memory = memory
         self.interval = interval_seconds
+        self.enrichment_interval = 60 # Check enrichment queue more frequently
+        
+        # Setup specific file logging for the background worker
+        log_dir = os.path.join(os.getcwd(), "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        root_logger = logging.getLogger("ledgermind")
+        fh = logging.FileHandler(os.path.join(log_dir, "background_worker.log"))
+        fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        root_logger.addHandler(fh)
+        root_logger.setLevel(logging.INFO)
+        
         self.running = False
-        self.thread: Optional[threading.Thread] = None
+        self.maintenance_thread: Optional[threading.Thread] = None
+        self.enrichment_thread: Optional[threading.Thread] = None
+        
         self.last_run: Dict[str, datetime] = {}
         self.status = "stopped"
         self.errors: List[str] = []
 
     def start(self):
         if self.running: return
+
+        # Prevent multiple workers from running against the same storage
+        is_running, other_pid = self._is_worker_running()
+        if is_running:
+            if other_pid == os.getpid():
+                return
+            logger.info(f"Background Worker is already handled by process {other_pid}. Skipping.")
+            self.status = "busy"
+            return
+
         self.running = True
         self.status = "running"
-        self.thread = threading.Thread(target=self._loop, name="LedgermindBackgroundWorker", daemon=True)
-        self.thread.start()
-        logger.info("Background Worker started.")
+        self._create_lock()
+        
+        # 1. Main Maintenance Thread (Integrity, Reflection, Decay, Merge)
+        self.maintenance_thread = threading.Thread(
+            target=self._maintenance_loop, 
+            name="LedgermindMaintenanceWorker", 
+            daemon=True
+        )
+        self.maintenance_thread.start()
+        
+        # 2. Enrichment Thread (LLM Processing)
+        self.enrichment_thread = threading.Thread(
+            target=self._enrichment_loop,
+            name="LedgermindEnrichmentWorker",
+            daemon=True
+        )
+        self.enrichment_thread.start()
+        
+        logger.info("Background Worker started (Maintenance & Enrichment).")
 
     def stop(self):
         self.running = False
-        if self.thread and self.thread.is_alive():
-            self.thread.join(timeout=2.0)
+        if self.maintenance_thread and self.maintenance_thread.is_alive():
+            self.maintenance_thread.join(timeout=2.0)
+        if self.enrichment_thread and self.enrichment_thread.is_alive():
+            self.enrichment_thread.join(timeout=2.0)
         self.status = "stopped"
+        self._remove_lock()
         logger.info("Background Worker stopped.")
 
-    def _loop(self):
-        # Initial grace period (Reduced for faster responsiveness in tests)
+    def _is_worker_running(self) -> tuple[bool, Optional[int]]:
+        """Checks if a worker is already running for this storage path. Returns (is_running, pid)."""
+        pid_file = os.path.join(self.memory.storage_path, "worker.pid")
+        if not os.path.exists(pid_file):
+            return False, None
+        
+        try:
+            with open(pid_file, 'r') as f:
+                content = f.read().strip()
+                if not content: return False, None
+                pid = int(content)
+            
+            # Check if process is alive (Unix/Android)
+            os.kill(pid, 0)
+            return True, pid
+        except (OSError, ValueError):
+            # If process is not alive or file is corrupt, treat as not running
+            return False, None
+
+    def _create_lock(self):
+        """Creates a PID file to lock this storage for current process."""
+        pid_file = os.path.join(self.memory.storage_path, "worker.pid")
+        try:
+            with open(pid_file, 'w') as f:
+                f.write(str(os.getpid()))
+        except Exception as e:
+            logger.warning(f"Could not create worker lock file: {e}")
+
+    def _remove_lock(self):
+        """Removes the PID lock file."""
+        pid_file = os.path.join(self.memory.storage_path, "worker.pid")
+        if os.path.exists(pid_file):
+            try:
+                os.remove(pid_file)
+            except Exception as e:
+                logger.debug(f"Could not remove worker lock file: {e}")
+
+    def _maintenance_loop(self):
+        """Cycle for core system maintenance tasks."""
+        # Initial grace period
         time.sleep(2)
         
         while self.running:
@@ -53,27 +133,68 @@ class BackgroundWorker:
                 # 2. Git Sync (Ingest external changes)
                 self._run_git_sync()
                 
-                # 3. Full Maintenance Cycle (Reflection, Decay, Enrichment, Integrity)
+                # 3. Core Maintenance Cycle (Reflection, Decay, Integrity, Merging)
                 self._run_maintenance()
                 
                 elapsed = time.time() - start_time
                 sleep_time = max(1.0, self.interval - elapsed)
                 
-                # Sleep in chunks to allow faster stopping
                 for _ in range(int(sleep_time)):
                     if not self.running: break
                     time.sleep(1)
                 
             except Exception as e:
-                # Handle SQLite not ready yet or other startup race conditions
                 if "no such table" in str(e).lower():
-                    logger.debug("Background Worker: Database not initialized yet. Waiting...")
-                    time.sleep(5)
+                    logger.debug("Maintenance Loop: Database not initialized yet. Waiting...")
+                    time.sleep(10)
                     continue
 
-                logger.error(f"Background Worker crashed: {e}")
-                self.errors.append(f"{datetime.now()}: {str(e)}")
-                time.sleep(60) # Backoff on crash
+                logger.error(f"Maintenance Loop crashed: {e}")
+                self.errors.append(f"Maint-{datetime.now()}: {str(e)}")
+                time.sleep(60)
+
+    def _enrichment_loop(self):
+        """Cycle for LLM enrichment tasks. Runs independently of core maintenance."""
+        # Longer grace period to let maintenance finish initial syncs
+        time.sleep(15)
+        
+        while self.running:
+            try:
+                start_time = time.time()
+                
+                # Use self.memory directly - our SQLite stores are configured 
+                # with check_same_thread=False, making them thread-safe.
+                # Dual initialization of Memory/VectorStore causes OpenMP crashes.
+                arbitration_mode = self.memory.semantic.meta.get_config("arbitration_mode", "lite")
+                
+                if arbitration_mode != "lite":
+                    from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
+                    enricher = LLMEnricher(mode=arbitration_mode)
+                    
+                    logger.info(f"Starting Enrichment Cycle (mode={arbitration_mode})...")
+                    results = enricher.process_batch(self.memory)
+                    
+                    if results:
+                        for res in results:
+                            logger.info(f"Background Enrichment: {res['fid']} ({res['status']}, {res['events']} events)")
+                    
+                    self.last_run["enrichment"] = datetime.now()
+                
+                elapsed = time.time() - start_time
+                sleep_time = max(5.0, self.enrichment_interval - elapsed)
+                
+                for _ in range(int(sleep_time)):
+                    if not self.running: break
+                    time.sleep(1)
+                    
+            except Exception as e:
+                if "no such table" in str(e).lower():
+                    time.sleep(15)
+                    continue
+                
+                logger.error(f"Enrichment Loop crashed: {e}")
+                self.errors.append(f"Enrich-{datetime.now()}: {str(e)}")
+                time.sleep(120)
 
     def _run_health_check(self):
         """Monitors system health and attempts repairs."""
@@ -101,8 +222,8 @@ class BackgroundWorker:
     def _run_git_sync(self):
         """Syncs recent git commits to episodic memory."""
         try:
-            # Sync only if git is available and configured
             if self.memory._git_available:
+                # In origin/main it syncs repo_path=".", limit=5
                 count = self.memory.sync_git(repo_path=".", limit=5)
                 if isinstance(count, int) and count > 0:
                     logger.info(f"Background Sync: Indexed {count} commits.")
@@ -112,13 +233,13 @@ class BackgroundWorker:
             logger.warning(f"Git sync failed: {e}")
 
     def _run_maintenance(self):
-        """Runs the full maintenance cycle including reflection, decay, and enrichment."""
+        """Runs the core maintenance cycle including reflection and decay."""
         try:
-            # Run full maintenance every 5 minutes
             last = self.last_run.get("maintenance")
             now = datetime.now()
             
-            if not last or (now - last).total_seconds() > 300: # 5 minutes
+            # Run maintenance every 5 minutes
+            if not last or (now - last).total_seconds() > 300:
                 report = self.memory.run_maintenance()
                 
                 refl_count = report.get("reflection", {}).get("proposals_created", 0)
