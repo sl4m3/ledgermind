@@ -302,4 +302,5 @@ class LedgermindConfig(BaseModel):
     vector_workers: int = Field(default=0, ge=0, description="Number of workers for multi-process encoding. 0 for auto-detection.")
     enable_git: bool = Field(default=True)
     relevance_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    enrichment_model: Optional[str] = Field(default=None, description="Specific model name (e.g., gemini-2.0-flash) for 'rich' arbitration mode.")
 

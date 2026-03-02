@@ -14,9 +14,10 @@ class LLMEnricher:
     using local or remote LLMs based on the selected arbitration mode.
     """
     
-    def __init__(self, mode: str = "lite", client_name: str = "none"):
+    def __init__(self, mode: str = "lite", client_name: str = "none", model_name: Optional[str] = None):
         self.mode = mode.lower()
         self.client_name = client_name.lower()
+        self.model_name = model_name
         self.client = httpx.Client(timeout=60.0)
 
     def process_batch(self, memory: Any):
@@ -46,11 +47,14 @@ class LLMEnricher:
         if not pending_fids:
             return
 
-        # Update client name from config if not provided
+        # Update client and model from config if not provided
         if self.client_name == "none":
             self.client_name = memory.semantic.meta.get_config("client", "none").lower()
+        
+        if self.model_name is None:
+            self.model_name = memory.semantic.meta.get_config("enrichment_model")
 
-        print(f"INFO: Found {len(pending_fids)} tasks pending enrichment (mode={self.mode}, client={self.client_name}).")
+        print(f"INFO: Found {len(pending_fids)} tasks pending enrichment (mode={self.mode}, client={self.client_name}, model={self.model_name or 'default'}).")
 
         for fid in pending_fids:
             try:
@@ -179,7 +183,11 @@ class LLMEnricher:
         """Attempts to use an already authorized CLI client like gemini or claude."""
         try:
             if self.client_name == "gemini":
-                cmd = ["gemini", "--prompt", prompt]
+                cmd = ["gemini"]
+                if self.model_name:
+                    cmd.extend(["--model", self.model_name])
+                cmd.extend(["--prompt", prompt])
+                
                 result = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=60) # nosec B603 B607
                 return result.stdout.strip()
             
