@@ -112,78 +112,27 @@ class DistillationEngine:
             # If success detected, crystallize this trajectory
             if is_success and target != 'unknown':
                 full_events = active_trajectories_by_target.pop(target)
-                proposal = self._create_procedural_proposal(full_events, target)
+                proposal = self._create_trajectory_proposal(full_events, target)
                 if proposal:
                     trajectories.append(proposal)
         
         return trajectories
 
-    def _create_procedural_proposal(self, full_events: List[Dict[str, Any]], target: str) -> Optional[ProposalContent]:
+    def _create_trajectory_proposal(self, full_events: List[Dict[str, Any]], target: str) -> Optional[ProposalContent]:
         """Creates a Proposal based on a chain of events spanning one or more sessions."""
-        steps = []
         evidence_ids = []
         
-        def clean_content(content):
-            if content.strip().startswith('{'):
-                try:
-                    data = json.loads(content)
-                    return data.get('prompt') or data.get('prompt_response') or content
-                except Exception: 
-                    # Not valid JSON or missing keys, return original content
-                    pass
-            return content
-
         for ev in full_events:
             kind = ev.get('kind')
-            # Only include meaningful actions in the procedural steps
-            if kind in ['task', 'call', 'commit_change', 'prompt', 'result', 'decision']:
-                content = clean_content(ev.get('content', ''))
-                if not content or len(content) < 5: continue
-
-                ctx = ev.get('context', {})
-                raw_rationale = ctx.get('rationale') or ctx.get('full_message')
-                changed_files = ctx.get('changed_files', [])
-                
-                if not raw_rationale:
-                    if kind == 'prompt':
-                        raw_rationale = f"User initiative: {content[:3000]}"
-                        if len(content) > 3000: raw_rationale += "..."
-                    elif kind in ('result', 'decision'):
-                        raw_rationale = "System outcome or decision state"
-                    elif kind == 'commit_change':
-                        raw_rationale = content[:3000]
-                        if len(content) > 3000: raw_rationale += "..."
-                        if changed_files:
-                            raw_rationale += f"\nFiles: {', '.join(changed_files)}"
-                    else:
-                        raw_rationale = f"Action: {kind}"
-
-                action_text = f"[{kind.upper()}] {content[:3000]}"
-                if len(content) > 3000: action_text += "..."
-                
-                if kind == 'commit_change':
-                    commit_hash = ctx.get('hash', 'unknown')[:8]
-                    action_text = f"[COMMIT] {commit_hash}: {content[:3000]}"
-                    if len(content) > 3000: action_text += "..."
-
-                steps.append(ProceduralStep(
-                    action=action_text,
-                    rationale=raw_rationale
-                ))
+            if kind in ['task', 'call', 'commit_change', 'prompt', 'result', 'decision', 'error']:
                 evidence_ids.append(ev.get('id', 0))
 
-        if not steps:
+        if not evidence_ids:
             return None
 
         last_id = evidence_ids[-1] if evidence_ids else 0
-        procedural = ProceduralContent(
-            steps=steps,
-            target_task=target,
-            success_evidence_ids=evidence_ids
-        )
-
-        title = f"Procedural Optimization for {target}"
-        rationale = f"Distilled from multi-turn successful trajectory (ending at ID {last_id})"
+        title = f"Trajectory Synthesis for {target}"
+        rationale = f"Observed successful execution trajectory for '{target}' (terminating at ID {last_id}). Analysis of raw logs is required to promote this to procedural knowledge."
 
         return ProposalContent(
             title=title,
@@ -191,8 +140,7 @@ class DistillationEngine:
             status=ProposalStatus.DRAFT,
             rationale=rationale,
             keywords=self._extract_keywords(title, target, rationale),
-            confidence=0.85, # Increased confidence for multi-session patterns
+            confidence=0.85,
             evidence_event_ids=evidence_ids,
-            procedural=procedural,
             enrichment_status="pending"
         )

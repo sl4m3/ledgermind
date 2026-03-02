@@ -6,7 +6,7 @@ import subprocess
 from typing import Dict, Any, Optional, List
 from ledgermind.core.core.schemas import ProposalContent, ProceduralContent
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("ledgermind.core.reasoning.enrichment")
 
 class LLMEnricher:
     """
@@ -20,23 +20,70 @@ class LLMEnricher:
         self.model_name = model_name
         self.client = httpx.Client(timeout=60.0)
 
-    def process_batch(self, memory: Any):
+    def synthesize_merged_rationale(self, rationales: List[str]) -> str:
+        """
+        Synthesizes multiple rationales into a single coherent technical decision.
+        """
+        if self.mode == "lite" or not rationales:
+            return "\n\n".join(rationales)
+
+        # Build prompt for merging
+        combined_text = ""
+        for i, rat in enumerate(rationales):
+            combined_text += f"HYPOTHESIS {i+1}:\n---\n{rat}\n---\n\n"
+
+        prompt = (
+            "You are a Senior Principal Engineer. I am merging multiple semantically identical hypotheses into one canonical decision.\n"
+            "Analyze the rationales below and synthesize them into a single, high-quality, non-redundant architectural guide.\n\n"
+            f"{combined_text}"
+            "RESPONSE FORMAT (STRICT):\n"
+            "1. <goal>One sentence summary of the unified intent.</goal>\n"
+            "2. <rationale>Full, detailed unified architectural rationale. Merge logic, resolve contradictions, keep it professional.</rationale>\n"
+            "3. <compressive>Exactly 3 sentences summarizing the final state.</compressive>\n\n"
+            "Ensure technical terms remain in English. Output must be in the same language as the input rationales."
+        )
+
+        try:
+            response_text = None
+            if self.mode == "optimal":
+                response_text = self._call_model(prompt, use_local=True)
+            elif self.mode == "rich":
+                response_text = self._call_cli_model(prompt)
+                if not response_text:
+                    response_text = self._call_model(prompt, use_local=False)
+
+            if response_text:
+                import re
+                rationale_match = re.search(r'<rationale>(.*?)</rationale>', response_text, re.DOTALL | re.IGNORECASE)
+                if rationale_match:
+                    return rationale_match.group(1).strip()
+        except Exception as e:
+            logger.warning(f"Rationale synthesis failed: {e}")
+
+        return "\n\n".join(rationales)
+
+    def process_batch(self, memory: Any) -> List[Dict[str, Any]]:
         """
         Scans semantic store for proposals pending enrichment and processes them iteratively.
+        Returns a list of processed results: [{"fid": str, "status": str, "events": int}]
         """
+        results = []
         if self.mode == "lite":
-            return
+            return results
 
         # 1. Find pending proposals via direct SQLite query
-        db_path = os.path.join(memory.semantic.repo_path, "semantic_meta.db")
+        db_path = os.path.abspath(os.path.join(memory.semantic.repo_path, "semantic_meta.db"))
+        # ... (rest of search logic)
+        logger.info(f"Enrichment: Checking database at {db_path}")
         if not os.path.exists(db_path):
+            logger.warning(f"Enrichment: Database not found at {db_path}")
             return
 
         try:
             import sqlite3
             conn = sqlite3.connect(db_path)
             # Find any record with pending enrichment
-            query = "SELECT fid FROM semantic_meta WHERE context_json LIKE '%\"enrichment_status\": \"pending\"%'"
+            query = "SELECT fid FROM semantic_meta WHERE (enrichment_status = 'pending' OR status = 'draft') AND kind = 'proposal' LIMIT 10"
             rows = conn.execute(query).fetchall()
             pending_fids = [row[0] for row in rows]
             conn.close()
@@ -54,7 +101,7 @@ class LLMEnricher:
         if self.model_name is None:
             self.model_name = memory.semantic.meta.get_config("enrichment_model")
 
-        print(f"INFO: Found {len(pending_fids)} tasks pending enrichment (mode={self.mode}, client={self.client_name}, model={self.model_name or 'default'}).")
+        logger.info(f"Enrichment: Found {len(pending_fids)} tasks (mode={self.mode}, client={self.client_name}, model={self.model_name or 'default'}).")
 
         for fid in pending_fids:
             try:
@@ -82,48 +129,49 @@ class LLMEnricher:
 
                 # --- ITERATIVE CHUNKING LOGIC ---
                 all_ids = sorted(proposal.evidence_event_ids or [])
-                is_procedural = hasattr(proposal, 'procedural') and proposal.procedural and proposal.procedural.steps
                 
                 # If no logs to process, just mark as completed
-                if not all_ids and not is_procedural:
+                if not all_ids:
                     with memory.semantic.transaction():
                         memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, "Enrichment: No evidence to process.")
+                    logger.info(f"Enrichment: No evidence for {fid}. Completed.")
                     continue
 
-                # Process in chunks of 100
-                CHUNK_SIZE = 100
+                # Process in chunks of 50
+                CHUNK_SIZE = 50
                 processed_in_this_run = 0
                 
-                # For procedural, we process once since they are defined by steps, not just log clusters
-                # For behavioral, we can iterate
                 status = "pending"
                 while True:
                     current_ids = all_ids[:CHUNK_SIZE]
                     remaining_ids = all_ids[CHUNK_SIZE:]
+                    
+                    # Last chunk is determined at the start of iteration
+                    is_last_chunk = len(remaining_ids) == 0
                     
                     cluster_logs = None
                     if current_ids:
                         events = memory.episodic.get_by_ids(current_ids)
                         log_entries = []
                         for ev in events:
+                            # NO TRUNCATION as requested
                             log_entries.append(f"[{ev['kind'].upper()}] {ev['content']}")
                         cluster_logs = "\n".join(log_entries)
 
                     # Call LLM
-                    old_rationale = proposal.rationale
-                    proposal = self.enrich_proposal(proposal, cluster_logs=cluster_logs, file_path=file_path)
+                    old_rationale = str(proposal.rationale)
+                    proposal = self.enrich_proposal(proposal, cluster_logs=cluster_logs, file_path=file_path, memory=memory)
                     
                     # Verification: Did anything change?
-                    # Note: rationale is updated inside enrich_proposal
-                    if str(proposal.rationale) == str(old_rationale):
-                        # LLM failed or returned same text, stop processing this file for now
+                    if str(proposal.rationale) == old_rationale:
+                        logger.warning(f"Enrichment: LLM returned identical rationale for {fid}. Breaking cycle.")
+                        # If it's the only chunk, we might as well mark it finished to avoid infinite loops
+                        if is_last_chunk: status = "completed"
+                        else: status = "pending"
                         break
 
                     # Update local state
                     proposal.evidence_event_ids = remaining_ids
-                    
-                    # If this is the last chunk or it was procedural (single pass)
-                    is_last_chunk = len(remaining_ids) == 0
                     
                     status = "pending"
                     if is_last_chunk:
@@ -137,11 +185,8 @@ class LLMEnricher:
                         "compressive_rationale": proposal.compressive_rationale,
                         "enrichment_status": status,
                         "evidence_event_ids": proposal.evidence_event_ids,
-                        "total_evidence_count": getattr(proposal, 'total_evidence_count', 0) + len(current_ids)
+                        "total_evidence_count": (getattr(proposal, 'total_evidence_count', 0) or 0) + len(current_ids)
                     }
-                    
-                    if is_procedural and is_last_chunk:
-                        updates["procedural"] = None # Clear raw steps after conversion
 
                     # Save intermediate or final progress
                     with memory.semantic.transaction():
@@ -157,37 +202,30 @@ class LLMEnricher:
                     if is_last_chunk or is_procedural:
                         break
                     
-                    # Limit to one chunk per FID per process_batch call to prevent long hangs?
-                    # Or process all? Let's process all but with a safety break
                     if processed_in_this_run >= 500: # Safety break for very large files
                         break
 
-                print(f"✓ Processed {processed_in_this_run} events for {fid}. Status: {status}")
+                if status == "completed":
+                    # Extra safety: update enrichment_status in case break happened before update
+                    with memory.semantic.transaction():
+                        memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, "Finalizing enrichment")
+
+                logger.info(f"Enrichment: Processed {processed_in_this_run} events for {fid}. Final Status: {status}")
+                results.append({"fid": fid, "status": status, "events": processed_in_this_run})
 
             except Exception as e:
                 logger.error(f"Failed to enrich proposal {fid}: {e}")
-                import traceback
-                logger.error(traceback.format_exc())
+        
+        return results
 
-    def enrich_proposal(self, proposal: Any, cluster_logs: Optional[str] = None, file_path: Optional[str] = None) -> Any:
+    def enrich_proposal(self, proposal: Any, cluster_logs: Optional[str] = None, file_path: Optional[str] = None, memory: Any = None) -> Any:
         """
-        Takes a raw distilled proposal and converts it into a meaningful summary.
+        Takes a raw distilled proposal and converts it into a meaningful summary using event logs.
         """
-        if self.mode == "lite":
+        if self.mode == "lite" or not cluster_logs:
             return proposal
             
-        is_procedural = hasattr(proposal, 'procedural') and proposal.procedural and proposal.procedural.steps
-        is_cluster = cluster_logs is not None
-        
-        if not is_procedural and not is_cluster:
-            return proposal
-
-        # Format input text for LLM
-        if is_procedural:
-            raw_text = self._format_procedural_text(proposal)
-            prompt = self._build_procedural_prompt(raw_text, existing_rationale=proposal.rationale)
-        else:
-            prompt = self._build_behavioral_prompt(proposal.target, cluster_logs, existing_rationale=proposal.rationale)
+        prompt = self._build_enrichment_prompt(proposal.target, cluster_logs, existing_rationale=proposal.rationale)
         
         try:
             response_text = None
@@ -199,7 +237,6 @@ class LLMEnricher:
                     response_text = self._call_model(prompt, use_local=False)
 
             if response_text:
-                # Parse structured response
                 import re
                 goal_match = re.search(r'<goal>(.*?)</goal>', response_text, re.DOTALL | re.IGNORECASE)
                 rationale_match = re.search(r'<rationale>(.*?)</rationale>', response_text, re.DOTALL | re.IGNORECASE)
@@ -210,66 +247,36 @@ class LLMEnricher:
                 if rationale_match:
                     proposal.rationale = rationale_match.group(1).strip()
                 if compressive_match:
-                    # Append technical note to compressive summary
                     display_path = file_path if file_path else (proposal.decision_id if hasattr(proposal, 'decision_id') else 'this file')
                     path_note = f"\n\n*Technical Note: Full logs available via 'cat {display_path}'. Do not use read_file.*"
                     proposal.compressive_rationale = compressive_match.group(1).strip() + path_note
                     
         except Exception as e:
-            logger.warning(f"LLM Enrichment failed (fallback to current data): {e}")
+            logger.warning(f"LLM Enrichment failed: {e}")
 
         return proposal
 
-    def _format_procedural_text(self, proposal: Any) -> str:
-        text = f"Target: {proposal.target}\n"
-        for i, step in enumerate(proposal.procedural.steps):
-            text += f"Step {i+1}: {step.action}\nRationale: {step.rationale}\n\n"
-        return text
-
-    def _build_procedural_prompt(self, raw_text: str, existing_rationale: Optional[str] = None) -> str:
+    def _build_enrichment_prompt(self, target: str, logs: str, existing_rationale: Optional[str] = None) -> str:
         context_part = ""
-        if existing_rationale:
+        if existing_rationale and "Observed emerging activity" not in existing_rationale and "Analysis of raw logs" not in existing_rationale:
             context_part = (
                 "CURRENT DETAILED RATIONALE:\n"
                 "--------------------------\n"
                 f"{existing_rationale}\n"
                 "--------------------------\n\n"
-                "The sequence below contains NEW execution steps. Integrate them into the rationale.\n"
+                "The logs below are NEW technical activities. Integrate them into the rationale.\n"
             )
 
         return (
-            "You are an expert Software Architect. Analyze the procedural sequence and update the knowledge record.\n\n"
+            f"You are a Principal Software Engineer. Analyze these raw execution logs for '{target}' and update the knowledge record.\n\n"
             f"{context_part}"
-            "NEW STEPS:\n"
-            f"{raw_text}\n\n"
+            "EXECUTION LOGS:\n"
+            f"{logs}\n\n"
             "RESPONSE FORMAT (STRICT):\n"
-            "1. <goal>One sentence summary of the overall purpose.</goal>\n"
-            "2. <rationale>Full, detailed step-by-step architectural guide.</rationale>\n"
-            "3. <compressive>Exactly 3 sentences summarizing the essence for quick context injection.</compressive>\n\n"
-            "Ensure all technical terms remain in English. Output must be in Russian."
-        )
-
-    def _build_behavioral_prompt(self, target: str, logs: str, existing_rationale: Optional[str] = None) -> str:
-        context_part = ""
-        if existing_rationale:
-            context_part = (
-                "CURRENT DETAILED RATIONALE:\n"
-                "--------------------------\n"
-                f"{existing_rationale}\n"
-                "--------------------------\n\n"
-                "The logs below are NEW activities. Integrate them into the rationale.\n"
-            )
-
-        return (
-            "You are a Principal Engineer. Analyze this activity cluster for '{target}' and update the knowledge record.\n\n"
-            f"{context_part}"
-            "NEW LOGS:\n"
-            f"{logs[:5000]}\n\n"
-            "RESPONSE FORMAT (STRICT):\n"
-            "1. <goal>One sentence summary of the technical shift or main intent.</goal>\n"
-            "2. <rationale>Comprehensive analysis of patterns, implications, and evolution.</rationale>\n"
+            "1. <goal>One sentence summary of the technical intent or outcome.</goal>\n"
+            "2. <rationale>Comprehensive architectural rationale. Describe the steps, decisions, and patterns discovered in the logs.</rationale>\n"
             "3. <compressive>Exactly 3 sentences summarizing the technical state for quick context injection.</compressive>\n\n"
-            "Ensure all technical terms remain in English. Output must be in Russian."
+            "Ensure all technical terms remain in English. Output must be in the same language as the context or logs."
         )
 
     def _call_cli_model(self, prompt: str) -> Optional[str]:
@@ -289,18 +296,20 @@ class LLMEnricher:
                 f.write(prompt)
             
             if self.client_name == "gemini":
-                # Using shell redirect for 100% reliable capture
-                cmd = f"gemini --model {self.model_name or 'gemini-2.5-flash-lite'} --prompt \"$(cat {prompt_file})\" > {response_file} 2>/dev/null"
-                subprocess.run(cmd, shell=True, check=True, timeout=120) # nosec B602
+                # Use --non-interactive and pipe from /dev/null to prevent hangs
+                # Use larger timeout (300s) for full logs processing
+                cmd = f"gemini --model {self.model_name or 'gemini-2.5-flash-lite'} --prompt \"$(cat {prompt_file})\" < /dev/null > {response_file} 2>&1"
+                subprocess.run(cmd, shell=True, check=True, timeout=300) # nosec B602
                 
             elif self.client_name == "claude":
-                cmd = f"claude \"$(cat {prompt_file})\" > {response_file} 2>/dev/null"
-                subprocess.run(cmd, shell=True, check=True, timeout=120) # nosec B602
+                cmd = f"claude \"$(cat {prompt_file})\" < /dev/null > {response_file} 2>&1"
+                subprocess.run(cmd, shell=True, check=True, timeout=300) # nosec B602
             
             # Read response from buffer
             if os.path.exists(response_file):
                 with open(response_file, "r", encoding="utf-8") as f:
                     content = f.read().strip()
+                    logger.debug(f"CLI ({self.client_name}) Raw Output (first 100 chars): {content[:100]}...")
                     # Filter out possible CLI headers
                     if "Loaded cached credentials" in content:
                         lines = content.split("\n")
@@ -312,30 +321,36 @@ class LLMEnricher:
         finally:
             # Cleanup
             for f in [prompt_file, response_file]:
-                if os.path.exists(f): os.remove(f)
+                if os.path.exists(f): 
+                    try: os.remove(f)
+                    except OSError: pass
         
         return None
 
     def _call_model(self, prompt: str, use_local: bool = True) -> Optional[str]:
         """Unified method for local (Ollama) or remote (OpenAI) API calls."""
-        if use_local:
-            url = os.getenv("LEDGERMIND_OPTIMAL_URL", "http://localhost:11434/v1/chat/completions")
-            model = os.getenv("LEDGERMIND_OPTIMAL_MODEL", "llama3")
-            headers = {}
-        else:
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key: return None
-            url = "https://api.openai.com/v1/chat/completions"
-            model = "gpt-4o-mini"
-            headers = {"Authorization": f"Bearer {api_key}"}
+        try:
+            if use_local:
+                url = os.getenv("LEDGERMIND_OPTIMAL_URL", "http://localhost:11434/v1/chat/completions")
+                model = os.getenv("LEDGERMIND_OPTIMAL_MODEL", "llama3")
+                headers = {}
+            else:
+                api_key = os.getenv("OPENAI_API_KEY")
+                if not api_key: return None
+                url = "https://api.openai.com/v1/chat/completions"
+                model = "gpt-4o-mini"
+                headers = {"Authorization": f"Bearer {api_key}"}
 
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.3
-        }
-        
-        response = self.client.post(url, json=payload, headers=headers)
-        response.raise_for_status()
-        data = response.json()
-        return data["choices"][0]["message"]["content"].strip()
+            payload = {
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.3
+            }
+            
+            response = self.client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            return data["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            logger.debug(f"API call failed: {e}")
+            return None

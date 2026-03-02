@@ -61,17 +61,6 @@ class ProposalStatus(str, Enum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     FALSIFIED = "falsified"
-
-class ProceduralStep(BaseModel):
-    action: str
-    rationale: Optional[str] = None
-    expected_outcome: Optional[str] = None
-
-class ProceduralContent(BaseModel):
-    steps: List[ProceduralStep]
-    target_task: str
-    success_evidence_ids: List[int]
-
 class ProposalContent(BaseModel):
     model_config = ConfigDict(extra='allow')
     title: StrictStr
@@ -101,9 +90,6 @@ class ProposalContent(BaseModel):
     
     suggested_consequences: List[str] = Field(default_factory=list)
     suggested_supersedes: List[str] = Field(default_factory=list) # Какие решения предлагается заменить
-    
-    # MemP extension: Procedural data
-    procedural: Optional[ProceduralContent] = None
     
     first_observed_at: datetime = Field(default_factory=datetime.now)
     last_observed_at: datetime = Field(default_factory=datetime.now)
@@ -144,8 +130,6 @@ class DecisionStream(BaseModel):
     confidence: float = 1.0
     stability_score: float = 0.0
     
-    # MemP Linking: Associated procedural knowledge
-    procedural: Optional[ProceduralContent] = None
     procedural_ids: List[str] = Field(default_factory=list, description="IDs of dedicated procedural records for this stream")
     
     first_seen: datetime = Field(default_factory=datetime.now)
@@ -174,9 +158,6 @@ class DecisionContent(BaseModel):
     superseded_by: Optional[str] = None
     attachments: List[Dict[str, str]] = Field(default_factory=list) # List of {type: "image", path: "blobs/..."}
     
-    # MemP extension: Procedural data
-    procedural: Optional[ProceduralContent] = None
-
     @field_validator('title', 'target', 'rationale')
     @classmethod
     def not_empty(cls, v: str) -> str:

@@ -274,6 +274,8 @@ class VectorStore:
     def model(self):
         cache_key = self.model_name
         if cache_key not in _MODEL_CACHE:
+            # Suppress OpenMP duplication errors when using llama-cpp in multiple threads
+            os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
             os.environ["TOKENIZERS_PARALLELISM"] = "false"
             
             # Scenario A: GGUF Model (4-bit efficient)

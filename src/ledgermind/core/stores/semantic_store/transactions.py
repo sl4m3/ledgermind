@@ -167,16 +167,20 @@ class TransactionManager:
         """
         Starts a transaction.
         1. Acquires Exclusive Lock.
-        2. Starts SQLite SAVEPOINT.
+        2. Starts SQLite SAVEPOINT with a unique name.
         3. Clears previous backup.
         """
+        import uuid
+        tx_id = uuid.uuid4().hex[:8]
+        savepoint_name = f"lm_tx_{tx_id}"
+        
         self.lock.acquire(exclusive=True)
         self._staged_files = []
         
-        # Start DB transaction via SAVEPOINT
+        # Start DB transaction via unique SAVEPOINT
         db_conn = getattr(self.meta_db, '_conn', None)
         if db_conn:
-            db_conn.execute("SAVEPOINT ledgermind_tx")
+            db_conn.execute(f"SAVEPOINT {savepoint_name}")
 
         # Ensure clean state but avoid redundant OS calls if directory is already empty
         if not os.path.exists(self.backup_dir):
@@ -189,12 +193,15 @@ class TransactionManager:
             yield self
             self._commit()
             if db_conn:
-                db_conn.execute("RELEASE ledgermind_tx")
+                db_conn.execute(f"RELEASE {savepoint_name}")
         except Exception as e:
             logger.error(f"Transaction failed: {e}. Rolling back...")
             self._rollback()
             if db_conn:
-                db_conn.execute("ROLLBACK TO ledgermind_tx")
+                try:
+                    db_conn.execute(f"ROLLBACK TO {savepoint_name}")
+                except Exception as re:
+                    logger.debug(f"Rollback to savepoint failed (likely connection closed): {re}")
             raise
         finally:
             if os.path.exists(self.backup_dir):
