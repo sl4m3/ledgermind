@@ -4,6 +4,15 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.2.1] - 2026-03-02
+
+- **Iterative Enrichment:** Recursive refinement of knowledge artifacts for 
+  deeper insights.
+- **Compressive Rationale:** Condensing complex logs into concise, high-signal 
+  technical intelligence.
+- **Asynchronous Reliability:** Stable, non-blocking LLM enrichment for all 
+  knowledge types.
+
 ## [v3.2.0] - 2026-03-02
 
 - **Cumulative Metrics:** Implemented a zero-footprint mathematical model for 
