@@ -68,9 +68,11 @@ class GGUFEmbeddingAdapter:
     def __init__(self, model_path: str):
         import contextlib
         import io
+        import threading
         from llama_cpp import Llama
         
         logger.info(f"Loading GGUF Model: {model_path}")
+        self._lock = threading.Lock()
         # Optimized for Termux/Mobile: 4 threads is usually the sweet spot for performance vs heat
         with contextlib.redirect_stderr(io.StringIO()):
             self.client = Llama(
@@ -89,7 +91,8 @@ class GGUFEmbeddingAdapter:
         
         # Robust dimension detection
         try:
-            test_emb_res = self.client.create_embedding("test")
+            with self._lock:
+                test_emb_res = self.client.create_embedding("test")
             # Handle different response formats
             data = test_emb_res.get('data', [])
             if data and 'embedding' in data[0]:
@@ -119,30 +122,31 @@ class GGUFEmbeddingAdapter:
         embeddings = []
         with contextlib.redirect_stderr(io.StringIO()):
             for text in input_list:
-                if text in self._cache:
-                    embeddings.append(self._cache[text])
-                    continue
-                    
-                try:
-                    # Apply prefix if needed
-                    processed_text = f"{prefix}{text}" if prefix else text
-                    res = self.client.create_embedding(processed_text)
-                    emb = res['data'][0]['embedding']
-                    # If llama-cpp returns a scalar or malformed list, wrap it
-                    if not isinstance(emb, list):
-                        emb = [emb]
-                    
-                    # Update cache
-                    if len(self._cache) >= self._max_cache:
-                        # Basic eviction
-                        self._cache.pop(next(iter(self._cache)))
-                    self._cache[text] = emb
-                    
-                    embeddings.append(emb)
-                except Exception as e:
-                    logger.error(f"GGUF Encoding failed for text: {e}")
-                    # Return zero vector on failure to maintain shape
-                    embeddings.append([0.0] * self.dimension)
+                with self._lock:
+                    if text in self._cache:
+                        embeddings.append(self._cache[text])
+                        continue
+                        
+                    try:
+                        # Apply prefix if needed
+                        processed_text = f"{prefix}{text}" if prefix else text
+                        res = self.client.create_embedding(processed_text)
+                        emb = res['data'][0]['embedding']
+                        # If llama-cpp returns a scalar or malformed list, wrap it
+                        if not isinstance(emb, list):
+                            emb = [emb]
+                        
+                        # Update cache
+                        if len(self._cache) >= self._max_cache:
+                            # Basic eviction
+                            self._cache.pop(next(iter(self._cache)))
+                        self._cache[text] = emb
+                        
+                        embeddings.append(emb)
+                    except Exception as e:
+                        logger.error(f"GGUF Encoding failed for text: {e}")
+                        # Return zero vector on failure to maintain shape
+                        embeddings.append([0.0] * self.dimension)
         
         arr = np.array(embeddings).astype('float32')
         return arr[0] if is_single else arr

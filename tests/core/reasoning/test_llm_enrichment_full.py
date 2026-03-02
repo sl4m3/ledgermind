@@ -64,8 +64,19 @@ def test_mode_optimal_calls_local_api(mock_post, sample_proposal):
 def test_rich_mode_prefers_gemini_cli(mock_run, sample_proposal):
     enricher = LLMEnricher(mode="rich", client_name="gemini")
     
-    # Mock successful gemini run
-    mock_run.return_value = MagicMock(stdout="Human Gemini Text", returncode=0)
+    # Mock successful gemini run with file-writing side effect
+    def side_effect(cmd, **kwargs):
+        # Extract response file path from cmd string
+        # cmd is like "gemini ... > /tmp/res_... 2>/dev/null"
+        import re
+        match = re.search(r'> (/[^ ]+)', cmd)
+        if match:
+            res_path = match.group(1)
+            with open(res_path, "w", encoding="utf-8") as f:
+                f.write("Human Gemini Text")
+        return MagicMock(returncode=0)
+
+    mock_run.side_effect = side_effect
 
     enriched = enricher.enrich_proposal(sample_proposal)
     assert "Human Gemini Text" in enriched.rationale
@@ -75,7 +86,8 @@ def test_rich_mode_prefers_gemini_cli(mock_run, sample_proposal):
     cmd = args[0]
     assert "gemini" in cmd
     assert "--prompt" in cmd
-    assert "setup firewall" in cmd[2] # Prompt should be there
+    # Verify that we are using cat to read the prompt file
+    assert "$(cat " in cmd
 
 @patch('subprocess.run')
 @patch('httpx.Client.post')

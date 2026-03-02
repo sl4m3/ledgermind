@@ -713,7 +713,7 @@ class Memory:
             
                             if sim > 0.70:
                                 try:
-                                    res = self.supersede_decision(
+                                    return self.supersede_decision(
                                         title=title,
                                         target=target,
                                         rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
@@ -723,7 +723,6 @@ class Memory:
                                         namespace=effective_namespace,
                                         vector=new_vec # Reuse the vector we just computed
                                     )
-                                    return res
                                 except ConflictError:
                                     # Re-raise conflict errors to avoid double reporting
                                     raise
@@ -734,12 +733,13 @@ class Memory:
                 if "not found" not in str(e).lower() and "missing" not in str(e).lower():
                     logger.warning(f"Similarity check failed: {e}")
             
-            if active_conflicts:
-                suggestions = self.targets.suggest(target)
-                msg = f"CONFLICT: Target '{target}' in namespace '{effective_namespace}' already has active decisions: {active_conflicts}. "
-                if suggestions:
-                    msg += f"Did you mean: {', '.join(suggestions)}?"
-                raise ConflictError(msg)
+        if active_conflicts:
+            suggestions = self.targets.suggest(target)
+            msg = f"CONFLICT: Target '{target}' in namespace '{effective_namespace}' already has active decisions: {active_conflicts}. "
+            if suggestions:
+                msg += f"Did you mean: {', '.join(suggestions)}?"
+            raise ConflictError(msg)
+
         import uuid
         ctx = DecisionStream(
             decision_id=str(uuid.uuid4()),
