@@ -53,11 +53,8 @@ class BackgroundWorker:
                 # 2. Git Sync (Ingest external changes)
                 self._run_git_sync()
                 
-                # 3. Reflection Cycle (Generate proposals)
-                self._run_reflection()
-                
-                # 4. Decay Cycle (Prune old data)
-                self._run_decay()
+                # 3. Full Maintenance Cycle (Reflection, Decay, Enrichment, Integrity)
+                self._run_maintenance()
                 
                 elapsed = time.time() - start_time
                 sleep_time = max(1.0, self.interval - elapsed)
@@ -114,34 +111,28 @@ class BackgroundWorker:
             if "no such table" in str(e).lower(): raise e
             logger.warning(f"Git sync failed: {e}")
 
-    def _run_reflection(self):
-        """Runs the incremental reflection cycle to generate proposals."""
+    def _run_maintenance(self):
+        """Runs the full maintenance cycle including reflection, decay, and enrichment."""
         try:
-            # Reflection is now incremental and cheap, run it every 5 minutes
-            last = self.last_run.get("reflection")
+            # Run full maintenance every 5 minutes
+            last = self.last_run.get("maintenance")
             now = datetime.now()
             
             if not last or (now - last).total_seconds() > 300: # 5 minutes
-                proposals = self.memory.run_reflection()
-                if proposals:
-                    logger.info(f"Background Reflection: Generated/Updated {len(proposals)} proposals.")
+                report = self.memory.run_maintenance()
                 
-                self.last_run["reflection"] = now
+                refl_count = report.get("reflection", {}).get("proposals_created", 0)
+                decay_archived = report.get("decay", {}).get("archived", 0)
+                decay_pruned = report.get("decay", {}).get("pruned", 0)
+                
+                msgs = []
+                if refl_count > 0: msgs.append(f"Reflected {refl_count} items")
+                if decay_archived > 0 or decay_pruned > 0: msgs.append(f"Decayed (Arch: {decay_archived}, Prun: {decay_pruned})")
+                
+                if msgs:
+                    logger.info(f"Background Maintenance: {', '.join(msgs)}")
+                
+                self.last_run["maintenance"] = now
         except Exception as e:
             if "no such table" in str(e).lower(): raise e
-            logger.error(f"Reflection cycle failed: {e}")
-
-    def _run_decay(self):
-        """Runs the decay cycle to prune old data."""
-        try:
-             # Run decay every 1 hour
-            last = self.last_run.get("decay")
-            now = datetime.now()
-            if not last or (now - last).total_seconds() > 3600: # 1 hour
-                report = self.memory.run_decay()
-                if (isinstance(getattr(report, 'archived', None), int) and report.archived > 0) or (isinstance(getattr(report, 'pruned', None), int) and report.pruned > 0):
-                    logger.info(f"Background Decay: Archived {report.archived}, Pruned {report.pruned}")
-                self.last_run["decay"] = now
-        except Exception as e:
-            if "no such table" in str(e).lower(): raise e
-            logger.error(f"Decay cycle failed: {e}")
+            logger.error(f"Maintenance cycle failed: {e}")
