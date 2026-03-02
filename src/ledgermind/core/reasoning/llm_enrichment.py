@@ -102,8 +102,12 @@ class LLMEnricher:
                 if status == "completed":
                     updates = {
                         "rationale": enriched.rationale,
-                        "enrichment_status": "completed"
+                        "enrichment_status": "completed",
+                        "evidence_event_ids": []
                     }
+                    
+                    if is_procedural:
+                        updates["procedural"] = None
                     
                     with memory.semantic.transaction():
                         memory.semantic.update_decision(
@@ -132,9 +136,9 @@ class LLMEnricher:
         # Format input text for LLM
         if is_procedural:
             raw_text = self._format_procedural_text(proposal)
-            prompt = self._build_procedural_prompt(raw_text)
+            prompt = self._build_procedural_prompt(raw_text, existing_rationale=proposal.rationale)
         else:
-            prompt = self._build_behavioral_prompt(proposal.target, cluster_logs)
+            prompt = self._build_behavioral_prompt(proposal.target, cluster_logs, existing_rationale=proposal.rationale)
         
         try:
             enriched_rationale = None
@@ -161,22 +165,91 @@ class LLMEnricher:
             text += f"Step {i+1}: {step.action}\nRationale: {step.rationale}\n\n"
         return text
 
-    def _build_procedural_prompt(self, raw_text: str) -> str:
+    def _build_procedural_prompt(self, raw_text: str, existing_rationale: Optional[str] = None) -> str:
+        context_part = ""
+        if existing_rationale and "*Original Data:*" in existing_rationale:
+            # Extract only the LLM-generated part
+            clean_context = existing_rationale.split("*Original Data:*")[0].strip()
+            if clean_context and "Overall Objective" in clean_context:
+                context_part = (
+                    "EXISTING GUIDE CONTEXT:\n"
+                    "--------------------------\n"
+                    f"{clean_context}\n"
+                    "--------------------------\n\n"
+                    "The sequence below contains NEW execution steps that have occurred SINCE the existing guide was written.\n"
+                )
+
         return (
-            "You are an expert AI architect summarizing system behavior.\n"
-            "Analyze the following machine-generated execution logs and convert them "
-            "into a single, coherent, human-readable summary of the actions taken and the rationale behind them. "
-            "Focus on the 'why' and 'what'. Keep it concise but highly informative.\n\n"
-            f"Logs:\n{raw_text}\n\nSummary:"
+            "You are an expert Software Architect and Technical Documentation Specialist with 15+ years of experience. \n"
+            "You excel at turning raw execution traces, command sequences, API calls, tool invocations, and successful action chains into clear, professional, human-readable procedural guides.\n\n"
+            "TASK:\n"
+            "Analyze the following procedural log/sequence of successful actions and transform it into a coherent, easy-to-follow step-by-step instruction guide for a developer or engineer.\n\n"
+            f"{context_part}"
+            "REQUIREMENTS:\n"
+            "- Identify the overall purpose and final outcome.\n"
+            "- Break everything into logical, numbered steps.\n"
+            "- For each step clearly state:\n"
+            "  • WHAT is done\n"
+            "  • WHY it is done (technical or business reason)\n"
+            "- Show dependencies and flow between steps.\n"
+            "- Remove noise, abstract technical details where possible, but keep important parameters and outcomes.\n"
+            "- Use concise, professional language.\n"
+            "- IMPORTANT: If previous context is provided, INTEGRATE the new steps into the existing guide. Re-order, group, or refine the steps to maintain a logical and coherent flow. Update the 'Overall Objective' if needed.\n\n"
+            "OUTPUT FORMAT (strictly follow this structure):\n\n"
+            "1. **Overall Objective**\n"
+            "   One-sentence summary of what this procedure achieves.\n\n"
+            "2. **Prerequisites** (if any)\n\n"
+            "3. **Step-by-Step Procedure**\n"
+            "   1. [Step description]\n"
+            "      • What: ...\n"
+            "      • Why: ...\n"
+            "      • Key details/parameters: ...\n\n"
+            "4. **Key Insights & Recommendations**\n"
+            "   Any architectural observations, potential improvements, or best practices.\n\n"
+            "Now analyze this sequence of NEW actions:\n\n"
+            f"{raw_text}\n\nUpdated Procedural Guide:"
         )
 
-    def _build_behavioral_prompt(self, target: str, logs: str) -> str:
+    def _build_behavioral_prompt(self, target: str, logs: str, existing_rationale: Optional[str] = None) -> str:
+        context_part = ""
+        if existing_rationale and "*Original Data:*" in existing_rationale:
+            # Extract only the LLM-generated part, ignoring the raw data dump
+            clean_context = existing_rationale.split("*Original Data:*")[0].strip()
+            if clean_context and "Detected Technical Shift" in clean_context:
+                context_part = (
+                    "PREVIOUS SUMMARY CONTEXT:\n"
+                    "--------------------------\n"
+                    f"{clean_context}\n"
+                    "--------------------------\n\n"
+                    "The logs below are NEW activities that have occurred SINCE the previous summary.\n"
+                )
+
         return (
-            "You are an expert AI architect analyzing behavioral patterns in a codebase.\n"
-            f"I have detected a high density of activity related to the component '{target}'.\n"
-            "Based on the following execution logs, please provide a high-level summary of what the developer/agent "
-            "has been working on in this area. Identify the main theme, goal, or technical shift reflected in these actions.\n\n"
-            f"Logs:\n{logs[:5000]}\n\nSummary of Behavioral Pattern:"
+            "You are a Principal Engineer and Codebase Archaeologist specializing in reverse-engineering developer intent from activity clusters.\n\n"
+            "TASK:\n"
+            "You are given a dense cluster of NEW events, logs, commits, or activities concentrated around a specific component, module, file, or target. \n"
+            f"Analyze this high-density activity zone for '{target}' and extract the underlying technical shift, main goal, and behavioral pattern of the developer/team.\n\n"
+            f"{context_part}"
+            "REQUIREMENTS:\n"
+            "- Identify the primary technical evolution or refactoring direction.\n"
+            "- Uncover the core objective (what problem is being solved or opportunity pursued).\n"
+            "- Detect recurring patterns in the work style or architectural decisions.\n"
+            "- Base every conclusion on concrete evidence from the provided cluster.\n"
+            "- IMPORTANT: If previous context is provided, INTEGRATE the new findings into a single, updated, and coherent summary. Refine the technical shift and goal if the new logs provide more clarity.\n\n"
+            "OUTPUT FORMAT (strictly follow this structure):\n\n"
+            "1. **Detected Technical Shift**\n"
+            "   One-sentence summary of the main change happening.\n\n"
+            "2. **Primary Goal / Intent**\n"
+            "   What the developer is ultimately trying to achieve.\n\n"
+            "3. **Key Patterns Observed**\n"
+            "   • Pattern 1: description + evidence\n"
+            "   • Pattern 2: ...\n\n"
+            "4. **Architectural & Strategic Implications**\n"
+            "   How this activity affects the larger codebase and possible next steps or risks.\n\n"
+            "5. **Component Evolution Summary**\n"
+            "   Brief before → after picture (if inferable).\n\n"
+            "Now analyze this NEW activity cluster:\n\n"
+            f"{logs[:5000]}\n\nUpdated Summary of Behavioral Pattern:"
         )
 
     def _call_cli_model(self, prompt: str) -> Optional[str]:

@@ -4,6 +4,17 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.2.0] - 2026-03-02
+
+- **Cumulative Metrics:** Implemented a zero-footprint mathematical model for 
+  incremental lifecycle updates.
+- **Interactive Setup:** Added model selection and automated 60s validation 
+  during project initialization.
+- **Architect Standards:** Upgraded documentation prompts to professional AI 
+  Architect and Principal Engineer levels.
+- **Integrity Stability:** Fixed a critical core bug in UnboundLocalError 
+  during file validation.
+
 ## [v3.1.3] - 2026-03-02
 
 - **Real-Time Synchronization:** Instant history synchronization for Claude 
