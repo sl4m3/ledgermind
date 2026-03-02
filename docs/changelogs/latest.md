@@ -1,19 +1,18 @@
-# Latest Release: v3.1.2
+# Latest Release: v3.1.3
 
-## March 1, 2026
+## March 2, 2026
 
-LedgerMind v3.1.2 focus on production-grade reliability, security hardening,
-and comprehensive system monitoring.
+LedgerMind v3.1.3 focus on real-time synchronization, hypothesis unification,
+and improved technical log recording.
 
 ### Highlights
 
-- **Unified Error Handling:** Standardized `Result` pattern for core operations
-  with explicit error codes.
-- **Health Monitoring:** New `/health` endpoints for real-time status of all
-  system components.
-- **Connection Pooling:** High-performance SQLAlchemy `QueuePool` for episodic
-  storage.
-- **Hardened Security:** Multi-layer input sanitization against XSS and Unicode
-  attacks.
+- **Real-Time Synchronization (Stop Hook):** Instant history synchronization
+  for Claude Code via the new `Stop` hook, preventing duplicate entries.
+- **Hypothesis Unification:** Consistent evolutionary path for both
+  procedural and behavioral hypotheses.
+- **Increased Scaling:** Memory event length limit increased to 500KB to
+  support large technical logs and complex code snippets.
+- **Secure Hook Recording:** Robust interaction recording via stdin pipes.
 
-[View full v3.1.2 changelog](./v3.1.2.md)
+[View full v3.1.3 changelog](./v3.1.3.md)
