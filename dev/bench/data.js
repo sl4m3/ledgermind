@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772417404983,
+  "lastUpdate": 1772420767109,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -810,6 +810,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00011673330344458034",
             "extra": "mean: 1.2654197999950156 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "2d608e7da0936fccbd566e836c5732b19440d502",
+          "message": "feat(core): implement buffered enrichment and evidence compression\n\n- LLMEnricher: Added buffered CLI calling via temporary files for reliable Termux/Mobile operation.\n- LLMEnricher: Implemented evidence crystallization logic (save total_evidence_count and truncate ID list to last 5).\n- LLMEnricher: Clear raw procedural steps after successful text conversion to reduce file size.\n- VectorStore: Fixed llama-cpp-python detection bug (was checking uninitialized global).\n- Unified 'enrichment_status=\"pending\"' across all reasoning engines.\n- Added scripts for rebuilding and enriching hypotheses.",
+          "timestamp": "2026-03-02T06:03:33+03:00",
+          "tree_id": "e27182b49073e7d5d0ae3063bcc9b4f0d7590762",
+          "url": "https://github.com/sl4m3/ledgermind/commit/2d608e7da0936fccbd566e836c5732b19440d502"
+        },
+        "date": 1772420766810,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 1.9868648255121275,
+            "unit": "iter/sec",
+            "range": "stddev: 0.029243362577254343",
+            "extra": "mean: 503.3055027999922 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 19096.724912006088,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009079776371590054",
+            "extra": "mean: 52.36499999909938 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 735.5173687984824,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00012601802645724366",
+            "extra": "mean: 1.3595872000053077 msec\nrounds: 5"
           }
         ]
       }
