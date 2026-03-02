@@ -89,6 +89,54 @@ def init_project(path: str):
         default="lite"
     ).ask()
     if mode is None: return
+    
+    enrichment_model = None
+    if mode == "rich" and client in ["gemini", "claude"]:
+        console.print(f"\n[bold yellow]Step 5b: Specific Model for {client.capitalize()}[/bold yellow]")
+        console.print("You can specify a model name to override the default client model.")
+        console.print("Examples: gemini-3-flash, gemini-2.5-flash-lite, claude-4-5-haiku")
+        
+        while True:
+            enrichment_model = questionary.text(
+                "Model Name (leave empty for default):",
+                default=""
+            ).ask()
+            
+            if enrichment_model is None: break
+            if not enrichment_model.strip():
+                enrichment_model = None
+                break
+            
+            # Validation
+            console.print(f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via {client}...")
+            try:
+                import subprocess
+                test_prompt = "Hi, respond with 'OK' if you can hear me."
+                if client == "gemini":
+                    cmd = ["gemini", "--model", enrichment_model, "--prompt", test_prompt]
+                else: # claude
+                    cmd = ["claude", "-m", enrichment_model, test_prompt]
+                
+                # We use a longer timeout for validation because APIs can be slow
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                if result.returncode == 0:
+                    console.print(f"[green]✓ Model {enrichment_model} is available and responsive.[/green]")
+                    break
+                else:
+                    console.print(f"[bold red]✗ Model validation failed.[/bold red]")
+                    if result.stderr:
+                        console.print(f"[red]Error: {result.stderr.strip()}[/red]")
+                    
+                    retry = questionary.confirm("Try another model name?").ask()
+                    if not retry:
+                        enrichment_model = None
+                        break
+            except Exception as e:
+                console.print(f"[bold red]✗ Error during validation:[/bold red] {e}")
+                retry = questionary.confirm("Try another model name?").ask()
+                if not retry:
+                    enrichment_model = None
+                    break
 
     # Initialize
     console.print("\n[bold green]Initializing system...[/bold green]")
@@ -143,11 +191,15 @@ def init_project(path: str):
         # Save Arbitration Mode and Client to config
         memory.semantic.meta.set_config("arbitration_mode", mode)
         memory.semantic.meta.set_config("client", client)
+        if enrichment_model:
+            memory.semantic.meta.set_config("enrichment_model", enrichment_model)
 
         console.print(f"[green]✓ Created memory structure at {custom_path}[/green]")
         console.print(f"[green]✓ Configured vector model: {model_name}[/green]")
         console.print(f"[green]✓ Set arbitration mode: {mode}[/green]")
         console.print(f"[green]✓ Registered client: {client}[/green]")
+        if enrichment_model:
+            console.print(f"[green]✓ Configured enrichment model: {enrichment_model}[/green]")
 
         if client != "none":
             console.print(f"\nInstalling hooks for {client} in {project_path}...")
