@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772465074429,
+  "lastUpdate": 1772465567851,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -990,6 +990,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010113206242908197",
             "extra": "mean: 898.7346000026264 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "02c14b5f65db00390a6d9f6871cc75150db7bbe3",
+          "message": "fix(core): ensure databases are ignored in semantic git audit",
+          "timestamp": "2026-03-02T18:30:09+03:00",
+          "tree_id": "0103ef7d6e39b7ffc5fd2e94d97bad88c929af55",
+          "url": "https://github.com/sl4m3/ledgermind/commit/02c14b5f65db00390a6d9f6871cc75150db7bbe3"
+        },
+        "date": 1772465567433,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 86.5238123914433,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001554354354173876",
+            "extra": "mean: 11.55751200000168 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 19798.92213986334,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008380326105230894",
+            "extra": "mean: 50.50780001738531 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 888.2861176688748,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009453699141923938",
+            "extra": "mean: 1.1257634000003236 msec\nrounds: 5"
           }
         ]
       }
