@@ -3,6 +3,7 @@ import os
 import json
 import logging
 import questionary
+import sys
 from typing import Optional, List, Dict, Any
 from ledgermind.server.server import MCPServer
 from ledgermind.core.utils.logging import setup_logging
@@ -211,13 +212,118 @@ def show_stats(path: str):
     except Exception as e:
         print(f"✗ Error fetching stats: {e}")
 
+def sync_transcript_history(bridge, transcript_path: str) -> set:
+    """Synchronizes history from a transcript file, returning the set of newly synced user prompts."""
+    synced_content_this_turn = set()
+    if not transcript_path or not os.path.exists(transcript_path):
+        return synced_content_this_turn
+
+    sys.stderr.write(f"* Syncing history from {transcript_path}...\n")
+    try:
+        # Pre-fetch recent events to build a deduplication map
+        recent_events = bridge.memory.episodic.query(limit=1000)
+        processed_ids = set()
+        processed_signatures = set() # (norm_ts, content_prefix)
+        
+        for ev in recent_events:
+            # 1. ID check
+            ctx = ev.get('context', {})
+            if isinstance(ctx, str):
+                try: ctx = json.loads(ctx)
+                except: ctx = {}
+            if isinstance(ctx, dict) and 'transcript_id' in ctx:
+                processed_ids.add(ctx['transcript_id'])
+            
+            # 2. Content + Timestamp signature check
+            ts = ev.get('timestamp', '')
+            if '.' in ts: ts = ts.split('.')[0] + ts[ts.find('+') if '+' in ts else len(ts):]
+            processed_signatures.add((ts, ev.get('content', '')[:100].strip()))
+
+        with open(transcript_path, 'r', encoding='utf-8') as f:
+            sync_count = 0
+            for line in f:
+                if not line.strip(): continue
+                try: entry = json.loads(line)
+                except: continue
+                
+                msg_id = entry.get("uuid") or entry.get("messageId") or entry.get("id")
+                if not msg_id: continue
+                
+                msg_type = entry.get("type")
+                timestamp = entry.get("timestamp")
+                norm_ts = timestamp.replace('Z', '+00:00') if timestamp else ""
+                if '.' in norm_ts: norm_ts = norm_ts.split('.')[0] + norm_ts[norm_ts.find('+') if '+' in norm_ts else len(norm_ts):]
+
+                content = ""
+                kind = ""
+                source = ""
+                
+                if msg_type == "user":
+                    raw_content = entry.get("message", {}).get("content", "")
+                    if isinstance(raw_content, list):
+                        content = "\n".join([p.get("text", "") for p in raw_content if isinstance(p, dict) and p.get("type") == "text"]).strip()
+                    else:
+                        content = str(raw_content).strip()
+                    kind = "prompt"
+                    source = "user"
+                elif msg_type == "assistant":
+                    message = entry.get("message", {})
+                    content_parts = message.get("content", [])
+                    if isinstance(content_parts, list):
+                        texts = [p.get("text", "") for p in content_parts if isinstance(p, dict) and p.get("type") == "text"]
+                        content = "\n".join(texts).strip()
+                        kind = "result"
+                        source = "agent"
+                        
+                        for idx, p in enumerate(content_parts):
+                            if isinstance(p, dict) and p.get("type") == "tool_use":
+                                tool_name = p.get("name")
+                                tool_input = json.dumps(p.get("input", {}), ensure_ascii=False)
+                                tc_content = f"Tool: {tool_name}\nInput: {tool_input}"
+                                tc_id = f"{msg_id}_tool_{idx}"
+                                if tc_id not in processed_ids and (norm_ts, tc_content[:100].strip()) not in processed_signatures:
+                                    bridge.memory.process_event(
+                                        source="agent", kind="call", content=tc_content, 
+                                        context={"transcript_id": tc_id}, timestamp=timestamp
+                                    )
+                                    sync_count += 1
+                                    processed_ids.add(tc_id)
+                    elif isinstance(content_parts, str):
+                        content = content_parts.strip()
+                        kind = "result"
+                        source = "agent"
+
+                if content:
+                    c_strip = content.strip()
+                    content_prefix = c_strip[:100]
+                    if msg_id not in processed_ids and (norm_ts, content_prefix) not in processed_signatures:
+                        res = bridge.memory.process_event(
+                            source=source, kind=kind, content=c_strip, 
+                            context={"transcript_id": msg_id}, timestamp=timestamp
+                        )
+                        if res: 
+                            sync_count += 1
+                            processed_ids.add(msg_id)
+                            processed_signatures.add((norm_ts, content_prefix))
+                            if source == "user": synced_content_this_turn.add(c_strip)
+            
+            if sync_count > 0:
+                sys.stderr.write(f"* Successfully synced {sync_count} new events from history.\n")
+    except Exception as e:
+        sys.stderr.write(f"Transcript sync error: {e}\n")
+
+    return synced_content_this_turn
+
 def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold: Optional[float] = None, read_stdin: bool = False):
     """Bridge API: Returns context for a prompt without starting MCP server."""
     from ledgermind.core.api.bridge import IntegrationBridge
     import sys
     import json
+    import os
     try:
         real_prompt = prompt
+        transcript_path = None
+
         # 1. Handle stdin if requested
         if read_stdin or prompt == "-":
             if not sys.stdin.isatty():
@@ -226,7 +332,9 @@ def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold:
                     try:
                         data = json.loads(raw_input)
                         if isinstance(data, dict):
-                            real_prompt = data.get("userInput", data.get("prompt", raw_input))
+                            real_prompt = data.get("prompt", data.get("userInput", raw_input))
+                            # Crucial: Get the ACTUAL transcript path from Claude Code
+                            transcript_path = data.get("transcript_path")
                         else:
                             real_prompt = raw_input
                     except json.JSONDecodeError:
@@ -236,21 +344,55 @@ def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold:
             try:
                 data = json.loads(prompt)
                 if isinstance(data, dict):
-                    real_prompt = data.get("userInput", data.get("prompt", prompt))
+                    real_prompt = data.get("prompt", data.get("userInput", prompt))
+                    transcript_path = data.get("transcript_path")
             except json.JSONDecodeError:
                 pass
 
         default_cli = [cli] if cli else None
         bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, relevance_threshold=threshold if threshold is not None else 0.7)
-        
-        # Record the prompt BEFORE fetching context
+
+        # 3. Robust History Sync (Hybrid Deduplication)
+        # We only sync if transcript_path is a FILE
+        if transcript_path and os.path.isfile(transcript_path):
+            sync_transcript_history(bridge, transcript_path)
+        elif transcript_path:
+            sys.stderr.write(f"* Skipping sync: {transcript_path} is not a file\n")
+
+        # 5. Record the CURRENT prompt if not already handled
         if real_prompt and real_prompt != "-":
-             bridge.memory.process_event(source="user", kind="prompt", content=real_prompt)
+             rp_strip = real_prompt.strip()
+             if rp_strip and rp_strip not in synced_content_this_turn:
+                 bridge.memory.process_event(source="user", kind="prompt", content=rp_strip)
         
         ctx = bridge.get_context_for_prompt(real_prompt)
         sys.stdout.write(ctx)
     except Exception as e:
         sys.stderr.write(f"✗ Error: {e}\n")
+
+def bridge_sync(path: str, cli: Optional[str] = None):
+    """Bridge API: Dedicated sync command for the Stop hook."""
+    from ledgermind.core.api.bridge import IntegrationBridge
+    import sys
+    import json
+    import os
+    try:
+        transcript_path = None
+        if not sys.stdin.isatty():
+            raw_input = sys.stdin.read()
+            if raw_input:
+                try:
+                    data = json.loads(raw_input)
+                    if isinstance(data, dict):
+                        transcript_path = data.get("transcript_path")
+                except json.JSONDecodeError:
+                    pass
+
+        default_cli = [cli] if cli else None
+        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli)
+        sync_transcript_history(bridge, transcript_path)
+    except Exception as e:
+        sys.stderr.write(f"✗ Sync Error: {e}\n")
 
 def bridge_record(path: str, prompt: str, response: str, success: bool, metadata: str, cli: Optional[str] = None, read_stdin: bool = False):
     """Bridge API: Records interaction into episodic memory."""
@@ -333,6 +475,11 @@ def main():
     bc_parser.add_argument("--threshold", type=float, help="Relevance threshold")
     bc_parser.add_argument("--stdin", action="store_true", help="Read from stdin")
 
+    bs_parser = subparsers.add_parser("bridge-sync", help="Internal: sync transcript history (Stop hook)")
+    bs_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
+    bs_parser.add_argument("--cli", help="Default CLI for arbitration")
+    bs_parser.add_argument("--stdin", action="store_true", help="Read from stdin")
+
     br_parser = subparsers.add_parser("bridge-record", help="Internal: record interaction")
     br_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
     br_parser.add_argument("--prompt", required=True, help="User prompt")
@@ -351,7 +498,7 @@ def main():
 
     # Default to 'run' if no command is provided
     import sys
-    known_commands = ["run", "init", "check", "stats", "export-schema", "install", "bridge-context", "bridge-record", "-h", "--help", "--verbose", "-v", "--log-file"]
+    known_commands = ["run", "init", "check", "stats", "export-schema", "install", "bridge-context", "bridge-record", "bridge-sync", "-h", "--help", "--verbose", "-v", "--log-file"]
     if len(sys.argv) > 1 and sys.argv[1] not in known_commands:
         sys.argv.insert(1, "run")
 
@@ -368,6 +515,8 @@ def main():
         install_client(args.client, args.path)
     elif args.command == "bridge-context":
         bridge_context(args.path, args.prompt, args.cli, args.threshold, args.stdin)
+    elif args.command == "bridge-sync":
+        bridge_sync(args.path, args.cli)
     elif args.command == "bridge-record":
         bridge_record(args.path, args.prompt, args.response, args.success, args.metadata, args.cli, args.stdin)
     elif args.command == "init":
