@@ -3,12 +3,12 @@ import os
 import shutil
 from ledgermind.core.api.bridge import IntegrationBridge
 
-@pytest.fixture
-def temp_memory_path(tmp_path):
-    path = tmp_path / "bridge_test"
+@pytest.fixture(scope="module")
+def temp_memory_path(tmp_path_factory):
+    path = tmp_path_factory.mktemp("bridge_test")
     return str(path)
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def bridge(temp_memory_path):
     return IntegrationBridge(memory_path=temp_memory_path)
 

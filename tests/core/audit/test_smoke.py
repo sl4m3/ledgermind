@@ -1,8 +1,10 @@
 import pytest
 import os
 from ledgermind.core.api.memory import Memory
+from unittest.mock import patch
 
-def test_system_wide_smoke_check(temp_storage):
+@patch('ledgermind.core.reasoning.llm_enrichment.LLMEnricher.process_batch')
+def test_system_wide_smoke_check(mock_process, temp_storage):
     """
     Comprehensive smoke test covering:
     1. Initialization
