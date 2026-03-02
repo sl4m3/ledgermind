@@ -85,7 +85,9 @@ class LLMEnricher:
                 is_procedural = hasattr(proposal, 'procedural') and proposal.procedural and proposal.procedural.steps
                 
                 if not is_procedural and proposal.evidence_event_ids:
-                    events = memory.episodic.get_by_ids(proposal.evidence_event_ids)
+                    # Sort IDs to get oldest first, and limit to 100 to prevent context overflow
+                    sorted_ids = sorted(proposal.evidence_event_ids)
+                    events = memory.episodic.get_by_ids(sorted_ids[:100])
                     log_entries = []
                     for ev in events:
                         log_entries.append(f"[{ev['kind'].upper()}] {ev['content']}")

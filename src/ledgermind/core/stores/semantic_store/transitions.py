@@ -53,6 +53,9 @@ class TransitionValidator:
                 # Proposals are hypotheses, allow updating rationale as more evidence arrives
                 if old_data.get("kind") == "proposal":
                     continue
+                # Allow LLM enrichment to update rationale even on decisions
+                if field == "rationale" and old_ctx.get("enrichment_status") == "pending":
+                    continue
                 raise TransitionError(f"I1 Violation: Semantic context field '{field}' is immutable. Change rejected.")
                 
         # Also, check kind-specific constraints
