@@ -257,7 +257,8 @@ class SemanticStore:
                         reinforcement_density=sync_ctx.get("reinforcement_density", 0.0),
                         stability_score=sync_ctx.get("stability_score", 0.0),
                         coverage=sync_ctx.get("coverage", 0.0),
-                        link_count=link_c
+                        link_count=link_c,
+                        enrichment_status=sync_ctx.get("enrichment_status", "pending")
                     )
         except Exception as e:
             logger.error(f"Failed to index {fid}: {e}")
@@ -381,7 +382,8 @@ class SemanticStore:
                 vitality=context.get('vitality', 'active'),
                 reinforcement_density=context.get('reinforcement_density', 0.0),
                 stability_score=context.get('stability_score', 0.0),
-                coverage=context.get('coverage', 0.0)
+                coverage=context.get('coverage', 0.0),
+                enrichment_status=context.get('enrichment_status', 'pending')
             )
         except sqlite3.IntegrityError as ie:
             if "UNIQUE" in str(ie):

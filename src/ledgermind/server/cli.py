@@ -577,6 +577,13 @@ def main():
     elif args.command == "stats":
         show_stats(args.path)
     elif args.command == "run":
+        # Setup automatic server logging
+        log_dir = os.path.join(os.getcwd(), "logs")
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, "server.log")
+        setup_logging(level=logging.DEBUG if args.verbose else logging.INFO, log_file=log_file)
+        
         capabilities = None
         if args.capabilities:
             try:
@@ -600,17 +607,21 @@ def main():
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
 
-        memory = Memory(storage_path=args.path, trust_boundary=TrustBoundary.AGENT_WITH_INTENT, vector_workers=args.vector_workers)
-        server = MCPServer(
-            memory, 
-            server_name=args.name, 
-            storage_path=args.path,
-            capabilities=capabilities,
-            metrics_port=args.metrics_port,
-            rest_port=args.rest_port
-        )
-        MCPServer.current_instance = server
-        server.run()
+        try:
+            memory = Memory(storage_path=args.path, trust_boundary=TrustBoundary.AGENT_WITH_INTENT, vector_workers=args.vector_workers)
+            server = MCPServer(
+                memory, 
+                server_name=args.name, 
+                storage_path=args.path,
+                capabilities=capabilities,
+                metrics_port=args.metrics_port,
+                rest_port=args.rest_port
+            )
+            MCPServer.current_instance = server
+            server.run()
+        except Exception as e:
+            sys.stderr.write(f"✗ Server Critical Failure: {e}\n")
+            sys.exit(1)
     else:
         parser.print_help()
 

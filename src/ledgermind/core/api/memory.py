@@ -151,15 +151,26 @@ class Memory:
         }
         
         # 0. Check Lock Status
-        lock_path = os.path.join(self.semantic.repo_path, ".lock")
-        if os.path.exists(lock_path):
-            results["storage_locked"] = True
-            try:
-                with open(lock_path, 'r') as f:
-                    results["lock_owner"] = f.read().strip()
-            except Exception:
-                pass
-            results["warnings"].append(f"Storage is currently locked by PID: {results['lock_owner'] or 'unknown'}")
+        results["storage_locked"] = False
+        try:
+            # Try to acquire the lock non-blockingly (timeout=0)
+            # If it fails, then it's truly locked by another process
+            if not self.semantic._fs_lock.acquire(exclusive=False, timeout=0):
+                results["storage_locked"] = True
+                try:
+                    lock_path = self.semantic.lock_file
+                    with open(lock_path, 'r') as f:
+                        results["lock_owner"] = f.read().strip()
+                except Exception:
+                    pass
+                results["warnings"].append(f"Storage is currently locked by PID: {results['lock_owner'] or 'unknown'}")
+            else:
+                # If we acquired it, we must release it immediately
+                self.semantic._fs_lock.release()
+        except Exception as e:
+            # If fcntl or other lock mechanism fails, we might still have a stale lock file
+            # but we shouldn't necessarily report it as 'locked' if we can't verify.
+            logger.debug(f"Lock check failed: {e}")
 
         # 0.1 Check Vector Search (Optional)
         logger.debug("Checking vector search availability...")
@@ -836,6 +847,29 @@ class Memory:
         try:
             with self.semantic.transaction():
                 supersedes = ctx.get("suggested_supersedes", [])
+                target = ctx.get("target")
+                title = ctx.get("title")
+                final_rationale = ctx.get("rationale", "")
+
+                # --- RATIONALE SYNTHESIS FOR MERGES ---
+                if target == "knowledge_merge" and supersedes:
+                    original_rationales = []
+                    for sid in supersedes:
+                        try:
+                            s_data = self.semantic.get_decision(sid)
+                            if s_data and s_data.rationale:
+                                original_rationales.append(s_data.rationale)
+                        except Exception: continue
+                    
+                    if original_rationales:
+                        from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
+                        # Use optimal/rich mode if available for merge synthesis
+                        mode = self.semantic.meta.get_config("arbitration_mode", "lite")
+                        enricher = LLMEnricher(mode=mode)
+                        final_rationale = enricher.synthesize_merged_rationale(original_rationales)
+                else:
+                    final_rationale = f"Accepted proposal {proposal_id}. {final_rationale}"
+
                 grounding_ids = set(ctx.get("evidence_event_ids", []))
                 try:
                     grounding_ids.update(self.episodic.get_linked_event_ids(proposal_id))
@@ -844,18 +878,18 @@ class Memory:
                 
                 if supersedes:
                     decision = self.supersede_decision(
-                        title=ctx.get("title"),
-                        target=ctx.get("target"),
-                        rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
+                        title=title,
+                        target=target,
+                        rationale=final_rationale,
                         old_decision_ids=supersedes,
                         consequences=ctx.get("suggested_consequences", []),
                         evidence_ids=evidence_ids
                     )
                 else:
                     decision = self.record_decision(
-                        title=ctx.get("title"),
-                        target=ctx.get("target"),
-                        rationale=f"Accepted proposal {proposal_id}. {ctx.get('rationale', '')}",
+                        title=title,
+                        target=target,
+                        rationale=final_rationale,
                         consequences=ctx.get("suggested_consequences", []),
                         evidence_ids=evidence_ids
                     )
@@ -1152,12 +1186,6 @@ class Memory:
         from ledgermind.core.reasoning.merging import MergeEngine
         merger = MergeEngine(self)
         merges = merger.scan_for_duplicates()
-
-        # 3. LLM Enrichment (Independent & Asynchronous)
-        from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
-        arbitration_mode = self.semantic.meta.get_config("arbitration_mode", "lite")
-        enricher = LLMEnricher(mode=arbitration_mode)
-        enricher.process_batch(self)
 
         return {
             "decay": decay_report.__dict__,

@@ -73,6 +73,7 @@ class SemanticMetaStore:
                 "stability_score": "REAL DEFAULT 0.0",
                 "coverage": "REAL DEFAULT 0.0",
                 "link_count": "INTEGER DEFAULT 0",
+                "enrichment_status": "TEXT DEFAULT 'pending'",
                 "context_json": "TEXT DEFAULT '{}'"
             }
             for col, definition in cols.items():
@@ -94,6 +95,7 @@ class SemanticMetaStore:
             self._conn.execute("CREATE INDEX IF NOT EXISTS idx_namespace ON semantic_meta(namespace)")
             self._conn.execute("CREATE INDEX IF NOT EXISTS idx_phase ON semantic_meta(phase)")
             self._conn.execute("CREATE INDEX IF NOT EXISTS idx_vitality ON semantic_meta(vitality)")
+            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_enrichment ON semantic_meta(enrichment_status)")
 
             # FTS5 Full Text Search
             try:
@@ -140,6 +142,9 @@ class SemanticMetaStore:
 
             except sqlite3.OperationalError as e:
                 logger.warning(f"FTS5 setup failed: {e}. Keyword search will be limited.")
+
+            # Create sys_config table here to avoid implicit commits in get_config/set_config
+            self._conn.execute("CREATE TABLE IF NOT EXISTS sys_config (key TEXT PRIMARY KEY, value TEXT)")
             
             self.commit_transaction()
         except Exception:
@@ -164,14 +169,15 @@ class SemanticMetaStore:
                title: str = "", superseded_by: Optional[str] = None, namespace: str = "default",
                content: str = "", keywords: str = "", confidence: float = 1.0, context_json: str = "{}",
                phase: str = "pattern", vitality: str = "active", reinforcement_density: float = 0.0, 
-               stability_score: float = 0.0, coverage: float = 0.0, link_count: int = 0):
+               stability_score: float = 0.0, coverage: float = 0.0, link_count: int = 0,
+               enrichment_status: str = "pending"):
         """Atomic upsert of decision metadata with content caching."""
         # Ensure timestamp is in ISO format string
         ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
 
         self._execute_with_retry("""
-            INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage, link_count)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage, link_count, enrichment_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(fid) DO UPDATE SET
                 title=excluded.title,
                 status=excluded.status,
@@ -186,8 +192,9 @@ class SemanticMetaStore:
                 reinforcement_density=excluded.reinforcement_density,
                 stability_score=excluded.stability_score,
                 coverage=excluded.coverage,
-                link_count=excluded.link_count
-        """, (fid, target, title, status, kind, ts_str, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage, link_count))
+                link_count=excluded.link_count,
+                enrichment_status=excluded.enrichment_status
+        """, (fid, target, title, status, kind, ts_str, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage, link_count, enrichment_status))
 
 
     def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
@@ -382,17 +389,16 @@ class SemanticMetaStore:
 
     def get_config(self, key: str, default: Any = None) -> Any:
         """Retrieves a configuration value from sys_config."""
-        with self._conn:
-            self._conn.execute("CREATE TABLE IF NOT EXISTS sys_config (key TEXT PRIMARY KEY, value TEXT)")
         cursor = self._conn.cursor()
-        row = cursor.execute("SELECT value FROM sys_config WHERE key = ?", (key,)).fetchone()
-        return row[0] if row else default
+        try:
+            row = cursor.execute("SELECT value FROM sys_config WHERE key = ?", (key,)).fetchone()
+            return row[0] if row else default
+        except sqlite3.OperationalError:
+            return default
 
     def set_config(self, key: str, value: Any):
         """Stores a configuration value in sys_config."""
-        with self._conn:
-            self._conn.execute("CREATE TABLE IF NOT EXISTS sys_config (key TEXT PRIMARY KEY, value TEXT)")
-            self._conn.execute("INSERT OR REPLACE INTO sys_config (key, value) VALUES (?, ?)", (key, str(value)))
+        self._conn.execute("INSERT OR REPLACE INTO sys_config (key, value) VALUES (?, ?)", (key, str(value)))
 
     def get_version(self) -> str:
         """Retrieves the current schema version."""
