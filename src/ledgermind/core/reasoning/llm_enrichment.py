@@ -22,7 +22,7 @@ class LLMEnricher:
 
     def process_batch(self, memory: Any):
         """
-        Scans semantic store for proposals pending enrichment and processes them.
+        Scans semantic store for proposals pending enrichment and processes them iteratively.
         """
         if self.mode == "lite":
             return
@@ -62,7 +62,7 @@ class LLMEnricher:
                 from ledgermind.core.stores.semantic_store.loader import MemoryLoader
                 from ledgermind.core.core.schemas import ProposalContent, DecisionStream
                 
-                file_path = os.path.join(memory.semantic.repo_path, fid)
+                file_path = os.path.abspath(os.path.join(memory.semantic.repo_path, fid))
                 if not os.path.exists(file_path): continue
                 
                 with open(file_path, 'r', encoding='utf-8') as f:
@@ -80,59 +80,89 @@ class LLMEnricher:
                 else:
                     proposal = ProposalContent(**proposal_data)
 
-                # Fetch extra logs if this is a cluster (no procedural steps)
-                cluster_logs = None
+                # --- ITERATIVE CHUNKING LOGIC ---
+                all_ids = sorted(proposal.evidence_event_ids or [])
                 is_procedural = hasattr(proposal, 'procedural') and proposal.procedural and proposal.procedural.steps
                 
-                if not is_procedural and proposal.evidence_event_ids:
-                    # Sort IDs to get oldest first, and limit to 100 to prevent context overflow
-                    sorted_ids = sorted(proposal.evidence_event_ids)
-                    events = memory.episodic.get_by_ids(sorted_ids[:100])
-                    log_entries = []
-                    for ev in events:
-                        log_entries.append(f"[{ev['kind'].upper()}] {ev['content']}")
-                    cluster_logs = "\n".join(log_entries)
+                # If no logs to process, just mark as completed
+                if not all_ids and not is_procedural:
+                    with memory.semantic.transaction():
+                        memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, "Enrichment: No evidence to process.")
+                    continue
 
-                # Enrich
-                raw_rationale = proposal.rationale
-                enriched = self.enrich_proposal(proposal, cluster_logs=cluster_logs)
+                # Process in chunks of 100
+                CHUNK_SIZE = 100
+                processed_in_this_run = 0
                 
-                status = "completed"
-                if self.mode != "lite" and enriched.rationale == raw_rationale:
-                    status = "pending"
+                # For procedural, we process once since they are defined by steps, not just log clusters
+                # For behavioral, we can iterate
+                while True:
+                    current_ids = all_ids[:CHUNK_SIZE]
+                    remaining_ids = all_ids[CHUNK_SIZE:]
+                    
+                    cluster_logs = None
+                    if current_ids:
+                        events = memory.episodic.get_by_ids(current_ids)
+                        log_entries = []
+                        for ev in events:
+                            log_entries.append(f"[{ev['kind'].upper()}] {ev['content']}")
+                        cluster_logs = "\n".join(log_entries)
 
-                if status == "completed":
-                    # Ensure rationale is a clean string
-                    final_rationale = str(enriched.rationale)
+                    # Call LLM
+                    old_rationale = proposal.rationale
+                    proposal = self.enrich_proposal(proposal, cluster_logs=cluster_logs, file_path=file_path)
                     
-                    # --- OPTIMIZATION: Evidence Compression (Counter) ---
-                    orig_ids = proposal.evidence_event_ids or []
-                    total_count = len(orig_ids)
-                    # Keep only last 5 IDs for traceability
-                    compressed_ids = orig_ids[-5:] if total_count > 5 else orig_ids
+                    # Update local state
+                    proposal.evidence_event_ids = remaining_ids
                     
+                    # If this is the last chunk or it was procedural (single pass)
+                    is_last_chunk = len(remaining_ids) == 0
+                    
+                    status = "pending"
+                    if is_last_chunk:
+                        status = "completed"
+                    
+                    # Update metadata
                     updates = {
-                        "rationale": final_rationale,
-                        "enrichment_status": "completed",
-                        "evidence_event_ids": compressed_ids,
-                        "total_evidence_count": total_count
+                        "title": proposal.title,
+                        "content": proposal.title,
+                        "rationale": proposal.rationale,
+                        "compressive_rationale": proposal.compressive_rationale,
+                        "enrichment_status": status,
+                        "evidence_event_ids": proposal.evidence_event_ids,
+                        "total_evidence_count": getattr(proposal, 'total_evidence_count', 0) + len(current_ids)
                     }
                     
-                    if is_procedural:
-                        updates["procedural"] = None # Clear raw steps after conversion to text
-                    
+                    if is_procedural and is_last_chunk:
+                        updates["procedural"] = None # Clear raw steps after conversion
+
+                    # Save intermediate or final progress
                     with memory.semantic.transaction():
                         memory.semantic.update_decision(
                             fid,
                             updates,
-                            f"Enrich proposal {fid} via LLM ({self.mode})"
+                            f"Enrichment iteration ({status})"
                         )
                     
-                    print(f"✓ Successfully enriched and compressed: {fid} (Total evidence: {total_count})")
+                    processed_in_this_run += len(current_ids)
+                    all_ids = remaining_ids
+                    
+                    if is_last_chunk or is_procedural:
+                        break
+                    
+                    # Limit to one chunk per FID per process_batch call to prevent long hangs?
+                    # Or process all? Let's process all but with a safety break
+                    if processed_in_this_run >= 500: # Safety break for very large files
+                        break
+
+                print(f"✓ Processed {processed_in_this_run} events for {fid}. Status: {status}")
+
             except Exception as e:
                 logger.error(f"Failed to enrich proposal {fid}: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
 
-    def enrich_proposal(self, proposal: Any, cluster_logs: Optional[str] = None) -> Any:
+    def enrich_proposal(self, proposal: Any, cluster_logs: Optional[str] = None, file_path: Optional[str] = None) -> Any:
         """
         Takes a raw distilled proposal and converts it into a meaningful summary.
         """
@@ -153,21 +183,33 @@ class LLMEnricher:
             prompt = self._build_behavioral_prompt(proposal.target, cluster_logs, existing_rationale=proposal.rationale)
         
         try:
-            enriched_rationale = None
+            response_text = None
             if self.mode == "optimal":
-                enriched_rationale = self._call_model(prompt, use_local=True)
+                response_text = self._call_model(prompt, use_local=True)
             elif self.mode == "rich":
-                # Priority 1: Local Authorized CLI
-                enriched_rationale = self._call_cli_model(prompt)
-                
-                # Priority 2: Direct API Fallback
-                if not enriched_rationale:
-                    enriched_rationale = self._call_model(prompt, use_local=False)
+                response_text = self._call_cli_model(prompt)
+                if not response_text:
+                    response_text = self._call_model(prompt, use_local=False)
 
-            if enriched_rationale:
-                proposal.rationale = f"{enriched_rationale}\n\n*Original Data:* {proposal.rationale}"
+            if response_text:
+                # Parse structured response
+                import re
+                goal_match = re.search(r'<goal>(.*?)</goal>', response_text, re.DOTALL | re.IGNORECASE)
+                rationale_match = re.search(r'<rationale>(.*?)</rationale>', response_text, re.DOTALL | re.IGNORECASE)
+                compressive_match = re.search(r'<compressive>(.*?)</compressive>', response_text, re.DOTALL | re.IGNORECASE)
+                
+                if goal_match:
+                    proposal.title = goal_match.group(1).strip()
+                if rationale_match:
+                    proposal.rationale = rationale_match.group(1).strip()
+                if compressive_match:
+                    # Append technical note to compressive summary
+                    display_path = file_path if file_path else (proposal.decision_id if hasattr(proposal, 'decision_id') else 'this file')
+                    path_note = f"\n\n*Technical Note: Full logs available via 'cat {display_path}'. Do not use read_file.*"
+                    proposal.compressive_rationale = compressive_match.group(1).strip() + path_note
+                    
         except Exception as e:
-            logger.warning(f"LLM Enrichment failed (fallback to lite): {e}")
+            logger.warning(f"LLM Enrichment failed (fallback to current data): {e}")
 
         return proposal
 
@@ -179,91 +221,48 @@ class LLMEnricher:
 
     def _build_procedural_prompt(self, raw_text: str, existing_rationale: Optional[str] = None) -> str:
         context_part = ""
-        if existing_rationale and "*Original Data:*" in existing_rationale:
-            # Extract only the LLM-generated part
-            clean_context = existing_rationale.split("*Original Data:*")[0].strip()
-            if clean_context and "Overall Objective" in clean_context:
-                context_part = (
-                    "EXISTING GUIDE CONTEXT:\n"
-                    "--------------------------\n"
-                    f"{clean_context}\n"
-                    "--------------------------\n\n"
-                    "The sequence below contains NEW execution steps that have occurred SINCE the existing guide was written.\n"
-                )
+        if existing_rationale:
+            context_part = (
+                "CURRENT DETAILED RATIONALE:\n"
+                "--------------------------\n"
+                f"{existing_rationale}\n"
+                "--------------------------\n\n"
+                "The sequence below contains NEW execution steps. Integrate them into the rationale.\n"
+            )
 
         return (
-            "You are an expert Software Architect and Technical Documentation Specialist with 15+ years of experience. \n"
-            "You excel at turning raw execution traces, command sequences, API calls, tool invocations, and successful action chains into clear, professional, human-readable procedural guides.\n\n"
-            "TASK:\n"
-            "Analyze the following procedural log/sequence of successful actions and transform it into a coherent, easy-to-follow step-by-step instruction guide for a developer or engineer.\n\n"
+            "You are an expert Software Architect. Analyze the procedural sequence and update the knowledge record.\n\n"
             f"{context_part}"
-            "REQUIREMENTS:\n"
-            "- Identify the overall purpose and final outcome.\n"
-            "- Break everything into logical, numbered steps.\n"
-            "- For each step clearly state:\n"
-            "  • WHAT is done\n"
-            "  • WHY it is done (technical or business reason)\n"
-            "- Show dependencies and flow between steps.\n"
-            "- Remove noise, abstract technical details where possible, but keep important parameters and outcomes.\n"
-            "- Use concise, professional language.\n"
-            "- IMPORTANT: If previous context is provided, INTEGRATE the new steps into the existing guide. Re-order, group, or refine the steps to maintain a logical and coherent flow. Update the 'Overall Objective' if needed.\n"
-            "- LANGUAGE: Detect the primary language used in the provided execution logs (the user's prompts) and respond ONLY in that language. Maintain technical terms in English where appropriate.\n\n"
-            "OUTPUT FORMAT (strictly follow this structure):\n\n"
-            "1. **Overall Objective**\n"
-            "   One-sentence summary of what this procedure achieves.\n\n"
-            "2. **Prerequisites** (if any)\n\n"
-            "3. **Step-by-Step Procedure**\n"
-            "   1. [Step description]\n"
-            "      • What: ...\n"
-            "      • Why: ...\n"
-            "      • Key details/parameters: ...\n\n"
-            "4. **Key Insights & Recommendations**\n"
-            "   Any architectural observations, potential improvements, or best practices.\n\n"
-            "Now analyze this sequence of NEW actions:\n\n"
-            f"{raw_text}\n\nUpdated Procedural Guide:"
+            "NEW STEPS:\n"
+            f"{raw_text}\n\n"
+            "RESPONSE FORMAT (STRICT):\n"
+            "1. <goal>One sentence summary of the overall purpose.</goal>\n"
+            "2. <rationale>Full, detailed step-by-step architectural guide.</rationale>\n"
+            "3. <compressive>Exactly 3 sentences summarizing the essence for quick context injection.</compressive>\n\n"
+            "Ensure all technical terms remain in English. Output must be in Russian."
         )
 
     def _build_behavioral_prompt(self, target: str, logs: str, existing_rationale: Optional[str] = None) -> str:
         context_part = ""
-        if existing_rationale and "*Original Data:*" in existing_rationale:
-            # Extract only the LLM-generated part, ignoring the raw data dump
-            clean_context = existing_rationale.split("*Original Data:*")[0].strip()
-            if clean_context and "Detected Technical Shift" in clean_context:
-                context_part = (
-                    "PREVIOUS SUMMARY CONTEXT:\n"
-                    "--------------------------\n"
-                    f"{clean_context}\n"
-                    "--------------------------\n\n"
-                    "The logs below are NEW activities that have occurred SINCE the previous summary.\n"
-                )
+        if existing_rationale:
+            context_part = (
+                "CURRENT DETAILED RATIONALE:\n"
+                "--------------------------\n"
+                f"{existing_rationale}\n"
+                "--------------------------\n\n"
+                "The logs below are NEW activities. Integrate them into the rationale.\n"
+            )
 
         return (
-            "You are a Principal Engineer and Codebase Archaeologist specializing in reverse-engineering developer intent from activity clusters.\n\n"
-            "TASK:\n"
-            "You are given a dense cluster of NEW events, logs, commits, or activities concentrated around a specific component, module, file, or target. \n"
-            f"Analyze this high-density activity zone for '{target}' and extract the underlying technical shift, main goal, and behavioral pattern of the developer/team.\n\n"
+            "You are a Principal Engineer. Analyze this activity cluster for '{target}' and update the knowledge record.\n\n"
             f"{context_part}"
-            "REQUIREMENTS:\n"
-            "- Identify the primary technical evolution or refactoring direction.\n"
-            "- Uncover the core objective (what problem is being solved or opportunity pursued).\n"
-            "- Detect recurring patterns in the work style or architectural decisions.\n"
-            "- Base every conclusion on concrete evidence from the provided cluster.\n"
-            "- IMPORTANT: If previous context is provided, INTEGRATE the new findings into a single, updated, and coherent summary. Refine the technical shift and goal if the new logs provide more clarity.\n"
-            "- LANGUAGE: Detect the primary language used in the provided execution logs (the user's prompts) and respond ONLY in that language. Maintain technical terms in English where appropriate.\n\n"
-            "OUTPUT FORMAT (strictly follow this structure):\n\n"
-            "1. **Detected Technical Shift**\n"
-            "   One-sentence summary of the main change happening.\n\n"
-            "2. **Primary Goal / Intent**\n"
-            "   What the developer is ultimately trying to achieve.\n\n"
-            "3. **Key Patterns Observed**\n"
-            "   • Pattern 1: description + evidence\n"
-            "   • Pattern 2: ...\n\n"
-            "4. **Architectural & Strategic Implications**\n"
-            "   How this activity affects the larger codebase and possible next steps or risks.\n\n"
-            "5. **Component Evolution Summary**\n"
-            "   Brief before → after picture (if inferable).\n\n"
-            "Now analyze this NEW activity cluster:\n\n"
-            f"{logs[:5000]}\n\nUpdated Summary of Behavioral Pattern:"
+            "NEW LOGS:\n"
+            f"{logs[:5000]}\n\n"
+            "RESPONSE FORMAT (STRICT):\n"
+            "1. <goal>One sentence summary of the technical shift or main intent.</goal>\n"
+            "2. <rationale>Comprehensive analysis of patterns, implications, and evolution.</rationale>\n"
+            "3. <compressive>Exactly 3 sentences summarizing the technical state for quick context injection.</compressive>\n\n"
+            "Ensure all technical terms remain in English. Output must be in Russian."
         )
 
     def _call_cli_model(self, prompt: str) -> Optional[str]:

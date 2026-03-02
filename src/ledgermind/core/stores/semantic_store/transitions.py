@@ -12,7 +12,7 @@ class TransitionValidator:
     """
     # Fields that define the core meaning of a decision/event
     IMMUTABLE_FIELDS = ["target", "content", "source", "kind"]
-    IMMUTABLE_CONTEXT = ["rationale", "target"]
+    IMMUTABLE_CONTEXT = ["rationale", "target", "compressive_rationale"]
 
     @staticmethod
     def validate_update(old_data: Dict[str, Any], new_data: Dict[str, Any]):
@@ -20,6 +20,9 @@ class TransitionValidator:
         Ensures that core semantics have not changed during an update.
         Only status and linking fields (superseded_by) should change for existing files.
         """
+        old_ctx = old_data.get("context", {})
+        new_ctx = new_data.get("context", {})
+        is_pending = old_ctx.get("enrichment_status") == "pending"
         
         # Minor edits (like typo correction) are allowed even in core fields
         def is_minor_diff(s1, s2):
@@ -43,18 +46,18 @@ class TransitionValidator:
                 # 2. Minor typo correction in decisions
                 if field == "content" and is_minor_diff(old_val, new_val):
                     continue
+                # 3. Allow LLM enrichment to set 'Goal' into content field
+                if field == "content" and is_pending:
+                    continue
                 raise TransitionError(f"I1 Violation: Core field '{field}' is immutable. Change rejected.")
 
-        old_ctx = old_data.get("context", {})
-        new_ctx = new_data.get("context", {})
-        
         for field in TransitionValidator.IMMUTABLE_CONTEXT:
             if old_ctx.get(field) != new_ctx.get(field):
                 # Proposals are hypotheses, allow updating rationale as more evidence arrives
                 if old_data.get("kind") == "proposal":
                     continue
-                # Allow LLM enrichment to update rationale even on decisions
-                if field == "rationale" and old_ctx.get("enrichment_status") == "pending":
+                # Allow LLM enrichment to update rationale and compressive_rationale even on decisions
+                if field in ("rationale", "compressive_rationale") and is_pending:
                     continue
                 raise TransitionError(f"I1 Violation: Semantic context field '{field}' is immutable. Change rejected.")
                 
