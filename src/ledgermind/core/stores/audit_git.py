@@ -57,7 +57,7 @@ class GitAuditProvider(AuditProvider):
                 gitignore_path = os.path.join(self.repo_path, ".gitignore")
                 if not os.path.exists(gitignore_path):
                     with open(gitignore_path, "w", encoding="utf-8") as f:
-                        f.write("\n.lock\n.quarantine/\n.tx_backup/\n")
+                        f.write("\n.lock\n.quarantine/\n.tx_backup/\n*.db\n*.db-wal\n*.db-shm\n")
                 
                 self.run(["add", ".gitignore"])
                 self.run(["commit", "--quiet", "--allow-empty", "-m", "Initial commit"])
