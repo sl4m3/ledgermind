@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772411755755,
+  "lastUpdate": 1772412239889,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -675,6 +675,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00012751812006865895",
             "extra": "mean: 1.2679753999975674 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "d2a297df33a1e188bea3253a896869d372a205fd",
+          "message": "docs: update changelogs for v3.1.3 release",
+          "timestamp": "2026-03-02T03:41:45+03:00",
+          "tree_id": "0268fc30e55f3ca0cee6375323f8574a328685c2",
+          "url": "https://github.com/sl4m3/ledgermind/commit/d2a297df33a1e188bea3253a896869d372a205fd"
+        },
+        "date": 1772412239412,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 64.91351364853705,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009614048792094042",
+            "extra": "mean: 15.405112799999188 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 18837.00340626866,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001138891516416559",
+            "extra": "mean: 53.08700000909994 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 751.668327855402,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011868691588497955",
+            "extra": "mean: 1.3303739999969366 msec\nrounds: 5"
           }
         ]
       }
