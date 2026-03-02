@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772420767109,
+  "lastUpdate": 1772461986492,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -855,6 +855,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00012601802645724366",
             "extra": "mean: 1.3595872000053077 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "c7a5ef8398fa3b116fdfea3d1cdaa2573174e2e8",
+          "message": "fix(core): ensure thread-safety for GGUF and harden conflict invariants\n\n- VectorStore: Added threading.Lock to GGUFEmbeddingAdapter to prevent 'Illegal instruction' crashes during concurrent calls.\n- Memory: Refactored record_decision to ensure active conflict checks are always enforced, regardless of vector store state.\n- Performance: Optimized record_decision benchmark to measure clean storage I/O (Git+SQLite) without similarity overhead.\n- Tests: Hardened test_conflict_injection against accidental vector similarity auto-supersedes.\n- Tests: Fixed LLM enrichment mock to match new file-based CLI output capture logic.\n- Tests: Added OperationalError handling for storage path robustness in Termux environment.",
+          "timestamp": "2026-03-02T17:30:41+03:00",
+          "tree_id": "6c00e37aa8c6ff164a5ec3b3da9acf92c512be43",
+          "url": "https://github.com/sl4m3/ledgermind/commit/c7a5ef8398fa3b116fdfea3d1cdaa2573174e2e8"
+        },
+        "date": 1772461986126,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 86.62354384956086,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006380141802799242",
+            "extra": "mean: 11.544205600000623 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 18320.521183598154,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012489045685814922",
+            "extra": "mean: 54.58359999579443 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 735.0784586035013,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001150294696379296",
+            "extra": "mean: 1.360398999992185 msec\nrounds: 5"
           }
         ]
       }
