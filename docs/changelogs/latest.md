@@ -1,18 +1,18 @@
-# Latest Release: v3.1.3
+# Latest Release: v3.2.0
 
 ## March 2, 2026
 
-LedgerMind v3.1.3 focus on real-time synchronization, hypothesis unification,
-and improved technical log recording.
+LedgerMind v3.2.0 focus on architectural scalability through cumulative metrics
+and enhanced interactive configuration.
 
 ### Highlights
 
-- **Real-Time Synchronization (Stop Hook):** Instant history synchronization
-  for Claude Code via the new `Stop` hook, preventing duplicate entries.
-- **Hypothesis Unification:** Consistent evolutionary path for both
-  procedural and behavioral hypotheses.
-- **Increased Scaling:** Memory event length limit increased to 500KB to
-  support large technical logs and complex code snippets.
-- **Secure Hook Recording:** Robust interaction recording via stdin pipes.
+- **Cumulative Metrics:** Mathematical model for incremental stability and
+  frequency updates without storing historical event IDs.
+- **Interactive Model Selection:** Specify and validate custom models (e.g.,
+  `gemini-2.0-flash`) directly during project initialization.
+- **Architect Prompts:** New high-standard documentation templates for
+  knowledge enrichment.
+- **Bug Fixes:** Resolved critical UnboundLocalError in core integrity checks.
 
-[View full v3.1.3 changelog](./v3.1.3.md)
+[View full v3.2.0 changelog](./v3.2.0.md)
