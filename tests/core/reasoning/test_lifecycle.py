@@ -37,8 +37,8 @@ def test_temporal_drift_and_recovery():
     stream = engine.update_vitality(stream, even_later)
     assert stream.vitality == DecisionVitality.DORMANT
     
-    # Recovery
-    recovery_dates = dates_active + [even_later]
+    # Recovery: Provide ONLY the new date (delta)
+    recovery_dates = [even_later]
     engine.calculate_temporal_signals(stream, recovery_dates, even_later)
     stream = engine.update_vitality(stream, even_later)
     assert stream.vitality == DecisionVitality.ACTIVE

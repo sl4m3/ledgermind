@@ -27,46 +27,66 @@ class LifecycleEngine:
         now: datetime
     ) -> DecisionStream:
         """
-        Updates temporal metrics: reinforcement_density, stability, coverage, lifetime_days.
+        Updates temporal metrics incrementally based on a NEW delta of reinforcement_dates.
+        This allows for clearing processed evidence IDs while maintaining accurate history.
         """
         if not reinforcement_dates:
+            # Still update lifetime metrics even with no new evidence
             stream.lifetime_days = (now - stream.first_seen).total_seconds() / 86400.0
-            stream.reinforcement_density = 0.0
-            stream.stability_score = 0.0
             stream.coverage = stream.lifetime_days / self.observation_window_days
             return stream
 
         sorted_dates = sorted(reinforcement_dates)
-        if stream.first_seen > sorted_dates[0]:
+        
+        # 1. Update temporal boundaries
+        if stream.frequency == 0:
+            # Initial state: trust the new dates completely
             stream.first_seen = sorted_dates[0]
+            stream.last_seen = sorted_dates[-1]
+        else:
+            # Incremental state: expand boundaries
+            if stream.first_seen > sorted_dates[0]:
+                stream.first_seen = sorted_dates[0]
             
-        stream.last_seen = sorted_dates[-1]
+            if stream.last_seen < sorted_dates[-1]:
+                stream.last_seen = sorted_dates[-1]
         
         lifetime_secs = (stream.last_seen - stream.first_seen).total_seconds()
         stream.lifetime_days = lifetime_secs / 86400.0
-        
-        # Avoid division by zero
         safe_lifetime = max(stream.lifetime_days, 0.01)
-        
-        stream.frequency = len(sorted_dates)
+
+        # 2. Update Frequency (Cumulative)
+        old_freq = stream.frequency
+        delta_freq = len(sorted_dates)
+        new_freq = old_freq + delta_freq
+        stream.frequency = new_freq
+
+        # 3. Update Reinforcement Density
         stream.reinforcement_density = stream.frequency / safe_lifetime
         
+        # 4. Update Coverage
         stream.coverage = stream.lifetime_days / self.observation_window_days
 
-        if len(sorted_dates) > 2:
+        # 5. Update Stability Score (Weighted Average)
+        # Calculate stability for the NEW delta only
+        delta_stability = 0.0
+        if delta_freq > 2:
             intervals = [(sorted_dates[i] - sorted_dates[i-1]).total_seconds() / 86400.0 
                          for i in range(1, len(sorted_dates))]
             if len(intervals) > 1:
                 var = statistics.variance(intervals)
-                # Lower variance = higher stability. Use an inverse function or normalize.
-                # Assuming variance of 0 is perfect stability (score 1.0).
-                stream.stability_score = max(0.0, 1.0 - (var / (safe_lifetime + 1.0)))
-            else:
-                stream.stability_score = 0.0
-        elif len(sorted_dates) == 2:
-            stream.stability_score = 0.3 # Moderate stability signal for 2 events
+                # Lower variance = higher stability
+                delta_stability = max(0.0, 1.0 - (var / (safe_lifetime + 1.0)))
+        elif delta_freq == 2:
+            delta_stability = 0.3
         else:
-            stream.stability_score = 0.0
+            delta_stability = 0.0 # Single events don't provide stability signal
+
+        # Merge with existing stability using weighted average
+        if old_freq > 0:
+            stream.stability_score = (stream.stability_score * old_freq + delta_stability * delta_freq) / new_freq
+        else:
+            stream.stability_score = delta_stability
 
         return stream
 

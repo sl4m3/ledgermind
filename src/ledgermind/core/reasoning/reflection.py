@@ -1,4 +1,3 @@
-
 import logging
 import os
 import json
@@ -173,8 +172,11 @@ class ReflectionEngine:
             event_map = {e['id']: e for e in events}
         
         reinforcement_dates = []
-        all_evidence = set(stream.evidence_event_ids + stats['all_ids'])
-        stream.evidence_event_ids = list(all_evidence)
+        
+        # Update evidence list (queue for LLM enrichment)
+        # Only add IDs that aren't already in the pending list
+        new_ids = [eid for eid in stats['all_ids'] if eid not in stream.evidence_event_ids]
+        stream.evidence_event_ids.extend(new_ids)
         
         # Link procedural instructions if provided
         if procedural_links:
@@ -194,7 +196,8 @@ class ReflectionEngine:
         # Define kinds that constitute a real 'use' or 'reinforcement' of knowledge (PR #30)
         REINFORCEMENT_KINDS = {KIND_RESULT, KIND_ERROR, "call", "task", "prompt", "intervention"}
 
-        for eid in stream.evidence_event_ids:
+        # Extract dates ONLY for the NEW delta from the current cluster
+        for eid in stats['all_ids']:
             if eid in event_map:
                 ev = event_map[eid]
                 if ev['kind'] in REINFORCEMENT_KINDS:
@@ -204,9 +207,7 @@ class ReflectionEngine:
                     except (ValueError, TypeError):
                         pass
         
-        if not reinforcement_dates:
-            reinforcement_dates = [now]
-            
+        # calculate_temporal_signals now treats reinforcement_dates as a DELTA to be merged
         stream = self.lifecycle.calculate_temporal_signals(stream, reinforcement_dates, now)
         
         # Issue #14: Reactivate dormant stream if new events arrived in this cluster
@@ -247,7 +248,7 @@ class ReflectionEngine:
             evidence_event_ids=stats['all_ids'],
             first_seen=now,
             last_seen=now,
-            frequency=len(stats['all_ids'])
+            frequency=0 # Will be updated by calculate_temporal_signals
         )
 
         if arbitration_mode != "lite":
@@ -282,7 +283,7 @@ class ReflectionEngine:
         if not reinforcement_dates:
             reinforcement_dates = [now]
         
-        # Calculate initial temporal signals
+        # Calculate initial temporal signals (cumulative)
         stream = self.lifecycle.calculate_temporal_signals(stream, reinforcement_dates, now)
         stream = self.lifecycle.promote_stream(stream)
         
