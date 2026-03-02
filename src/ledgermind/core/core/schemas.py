@@ -78,6 +78,7 @@ class ProposalContent(BaseModel):
     target: TargetStr
     status: ProposalStatus = ProposalStatus.DRAFT
     rationale: RationaleStr
+    compressive_rationale: Optional[str] = None
     namespace: str = "default"
     confidence: float = Field(ge=0.0, le=1.0)
     
@@ -95,6 +96,7 @@ class ProposalContent(BaseModel):
     alternative_ids: List[str] = Field(default_factory=list, description="IDs of competing proposals for the same cluster of evidence")
     
     evidence_event_ids: List[int] = Field(default_factory=list)
+    total_evidence_count: int = 0
     counter_evidence_event_ids: List[int] = Field(default_factory=list) # Events that weaken this hypothesis
     
     suggested_consequences: List[str] = Field(default_factory=list)
@@ -117,6 +119,7 @@ class DecisionStream(BaseModel):
     target: TargetStr
     title: StrictStr
     rationale: RationaleStr
+    compressive_rationale: Optional[str] = None
     namespace: str = "default"
     scope: PatternScope = PatternScope.LOCAL
     status: Literal["active", "deprecated", "superseded", "draft", "accepted", "rejected", "falsified"] = "active"
@@ -128,6 +131,7 @@ class DecisionStream(BaseModel):
     # Context & Links
     keywords: List[str] = Field(default_factory=list)
     evidence_event_ids: List[int] = Field(default_factory=list)
+    total_evidence_count: int = 0
     consequences: List[str] = Field(default_factory=list)
     supersedes: List[str] = Field(default_factory=list)
     superseded_by: Optional[str] = None
@@ -160,9 +164,11 @@ class DecisionContent(BaseModel):
     target: TargetStr
     status: Literal["active", "deprecated", "superseded", "draft", "accepted", "rejected", "falsified"] = "active"
     rationale: RationaleStr
+    compressive_rationale: Optional[str] = None
     namespace: str = "default"
     keywords: List[str] = Field(default_factory=list, description="Semantic keywords for better retrieval")
     evidence_event_ids: List[int] = Field(default_factory=list)
+    total_evidence_count: int = 0
     consequences: List[str] = Field(default_factory=list)
     supersedes: List[str] = Field(default_factory=list)
     superseded_by: Optional[str] = None

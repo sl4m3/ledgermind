@@ -77,6 +77,7 @@ class IntegrationBridge:
                         "path": os.path.join(self.memory_path, "semantic", fid),
                         "content": item.get('content'),
                         "rationale": item.get('rationale'),
+                        "compressive_rationale": ctx.get('compressive_rationale'),
                         "consequences": item.get('consequences'),
                         "expected_outcome": item.get('expected_outcome'),
                         "procedural": ctx.get('procedural') # Temporarily keep for get_context_for_prompt formatting
@@ -108,6 +109,12 @@ class IntegrationBridge:
         for m in memories:
             m["instruction"] = f"Key fields are injected. Use 'cat {m['path']}' if you need full history."
             
+            # --- OPTIMIZATION: Token Saving ---
+            # If compressive rationale exists, use it and remove the full one from injection
+            if m.get("compressive_rationale"):
+                m["rationale"] = m["compressive_rationale"]
+                del m["compressive_rationale"]
+
             # Format procedural steps for better readability if present
             if m.get("procedural") and isinstance(m["procedural"], dict):
                 steps = m["procedural"].get("steps", [])
