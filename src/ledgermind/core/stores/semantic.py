@@ -482,8 +482,17 @@ class SemanticStore:
             with open(file_path, "r", encoding="utf-8") as f: content = f.read()
             old_data, body = MemoryLoader.parse(content)
             new_data = yaml.safe_load(yaml.dump(old_data))
+            
+            # 1. Update Core Fields (Top-level in YAML)
+            CORE_FIELDS = ["title", "content", "target", "status", "kind"]
+            for field in CORE_FIELDS:
+                if field in updates:
+                    new_data[field] = updates[field]
+            
+            # 2. Update Context Fields
             if "context" not in new_data: new_data["context"] = {}
             new_data["context"].update(updates)
+            
             TransitionValidator.validate_update(old_data, new_data)
             
             new_content = MemoryLoader.stringify(new_data, body)
