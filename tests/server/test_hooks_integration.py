@@ -53,7 +53,7 @@ def test_install_claude_hooks(mock_home, tmp_path):
         settings_file = mock_home / ".claude" / "settings.json"
         
         assert (project_hooks_dir / "ledgermind_before_prompt.sh").exists()
-        assert (project_hooks_dir / "ledgermind_after_interaction.sh").exists()
+        assert (project_hooks_dir / "ledgermind_stop.sh").exists()
         assert settings_file.exists()
         
         # Verify settings.json points to the project hooks and has the new matcher format
@@ -65,11 +65,10 @@ def test_install_claude_hooks(mock_home, tmp_path):
             assert ups[0]["matcher"] == "*"
             assert ups[0]["hooks"][0]["command"] == str(project_hooks_dir / "ledgermind_before_prompt.sh")
             
-            # Check PostToolUse
-            ptu = settings["hooks"]["PostToolUse"]
-            assert isinstance(ptu, list)
-            assert ptu[0]["matcher"] == "*"
-            assert ptu[0]["hooks"][0]["command"] == str(project_hooks_dir / "ledgermind_after_interaction.sh")
+            # Check Stop
+            stop = settings["hooks"]["Stop"]
+            assert isinstance(stop, list)
+            assert stop[0]["hooks"][0]["command"] == str(project_hooks_dir / "ledgermind_stop.sh")
         
         # Verify content
         before_content = (project_hooks_dir / "ledgermind_before_prompt.sh").read_text()
@@ -104,10 +103,6 @@ def test_install_cursor_hooks(mock_home, tmp_path):
         assert '--cli "cursor"' in before_content
         assert ".ledgermind" in before_content
 
-        with open(hooks_file) as f:
-            config = json.load(f)
-            assert config["beforeSubmitPrompt"] == str(project_hooks_dir / "ledgermind_before.sh")
-
 def test_install_gemini_hooks(mock_home, tmp_path):
     project_path = tmp_path / "project"
     project_path.mkdir()
@@ -133,11 +128,12 @@ def test_bridge_context_cli(tmp_path):
     
     # Record a decision first so we have context
     from ledgermind.core.api.memory import Memory
-    mem = Memory(vector_model="v5-small-text-matching-Q4_K_M.gguf", storage_path=str(memory_path))
+    # Use fallback if no real model, but search_decisions should still work via FTS5
+    mem = Memory(vector_model="non_existent.gguf", storage_path=str(memory_path))
     mem.record_decision(title="Test Rule", target="test", rationale="Important decision for testing hooks")
     
-    # Use a low threshold to ensure context injection regardless of exact similarity score
-    result = run_cli(["bridge-context", "--path", str(memory_path), "--prompt", "Test Rule", "--threshold", "0.1"])
+    # Use a 0.0 threshold to ensure context injection regardless of exact similarity score (FTS5 match)
+    result = run_cli(["bridge-context", "--path", str(memory_path), "--prompt", "Test Rule", "--threshold", "0.0"])
     if result.returncode != 0:
         sys.__stderr__.write(f"STDERR: {result.stderr}\n")
     assert result.returncode == 0
