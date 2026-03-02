@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772462674021,
+  "lastUpdate": 1772465074429,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -945,6 +945,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00013880108310608744",
             "extra": "mean: 1.2037136000003557 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "ef1e98a3029c6bda1f557c2cb84379a4d1faf50d",
+          "message": "perf: significantly speed up slow tests and optimize benchmark workflow\n\n- tests/core/test_bridge.py: Changed fixtures to 'module' scope to avoid redundant Memory initialization.\n- tests/core/audit/test_concurrency.py: Reduced iteration counts and sleep times while preserving lock verification.\n- tests/core/audit/test_smoke.py: Mocked LLMEnricher to test orchestration without heavy ML overhead.\n- tests/core/audit/test_properties.py: Reduced Hypothesis max_examples to eliminate redundant repository setups.\n- .github/workflows/benchmarks.yml: Updated benchmark file path to match current structure.",
+          "timestamp": "2026-03-02T18:22:07+03:00",
+          "tree_id": "1c632708488fa2b4d0fb9f712d8908ce9732da01",
+          "url": "https://github.com/sl4m3/ledgermind/commit/ef1e98a3029c6bda1f557c2cb84379a4d1faf50d"
+        },
+        "date": 1772465073407,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 115.91803899125705,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00019540483634121648",
+            "extra": "mean: 8.626785000006976 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 25516.713446592308,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000006789926912174902",
+            "extra": "mean: 39.19000000109918 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1112.6755329071316,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010113206242908197",
+            "extra": "mean: 898.7346000026264 usec\nrounds: 5"
           }
         ]
       }
