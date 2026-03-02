@@ -12,7 +12,7 @@ def repair_episodic(db_path):
     cursor = conn.cursor()
 
     try:
-        # 1. Count duplicates before
+        # 1. Count duplicates before (ignoring timestamp and context differences)
         cursor.execute("""
             SELECT COUNT(*) FROM events e1
             WHERE EXISTS (
@@ -20,8 +20,6 @@ def repair_episodic(db_path):
                 WHERE e1.source = e2.source 
                   AND e1.kind = e2.kind 
                   AND e1.content = e2.content 
-                  AND e1.context = e2.context 
-                  AND e1.timestamp = e2.timestamp 
                   AND e1.id > e2.id
             )
         """)
@@ -39,8 +37,6 @@ def repair_episodic(db_path):
                         WHERE e1.source = e2.source 
                           AND e1.kind = e2.kind 
                           AND e1.content = e2.content 
-                          AND e1.context = e2.context 
-                          AND e1.timestamp = e2.timestamp 
                           AND e1.id > e2.id
                     )
                 )
