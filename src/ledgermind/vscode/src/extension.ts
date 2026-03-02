@@ -48,7 +48,10 @@ export function activate(context: vscode.ExtensionContext) {
                     '--cli', 'vscode-chat'
                 ], (err) => {
                     setBusy(false);
-                    if (err) console.error('LedgerMind Chat Record Error:', err);
+                    if (err) {
+                        console.error('LedgerMind Chat Record Error:', err);
+                        vscode.window.showErrorMessage(`LedgerMind: Failed to record chat context. Is ledgermind-mcp installed?`);
+                    }
                 });
             })
         );
@@ -59,7 +62,7 @@ export function activate(context: vscode.ExtensionContext) {
     let debounceTimer: NodeJS.Timeout | null = null;
 
     context.subscriptions.push(
-        vscode.window.onDidWriteTerminalData((e) => {
+        (vscode.window as any).onDidWriteTerminalData?.((e: any) => {
             terminalBuffer += e.data;
             if (debounceTimer) clearTimeout(debounceTimer);
             
