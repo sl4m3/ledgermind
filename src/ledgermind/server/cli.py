@@ -352,18 +352,17 @@ def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold:
         default_cli = [cli] if cli else None
         bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, relevance_threshold=threshold if threshold is not None else 0.7)
 
-        # 3. Robust History Sync (Hybrid Deduplication)
+        # 4. Robust History Sync (Hybrid Deduplication)
         # We only sync if transcript_path is a FILE
+        synced_content_this_turn = set()
         if transcript_path and os.path.isfile(transcript_path):
-            sync_transcript_history(bridge, transcript_path)
+            synced_content_this_turn = sync_transcript_history(bridge, transcript_path)
         elif transcript_path:
             sys.stderr.write(f"* Skipping sync: {transcript_path} is not a file\n")
 
-        # 5. Record the CURRENT prompt if not already handled
-        if real_prompt and real_prompt != "-":
-             rp_strip = real_prompt.strip()
-             if rp_strip and rp_strip not in synced_content_this_turn:
-                 bridge.memory.process_event(source="user", kind="prompt", content=rp_strip)
+        # 5. Record the CURRENT prompt (REMOVED - handled by Stop hook transcript sync)
+        # Manual recording here causes duplicates with Stop hook sync due to TZ/precision diffs.
+        # We rely on Stop hook to record everything robustly.
         
         ctx = bridge.get_context_for_prompt(real_prompt)
         sys.stdout.write(ctx)
