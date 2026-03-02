@@ -200,10 +200,13 @@ def run_lifecycle_test(args):
         
         int_results = bridge.memory.search_decisions(int_target, limit=1, mode="audit")
         if int_results:
-            fid = int_results[0]['id']
-            meta = bridge.memory.semantic.meta.get_by_fid(fid)
+            fid_int = int_results[0]['id']
+            # Boost confidence manually so it survives 14 days of decay
+            bridge.memory.semantic.update_decision(fid_int, {"confidence": 1.0}, commit_msg="Test: Boost confidence for aging simulation")
+            
+            meta = bridge.memory.semantic.meta.get_by_fid(fid_int)
             if not meta:
-                console.print(f"[red]FAIL: Intervention record {fid} not found in metadata store.[/red]")
+                console.print(f"[red]FAIL: Intervention record {fid_int} not found in metadata store.[/red]")
                 return
             
             ctx = json.loads(meta.get('context_json', '{}'))
@@ -250,7 +253,14 @@ def run_lifecycle_test(args):
         elif meta_age:
             console.print(f"[red]FAIL: Expected decaying vitality, got {meta_age.get('vitality')}[/red]")
         else:
-            console.print(f"[red]FAIL: Record {fid} not found in metadata after aging.[/red]")
+            console.print(f"[red]FAIL: Primary Record {fid} not found in metadata after aging.[/red]")
+            
+        # Verify intervention also decayed but was NOT forgotten (due to boosted confidence)
+        meta_int_age = bridge.memory.semantic.meta.get_by_fid(fid_int)
+        if meta_int_age:
+            console.print(f"[green]✔ Intervention {fid_int} preserved with confidence {meta_int_age.get('confidence')}.[/green]")
+        else:
+            console.print(f"[red]FAIL: Intervention {fid_int} was forgotten prematurely.[/red]")
 
         # --- STAGE 5: SEARCH RANKING IMPACT ---
         console.print("\n[bold cyan]Stage 5: Search Ranking Impact (Lifecycle Multipliers)[/bold cyan]")
