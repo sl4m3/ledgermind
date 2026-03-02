@@ -96,6 +96,7 @@ class LLMEnricher:
                 
                 # For procedural, we process once since they are defined by steps, not just log clusters
                 # For behavioral, we can iterate
+                status = "pending"
                 while True:
                     current_ids = all_ids[:CHUNK_SIZE]
                     remaining_ids = all_ids[CHUNK_SIZE:]
@@ -112,6 +113,12 @@ class LLMEnricher:
                     old_rationale = proposal.rationale
                     proposal = self.enrich_proposal(proposal, cluster_logs=cluster_logs, file_path=file_path)
                     
+                    # Verification: Did anything change?
+                    # Note: rationale is updated inside enrich_proposal
+                    if str(proposal.rationale) == str(old_rationale):
+                        # LLM failed or returned same text, stop processing this file for now
+                        break
+
                     # Update local state
                     proposal.evidence_event_ids = remaining_ids
                     

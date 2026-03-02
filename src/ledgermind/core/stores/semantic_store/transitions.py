@@ -49,6 +49,10 @@ class TransitionValidator:
                 # 3. Allow LLM enrichment to set 'Goal' into content field
                 if field == "content" and is_pending:
                     continue
+                # 4. Allow filling missing top-level fields (migration)
+                if old_val is None and new_val is not None:
+                    continue
+                
                 raise TransitionError(f"I1 Violation: Core field '{field}' is immutable. Change rejected.")
 
         for field in TransitionValidator.IMMUTABLE_CONTEXT:
