@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772461986492,
+  "lastUpdate": 1772462674021,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -900,6 +900,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0001150294696379296",
             "extra": "mean: 1.360398999992185 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "f7f8ef25d111b10735cc5021001bb1d5ef826418",
+          "message": "ci: optimize pipeline duration and suppress llama_cpp cleanup noise\n\n- pyproject.toml: Added filterwarnings to ignore unraisable AttributeError from llama_cpp during model destruction.\n- tests: Reduced seeding data in performance benchmarks from 20 to 5 records to speed up CI runs.\n- pytest: Filtered PytestUnraisableExceptionWarning to clean up logs and reduce teardown overhead.",
+          "timestamp": "2026-03-02T17:42:08+03:00",
+          "tree_id": "9b83d40e859dfc390eee1856075eab229a71e644",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f7f8ef25d111b10735cc5021001bb1d5ef826418"
+        },
+        "date": 1772462672950,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_record_decision",
+            "value": 78.667271943214,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00018564932870003062",
+            "extra": "mean: 12.711766599989005 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_fast_path",
+            "value": 23858.94590140234,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000995817533674083",
+            "extra": "mean: 41.91300001821219 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/test_bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 830.7624006239562,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00013880108310608744",
+            "extra": "mean: 1.2037136000003557 msec\nrounds: 5"
           }
         ]
       }
