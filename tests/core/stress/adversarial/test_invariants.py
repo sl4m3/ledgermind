@@ -32,10 +32,11 @@ def test_conflict_injection(memory_fixture):
     mem = memory_fixture
     target = "unique_singleton"
     
-    mem.record_decision("First", target, "Valid rationale ensuring length")
+    # Use extremely different long strings to avoid similarity auto-supersede
+    mem.record_decision("ALPHA", target, "X" * 100 + " QUANTUM " + "Y" * 100)
     
     with pytest.raises(ConflictError):
-        mem.record_decision("Second", target, "Should fail due to conflict")
+        mem.record_decision("OMEGA", target, "Z" * 100 + " CHICKEN " + "W" * 100)
 
 def test_supersede_nonexistent(memory_fixture):
     """
