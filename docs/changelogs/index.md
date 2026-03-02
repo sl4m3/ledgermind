@@ -4,6 +4,20 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.1.3] - 2026-03-02
+
+- **Real-Time Synchronization:** Instant history synchronization for Claude 
+  Code via the new `Stop` hook ([#70](https://github.com/sl4m3/ledgermind/pull/70)
+  by @sl4m3).
+- **Hypothesis Unification:** Unified procedural and behavioral hypothesis 
+  lifecycles for consistent knowledge evolution 
+  ([#72](https://github.com/sl4m3/ledgermind/pull/72) by @sl4m3).
+- **Increased Scaling:** Memory event length limit increased to 500KB for
+  technical log recording ([#73](https://github.com/sl4m3/ledgermind/pull/73)
+  by @sl4m3).
+- **Hook Reliability:** Secured interaction recording via stdin pipe
+  ([#76](https://github.com/sl4m3/ledgermind/pull/76) by @sl4m3).
+
 ## [v3.1.2] - 2026-03-01
 
 - **Unified Error Handling:** Implemented `Result` pattern with explicit error
