@@ -53,8 +53,8 @@ class IntegrityChecker:
         Supports incremental validation if fid is provided.
         'data' can be provided to avoid re-parsing the file.
         """
+        current_hash = IntegrityChecker._get_state_hash(repo_path)
         if not fid:
-            current_hash = IntegrityChecker._get_state_hash(repo_path)
             if not force and IntegrityChecker._state_cache.get(repo_path) == current_hash:
                 return
         
