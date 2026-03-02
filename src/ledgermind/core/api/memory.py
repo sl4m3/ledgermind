@@ -257,11 +257,33 @@ class Memory:
                       context: Optional[Union[DecisionContent, DecisionStream, Dict[str, Any]]] = None,
                       intent: Optional[ResolutionIntent] = None,
                       namespace: Optional[str] = None,
-                      vector: Optional[Any] = None) -> MemoryDecision:
+                      vector: Optional[Any] = None,
+                      timestamp: Optional[Union[datetime, str]] = None) -> MemoryDecision:
         """
         Process an incoming event and decide whether to persist it.
         """
         effective_namespace = namespace or self.namespace
+        
+        # Parse timestamp if provided as string
+        final_timestamp = datetime.now()
+        if timestamp:
+            if isinstance(timestamp, str):
+                try:
+                    # Claude Code uses ISO format like 2026-03-01T22:44:30.610Z
+                    # Replace Z with +00:00 for fromisoformat
+                    iso_str = timestamp.replace('Z', '+00:00')
+                    dt = datetime.fromisoformat(iso_str)
+                    # Normalize to ms precision (Claude standard)
+                    final_timestamp = dt.replace(microsecond=(dt.microsecond // 1000) * 1000)
+                except Exception:
+                    final_timestamp = datetime.now().replace(microsecond=0)
+            else:
+                # Normalize provided datetime objects too
+                final_timestamp = timestamp.replace(microsecond=(timestamp.microsecond // 1000) * 1000)
+        else:
+            # New events get rounded to ms for consistency
+            now = datetime.now()
+            final_timestamp = now.replace(microsecond=(now.microsecond // 1000) * 1000)
 
         if (self.trust_boundary == TrustBoundary.HUMAN_ONLY and 
             source == "agent" and 
@@ -289,7 +311,8 @@ class Memory:
             source=source,
             kind=kind,
             content=content,
-            context=context or {}
+            context=context or {},
+            timestamp=final_timestamp
         )
         
         # 2.5: Prevent duplicate processing (Deep check including context, ignoring links)

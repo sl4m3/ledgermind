@@ -35,55 +35,69 @@ class ClaudeInstaller(BaseInstaller):
         memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
         os.makedirs(project_hooks_dir, exist_ok=True)
         
-        # 1. Create UserPromptSubmit / BeforeModel script
+        # 1. Create UserPromptSubmit script (Context injection & backup sync)
         before_script_path = os.path.join(project_hooks_dir, "ledgermind_before_prompt.sh")
+        cli_entry = f"python3 -m ledgermind.server.cli"
         self._create_hook_script(before_script_path, f"""#!/bin/bash
-# LedgerMind BeforeModel Hook (Local to {project_path})
-# Injects context into the prompt
-cat | ledgermind-mcp bridge-context --path \"{memory_path}\" --prompt \"-\" --cli \"claude\" --stdin
+# LedgerMind UserPromptSubmit Hook (Local to {project_path})
+LOG_FILE=\"$HOME/.claude/ledgermind_hooks.log\"
+echo \"[$(date)] UserPromptSubmit triggered\" >> \"$LOG_FILE\"
+export PYTHONPATH={project_path}/src:$PYTHONPATH
+cat | {cli_entry} bridge-context --path \"{memory_path}\" --prompt \"-\" --cli \"claude\" --stdin 2>> \"$LOG_FILE\"
 """)
 
-        # 2. Create PostToolUse script
-        after_script_path = os.path.join(project_hooks_dir, "ledgermind_after_interaction.sh")
-        self._create_hook_script(after_script_path, f"""#!/bin/bash
-# LedgerMind PostToolUse Hook (Local to {project_path})
-# Records the interaction safely via stdin
-cat | ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Automated tool execution" --response "-" --cli "claude" --stdin &
+        # 2. Create Stop script (Real-time transcript sync)
+        stop_script_path = os.path.join(project_hooks_dir, "ledgermind_stop.sh")
+        self._create_hook_script(stop_script_path, f"""#!/bin/bash
+# LedgerMind Stop Hook (Local to {project_path})
+LOG_FILE=\"$HOME/.claude/ledgermind_hooks.log\"
+echo \"[$(date)] Stop hook triggered\" >> \"$LOG_FILE\"
+export PYTHONPATH={project_path}/src:$PYTHONPATH
+cat | {cli_entry} bridge-sync --path \"{memory_path}\" --cli \"claude\" --stdin 2>> \"$LOG_FILE\"
 """)
 
-        # 3. Update global settings.json to point to these LOCAL scripts
-        settings = {}
-        if os.path.exists(self.global_settings):
-            try:
-                with open(self.global_settings, "r") as f:
-                    settings = json.load(f)
-            except json.JSONDecodeError:
-                settings = {}
-
-        if "hooks" not in settings:
-            settings["hooks"] = {}
-
-        # Important: Claude Code now uses a new format with matchers and arrays.
-        # UserPromptSubmit: trigger on all prompts
-        settings["hooks"]["UserPromptSubmit"] = [
-            {
-                "matcher": "*",
-                "hooks": [{"type": "command", "command": before_script_path}]
-            }
-        ]
-        
-        # PostToolUse: trigger after any tool use (BashTool, etc)
-        settings["hooks"]["PostToolUse"] = [
-            {
-                "matcher": "*",
-                "hooks": [{"type": "command", "command": after_script_path}]
-            }
+        # 3. Update global and local settings.json
+        settings_paths = [
+            self.global_settings,
+            os.path.join(project_path, ".claude", "settings.json")
         ]
 
-        # Note: AfterModel was reported as invalid key in new versions, 
-        # using PostToolUse for recording instead.
-        if "AfterModel" in settings["hooks"]:
-            del settings["hooks"]["AfterModel"]
+        for s_path in settings_paths:
+            settings = {}
+            if os.path.exists(s_path):
+                try:
+                    with open(s_path, "r") as f:
+                        settings = json.load(f)
+                except json.JSONDecodeError:
+                    settings = {}
+
+            if "hooks" not in settings:
+                settings["hooks"] = {}
+
+            # UserPromptSubmit: trigger on all prompts
+            settings["hooks"]["UserPromptSubmit"] = [
+                {
+                    "matcher": "*",
+                    "hooks": [{"type": "command", "command": before_script_path}]
+                }
+            ]
+            
+            # Stop: trigger when Claude finishes responding
+            # We use both with and without matcher for maximum compatibility
+            settings["hooks"]["Stop"] = [
+                {
+                    "hooks": [{"type": "command", "command": stop_script_path}]
+                }
+            ]
+
+            # Clean up legacy/redundant hooks
+            for h in ["AfterModel", "PostToolUse", "PreToolUse"]:
+                if h in settings["hooks"]:
+                    del settings["hooks"][h]
+
+            os.makedirs(os.path.dirname(s_path), exist_ok=True)
+            with open(s_path, "w") as f:
+                json.dump(settings, f, indent=2)
 
         os.makedirs(os.path.dirname(self.global_settings), exist_ok=True)
         with open(self.global_settings, "w") as f:
