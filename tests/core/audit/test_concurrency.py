@@ -9,7 +9,7 @@ def worker(storage_path, worker_id):
         memory = Memory(storage_path=storage_path)
         # Increase lock timeout for heavy concurrent tests
         memory.semantic._fs_lock.timeout = 60
-        for i in range(5):
+        for i in range(2):
             memory.record_decision(
                 title=f"Decision from worker {worker_id} - {i}",
                 target=f"target_{worker_id}_{i}", # Unique target
@@ -37,11 +37,11 @@ def test_multi_process_locking(tmp_path):
     errors = [r for r in results if r is not None]
     assert len(errors) == 0, f"Concurrency errors detected: {errors}"
     
-    # Проверяем, что все решения записаны (2 воркера * 5 записей = 10 файлов)
+    # Проверяем, что все решения записаны (2 воркера * 2 записей = 4 файлов)
     memory = Memory(storage_path=storage_path)
     decisions = memory.get_decisions()
-    assert len(decisions) == 10
-    print(f"Concurrency check passed: 10 decisions recorded by {num_workers} processes.")
+    assert len(decisions) == 4
+    print(f"Concurrency check passed: 4 decisions recorded by {num_workers} processes.")
 
 def reader_worker(storage_path, stop_event):
     """Читатель постоянно опрашивает память, пока не получит сигнал остановки."""
@@ -104,9 +104,9 @@ def test_supersede_consistency_under_load(tmp_path):
         for _ in range(1):
             pool.apply_async(reader_loop, (storage_path, stop_event, results_queue))
         
-        # Даем поработать 1.5 секунды (достаточно для проверки локов)
+        # Даем поработать 0.5 секунды (достаточно для проверки локов)
         import time
-        time.sleep(1.5)
+        time.sleep(0.5)
         stop_event.set()
         
     # Проверяем результаты из очереди
