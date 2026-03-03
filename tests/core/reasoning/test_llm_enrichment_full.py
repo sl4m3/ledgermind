@@ -66,13 +66,11 @@ def test_rich_mode_prefers_gemini_cli(mock_run, sample_proposal):
     
     # Mock successful gemini run with file-writing side effect
     def side_effect(cmd, **kwargs):
-        # Extract response file path from cmd string
-        import re
-        match = re.search(r'> (/[^ ]+)', cmd)
-        if match:
-            res_path = match.group(1)
-            with open(res_path, "w", encoding="utf-8") as f:
-                f.write("<goal>CLI Goal</goal><rationale>Human Gemini Text</rationale><compressive>CLI Comp</compressive>")
+        # The file is passed via kwargs["stdout"] when using the subprocess.run without shell=True
+        stdout_file = kwargs.get("stdout")
+        if stdout_file and hasattr(stdout_file, "write"):
+            stdout_file.write("<goal>CLI Goal</goal><rationale>Human Gemini Text</rationale><compressive>CLI Comp</compressive>")
+            stdout_file.flush()
         return MagicMock(returncode=0)
 
     mock_run.side_effect = side_effect
