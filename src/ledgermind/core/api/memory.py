@@ -636,31 +636,44 @@ class Memory:
     def run_reflection(self) -> List[str]:
         """
         Execute the incremental reflection process to identify patterns.
+        Processes the entire delta of new events since the last watermark.
         """
         watermark_key = "last_reflection_event_id"
         last_id = self.semantic.meta.get_config(watermark_key)
-        after_id = int(last_id) if last_id is not None else None
+        after_id = int(last_id) if last_id is not None else 0
         
-        proposal_ids, new_max_id = self.reflection_engine.run_cycle(after_id=after_id)
+        all_proposal_ids = []
+        CHUNK_SIZE = 5000
+        # Increased MAX_TOTAL to avoid infinite loops if somehow max_id doesn't advance
+        MAX_TOTAL = 100000 
+        processed_total = 0
         
-        has_new_events = False
-        try:
-            if new_max_id is not None:
-                if after_id is None or int(new_max_id) > int(after_id):
-                    has_new_events = True
-        except (ValueError, TypeError):
-            if new_max_id is not None:
-                has_new_events = True
-
-        if has_new_events:
-            if self.semantic._fs_lock.acquire(exclusive=True, timeout=5):
+        while processed_total < MAX_TOTAL:
+            # Process in small chunks to avoid memory spikes
+            proposal_ids, new_max_id = self.reflection_engine.run_cycle(after_id=after_id, limit=CHUNK_SIZE)
+            
+            if new_max_id is None or new_max_id <= after_id:
+                # No more events to process
+                break
+                
+            all_proposal_ids.extend(proposal_ids)
+            after_id = new_max_id
+            processed_total += CHUNK_SIZE
+            
+            # Save watermark incrementally
+            if self.semantic._fs_lock.acquire(exclusive=True, timeout=30):
                 try:
-                    self.semantic.meta.set_config(watermark_key, new_max_id)
-                    logger.info(f"Reflection: Updated watermark to {new_max_id}")
+                    self.semantic.meta.set_config(watermark_key, str(new_max_id))
+                    logger.debug(f"Reflection: Watermark advanced to {new_max_id}")
                 finally:
                     self.semantic._fs_lock.release()
-                
-        return proposal_ids
+            
+            if len(proposal_ids) < CHUNK_SIZE / 2: # Very few results or no more new events
+                 # Check if we should really break - if new_max_id advanced, there might be more
+                 # But usually episodic query will return fewer than limit only at the end.
+                 pass
+
+        return all_proposal_ids
 
     def sync_git(self, repo_path: str = ".", limit: int = 20) -> int:
         """

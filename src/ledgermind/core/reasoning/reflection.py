@@ -54,66 +54,54 @@ class ReflectionEngine:
         if not self.processor:
             logger.warning("ReflectionEngine initialized without a high-level processor.")
 
-    def run_cycle(self, after_id: Optional[int] = None) -> Tuple[List[str], Optional[int]]:
-        logger.info(f"Starting lifecycle reflection cycle [after_id={after_id}]...")
+    def run_cycle(self, after_id: Optional[int] = None, limit: int = 2000) -> Tuple[List[str], Optional[int]]:
+        logger.info(f"Starting lifecycle reflection cycle [after_id={after_id}, limit={limit}]...")
         if not self.processor:
             return [], after_id
 
         result_ids = []
         max_id = after_id
         
-        # Read config BEFORE entering the transaction to prevent implicit DDL commits in SQLite
+        # Read config BEFORE entering the transaction
         arbitration_mode = self.semantic.meta.get_config("arbitration_mode", "lite")
 
         with self.semantic.transaction():
-            # 0. Distillation (Procedural Patterns)
-            distiller = DistillationEngine(self.episodic, window_size=self.policy.distillation_window_size)
-            procedural_proposals = distiller.distill_trajectories(after_id=after_id)
-
-            # Group procedural proposals by target for linking
-            target_to_procedural = {}
-
-            for prop in procedural_proposals:
-                if prop.target in self.BLACKLISTED_TARGETS or prop.target.lower().startswith("general"):
-                    continue
-
-                if arbitration_mode != "lite":
-                    # Mark for asynchronous enrichment
-                    prop.enrichment_status = "pending"
-
-                
-                if prop.target not in target_to_procedural:
-                    target_to_procedural[prop.target] = []
-                target_to_procedural[prop.target].append(prop)
-
-                decision = self.processor.process_event(
-                    source="reflection_engine",
-                    kind=KIND_PROPOSAL,
-                    content=prop.title,
-                    context=prop
-                )
-                if decision.should_persist:
-                    fid = decision.metadata.get("file_id")
-                    result_ids.append(fid)
-                    # Add fid to our mapping for linking
-                    prop.keywords.append(f"fid:{fid}") # Hack to pass fid back or we could use a better way
-
-            # 1. Evidence Aggregation
-            recent_events = self.episodic.query(limit=2000, status='active', after_id=after_id, order='ASC')
-            
-            # Optimization: Load all active events once to avoid N+1 queries in _process_stream
-            all_recent_events = self.episodic.query(limit=3000, status='active', order='ASC')
-            event_map = {e['id']: e for e in all_recent_events}
-
+            # 1. Preparation
             all_streams = self._get_all_streams()
             processed_fids = set()
             now = datetime.now()
 
+            # 2. Distillation (Procedural Patterns)
+            distiller = DistillationEngine(self.episodic, window_size=self.policy.distillation_window_size)
+            procedural_proposals = distiller.distill_trajectories(after_id=after_id, limit=limit)
+
+            target_to_procedural = {}
+            for prop in procedural_proposals:
+                if prop.target in self.BLACKLISTED_TARGETS or prop.target.lower().startswith("general"):
+                    continue
+                
+                # Keep only high-confidence trajectories in memory for linking
+                if prop.target not in target_to_procedural:
+                    target_to_procedural[prop.target] = []
+                target_to_procedural[prop.target].append(prop)
+                
+                # WE DO NOT call self.processor.process_event(prop) here anymore.
+                # This prevents creating dozens of small proposal files.
+                # They will be integrated into the main DecisionStream clusters below.
+
+            # 3. Evidence Aggregation
+            recent_events = self.episodic.query(limit=limit, status='active', after_id=after_id, order='ASC')
+            
+            # Optimization: Load events into map for this batch
+            all_recent_events = self.episodic.query(limit=limit + 500, status='active', after_id=after_id, order='ASC')
+            event_map = {e['id']: e for e in all_recent_events}
+
             if recent_events:
+                # CRITICAL: Always advance max_id if we have events
                 max_id = max(e['id'] for e in recent_events)
                 evidence_clusters = self._cluster_evidence(recent_events)
                 
-                # 2. Update existing streams or discover new patterns
+                # 4. Update existing streams or discover new patterns
                 for target, stats in evidence_clusters.items():
                     if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general"):
                         continue
@@ -127,28 +115,22 @@ class ReflectionEngine:
                             processed_fids.add(fid)
                             result_ids.append(fid)
                     else:
-                        # New pattern based on accumulated session weight
                         if stats['weight'] >= 1.0 or stats['commits'] >= 1:
                             new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode)
                             if new_fid: result_ids.append(new_fid)
 
-            # 3. Apply Vitality Decay for unprocessed streams (always run this)
+            # 5. Apply Vitality Decay for unprocessed streams
             for fid, data in all_streams.items():
                 if fid not in processed_fids:
                     stream = DecisionStream(**data['context'])
                     old_vit = stream.vitality
                     stream = self.lifecycle.update_vitality(stream, now)
                     
-                    days = (now - stream.last_seen).total_seconds() / 86400.0
-                    logger.debug(f"Decay check for {fid} ({stream.target}): last_seen={stream.last_seen}, days={days:.2f}, vit={old_vit}->{stream.vitality}")
-
-                    # Only update if vitality or confidence actually changed to avoid churn
                     if stream.vitality != old_vit or abs(stream.confidence - data['context'].get('confidence', 0)) > 0.01:
-                        logger.info(f"Applying vitality decay to {fid}: {old_vit} -> {stream.vitality} (days={days:.2f})")
                         self.processor.update_decision(fid, stream.model_dump(), commit_msg="Lifecycle: Vitality decay update.")
                         result_ids.append(fid)
 
-            # 4. Log Reflection Summary if any changes were made
+            # 6. Log Reflection Summary
             if result_ids:
                 summary_event = MemoryEvent(
                     source="reflection_engine",
@@ -184,12 +166,7 @@ class ReflectionEngine:
         # Link procedural instructions if provided
         if procedural_links:
             for prop in procedural_links:
-                if prop.procedural and prop.confidence >= 0.7:
-                    # Attach the most confident procedural content directly to the stream
-                    if not stream.procedural or prop.confidence > stream.confidence:
-                        stream.procedural = prop.procedural
-                    
-                    # Also keep track of dedicated procedural IDs
+                if prop.confidence >= 0.7:
                     for kw in prop.keywords:
                         if kw.startswith("fid:"):
                             proc_fid = kw.split(":", 1)[1]
@@ -260,10 +237,7 @@ class ReflectionEngine:
         # Link procedural instructions if provided
         if procedural_links:
             for prop in procedural_links:
-                if prop.procedural and prop.confidence >= 0.7:
-                    if not stream.procedural or prop.confidence > stream.confidence:
-                        stream.procedural = prop.procedural
-                    
+                if prop.confidence >= 0.7:
                     for kw in prop.keywords:
                         if kw.startswith("fid:"):
                             proc_fid = kw.split(":", 1)[1]
@@ -293,18 +267,47 @@ class ReflectionEngine:
         decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=stream.title, context=stream)
         return decision.metadata.get("file_id") if decision.should_persist else ""
 
+    def _infer_sub_target(self, event: Dict[str, Any]) -> str:
+        """Infers logical sub-target/intent from event content/context (MemP v5.2)."""
+        content = event.get('content', '').lower()
+        kind = event.get('kind', '').lower()
+        source = event.get('source', '').lower()
+        
+        if kind == 'reflection_summary' or source == 'reflection_engine': return 'reflection'
+        if 'enrich' in content or 'enrich' in kind: return 'enrichment'
+        if 'distill' in content or 'distill' in kind: return 'distillation'
+        
+        keywords = {
+            'worker': ['worker', 'background', 'task_queue', 'celery', 'pkill'],
+            'mcp': ['mcp', 'tools', 'specification', 'contract'],
+            'lifecycle': ['lifecycle', 'vitality', 'decay', 'promote'],
+            'storage': ['sqlite', 'episodic', 'semantic', 'migration', 'db_path'],
+            'reasoning': ['reasoning', 'inference', 'llm', 'prompt', 'synthesis'],
+            'server': ['server', 'gateway', 'health', 'metrics', 'http']
+        }
+        for sub, kws in keywords.items():
+            if any(kw in content for kw in kws): return sub
+                
+        ctx = event.get('context', {})
+        changed_files = ctx.get('changed_files', [])
+        for f in changed_files:
+            f_lower = f.lower()
+            if 'reflection' in f_lower: return 'reflection'
+            if 'enrich' in f_lower: return 'enrichment'
+            if 'distill' in f_lower: return 'distillation'
+            if 'worker' in f_lower or 'background' in f_lower: return 'worker'
+            if 'server' in f_lower or 'gateway' in f_lower: return 'server'
+            if 'store' in f_lower: return 'storage'
+        return 'general'
+
     def _cluster_evidence(self, events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         clusters = {}
         last_valid_target = None
         
-        # Meta-events that should never trigger learning or be used as evidence
         META_KINDS = {KIND_PROPOSAL, "context_snapshot", "context_injection"}
-        
-        # Russian success indicators
         RU_SUCCESS_KEYWORDS = {"успешно", "прошли", "исправлено", "завершено", "ок", "выполнено", "готово", "работает", "прошел", "починил", "успех"}
 
         for ev in events:
-            # 1. Anti-Self-Reflection: Skip events from engine or meta-events
             if ev.get('source') == 'reflection_engine': continue
             if ev.get('kind') in META_KINDS: continue
             
@@ -312,74 +315,71 @@ class ReflectionEngine:
             target = ctx.get('target')
             content = ev.get('content', '').lower()
             
+            # Target Inference Logic
             if ev['kind'] == 'commit_change' and (not target or target in self.BLACKLISTED_TARGETS or len(target) < 3):
                 import re
-                # 1. Try conventional commit pattern: feat(core): ...
                 match = re.search(r'\(([^)]+)\):', content)
-                if match:
-                    target = match.group(1)
+                if match: target = match.group(1)
                 else:
-                    # 2. Try to infer target from changed files
                     changed_files = ctx.get('changed_files', [])
                     if changed_files:
-                        # Find most common top-level directory/module
                         paths = [f.split('/')[0] for f in changed_files if '/' in f]
-                        if not paths: # Files in root
-                            paths = [f.split('.')[0] for f in changed_files]
-                        
+                        if not paths: paths = [f.split('.')[0] for f in changed_files]
                         if paths:
                             from collections import Counter
                             target = Counter(paths).most_common(1)[0][0]
 
-            # Inheritance: results and calls inherit target from previous context (PR #42)
             if not target and ev['kind'] in (KIND_RESULT, "call", "task", "commit_change"):
                 target = last_valid_target
 
             target = target or "general"
-            
-            # Update last valid target if this one is good
             if target not in self.BLACKLISTED_TARGETS and target.lower() != "general" and len(target) >= 3:
                 last_valid_target = target
-            elif ev['kind'] in ('prompt', 'decision'):
-                # Issue Fix: Don't reset to None immediately. 
-                # Only reset if the prompt explicitly has a different target or after a period of time
-                if target and target not in self.BLACKLISTED_TARGETS and target != "general":
-                    last_valid_target = target
-                # If we really want to reset, we should do it based on session gap, not just every prompt
-                
+
             if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general") or len(target) < 3:
                 continue
+
+            # Sub-target/Intent Discovery
+            sub_target = self._infer_sub_target(ev)
+            composite_target = target if sub_target == 'general' else f"{target}/{sub_target}"
+
+            if composite_target not in clusters:
+                clusters[composite_target] = {
+                    'errors': 0.0, 
+                    'successes': 0.0, 
+                    'commits': 0, 
+                    'all_ids': [], 
+                    'weight': 0.0,
+                    'dates': []
+                }
             
-            if target not in clusters:
-                clusters[target] = {'errors': 0.0, 'successes': 0.0, 'commits': 0, 'all_ids': [], 'last_seen': ev['timestamp'], 'weight': 0.0}
+            c = clusters[composite_target]
+            c['all_ids'].append(ev['id'])
             
-            clusters[target]['all_ids'].append(ev['id'])
-            
-            # kind-based weighting
+            ts = ev.get('timestamp')
+            if isinstance(ts, str):
+                try: ts = datetime.fromisoformat(ts)
+                except Exception: ts = datetime.now()
+            if ts: c['dates'].append(ts)
+
             if ev['kind'] == KIND_ERROR: 
-                clusters[target]['errors'] += 1.0
-                clusters[target]['weight'] += 0.5
+                c['errors'] += 1.0
+                c['weight'] += 0.5
             elif ev['kind'] == KIND_RESULT:
                 score = ctx.get('success', 0.5)
-                # Localization support: check for Russian success words
                 is_ru_success = any(word in content for word in RU_SUCCESS_KEYWORDS)
-                
                 if score is True or is_ru_success: score = 1.0
                 elif score is False: score = 0.0
                 
-                clusters[target]['successes'] += float(score)
-                clusters[target]['errors'] += (1.0 - float(score))
-                clusters[target]['weight'] += 1.0 if score > 0.7 else 0.2
+                c['successes'] += float(score)
+                c['errors'] += (1.0 - float(score))
+                c['weight'] += 1.0 if score > 0.7 else 0.2
             elif ev['kind'] == 'commit_change': 
-                clusters[target]['commits'] += 1
-                clusters[target]['weight'] += 2.0
-            elif ev['kind'] in ('call', 'task'):
-                clusters[target]['weight'] += 0.3
-            elif ev['kind'] == 'prompt':
-                clusters[target]['weight'] += 0.2
-            
-            try: clusters[target]['last_seen'] = max(clusters[target]['last_seen'], ev['timestamp'])
-            except (KeyError, TypeError): pass
+                c['commits'] += 1
+                c['weight'] += 2.0
+            elif ev['kind'] in ('call', 'task', 'prompt'):
+                c['weight'] += 0.3
+
         return clusters
 
     def _get_all_streams(self) -> Dict[str, Dict[str, Any]]:

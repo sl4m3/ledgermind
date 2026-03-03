@@ -28,8 +28,13 @@ class LifecycleEngine:
     ) -> DecisionStream:
         """
         Updates temporal metrics incrementally based on a NEW delta of reinforcement_dates.
-        This allows for clearing processed evidence IDs while maintaining accurate history.
         """
+        # Normalize everything to naive UTC for safe comparison
+        now = now.replace(tzinfo=None)
+        reinforcement_dates = [d.replace(tzinfo=None) for d in reinforcement_dates]
+        if stream.first_seen: stream.first_seen = stream.first_seen.replace(tzinfo=None)
+        if stream.last_seen: stream.last_seen = stream.last_seen.replace(tzinfo=None)
+
         if not reinforcement_dates:
             # Still update lifetime metrics even with no new evidence
             stream.lifetime_days = (now - stream.first_seen).total_seconds() / 86400.0
@@ -130,6 +135,9 @@ class LifecycleEngine:
         """
         Updates the vitality state: ACTIVE -> DECAYING -> DORMANT.
         """
+        now = now.replace(tzinfo=None)
+        if stream.last_seen: stream.last_seen = stream.last_seen.replace(tzinfo=None)
+        
         days_since_last = (now - stream.last_seen).total_seconds() / 86400.0
         
         if days_since_last < 7.0:
