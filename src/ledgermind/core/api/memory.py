@@ -898,12 +898,12 @@ class Memory:
         k = 60 # RRF constant
         
         # Fast path for simple keyword search in high-performance scenarios
-        if mode == "lite" or (len(query) < 20 and " " not in query.strip()):
+        if mode == "lite":
             search_status = "active" if mode == "strict" else None
             kw_results = self.semantic.meta.keyword_search(query, limit=limit, namespace=effective_namespace, status=search_status)
             if kw_results:
                 # Absolute maximum throughput by minimizing dict keys and using direct index access
-                return [{
+                results = [{
                     "id": r[0],
                     "title": r[1],
                     "preview": r[1],
@@ -912,6 +912,8 @@ class Memory:
                     "score": 1.0,
                     "kind": r[4]
                 } for r in kw_results]
+                results.sort(key=lambda x: (x['score'], x['id']), reverse=True)
+                return results
 
         if namespace:
             search_limit = max(200, (offset + limit) * 10)
@@ -1059,7 +1061,7 @@ class Memory:
             cand['score'] = min(1.0, raw_score)
             all_candidates.append(cand)
 
-        all_candidates.sort(key=lambda x: x['score'], reverse=True)
+        all_candidates.sort(key=lambda x: (x['score'], x['base_score'] + x['boost'], x['id']), reverse=True)
         final_results = []
         seen_ids = set()
         skipped = 0
