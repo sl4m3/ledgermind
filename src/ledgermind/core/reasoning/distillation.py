@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional
 import logging
 import json
 from ledgermind.core.core.schemas import (
-    MemoryEvent, ProceduralContent, ProceduralStep, 
+    MemoryEvent, ProceduralContent, ProceduralStep,
     ProposalContent, ProposalStatus, KIND_RESULT, KIND_ERROR
 )
 
