@@ -193,7 +193,8 @@ def test_hybrid_search_rrf_and_grounding_boost(temp_memory_path, monkeypatch):
         ev_id = memory.episodic.append(ev).value
         memory.link_evidence(ev_id, fid_a)
     # 4. Search for 'performance' (Lengthened to force full hybrid path for RRF testing)
-    results = memory.search_decisions("performance optimization latency speed scaling throughput", limit=2)
+    # Changed mode to 'balanced' to ensure we do not hit the fast-path 'lite' return early
+    results = memory.search_decisions("performance optimization latency speed scaling throughput", limit=2, mode='balanced')
     
     assert len(results) >= 2
     top_id = results[0]['id']

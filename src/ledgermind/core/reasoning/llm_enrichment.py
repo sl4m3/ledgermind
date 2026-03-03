@@ -288,14 +288,15 @@ class LLMEnricher:
             with open(prompt_file, "w", encoding="utf-8") as f:
                 f.write(prompt)
             
-            if self.client_name == "gemini":
-                # Using shell redirect for 100% reliable capture
-                cmd = f"gemini --model {self.model_name or 'gemini-2.5-flash-lite'} --prompt \"$(cat {prompt_file})\" > {response_file} 2>/dev/null"
-                subprocess.run(cmd, shell=True, check=True, timeout=120) # nosec B602
-                
-            elif self.client_name == "claude":
-                cmd = f"claude \"$(cat {prompt_file})\" > {response_file} 2>/dev/null"
-                subprocess.run(cmd, shell=True, check=True, timeout=120) # nosec B602
+            with open(response_file, "w", encoding="utf-8") as f_out:
+                with open(os.devnull, "w") as f_err:
+                    if self.client_name == "gemini":
+                        cmd = ["gemini", "--model", str(self.model_name or "gemini-2.5-flash-lite"), "--prompt", prompt]
+                        subprocess.run(cmd, stdout=f_out, stderr=f_err, check=True, timeout=120) # nosec B603
+
+                    elif self.client_name == "claude":
+                        cmd = ["claude", prompt]
+                        subprocess.run(cmd, stdout=f_out, stderr=f_err, check=True, timeout=120) # nosec B603
             
             # Read response from buffer
             if os.path.exists(response_file):
