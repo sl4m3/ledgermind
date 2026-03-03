@@ -545,16 +545,25 @@ class LLMEnricher:
         import time
 
         try:
+            # Realistic token estimate (1 token approx 4 chars)
             total_chars = len(data or "") + len(instructions)
-            estimated_tokens = total_chars # Conservative estimate
+            estimated_tokens = total_chars // 4
 
             # Token limit check (1M for Gemini Flash)
             MAX_TOKENS = 1000000
-            if estimated_tokens > MAX_TOKENS:
-                print(f"   [WARNING] Input too large ({estimated_tokens:,} tokens). Limit: {MAX_TOKENS:,}")
-                return "TOO_MANY_TOKENS"
             
-            print(f"   [DEBUG] CLI Enrichment: Sending {len(data or ''):,} chars context and {len(instructions)} chars prompt", flush=True)
+            if estimated_tokens > MAX_TOKENS:
+                print(f"   [WARNING] Input too large (~{estimated_tokens:,} tokens). Limit: {MAX_TOKENS:,}")
+                
+                # Truncate if it's a single massive event
+                if data and len(data) > 4000000:
+                    print(f"   [INFO] Single event exceeds limit. Truncating to 3.5M chars...")
+                    data = data[:3500000] + "\n\n[... CONTENT TRUNCATED DUE TO EXTREME SIZE ...]"
+                    estimated_tokens = (len(data) + len(instructions)) // 4
+                else:
+                    return "TOO_MANY_TOKENS"
+            
+            print(f"   [DEBUG] CLI Enrichment: Sending {len(data or ''):,} chars context (~{estimated_tokens:,} tokens)", flush=True)
 
             model_name = self.model_name or "gemini-2.5-flash-lite"
             timeout = 300  # 5 minutes
