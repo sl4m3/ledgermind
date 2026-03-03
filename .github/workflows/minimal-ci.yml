@@ -78,13 +78,26 @@ jobs:
       - name: Run Safety (Dependency Check)
         id: safety
         run: |
-          safety check --json --db > safety-report.json || true
+          # The safety command might output non-json warnings to stdout before the JSON output
+          output=$(safety check --json || true)
+          # Use Node.js to safely extract the JSON object from stdin to avoid template literal escaping issues
+          echo "$output" | node -e "
+          const text = require('fs').readFileSync(0, 'utf-8');
+          const start = text.indexOf('{');
+          const end = text.lastIndexOf('}');
+          if (start !== -1 && end !== -1 && end > start) {
+            console.log(text.substring(start, end + 1));
+          } else {
+            console.log('{}');
+          }
+          " > safety-report.json
         continue-on-error: true
 
       - name: Run Pip-audit
         id: pip-audit
         run: |
           pip-audit --desc --format json > pip-audit-report.json || true
+          if [ ! -s pip-audit-report.json ]; then echo "{}" > pip-audit-report.json; fi
         continue-on-error: true
 
       - name: Parse security reports
@@ -137,25 +150,33 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const issue_number = context.issue.number;
-            const bandit = fs.readFileSync('bandit-report.json');
-            const safety = fs.readFileSync('safety-report.json');
-            const pipAudit = fs.readFileSync('pip-audit-report.json');
 
-            let body = '## 🔒 Security Scan Results\\n\\n';
-            body += '### Bandit (SAST)\\n';
-            body += `- ${JSON.parse(bandit).metrics['SEVERITY.HIGH'] || 0} HIGH severity issues\\n\\n`;
-            body += '### Safety (Dependencies)\\n';
-            body += `- ${JSON.parse(safety).vulnerabilities?.length || 0} known vulnerabilities\\n\\n`;
-            body += '### Pip-audit (Dependencies)\\n';
-            body += `- ${JSON.parse(pipAudit).dependencies?.filter(d => d.vulnerabilities?.length)?.length || 0} vulnerable packages\\n`;
+            const parseReport = (file) => {
+              try {
+                if (!fs.existsSync(file)) return {};
+                const content = fs.readFileSync(file, 'utf8').trim();
+                return content ? JSON.parse(content) : {};
+              } catch (e) {
+                return {};
+              }
+            };
 
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue_number,
-              body: body
-            });
+            const bandit = parseReport('bandit-report.json');
+            const safety = parseReport('safety-report.json');
+            const pipAudit = parseReport('pip-audit-report.json');
+
+            let body = '## 🔒 Security Scan Results\n\n';
+            body += '### Bandit (SAST)\n';
+            body += `- ${(bandit.metrics && bandit.metrics['SEVERITY.HIGH']) || 0} HIGH severity issues\n\n`;
+            body += '### Safety (Dependencies)\n';
+            body += `- ${(safety.vulnerabilities && safety.vulnerabilities.length) || 0} known vulnerabilities\n\n`;
+            body += '### Pip-audit (Dependencies)\n';
+            body += `- ${(pipAudit.dependencies && pipAudit.dependencies.filter(d => d.vulnerabilities && d.vulnerabilities.length).length) || 0} vulnerable packages\n`;
+
+            // Use core.summary to avoid GITHUB_TOKEN write permission issues on forks
+            await core.summary
+              .addRaw(body)
+              .write();
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   lint:
