@@ -352,102 +352,96 @@ class LLMEnricher:
         else:
             instructions = self._build_procedural_prompt(proposal.target, existing_rationale=proposal.rationale)
         
-        try:
-            response_text = None
-            if self.mode == "optimal":
-                response_text = self._call_model(instructions + "\n\n### RAW DATA TO ANALYZE:\n" + cluster_logs, use_local=True)
-            elif self.mode == "rich":
-                try:
-                    response_text = self._call_cli_model(instructions, data=cluster_logs, memory=memory)
-                    # Empty string ("") means CLI failed (exit/timeout) - don't try fallback
-                    # None means not available or fallback should be attempted
-                    if response_text == "":
-                        print(f"   [ERROR] CLI failed systematically. Aborting enrichment for this proposal.")
-                        proposal._enrichment_failed = True
-                        return proposal
-                    if response_text is None:
-                        response_text = self._call_model(instructions + "\n\n### RAW DATA TO ANALYZE:\n" + cluster_logs, use_local=False)
-                except Exception as e:
-                    print(f"   [ERROR] Enrichment failed: {e}")
-                    # Keep original values and continue
-                    response_text = None
+        # --- ATTEMPT CYCLE (Up to 3 retries for parsing errors) ---
+        max_enrichment_attempts = 3
+        
+        for enrichment_attempt in range(1, max_enrichment_attempts + 1):
+            if enrichment_attempt > 1:
+                print(f"   [RETRY] Enrichment attempt {enrichment_attempt}/{max_enrichment_attempts} due to parsing error...")
 
-            if response_text:
+            try:
+                response_text = None
+                if self.mode == "optimal":
+                    response_text = self._call_model(instructions + "\n\n### RAW DATA TO ANALYZE:\n" + cluster_logs, use_local=True)
+                elif self.mode == "rich":
+                    try:
+                        response_text = self._call_cli_model(instructions, data=cluster_logs, memory=memory)
+                        # Empty string ("") means CLI failed (exit/timeout) - don't try fallback
+                        if response_text == "":
+                            print(f"   [ERROR] CLI failed systematically. Aborting enrichment for this proposal.")
+                            proposal._enrichment_failed = True
+                            return proposal
+                        if response_text is None:
+                            response_text = self._call_model(instructions + "\n\n### RAW DATA TO ANALYZE:\n" + cluster_logs, use_local=False)
+                    except Exception as e:
+                        print(f"   [ERROR] Enrichment failed: {e}")
+                        response_text = None
+
+                if not response_text:
+                    continue
+
                 import re
                 import json
 
+                parsed_successfully = False
+
                 # 1. Try JSON parsing first (for procedural or structured models)
                 try:
-                    # Look for JSON block if model wrapped it in markdown
+                    # Look for JSON block
                     json_text = response_text
                     if "```json" in response_text:
                         json_text = re.search(r"```json\s*(.*?)\s*```", response_text, re.DOTALL).group(1)
                     elif "{" in response_text and "}" in response_text:
-                        # Extract first JSON-like object
                         start = response_text.find("{")
                         end = response_text.rfind("}") + 1
                         json_text = response_text[start:end]
+                    
+                    # PRE-CLEANING: Fix common JSON errors from LLMs
+                    json_text = re.sub(r',\s*([}\]])', r'\1', json_text) # Remove trailing commas
                     
                     data = json.loads(json_text)
                     if isinstance(data, dict):
                         if "goal" in data: proposal.title = data["goal"]
                         if "rationale" in data: proposal.rationale = data["rationale"]
                         if "compressive" in data: proposal.compressive_rationale = data["compressive"]
-                        
-                        # Update keywords based on new rich content
-                        self._update_keywords(proposal)
-
-                        # Add technical note to compressive
-                        if proposal.compressive_rationale:
-                            display_path = file_path if file_path else (proposal.decision_id if hasattr(proposal, 'decision_id') else 'this file')
-                            path_note = f"\n\n*Technical Note: Full logs available via 'cat {display_path}'. Do not use read_file.*"
-                            if path_note not in proposal.compressive_rationale:
-                                proposal.compressive_rationale += path_note
-                        return proposal
+                        parsed_successfully = True
                 except (json.JSONDecodeError, AttributeError, ValueError) as e:
-                    print(f"   [DEBUG] JSON extraction failed: {e}")
-                    if response_text:
-                        # Log the first 500 chars of the failed response
-                        print(f"   [DEBUG] Raw response start: {response_text[:500]}...")
-                    pass # Not JSON or failed to extract, try regex
+                    # print(f"   [DEBUG] JSON extraction failed: {e}")
+                    pass
 
-                # 2. Parse text format
-                goal_match = re.search(r'GOAL:\s*(.*?)(?:\n|$)', response_text, re.IGNORECASE)
-                rationale_match = re.search(r'RATIONALE:\s*(.*?)(?:\n3\. COMPRESSIVE:|$)', response_text, re.DOTALL | re.IGNORECASE)
-                compressive_match = re.search(r'3\. COMPRESSIVE:\s*(.*)', response_text, re.IGNORECASE)
-
-                if goal_match:
-                    proposal.title = goal_match.group(1).strip()
-                if rationale_match:
-                    proposal.rationale = rationale_match.group(1).strip()
-                if compressive_match:
-                    proposal.compressive_rationale = compressive_match.group(1).strip()
-
-                # Update keywords based on new rich content
-                self._update_keywords(proposal)
-
-                # Add technical note if not present
-                if hasattr(proposal, 'compressive_rationale') and proposal.compressive_rationale:
-                    display_path = file_path if file_path else (proposal.decision_id if hasattr(proposal, 'decision_id') else 'this file')
-                    path_note = f"\n\n*Technical Note: Full logs available via 'cat {display_path}'. Do not use read_file.*"
-                    if path_note not in proposal.compressive_rationale:
-                        proposal.compressive_rationale += path_note
-
-                if not goal_match and not rationale_match:
-                    # Try fallback to XML
-                    goal_xml = re.search(r'<goal>(.*?)</goal>', response_text, re.DOTALL | re.IGNORECASE)
-                    rationale_xml = re.search(r'<rationale>(.*?)</rationale>', response_text, re.DOTALL | re.IGNORECASE)
-                    if goal_xml:
-                        proposal.title = goal_xml.group(1).strip()
-                    if rationale_xml:
-                        proposal.rationale = rationale_xml.group(1).strip()
-                        self._update_keywords(proposal)
+                # 2. Try Regex parsing if JSON failed
+                if not parsed_successfully:
+                    goal_match = re.search(r'"goal":\s*"(.*?)"', response_text, re.DOTALL)
+                    rationale_match = re.search(r'"rationale":\s*"(.*?)"', response_text, re.DOTALL)
+                    compressive_match = re.search(r'"compressive":\s*"(.*?)"', response_text, re.DOTALL)
                     
-        except Exception as e:
-            logger.warning(f"LLM Enrichment failed: {e}")
-            print(f"   [ERROR] LLM Enrichment failed: {e}")
+                    if goal_match and rationale_match:
+                        # Clean escaped quotes/newlines for simple storage
+                        proposal.title = goal_match.group(1).replace('\\"', '"').replace('\\n', '\n')
+                        proposal.rationale = rationale_match.group(1).replace('\\"', '"').replace('\\n', '\n')
+                        if compressive_match:
+                            proposal.compressive_rationale = compressive_match.group(1).replace('\\"', '"').replace('\\n', '\n')
+                        parsed_successfully = True
+
+                # 3. SUCCESS: Update keywords and add technical notes
+                if parsed_successfully:
+                    self._update_keywords(proposal)
+                    if hasattr(proposal, 'compressive_rationale') and proposal.compressive_rationale:
+                        display_path = file_path if file_path else (proposal.decision_id if hasattr(proposal, 'decision_id') else 'this file')
+                        path_note = f"\n\n*Technical Note: Full logs available via 'cat {display_path}'. Do not use read_file.*"
+                        if path_note not in proposal.compressive_rationale:
+                            proposal.compressive_rationale += path_note
+                    return proposal
+                
+                # If we are here, parsing failed completely. The loop will retry.
+                print(f"   [WARNING] Parsing failed for enrichment response. Response was: {response_text[:200]}...")
+
+            except Exception as e:
+                logger.warning(f"LLM Enrichment attempt {enrichment_attempt} failed: {e}")
+                print(f"   [ERROR] LLM Enrichment attempt {enrichment_attempt} failed: {e}")
 
         return proposal
+
 
     def _update_keywords(self, proposal: Any):
         """Extracts and updates keywords based on title, target and rationale using frequency."""
