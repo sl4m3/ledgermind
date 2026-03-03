@@ -3,6 +3,7 @@ import time
 import numpy as np
 import logging
 import platform
+import threading
 from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -170,6 +171,7 @@ class GGUFEmbeddingAdapter:
 
 # Module-level cache for models
 _MODEL_CACHE = {}
+_model_lock = threading.Lock()
 
 import atexit
 def _cleanup_model_cache():
@@ -274,51 +276,54 @@ class VectorStore:
     def model(self):
         cache_key = self.model_name
         if cache_key not in _MODEL_CACHE:
-            # Suppress OpenMP duplication errors when using llama-cpp in multiple threads
-            os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-            os.environ["TOKENIZERS_PARALLELISM"] = "false"
-            
-            # Scenario A: GGUF Model (4-bit efficient)
-            if self.model_name.lower().endswith(".gguf"):
-                if not _is_llama_available():
-                    raise ImportError("llama-cpp-python not found. Required for GGUF models. Run: pip install llama-cpp-python")
-                
-                # Auto-download for known models if file is missing
-                if not os.path.exists(self.model_name):
-                    self._ensure_model_downloaded(self.model_name)
+            with _model_lock:
+                # Double-check pattern to prevent race conditions
+                if cache_key not in _MODEL_CACHE:
+                    # Suppress OpenMP duplication errors when using llama-cpp in multiple threads
+                    os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+                    os.environ["TOKENIZERS_PARALLELISM"] = "false"
                     
-                _MODEL_CACHE[cache_key] = GGUFEmbeddingAdapter(self.model_name)
-                logger.info(f"GGUF Vector Engine Initialized: {self.model_name}")
-                return _MODEL_CACHE[cache_key]
+                    # Scenario A: GGUF Model (4-bit efficient)
+                    if self.model_name.lower().endswith(".gguf"):
+                        if not _is_llama_available():
+                            raise ImportError("llama-cpp-python not found. Required for GGUF models. Run: pip install llama-cpp-python")
+                        
+                        # Auto-download for known models if file is missing
+                        if not os.path.exists(self.model_name):
+                            self._ensure_model_downloaded(self.model_name)
+                            
+                        _MODEL_CACHE[cache_key] = GGUFEmbeddingAdapter(self.model_name)
+                        logger.info(f"GGUF Vector Engine Initialized: {self.model_name}")
+                        return _MODEL_CACHE[cache_key]
 
-            # Scenario B: Standard Transformers Model
-            if not _is_transformers_available():
-                raise ImportError("sentence-transformers not found.")
-            
-            # Advanced model configuration
-            model_kwargs = {}
-            
-            # Special handling for Jina v5 models
-            if "jina-embeddings-v5" in self.model_name.lower():
-                model_kwargs["default_task"] = "text-matching"
-            
-            try:
-                from sentence_transformers import SentenceTransformer
-                model = SentenceTransformer(
-                    self.model_name, 
-                    trust_remote_code=True,
-                    model_kwargs=model_kwargs
-                )
-            except Exception as e:
-                logger.warning(f"Standard loading failed, trying fallback: {e}")
-                # Use module import to avoid UnboundLocalError if shadowing global class
-                import sentence_transformers
-                model = sentence_transformers.SentenceTransformer(self.model_name, trust_remote_code=True)
+                    # Scenario B: Standard Transformers Model
+                    if not _is_transformers_available():
+                        raise ImportError("sentence-transformers not found.")
+                    
+                    # Advanced model configuration
+                    model_kwargs = {}
+                    
+                    # Special handling for Jina v5 models
+                    if "jina-embeddings-v5" in self.model_name.lower():
+                        model_kwargs["default_task"] = "text-matching"
+                    
+                    try:
+                        from sentence_transformers import SentenceTransformer
+                        model = SentenceTransformer(
+                            self.model_name, 
+                            trust_remote_code=True,
+                            model_kwargs=model_kwargs
+                        )
+                    except Exception as e:
+                        logger.warning(f"Standard loading failed, trying fallback: {e}")
+                        # Use module import to avoid UnboundLocalError if shadowing global class
+                        import sentence_transformers
+                        model = sentence_transformers.SentenceTransformer(self.model_name, trust_remote_code=True)
 
-            model.show_progress_bar = False
-            dim = model.get_sentence_embedding_dimension()
-            logger.info(f"Vector Engine Initialized: {self.model_name} | Dimension: {dim} | Task: {model_kwargs.get('default_task', 'auto')}")
-            _MODEL_CACHE[cache_key] = model
+                    model.show_progress_bar = False
+                    dim = model.get_sentence_embedding_dimension()
+                    logger.info(f"Vector Engine Initialized: {self.model_name} | Dimension: {dim} | Task: {model_kwargs.get('default_task', 'auto')}")
+                    _MODEL_CACHE[cache_key] = model
             
         return _MODEL_CACHE[cache_key]
 
