@@ -6,11 +6,10 @@ import httpx
 import asyncio
 import time
 import hmac
-import threading
 import functools
 import inspect
 from mcp.server.fastmcp import FastMCP, Context
-from prometheus_client import start_http_server, Counter, Histogram
+from prometheus_client import start_http_server
 from ledgermind.core.api.memory import Memory
 from ledgermind.server.tools.environment import EnvironmentContext
 from ledgermind.server.audit import AuditLogger

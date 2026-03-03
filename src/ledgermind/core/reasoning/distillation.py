@@ -2,8 +2,8 @@ from typing import List, Dict, Any, Optional
 import logging
 import json
 from ledgermind.core.core.schemas import (
-    MemoryEvent, ProceduralContent, ProceduralStep, 
-    ProposalContent, ProposalStatus, KIND_RESULT, KIND_ERROR
+    ProceduralContent, ProceduralStep,
+    ProposalContent, ProposalStatus, KIND_RESULT
 )
 
 logger = logging.getLogger(__name__)

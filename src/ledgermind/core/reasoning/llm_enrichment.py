@@ -1,10 +1,8 @@
 import logging
-import json
 import httpx
 import os
 import subprocess
-from typing import Dict, Any, Optional, List
-from ledgermind.core.core.schemas import ProposalContent, ProceduralContent
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 

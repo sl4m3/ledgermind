@@ -70,7 +70,7 @@ class GitIndexer:
                 })
             
             return commits
-        except Exception as e:
+        except Exception:
             # Не является git репозиторием или git не установлен
             return []
 

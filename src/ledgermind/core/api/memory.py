@@ -1,19 +1,18 @@
 import os
-import yaml
 import json
 import logging
 import shutil
 import subprocess
 import uuid
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Union, Tuple
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
 from ledgermind.core.core.router import MemoryRouter
 from ledgermind.core.core.schemas import (
     MemoryEvent, MemoryDecision, ResolutionIntent, TrustBoundary, 
-    DecisionContent, DecisionStream, ProposalContent, DecisionPhase, DecisionVitality, ProposalStatus, SEMANTIC_KINDS, KIND_DECISION, KIND_PROPOSAL, KIND_INTERVENTION,
+    DecisionContent, DecisionStream, ProposalContent, DecisionPhase, DecisionVitality, KIND_DECISION, KIND_PROPOSAL, KIND_INTERVENTION,
     LedgermindConfig
 )
 from ledgermind.core.core.exceptions import InvariantViolation, ConflictError
@@ -29,7 +28,6 @@ from ledgermind.core.reasoning.git_indexer import GitIndexer
 from ledgermind.core.stores.vector import VectorStore
 from ledgermind.core.core.targets import TargetRegistry
 
-from ledgermind.core.utils.events import EventEmitter
 
 # Optional observability
 try:
@@ -122,7 +120,6 @@ class Memory:
         self.targets = TargetRegistry(self.semantic.repo_path)
         
         # Performance: Pre-initialize shared reasoning components
-        from ledgermind.core.reasoning.lifecycle import LifecycleEngine
         self._lifecycle = LifecycleEngine()
 
     @property
@@ -355,7 +352,7 @@ class Memory:
                                 self.semantic.update_decision(
                                     old_id, 
                                     {"status": "superseded"},
-                                    commit_msg=f"Deactivating for transition"
+                                    commit_msg="Deactivating for transition"
                                 )
                             else:
                                 logger.info(f"Target {old_id} already superseded or missing during transition.")

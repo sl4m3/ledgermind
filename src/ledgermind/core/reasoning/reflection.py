@@ -1,12 +1,11 @@
 import logging
-import os
 import json
 import uuid
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from ledgermind.core.core.schemas import (
     MemoryEvent, KIND_PROPOSAL, KIND_DECISION, KIND_RESULT, KIND_ERROR, KIND_INTERVENTION,
-    DecisionStream, DecisionPhase, DecisionVitality, PatternScope, ProposalContent
+    DecisionStream, DecisionPhase, DecisionVitality, ProposalContent
 )
 from ledgermind.core.stores.episodic import EpisodicStore
 from ledgermind.core.stores.semantic import SemanticStore

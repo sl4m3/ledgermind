@@ -1,6 +1,6 @@
 import os
 import subprocess
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from ledgermind.core.api.memory import Memory
 
 class EnvironmentContext:

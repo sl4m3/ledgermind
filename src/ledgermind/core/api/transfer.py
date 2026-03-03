@@ -1,9 +1,6 @@
 import os
 import tarfile
 import logging
-import shutil
-from typing import Optional
-from datetime import datetime
 
 logger = logging.getLogger("ledgermind-core.transfer")
 

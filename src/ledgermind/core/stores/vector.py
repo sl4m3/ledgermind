@@ -198,6 +198,7 @@ class VectorStore:
         self.workers = self._resolve_workers(workers)
         self._pool = None
         self._vectors = None # NumPy array of vectors
+        self._unmerged_vectors = [] # Pending vectors for lazy concatenation
         self._doc_ids = []
         self._deleted_ids = set()
         self._dirty = False
@@ -214,8 +215,19 @@ class VectorStore:
         if not os.path.exists(storage_path):
             os.makedirs(storage_path, exist_ok=True)
 
+    def _merge_unmerged(self):
+        """Lazily concatenates any pending vectors into the main index array."""
+        if hasattr(self, '_unmerged_vectors') and self._unmerged_vectors:
+            new_block = np.vstack(self._unmerged_vectors)
+            if self._vectors is None:
+                self._vectors = new_block
+            else:
+                self._vectors = np.vstack([self._vectors, new_block])
+            self._unmerged_vectors = []
+
     def _build_annoy_index(self):
         """Builds an Annoy index for the current vectors."""
+        self._merge_unmerged()
         if not _is_annoy_available() or self._vectors is None:
             return
 
@@ -404,6 +416,7 @@ class VectorStore:
     def load(self):
         if os.path.exists(self.index_path) and os.path.exists(self.meta_path):
             try:
+                self._unmerged_vectors = []
                 self._vectors = np.load(self.index_path)
                 self._doc_ids = np.load(self.meta_path, allow_pickle=True).tolist()
                 self._deleted_ids = set()
@@ -438,6 +451,7 @@ class VectorStore:
                 self._vectors = None
 
     def save(self):
+        self._merge_unmerged()
         if self._vectors is not None and self._dirty:
             np.save(self.index_path, self._vectors)
             np.save(self.meta_path, np.array(self._doc_ids, dtype=object))
@@ -461,6 +475,7 @@ class VectorStore:
 
     def compact(self):
         """Physically removes soft-deleted vectors and rebuilds index."""
+        self._merge_unmerged()
         if not self._deleted_ids or self._vectors is None:
             return
 
@@ -523,17 +538,23 @@ class VectorStore:
         new_embeddings = new_embeddings / norms
 
         # Dimension check and adjustment
+        # Check against existing vectors if available, otherwise check against pending
+        ref_dim = None
         if self._vectors is not None:
-            if self._vectors.shape[1] != new_embeddings.shape[1]:
-                logger.warning(f"Vector dimension mismatch ({self._vectors.shape[1]} vs {new_embeddings.shape[1]}). Resetting index.")
-                self._vectors = None
-                self._doc_ids = []
-                self._dirty = True
+            ref_dim = self._vectors.shape[1]
+        elif hasattr(self, '_unmerged_vectors') and self._unmerged_vectors:
+            ref_dim = self._unmerged_vectors[0].shape[1]
 
-        if self._vectors is None:
-            self._vectors = new_embeddings
-        else:
-            self._vectors = np.vstack([self._vectors, new_embeddings])
+        if ref_dim is not None and ref_dim != new_embeddings.shape[1]:
+            logger.warning(f"Vector dimension mismatch ({ref_dim} vs {new_embeddings.shape[1]}). Resetting index.")
+            self._vectors = None
+            self._unmerged_vectors = []
+            self._doc_ids = []
+            self._dirty = True
+
+        if not hasattr(self, '_unmerged_vectors'):
+            self._unmerged_vectors = []
+        self._unmerged_vectors.append(new_embeddings)
             
         self._doc_ids.extend(ids)
         self._dirty = True
@@ -545,7 +566,10 @@ class VectorStore:
 
     def get_vector(self, fid: str) -> Optional[np.ndarray]:
         """Retrieves the vector for a specific document ID."""
-        if self._vectors is None or fid not in self._doc_ids:
+        if fid not in self._doc_ids:
+            return None
+        self._merge_unmerged()
+        if self._vectors is None:
             return None
         try:
             idx = self._doc_ids.index(fid)
@@ -555,6 +579,7 @@ class VectorStore:
             return None
 
     def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        self._merge_unmerged()
         # If we have vectors, we can search regardless of engine availability (using NumPy)
         if self._vectors is None or len(self._vectors) == 0:
             # If no vectors, we need the engine to encode the query (unless it's already a vector, but search expects string)
@@ -583,7 +608,7 @@ class VectorStore:
             try:
                 idx_dim = self._vectors.shape[1]
                 q_dim = query_vector.shape[0]
-                if idx_dim != q_dim and not "Mock" in str(type(query_vector)):
+                if idx_dim != q_dim and "Mock" not in str(type(query_vector)):
                     logger.warning(f"Search dimension mismatch: index={idx_dim}, query={q_dim}. Skipping vector search.")
                     return []
             except (AttributeError, IndexError):

@@ -37,7 +37,7 @@ class ClaudeInstaller(BaseInstaller):
         
         # 1. Create UserPromptSubmit script (Context injection & backup sync)
         before_script_path = os.path.join(project_hooks_dir, "ledgermind_before_prompt.sh")
-        cli_entry = f"python3 -m ledgermind.server.cli"
+        cli_entry = "python3 -m ledgermind.server.cli"
         self._create_hook_script(before_script_path, f"""#!/bin/bash
 # LedgerMind UserPromptSubmit Hook (Local to {project_path})
 LOG_FILE=\"$HOME/.claude/ledgermind_hooks.log\"
@@ -291,7 +291,7 @@ def main():
 if __name__ == '__main__':
     main()
 """)
-        print(f"✓ Installed Gemini CLI hooks successfully.")
+        print("✓ Installed Gemini CLI hooks successfully.")
 
 
 class VSCodeInstaller(BaseInstaller):
@@ -328,7 +328,7 @@ class VSCodeInstaller(BaseInstaller):
         if os.path.exists(continue_config):
             print(f"! Continue.dev detected. Manual integration recommended in {continue_config}")
 
-        print(f"✓ VS Code environment prepared for Hardcore Zero-Touch.")
+        print("✓ VS Code environment prepared for Hardcore Zero-Touch.")
 
     def _install_extension_files(self, project_path: str):
         import shutil
@@ -365,7 +365,7 @@ class VSCodeInstaller(BaseInstaller):
             else:
                 # Если dist нет, копируем src (для разработки)
                 shutil.copytree(os.path.join(ext_src, "src"), os.path.join(ext_dest, "src"))
-            print(f"  → Extension files copied successfully.")
+            print("  → Extension files copied successfully.")
         except Exception as e:
             print(f"✗ Failed to copy extension files: {e}")
 
@@ -387,7 +387,7 @@ class VSCodeInstaller(BaseInstaller):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
-        print(f"  → Injected Hardcore Memory Policy into Custom Instructions.")
+        print("  → Injected Hardcore Memory Policy into Custom Instructions.")
 
     def _inject_mcp_config(self, config_path: str, memory_path: str, ext_name: str):
         config_dir = os.path.dirname(config_path)
