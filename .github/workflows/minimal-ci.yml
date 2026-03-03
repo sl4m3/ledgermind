@@ -169,12 +169,10 @@ jobs:
             body += '### Pip-audit (Dependencies)\\n';
             body += `- ${pipAuditData.dependencies?.filter(d => d.vulnerabilities?.length)?.length || 0} vulnerable packages\\n`;
 
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue_number,
-              body: body
-            });
+            core.summary
+              .addHeading('Security Scan Results')
+              .addRaw(body)
+              .write();
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   lint:
