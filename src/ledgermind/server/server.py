@@ -304,7 +304,10 @@ class MCPServer:
             )
             gateway_thread.start()
             
-        self.mcp.run()
+        try:
+            self.mcp.run()
+        finally:
+            self.stop()
 
     @classmethod
     def serve(cls, 
