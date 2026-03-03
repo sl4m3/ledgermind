@@ -608,7 +608,7 @@ class VectorStore:
             try:
                 idx_dim = self._vectors.shape[1]
                 q_dim = query_vector.shape[0]
-                if idx_dim != q_dim and "Mock" not in str(type(query_vector)):
+                if idx_dim != q_dim and not "Mock" in str(type(query_vector)):
                     logger.warning(f"Search dimension mismatch: index={idx_dim}, query={q_dim}. Skipping vector search.")
                     return []
             except (AttributeError, IndexError):

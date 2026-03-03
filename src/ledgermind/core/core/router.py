@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import Optional, List, Any
 from .schemas import MemoryEvent, MemoryDecision, ResolutionIntent, SEMANTIC_KINDS, KIND_DECISION
 from ledgermind.core.reasoning.conflict import ConflictEngine
 from ledgermind.core.reasoning.resolution import ResolutionEngine

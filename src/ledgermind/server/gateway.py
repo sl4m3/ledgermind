@@ -3,10 +3,10 @@ import asyncio
 import os
 import json
 import hmac
-from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect, Security, Query
-from fastapi.security.api_key import APIKeyHeader
+from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect, Security, Query
+from fastapi.security.api_key import APIKeyHeader, APIKey
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 from ledgermind.core.api.memory import Memory
 from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import run_in_threadpool

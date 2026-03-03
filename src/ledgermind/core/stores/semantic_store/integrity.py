@@ -1,5 +1,6 @@
-from typing import Dict, Any, Set
+from typing import List, Dict, Any, Set
 import os
+import yaml
 import logging
 
 logger = logging.getLogger("ledgermind-core.integrity")
@@ -99,7 +100,7 @@ class IntegrityChecker:
                         content = stream.read()
                         parsed_data, _ = MemoryLoader.parse(content)
                         if not parsed_data:
-                            raise IntegrityViolation("Corrupted or empty frontmatter", fid=f)
+                            raise IntegrityViolation(f"Corrupted or empty frontmatter", fid=f)
                         IntegrityChecker._file_data_cache[file_path] = (mtime_ns, parsed_data)
                         decisions[f] = parsed_data
             except (OSError, IntegrityViolation):
@@ -138,7 +139,7 @@ class IntegrityChecker:
             if superseded_by:
                 if superseded_by not in decisions:
                     raise IntegrityViolation(
-                        "I3 Violation: Dangling reference. Superseded by non-existent file.",
+                        f"I3 Violation: Dangling reference. Superseded by non-existent file.",
                         fid=fid,
                         details={"target": superseded_by}
                     )
@@ -156,7 +157,7 @@ class IntegrityChecker:
             for old_fid in ctx.get("supersedes", []):
                 if old_fid not in decisions:
                     raise IntegrityViolation(
-                        "Reference Violation: Claims to supersede non-existent file.",
+                        f"Reference Violation: Claims to supersede non-existent file.",
                         fid=fid,
                         details={"target": old_fid}
                     )
@@ -174,7 +175,7 @@ class IntegrityChecker:
 
         def visit(fid):
             if fid in stack:
-                raise IntegrityViolation("I5 Violation: Cycle detected in knowledge evolution.", fid=fid)
+                raise IntegrityViolation(f"I5 Violation: Cycle detected in knowledge evolution.", fid=fid)
             if fid in visited:
                 return
             

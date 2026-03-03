@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Callable, Any, List
+from typing import Callable, Any, Dict, List
 
 logger = logging.getLogger("ledgermind-core.events")
 

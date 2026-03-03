@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any
+from typing import Dict, Any, List
 from ledgermind.server import contracts
 
 class MCPApiSpecification:

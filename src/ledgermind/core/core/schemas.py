@@ -263,7 +263,7 @@ class MemoryEvent(BaseModel):
         for url in urls:
             if any(scheme in url.lower() for scheme in dangerous_schemes):
                 raise ValueError(
-                    'Content contains dangerous URL scheme'
+                    f'Content contains dangerous URL scheme'
                 )
 
         return sanitized

@@ -4,7 +4,7 @@ import json
 import logging
 import questionary
 import sys
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from ledgermind.server.server import MCPServer
 from ledgermind.core.utils.logging import setup_logging
 
@@ -123,7 +123,7 @@ def init_project(path: str):
                     console.print(f"[green]✓ Model {enrichment_model} is available and responsive.[/green]")
                     break
                 else:
-                    console.print("[bold red]✗ Model validation failed.[/bold red]")
+                    console.print(f"[bold red]✗ Model validation failed.[/bold red]")
                     if result.stderr:
                         console.print(f"[red]Error: {result.stderr.strip()}[/red]")
                     
@@ -426,6 +426,7 @@ def bridge_sync(path: str, cli: Optional[str] = None):
     from ledgermind.core.api.bridge import IntegrationBridge
     import sys
     import json
+    import os
     try:
         transcript_path = None
         if not sys.stdin.isatty():

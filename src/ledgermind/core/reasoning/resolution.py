@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional, Set
 from ledgermind.core.core.schemas import ResolutionIntent
 
 class ResolutionEngine:

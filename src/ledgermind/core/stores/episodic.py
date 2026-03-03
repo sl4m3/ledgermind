@@ -5,11 +5,11 @@ from typing import List, Optional, Dict, Any, Tuple
 from contextlib import contextmanager
 from ledgermind.core.core.schemas import MemoryEvent
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool, Pool
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 
-from ledgermind.core.utils.result import Result, safe_execute
+from ledgermind.core.utils.result import Result, ErrorCode, safe_execute, unwrap_result
 
 class EpisodicStore:
     def __init__(self, db_path: str, pool_size: int = 3):

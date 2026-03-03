@@ -1,5 +1,5 @@
 import os
-from typing import List, Optional, Literal
+from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 
 # --- API Versioning ---

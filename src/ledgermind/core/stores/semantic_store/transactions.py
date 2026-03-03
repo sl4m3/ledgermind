@@ -1,5 +1,6 @@
 import os
 import shutil
+import sqlite3
 import logging
 import time
 import threading

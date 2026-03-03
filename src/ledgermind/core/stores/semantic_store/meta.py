@@ -2,7 +2,7 @@ import re
 import sqlite3
 import logging
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from contextlib import contextmanager
 from functools import lru_cache

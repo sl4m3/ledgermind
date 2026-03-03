@@ -2,7 +2,7 @@ import json
 import os
 import logging
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Optional
 from difflib import get_close_matches
 
 logger = logging.getLogger(__name__)

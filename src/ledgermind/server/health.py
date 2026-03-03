@@ -13,7 +13,7 @@ Endpoints:
 """
 from fastapi import FastAPI, HTTPException
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import os
 import logging
 
