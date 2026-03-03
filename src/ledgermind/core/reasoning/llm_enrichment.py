@@ -275,6 +275,7 @@ class LLMEnricher:
                             "title": getattr(proposal, 'title', 'Untitled'),
                             "content": getattr(proposal, 'title', 'Untitled'),
                             "rationale": getattr(proposal, 'rationale', ''),
+                            "keywords": getattr(proposal, 'keywords', []),
                             "compressive_rationale": getattr(proposal, 'compressive_rationale', None),
                             "enrichment_status": status,
                             "evidence_event_ids": all_ids,
@@ -393,6 +394,9 @@ class LLMEnricher:
                         if "rationale" in data: proposal.rationale = data["rationale"]
                         if "compressive" in data: proposal.compressive_rationale = data["compressive"]
                         
+                        # Update keywords based on new rich content
+                        self._update_keywords(proposal)
+
                         # Add technical note to compressive
                         if proposal.compressive_rationale:
                             display_path = file_path if file_path else (proposal.decision_id if hasattr(proposal, 'decision_id') else 'this file')
@@ -419,6 +423,9 @@ class LLMEnricher:
                 if compressive_match:
                     proposal.compressive_rationale = compressive_match.group(1).strip()
 
+                # Update keywords based on new rich content
+                self._update_keywords(proposal)
+
                 # Add technical note if not present
                 if hasattr(proposal, 'compressive_rationale') and proposal.compressive_rationale:
                     display_path = file_path if file_path else (proposal.decision_id if hasattr(proposal, 'decision_id') else 'this file')
@@ -434,12 +441,41 @@ class LLMEnricher:
                         proposal.title = goal_xml.group(1).strip()
                     if rationale_xml:
                         proposal.rationale = rationale_xml.group(1).strip()
+                        self._update_keywords(proposal)
                     
         except Exception as e:
             logger.warning(f"LLM Enrichment failed: {e}")
             print(f"   [ERROR] LLM Enrichment failed: {e}")
 
         return proposal
+
+    def _update_keywords(self, proposal: Any):
+        """Extracts and updates keywords based on title, target and rationale using frequency."""
+        import re
+        from collections import Counter
+        
+        target = getattr(proposal, 'target', '')
+        title = getattr(proposal, 'title', '')
+        rationale = getattr(proposal, 'rationale', '')
+        
+        all_text = f"{title} {target} {rationale}".lower()
+        # Support RU/EN
+        words = re.findall(r'[a-zа-я0-9]{3,}', all_text)
+        
+        stop_words = {
+            "for", "the", "and", "with", "from", "this", "that", "was", "were", "been", "has", "had", 
+            "для", "или", "это", "был", "была", "было", "были", "его", "ее", "их", "как", "мне",
+            "observed", "emerging", "activity", "analysis", "raw", "logs", "behavioral", "pattern",
+            "technical", "note", "available", "full", "procedural", "guide"
+        }
+        
+        filtered_words = [w for w in words if w not in stop_words]
+        if not filtered_words:
+            return
+            
+        most_common = Counter(filtered_words).most_common(10)
+        proposal.keywords = [w for w, count in most_common]
+
 
     def _build_behavioral_prompt(self, target: str, existing_rationale: Optional[str] = None) -> str:
         """Expert prompt for reverse-engineering developer intent from activity clusters."""
