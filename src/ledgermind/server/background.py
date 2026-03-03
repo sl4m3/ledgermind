@@ -115,15 +115,6 @@ class BackgroundWorker:
             if proc in self._active_subprocesses:
                 self._active_subprocesses.remove(proc)
 
-    def _check_parent_alive(self) -> bool:
-        """Checks if the parent process (the server) is still alive."""
-        # In Unix/Android (Termux), if ppid is 1, the parent has died and we are orphaned.
-        if os.getppid() <= 1:
-            logger.warning("Parent process died (orphaned). Stopping worker.")
-            self.stop()
-            return False
-        return True
-
     def _is_worker_running(self) -> tuple[bool, Optional[int]]:
         """Checks if a worker is already running for this storage path. Returns (is_running, pid)."""
         pid_file = os.path.join(self.memory.storage_path, "worker.pid")
@@ -167,7 +158,6 @@ class BackgroundWorker:
         time.sleep(2)
         
         while self.running:
-            if not self._check_parent_alive(): break
             try:
                 start_time = time.time()
                 
@@ -203,7 +193,6 @@ class BackgroundWorker:
         time.sleep(15)
         
         while self.running:
-            if not self._check_parent_alive(): break
             try:
                 start_time = time.time()
                 

@@ -40,6 +40,7 @@ class ClaudeInstaller(BaseInstaller):
         cli_entry = f"python3 -m ledgermind.server.cli"
         self._create_hook_script(before_script_path, f"""#!/bin/bash
 # LedgerMind UserPromptSubmit Hook (Local to {project_path})
+if [ "$LEDGERMIND_BYPASS_HOOKS" = "1" ]; then exit 0; fi
 LOG_FILE=\"$HOME/.claude/ledgermind_hooks.log\"
 echo \"[$(date)] UserPromptSubmit triggered\" >> \"$LOG_FILE\"
 export PYTHONPATH={project_path}/src:$PYTHONPATH
@@ -50,6 +51,7 @@ cat | {cli_entry} bridge-context --path \"{memory_path}\" --prompt \"-\" --cli \
         stop_script_path = os.path.join(project_hooks_dir, "ledgermind_stop.sh")
         self._create_hook_script(stop_script_path, f"""#!/bin/bash
 # LedgerMind Stop Hook (Local to {project_path})
+if [ "$LEDGERMIND_BYPASS_HOOKS" = "1" ]; then exit 0; fi
 LOG_FILE=\"$HOME/.claude/ledgermind_hooks.log\"
 echo \"[$(date)] Stop hook triggered\" >> \"$LOG_FILE\"
 export PYTHONPATH={project_path}/src:$PYTHONPATH
@@ -120,6 +122,7 @@ class CursorInstaller(BaseInstaller):
         before_script_path = os.path.join(project_hooks_dir, "ledgermind_before.sh")
         self._create_hook_script(before_script_path, f"""#!/bin/bash
 # Cursor BeforeSubmitPrompt Hook (Local to {project_path})
+if [ "$LEDGERMIND_BYPASS_HOOKS" = "1" ]; then exit 0; fi
 PROMPT=$1
 ledgermind-mcp bridge-context --path "{memory_path}" --prompt "$PROMPT" --cli "cursor"
 """)
@@ -127,6 +130,7 @@ ledgermind-mcp bridge-context --path "{memory_path}" --prompt "$PROMPT" --cli "c
         after_script_path = os.path.join(project_hooks_dir, "ledgermind_after.sh")
         self._create_hook_script(after_script_path, f"""#!/bin/bash
 # Cursor AfterAgentResponse Hook (Local to {project_path})
+if [ "$LEDGERMIND_BYPASS_HOOKS" = "1" ]; then exit 0; fi
 RESPONSE=$1
 ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Agent interaction" --response "$RESPONSE" --cli "cursor" &
 """)
@@ -166,6 +170,10 @@ class GeminiInstaller(BaseInstaller):
         with open(hook_file, "w") as f:
             f.write(f"""import os
 import sys
+
+if os.environ.get("LEDGERMIND_BYPASS_HOOKS") == "1":
+    sys.exit(0)
+
 import datetime
 import json
 
