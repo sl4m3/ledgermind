@@ -20,14 +20,19 @@ class BackgroundWorker:
         self.interval = interval_seconds
         self.enrichment_interval = 60 # Check enrichment queue more frequently
         
-        # Setup specific file logging for the background worker
+        # Setup specific file logging for the background worker (only if not already setup)
         log_dir = os.path.join(os.getcwd(), "logs")
         os.makedirs(log_dir, exist_ok=True)
         root_logger = logging.getLogger("ledgermind")
-        fh = logging.FileHandler(os.path.join(log_dir, "background_worker.log"))
-        fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        root_logger.addHandler(fh)
-        root_logger.setLevel(logging.INFO)
+        
+        # Check if FileHandler already exists to avoid duplicates
+        has_fh = any(isinstance(h, logging.FileHandler) and "background_worker.log" in str(h.baseFilename) for h in root_logger.handlers)
+        
+        if not has_fh:
+            fh = logging.FileHandler(os.path.join(log_dir, "background_worker.log"))
+            fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+            root_logger.addHandler(fh)
+            root_logger.setLevel(logging.INFO)
         
         self.running = False
         self.maintenance_thread: Optional[threading.Thread] = None
@@ -36,6 +41,8 @@ class BackgroundWorker:
         self.last_run: Dict[str, datetime] = {}
         self.status = "stopped"
         self.errors: List[str] = []
+        self._active_subprocesses: List[Any] = []
+        self._proc_lock = threading.Lock()
 
     def start(self):
         if self.running: return
@@ -72,7 +79,23 @@ class BackgroundWorker:
         logger.info("Background Worker started (Maintenance & Enrichment).")
 
     def stop(self):
+        """Gracefully (and forcefully if needed) stops the worker and its children."""
         self.running = False
+        
+        # Terminate any active subprocesses (Gemini CLI calls)
+        with self._proc_lock:
+            if self._active_subprocesses:
+                logger.info(f"Terminating {len(self._active_subprocesses)} active subprocesses...")
+                for proc in self._active_subprocesses:
+                    try:
+                        if proc.poll() is None: # Still running
+                            proc.terminate()
+                            # Give it a moment to terminate gracefully, then kill
+                            threading.Timer(2.0, lambda p=proc: p.kill() if p.poll() is None else None).start()
+                    except Exception as e:
+                        logger.debug(f"Failed to terminate subprocess: {e}")
+                self._active_subprocesses.clear()
+
         if self.maintenance_thread and self.maintenance_thread.is_alive():
             self.maintenance_thread.join(timeout=2.0)
         if self.enrichment_thread and self.enrichment_thread.is_alive():
@@ -80,6 +103,26 @@ class BackgroundWorker:
         self.status = "stopped"
         self._remove_lock()
         logger.info("Background Worker stopped.")
+
+    def register_process(self, proc: Any):
+        """Registers a subprocess for cleanup on stop."""
+        with self._proc_lock:
+            self._active_subprocesses.append(proc)
+
+    def unregister_process(self, proc: Any):
+        """Unregisters a subprocess after completion."""
+        with self._proc_lock:
+            if proc in self._active_subprocesses:
+                self._active_subprocesses.remove(proc)
+
+    def _check_parent_alive(self) -> bool:
+        """Checks if the parent process (the server) is still alive."""
+        # In Unix/Android (Termux), if ppid is 1, the parent has died and we are orphaned.
+        if os.getppid() <= 1:
+            logger.warning("Parent process died (orphaned). Stopping worker.")
+            self.stop()
+            return False
+        return True
 
     def _is_worker_running(self) -> tuple[bool, Optional[int]]:
         """Checks if a worker is already running for this storage path. Returns (is_running, pid)."""
@@ -124,6 +167,7 @@ class BackgroundWorker:
         time.sleep(2)
         
         while self.running:
+            if not self._check_parent_alive(): break
             try:
                 start_time = time.time()
                 
@@ -159,6 +203,7 @@ class BackgroundWorker:
         time.sleep(15)
         
         while self.running:
+            if not self._check_parent_alive(): break
             try:
                 start_time = time.time()
                 
@@ -169,16 +214,19 @@ class BackgroundWorker:
                 
                 if arbitration_mode != "lite":
                     from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
-                    enricher = LLMEnricher(mode=arbitration_mode)
+                    enricher = LLMEnricher(mode=arbitration_mode, worker=self)
                     
-                    logger.info(f"Starting Enrichment Cycle (mode={arbitration_mode})...")
-                    results = enricher.process_batch(self.memory)
-                    
-                    if results:
-                        for res in results:
-                            logger.info(f"Background Enrichment: {res['fid']} ({res['status']}, {res['events']} events)")
-                    
-                    self.last_run["enrichment"] = datetime.now()
+                    try:
+                        logger.info(f"Starting Enrichment Cycle (mode={arbitration_mode})...")
+                        results = enricher.process_batch(self.memory)
+                        
+                        if results:
+                            for res in results:
+                                logger.info(f"Background Enrichment: {res['fid']} ({res['status']}, {res['events']} events)")
+                        
+                        self.last_run["enrichment"] = datetime.now()
+                    finally:
+                        enricher.close()
                 
                 elapsed = time.time() - start_time
                 sleep_time = max(5.0, self.enrichment_interval - elapsed)
