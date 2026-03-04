@@ -185,6 +185,10 @@ class LLMEnricher:
                     else:
                         all_ids = sorted(proposal.evidence_event_ids or [])
                     
+                    # Limit to 100 events for enrichment performance/cost
+                    if len(all_ids) > 100:
+                        all_ids = all_ids[:100]
+                    
                     total_items = len(all_ids)
                     
                     print(f"   ({idx+1}/{len(pending_fids)}) Enriching {fid} ({'Validation' if is_validation else 'Merge' if is_merge else 'Analysis'}. Total items: {total_items})...")
@@ -249,8 +253,13 @@ class LLMEnricher:
 
                         print(f"   [INFO] Selected {current_chunk_size} items (~{current_tokens:,} tokens)", flush=True)
 
-                        remaining_ids = all_ids[len(current_ids):]
-                        is_last_chunk = len(remaining_ids) == 0
+                        if not selected_ids and all_ids:
+                            print(f"   [WARNING] Could not retrieve any valid items for enrichment. Skipping {len(all_ids)} invalid IDs.")
+                            all_ids = [] # Clear to break the loop
+                            is_last_chunk = True
+                        else:
+                            remaining_ids = all_ids[len(current_ids):]
+                            is_last_chunk = len(remaining_ids) == 0
 
                         # Call LLM
                         iteration_processed = False
@@ -306,11 +315,11 @@ class LLMEnricher:
                         if is_last_chunk:
                             break
                         
-                        if processed_in_this_run >= 1000: # Safety break for very large files
+                        if processed_in_this_run >= 100: # Safety break for very large files
                             print(f"   - Safety break for {fid} after {processed_in_this_run} events.")
                             break
 
-                    print(f"   - Done: Processed {processed_in_this_run}/{total_events} events. Status: {status}")
+                    print(f"   - Done: Processed {processed_in_this_run}/{total_items} events. Status: {status}")
                     results.append({"fid": fid, "status": status, "events": processed_in_this_run})
                     gc.collect()
 
@@ -673,7 +682,8 @@ class LLMEnricher:
                             print(f"   [DEBUG] CLI completed in {duration:.2f}s (received {len(output)} bytes)", flush=True)
                             return output
                         else:
-                            print(f"   [WARNING] CLI output is empty after {duration:.2f}s")
+                            error_msg = stderr[:500] if stderr else "No output and no error message."
+                            print(f"   [WARNING] CLI output is empty after {duration:.2f}s. Stderr: {error_msg}")
                     else:
                         error_msg = stderr[:500] if stderr else f"Exit code: {proc.returncode}"
                         print(f"   [ERROR] CLI failed (exit {proc.returncode}) in {duration:.2f}s: {error_msg}")

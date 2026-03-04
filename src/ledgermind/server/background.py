@@ -47,7 +47,10 @@ class BackgroundWorker:
     def start(self):
         if self.running: return
 
-        # Prevent multiple workers from running against the same storage
+        # 0. Cleanup orphaned enrichment processes from previous crashes
+        self._cleanup_orphans()
+
+        # 1. Prevent multiple workers from running against the same storage
         is_running, other_pid = self._is_worker_running()
         if is_running:
             if other_pid == os.getpid():
@@ -77,6 +80,16 @@ class BackgroundWorker:
         self.enrichment_thread.start()
         
         logger.info("Background Worker started (Maintenance & Enrichment).")
+
+    def _cleanup_orphans(self):
+        """Kills any stray 'gemini' enrichment processes left from previous crashes."""
+        import subprocess
+        try:
+            # Kill processes launched with '-m' (enrichment mode) to avoid affecting main CLI
+            subprocess.run("pkill -f 'gemini -m'", shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            logger.info("Cleaned up orphaned enrichment processes.")
+        except Exception:
+            pass
 
     def stop(self):
         """Gracefully (and forcefully if needed) stops the worker and its children."""
@@ -129,6 +142,19 @@ class BackgroundWorker:
             
             # Check if process is alive (Unix/Android)
             os.kill(pid, 0)
+            
+            # Verify it's actually a Ledgermind process to handle PID reuse
+            try:
+                if os.path.exists(f"/proc/{pid}/cmdline"):
+                    with open(f"/proc/{pid}/cmdline", "r") as f_cmd:
+                        cmdline = f_cmd.read().lower()
+                        # If PID is reused by something else, treat lock as stale
+                        if "python" not in cmdline and "ledgermind" not in cmdline:
+                            logger.warning(f"PID {pid} in lock is not Ledgermind. Reclaiming.")
+                            return False, None
+            except Exception:
+                pass
+                
             return True, pid
         except (OSError, ValueError):
             # If process is not alive or file is corrupt, treat as not running
