@@ -110,7 +110,8 @@ class MCPServer:
         self.default_role = default_role
         self.capabilities = capabilities if capabilities is not None else {
             "read": True, "propose": True, "supersede": True, 
-            "accept": True, "sync": True, "purge": False
+            "accept": True, "sync": True, "purge": False,
+            "maintenance": True
         }
         self.metrics_port = metrics_port
         self.rest_port = rest_port
