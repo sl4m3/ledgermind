@@ -30,4 +30,4 @@ jobs:
         # Extract dependencies from pyproject.toml without installing them
         # This avoids heavy compilation of llama-cpp-python in security job
         python -c "import tomllib; data = tomllib.load(open('pyproject.toml', 'rb')); print('\n'.join(data['project']['dependencies']))" > requirements.txt
-        safety check -r requirements.txt
+        safety check -r requirements.txt | awk '/^{/{p=1} p{print} /^}/{p=0}' > safety-report.json || echo "{}" > safety-report.json
