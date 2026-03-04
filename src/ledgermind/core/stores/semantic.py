@@ -282,10 +282,10 @@ class SemanticStore:
             if disk_files != meta_files or force:
                 if disk_files != meta_files:
                     logger.info(f"Syncing semantic meta index ({len(disk_files)} on disk, {len(meta_files)} in meta)...")
-                
+
                 # Remove orphans from meta
                 self._remove_orphans(meta_files - disk_files)
-                
+
                 # Add/Update missing or changed files
                 # Use batch_update if not already in a transaction
                 cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
@@ -488,14 +488,21 @@ class SemanticStore:
             new_data = copy.deepcopy(old_data)
             
             # 1. Update Core Fields (Top-level in YAML)
-            CORE_FIELDS = ["title", "content", "target", "status", "kind"]
+            CORE_FIELDS = ["title", "content", "target", "status", "kind", "supersedes", "superseded_by"]
             for field in CORE_FIELDS:
                 if field in updates:
                     new_data[field] = updates[field]
             
             # 2. Update Context Fields
             if "context" not in new_data: new_data["context"] = {}
-            new_data["context"].update(updates)
+            
+            # Merge updates into context but remove core fields that are already at top level
+            ctx_updates = updates.copy()
+            for field in CORE_FIELDS:
+                if field in ctx_updates:
+                    del ctx_updates[field]
+            
+            new_data["context"].update(ctx_updates)
             
             TransitionValidator.validate_update(old_data, new_data)
             

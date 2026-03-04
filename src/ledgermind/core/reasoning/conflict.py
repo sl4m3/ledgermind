@@ -14,13 +14,21 @@ class ConflictEngine:
     def _get_target(self, event: MemoryEvent) -> Optional[str]:
         """
         Extract the target identifier from a memory event.
+        Hierarchy is normalized to the first level (e.g., 'ledgermind/server' -> 'ledgermind').
         """
         if not event.context:
             return None
         # Handle both pydantic model and dict
+        target = None
         if hasattr(event.context, "target"):
-            return event.context.target
-        return event.context.get("target")
+            target = event.context.target
+        elif isinstance(event.context, dict):
+            target = event.context.get("target")
+            
+        if target and "/" in target:
+            # Normalize to first level only
+            return target.split("/")[0]
+        return target
 
     def _get_namespace(self, event: MemoryEvent) -> str:
         if not event.context:
@@ -37,7 +45,7 @@ class ConflictEngine:
         """
         Identify files in the semantic store that conflict with the given event.
         
-        A conflict occurs if an existing active decision has the same target.
+        A conflict occurs if an existing active decision has the same base target (1st level).
         """
         if event.kind != KIND_DECISION:
             return []
@@ -49,8 +57,11 @@ class ConflictEngine:
         # Optimization: use metadata index if available
         if self.meta:
             ns = namespace or self._get_namespace(event)
-            fid = self.meta.get_active_fid(new_target, namespace=ns)
-            return [fid] if fid else []
+            
+            # Find all active decisions where the target matches the base level
+            # e.g., if new_target is 'ledgermind', find 'ledgermind/server', 'ledgermind/storage', etc.
+            fids = self.meta.get_active_fids_by_base_target(new_target, namespace=ns)
+            return fids
 
         raise RuntimeError("Metadata store required for performance")
 

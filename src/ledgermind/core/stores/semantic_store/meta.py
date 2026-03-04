@@ -84,7 +84,7 @@ class SemanticMetaStore:
             # I4 Violation Prevention: Only one 'active' decision per target per namespace
             try:
                 self._conn.execute("""
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_active_target_ns 
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_active_target_ns
                     ON semantic_meta(target, namespace) WHERE status = 'active' AND kind = 'decision'
                 """)
             except sqlite3.OperationalError:
@@ -165,15 +165,18 @@ class SemanticMetaStore:
                     continue
                 raise
 
-    def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, 
+    def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime,
                title: str = "", superseded_by: Optional[str] = None, namespace: str = "default",
                content: str = "", keywords: str = "", confidence: float = 1.0, context_json: str = "{}",
-               phase: str = "pattern", vitality: str = "active", reinforcement_density: float = 0.0, 
+               phase: str = "pattern", vitality: str = "active", reinforcement_density: float = 0.0,
                stability_score: float = 0.0, coverage: float = 0.0, link_count: int = 0,
                enrichment_status: str = "pending"):
         """Atomic upsert of decision metadata with content caching."""
         # Ensure timestamp is in ISO format string
         ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
+
+        # I4 constraint is enforced by UNIQUE INDEX on (target, namespace) for active decisions
+        # Caller is responsible for explicitly handling conflicts
 
         self._execute_with_retry("""
             INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage, link_count, enrichment_status)
@@ -195,6 +198,17 @@ class SemanticMetaStore:
                 link_count=excluded.link_count,
                 enrichment_status=excluded.enrichment_status
         """, (fid, target, title, status, kind, ts_str, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage, link_count, enrichment_status))
+
+    def has_active_conflict(self, fid: str, target: str, namespace: str) -> Optional[str]:
+        """
+        Check if there's already an active decision for this target.
+        Returns the conflicting fid or None if no conflict.
+        Used for explicit conflict detection before creating new active decisions.
+        """
+        existing = self.get_active_fid(target, namespace)
+        if existing and existing != fid:
+            return existing
+        return None
 
 
     def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
@@ -220,6 +234,27 @@ class SemanticMetaStore:
             (target, namespace)
         ).fetchone()
         return row[0] if row else None
+
+    def get_active_fids_by_base_target(self, base_target: str, namespace: str = "default") -> List[str]:
+        """
+        Finds all active decisions where the target starts with the base_target prefix.
+        E.g., if base_target is 'ledgermind', it matches 'ledgermind', 'ledgermind/server', etc.
+        """
+        cursor = self._conn.cursor()
+        # Search for exact match or hierarchical match (target starts with base_target + '/')
+        # Use simple LIKE pattern for performance
+        pattern = f"{base_target}%"
+        rows = cursor.execute(
+            "SELECT fid, target FROM semantic_meta WHERE target LIKE ? AND namespace = ? AND status = 'active' AND kind = 'decision'", 
+            (pattern, namespace)
+        ).fetchall()
+        
+        # Double check to ensure we only match 'base_target' or 'base_target/*' (not 'base_target_something')
+        results = []
+        for fid, target in rows:
+            if target == base_target or target.startswith(f"{base_target}/"):
+                results.append(fid)
+        return results
 
     def keyword_search(self, query: str, limit: int = 10, namespace: str = "default", status: Optional[str] = None) -> List[tuple]:
         """Search using FTS5 (BM25) with absolute maximum performance (raw tuples)."""

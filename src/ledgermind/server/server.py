@@ -9,6 +9,7 @@ import hmac
 import threading
 import functools
 import inspect
+import subprocess
 from mcp.server.fastmcp import FastMCP, Context
 from prometheus_client import start_http_server, Counter, Histogram
 from ledgermind.core.api.memory import Memory
@@ -137,6 +138,7 @@ class MCPServer:
         self._last_write_time = 0
         self._write_cooldown = 1.0 
         self._register_tools()
+        self._register_session()
         
         # Subscribe to events for webhooks
         if self.webhooks:
@@ -145,10 +147,65 @@ class MCPServer:
                 self.memory.events.subscribe(self._trigger_webhooks)
 
         # Initialize Background Worker (Active Loop)
-        from ledgermind.server.background import BackgroundWorker
-        self.worker = BackgroundWorker(self.memory)
+        self.storage_path = os.path.abspath(storage_path)
+        self._worker_process: Optional[subprocess.Popen] = None
+        
         if start_worker:
-            self.worker.start()
+            self._start_background_worker()
+
+    def _register_session(self):
+        """Registers the current PID as an active session for the background worker."""
+        # Use the actual memory storage path which is initialized earlier
+        storage = os.path.abspath(self.memory.storage_path)
+        session_dir = os.path.join(storage, "sessions")
+        try:
+            os.makedirs(session_dir, exist_ok=True)
+            session_file = os.path.join(session_dir, f"{os.getpid()}.lock")
+            with open(session_file, 'w') as f:
+                f.write(str(os.getpid()))
+            logger.info(f"Session registered: {session_file}")
+            
+            # Ensure file is removed on exit
+            import atexit
+            def _cleanup():
+                try: 
+                    if os.path.exists(session_file):
+                        os.remove(session_file)
+                        logger.debug(f"Session cleaned up: {session_file}")
+                except: pass
+            atexit.register(_cleanup)
+        except Exception as e:
+            logger.error(f"Failed to register session in {session_dir}: {e}")
+
+    def _start_background_worker(self):
+        """Starts the background worker as a detached subprocess."""
+        import subprocess
+        import sys
+
+        log_abs = os.path.abspath(os.path.join(os.getcwd(), "logs/background_worker.log"))
+
+        cmd = [
+            sys.executable, "-m", "ledgermind.server.background",
+            "--storage", self.storage_path,
+            "--log", log_abs
+        ]
+
+        try:
+            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
+            env = {**os.environ, "PYTHONPATH": base_dir}
+
+            # Start worker in a new session so it doesn't die with MCP
+            # But it will monitor sessions/ and stop when all clients are gone
+            self._worker_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=env,
+                start_new_session=True 
+            )
+            logger.info(f"Background Worker detached (PID: {self._worker_process.pid})")
+        except Exception as e:
+            logger.error(f"Failed to start background worker: {e}")
 
     def _trigger_webhooks(self, event_type: str, data: Any):
         """Dispatches event to all registered webhook URLs with concurrency limits."""
@@ -299,32 +356,41 @@ class MCPServer:
         self.mcp.tool()(tools.repair_language)
 
     def stop(self):
-        """Gracefully shuts down the server and all background processes."""
+        """Gracefully shuts down the server. The worker will stay alive if other sessions exist."""
         logger.info("Shutting down MCPServer...")
-        
+
         # 1. Signal REST Gateway to stop
         if self._rest_stop_event:
             logger.info("Signaling REST Gateway shutdown...")
             self._rest_stop_event.set()
 
-        # 2. Stop the worker threads
-        if hasattr(self, 'worker'):
-            self.worker.stop()
-        
-        # 3. Wait for background webhooks to finish
+        # 2. Cleanup session file (Worker will detect this and shutdown if no other sessions)
+        storage = os.path.abspath(self.memory.storage_path)
+        session_file = os.path.join(storage, "sessions", f"{os.getpid()}.lock")
+        try:
+            if os.path.exists(session_file):
+                os.remove(session_file)
+                logger.info(f"Session unregistered: {session_file}")
+        except Exception as e:
+            logger.debug(f"Failed to cleanup session file: {e}")
+
+        # 3. We NO LONGER kill the worker process here. 
+        # The worker manages its own lifecycle based on active sessions.
+        self._worker_process = None
+
+        # 4. Wait for background webhooks to finish
         if self._active_tasks:
             logger.info(f"Waiting for {len(self._active_tasks)} background webhook tasks...")
-            # We can't easily await from sync stop() if called via signal, 
-            # but FastMCP stop/run handles the loop.
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     loop.create_task(asyncio.gather(*self._active_tasks, return_exceptions=True))
-            except: pass
+            except:
+                pass
 
         if hasattr(self, 'memory') and hasattr(self.memory, 'vector'):
             self.memory.vector.close()
-            
+
         logger.info("MCPServer shutdown complete.")
 
     def run(self):
@@ -346,6 +412,8 @@ class MCPServer:
             )
             gateway_thread.start()
             
+        # Orphan detection is disabled to support independent worker lifecycle and Termux environment
+        
         try:
             self.mcp.run()
         finally:

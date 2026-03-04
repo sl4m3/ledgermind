@@ -45,9 +45,9 @@ class Memory:
     """
     _git_available: Optional[bool] = None
 
-    def __init__(self, 
-                 storage_path: Optional[str] = None, 
-                 ttl_days: Optional[int] = None, 
+    def __init__(self,
+                 storage_path: Optional[str] = None,
+                 ttl_days: Optional[int] = None,
                  trust_boundary: Optional[TrustBoundary] = None,
                  config: Optional[LedgermindConfig] = None,
                  episodic_store: Optional[Union[EpisodicStore, EpisodicProvider]] = None,
@@ -56,9 +56,26 @@ class Memory:
                  meta_store_provider: Optional[MetadataStore] = None,
                  audit_store_provider: Optional[AuditProvider] = None,
                  vector_model: Optional[str] = None,
-                 vector_workers: Optional[int] = None):
+                 vector_workers: Optional[int] = None,
+                 include_history: bool = True):
         """
         Initialize the memory system.
+
+        Args:
+            storage_path: Path to storage directory
+            ttl_days: Time-to-live for events in days
+            trust_boundary: Trust boundary for operations
+            config: Optional configuration object
+            episodic_store: Custom episodic store instance
+            semantic_store: Custom semantic store instance
+            namespace: Default namespace for operations
+            meta_store_provider: Custom metadata store provider
+            audit_store_provider: Custom audit store provider
+            vector_model: Name of vector model to use
+            vector_workers: Number of vector store workers
+            include_history: If False, search returns only active decisions.
+                            If True (default), superseded/deprecated decisions are included
+                            with reduced priority. Use mode="strict" for active-only regardless.
         """
         self._events = None
         if config:
@@ -76,6 +93,7 @@ class Memory:
         self.storage_path = os.path.abspath(self.config.storage_path)
         self.trust_boundary = self.config.trust_boundary
         self.namespace = self.config.namespace
+        self.include_history = include_history
         
         try:
             if not os.path.exists(self.storage_path):
@@ -348,9 +366,10 @@ class Memory:
         
         if decision and decision.should_persist:
             if decision.store_type == "episodic":
-                ev_id = self.episodic.append(event).value
-                decision.metadata["event_id"] = ev_id
-                self.events.emit("episodic_added", {"id": ev_id, "kind": event.kind})
+                if source in {"user", "agent"}:
+                    ev_id = self.episodic.append(event).value
+                    decision.metadata["event_id"] = ev_id
+                    self.events.emit("episodic_added", {"id": ev_id, "kind": event.kind})
             elif decision.store_type == "semantic":
                 logger.debug("Starting semantic transaction...")
                 # Use Transaction for atomic save + status updates
@@ -383,7 +402,7 @@ class Memory:
                         event.context.namespace = effective_namespace
                         if isinstance(context, dict) and 'evidence_event_ids' in context:
                             event.context.evidence_event_ids = context['evidence_event_ids']
-                        
+
                         # IMPORTANT: Convert Pydantic model to DICT with JSON-safe values (Enums to strings)
                         event.context = event.context.model_dump(mode='json')
 
@@ -398,7 +417,7 @@ class Memory:
                     new_fid = self.semantic.save(event, namespace=effective_namespace)
                     decision.metadata["file_id"] = new_fid
                     self.events.emit("semantic_added", {"id": new_fid, "kind": event.kind, "namespace": effective_namespace})
-                    
+
                     # 4. Now that we have new_fid, update back-links properly
                     if intent and intent.resolution_type == "supersede":
                         for old_id in intent.target_decision_ids:
@@ -414,7 +433,7 @@ class Memory:
                         all_grounding_ids.update(event.context.get('evidence_event_ids', []))
                     elif hasattr(event.context, 'evidence_event_ids'):
                         all_grounding_ids.update(getattr(event.context, 'evidence_event_ids', []))
-                    
+
                     # Inherit links from superseded items
                     if intent and intent.resolution_type == "supersede":
                         # ⚡ Bolt Optimization: Batch fetch all linked events for superseded decisions
@@ -445,10 +464,10 @@ class Memory:
                             rationale_val = ctx.get('rationale', '')
                         elif hasattr(ctx, 'rationale'):
                             rationale_val = getattr(ctx, 'rationale', '')
-                        
+
                         if rationale_val:
                             indexed_content = f"{event.content}\n{rationale_val}"
-    
+
                         self.vector.add_documents([{
                             "id": new_fid,
                             "content": indexed_content
@@ -458,12 +477,12 @@ class Memory:
                 else:
                     logger.debug(f"Vector indexing deferred for {new_fid} (no pre-computed vector).")
 
-                # Immortal Link
-                ev_id = self.episodic.append(event, linked_id=new_fid).value
-                decision.metadata["event_id"] = ev_id
-                
-        return decision
+                # Immortal Link (Skip for background sources to keep episodic memory clean)
+                if source in {"user", "agent"}:
+                    ev_id = self.episodic.append(event, linked_id=new_fid).value
+                    decision.metadata["event_id"] = ev_id
 
+        return decision
 
     def get_decisions(self) -> List[str]:
         """
@@ -498,7 +517,7 @@ class Memory:
                 (semantic_id,)
             )
 
-    def update_decision(self, decision_id: str, updates: Dict[str, Any], commit_msg: str) -> bool:
+    def update_decision(self, decision_id: str, updates: Dict[str, Any], commit_msg: str, skip_episodic: bool = False) -> bool:
         """
         Coordinates updates to a semantic record across all stores.
         """
@@ -557,39 +576,40 @@ class Memory:
                         logger.warning(f"Vector re-indexing failed for {decision_id}: {ve}")
             
             # 3. Create episodic event to log the update (Issue #11: Log phase changes for all)
-            meta = self.semantic.meta.get_by_fid(decision_id)
-            if meta:
-                # Check for phase transition
-                old_phase = current_ctx.get('phase')
-                new_phase = updates.get('phase')
-                
-                if new_phase and old_phase != new_phase:
-                    self.episodic.append(MemoryEvent(
-                        source="system",
-                        kind="commit_change",
-                        content=f"Lifecycle: {old_phase} → {new_phase} for {meta.get('title')}",
-                        context={
-                            "target": meta.get('target'),
-                            "fid": decision_id,
-                            "old_phase": old_phase,
-                            "new_phase": new_phase
-                        }
-                    ), linked_id=decision_id).value
+            if not skip_episodic:
+                meta = self.semantic.meta.get_by_fid(decision_id)
+                if meta:
+                    # Check for phase transition
+                    old_phase = current_ctx.get('phase')
+                    new_phase = updates.get('phase')
+                    
+                    if new_phase and old_phase != new_phase:
+                        self.episodic.append(MemoryEvent(
+                            source="system",
+                            kind="commit_change",
+                            content=f"Lifecycle: {old_phase} → {new_phase} for {meta.get('title')}",
+                            context={
+                                "target": meta.get('target'),
+                                "fid": decision_id,
+                                "old_phase": old_phase,
+                                "new_phase": new_phase
+                            }
+                        ), linked_id=decision_id).value
 
-                if meta.get('kind') != KIND_PROPOSAL:
-                    event = MemoryEvent(
-                        source="system",
-                        kind="commit_change",
-                        content=f"Updated {meta.get('kind')}: {meta.get('title')}",
-                        context={
-                            "original_kind": meta.get('kind', 'decision'),
-                            "updates": updates,
-                            "target": meta.get('target'),
-                            "rationale": commit_msg
-                        }
-                    )
-                    if not self.episodic.find_duplicate(event, linked_id=decision_id).value:
-                        self.episodic.append(event, linked_id=decision_id).value
+                    if meta.get('kind') != KIND_PROPOSAL:
+                        event = MemoryEvent(
+                            source="system",
+                            kind="commit_change",
+                            content=f"Updated {meta.get('kind')}: {meta.get('title')}",
+                            context={
+                                "original_kind": meta.get('kind', 'decision'),
+                                "updates": updates,
+                                "target": meta.get('target'),
+                                "rationale": commit_msg
+                            }
+                        )
+                        if not self.episodic.find_duplicate(event, linked_id=decision_id).value:
+                            self.episodic.append(event, linked_id=decision_id).value
             
         return True
 
@@ -797,10 +817,15 @@ class Memory:
         Helper to evolve knowledge by superseding existing decisions.
         """
         effective_namespace = namespace or self.namespace
-        active_files = self.semantic.list_active_conflicts(target, namespace=effective_namespace)
+        
+        # Verify all target IDs exist and are active BEFORE starting the process
         for oid in old_decision_ids:
-            if oid not in active_files:
-                raise ConflictError(f"Cannot supersede {oid}: it is no longer active for target {target} in namespace {effective_namespace}")
+            meta = self.semantic.meta.get_by_fid(oid)
+            if not meta:
+                raise ConflictError(f"Cannot supersede {oid}: it does not exist in the semantic store.")
+            
+            if meta.get('status') != 'active':
+                raise ConflictError(f"Cannot supersede {oid}: it is no longer active (current status: {meta.get('status')}).")
 
         intent = ResolutionIntent(
             resolution_type="supersede",
@@ -862,26 +887,34 @@ class Memory:
                 supersedes = ctx.get("suggested_supersedes", [])
                 target = ctx.get("target")
                 title = ctx.get("title")
+                enrichment_status = ctx.get("enrichment_status")
                 final_rationale = ctx.get("rationale", "")
 
                 # --- RATIONALE SYNTHESIS FOR MERGES ---
+                # If LLM enrichment is already completed, we MUST use the synthesized rationale 
+                # from the proposal itself instead of re-synthesizing it from scratch (Issue #15)
                 if target == "knowledge_merge" and supersedes:
-                    original_rationales = []
-                    for sid in supersedes:
-                        try:
-                            s_data = self.semantic.get_decision(sid)
-                            if s_data and s_data.rationale:
-                                original_rationales.append(s_data.rationale)
-                        except Exception: continue
-                    
-                    if original_rationales:
-                        from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
-                        # Use optimal/rich mode if available for merge synthesis
-                        mode = self.semantic.meta.get_config("arbitration_mode", "lite")
-                        enricher = LLMEnricher(mode=mode)
-                        final_rationale = enricher.synthesize_merged_rationale(original_rationales)
+                    if enrichment_status != "completed":
+                        original_rationales = []
+                        for sid in supersedes:
+                            try:
+                                s_data = self.semantic.get_decision(sid)
+                                if s_data and s_data.rationale:
+                                    original_rationales.append(s_data.rationale)
+                            except Exception: continue
+                        
+                        if original_rationales:
+                            from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
+                            # Use optimal/rich mode if available for merge synthesis
+                            mode = self.semantic.meta.get_config("arbitration_mode", "lite")
+                            enricher = LLMEnricher(mode=mode)
+                            final_rationale = enricher.synthesize_merged_rationale(original_rationales)
+                    else:
+                        logger.info(f"Using pre-enriched rationale for merge proposal {proposal_id}")
+                        # Keep the existing final_rationale which was loaded from ctx['rationale']
                 else:
-                    final_rationale = f"Accepted proposal {proposal_id}. {final_rationale}"
+                    if enrichment_status != "completed":
+                        final_rationale = f"Accepted proposal {proposal_id}. {final_rationale}"
 
                 grounding_ids = set(ctx.get("evidence_event_ids", []))
                 try:
@@ -939,7 +972,21 @@ class Memory:
     def search_decisions(self, query: str, limit: int = 5, offset: int = 0, namespace: Optional[str] = None, mode: str = "balanced") -> List[Dict[str, Any]]:
         """
         Search with Recursive Truth Resolution and Hybrid Vector/Keyword ranking (RRF).
-        Now supports namespacing and pagination.
+        Now supports namespacing, pagination, and history filtering.
+
+        Args:
+            query: Search query string
+            limit: Maximum number of results to return
+            offset: Number of results to skip (for pagination)
+            namespace: Namespace to search in (default: self.namespace)
+            mode: Search mode - "strict" (active only), "balanced" (with history)
+                    See `include_history` for actual behavior control.
+
+        Excluded from search (technical statuses):
+            - "processed": Merge trigger proposals (not real knowledge)
+            - "knowledge_merge": Merge trigger proposals (not real knowledge)
+            - "knowledge_validation": Validation trigger proposals (not real knowledge)
+            - "accepted": Merged/accepted proposals (superseded by real decision)
         """
         effective_namespace = namespace or self.namespace
         k = 60 # RRF constant
@@ -1039,7 +1086,17 @@ class Memory:
                 continue
 
             status = meta.get("status", "unknown")
-            if mode == "strict" and status != "active": continue
+
+            # Technical statuses that should not appear in search results
+            TECHNICAL_STATUSES = ("processed", "knowledge_merge", "knowledge_validation", "accepted")
+            if status in TECHNICAL_STATUSES:
+                continue
+
+            # Filter based on history mode
+            if not self.include_history and status not in ("active", "superseded", "deprecated"):
+                continue
+            if mode == "strict" and status != "active":
+                continue
 
             resolved_records.append((fid, meta, scores[fid] / max_rrf))
 
