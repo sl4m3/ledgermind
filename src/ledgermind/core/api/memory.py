@@ -1059,7 +1059,7 @@ class Memory:
             cand['score'] = min(1.0, raw_score)
             all_candidates.append(cand)
 
-        all_candidates.sort(key=lambda x: x['score'], reverse=True)
+        all_candidates.sort(key=lambda x: (x['score'], x['base_score'] + x['boost'], x['id']), reverse=True)
         final_results = []
         seen_ids = set()
         skipped = 0
