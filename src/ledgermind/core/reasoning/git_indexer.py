@@ -97,6 +97,9 @@ class GitIndexer:
         indexed_count = 0
         latest_hash = last_hash
         
+        from collections import Counter
+        from ledgermind.core.utils.datetime_utils import to_naive_utc
+
         for commit in reversed(new_commits): # От старых к новым
             # Дополнительно получаем список измененных файлов для контекста
             try:
@@ -106,25 +109,28 @@ class GitIndexer:
                 ) # nosec B603 B607
                 changed_files = [f for f in diff_res.stdout.strip().split('\n') if f]
                 
-                # Heuristic: Infer target from common path prefix or first file
-                # If file is src/module/file.py, target is 'module'
+                # ENHANCED Target Inference: use most frequent top-level directory
                 inferred_target = None
                 if changed_files:
-                    first_file = changed_files[0]
-                    parts = first_file.split('/')
-                    if len(parts) > 1:
-                        if parts[0] in ['src', 'lib', 'app']: inferred_target = parts[1]
-                        else: inferred_target = parts[0]
+                    path_starts = []
+                    for f in changed_files:
+                        parts = f.split('/')
+                        if len(parts) > 1:
+                            # If src/module/file.py, module is the target
+                            if parts[0] in ['src', 'lib', 'app', 'tests']:
+                                path_starts.append(parts[1])
+                            else:
+                                path_starts.append(parts[0])
+                        else:
+                            # Root files
+                            path_starts.append("root")
+                    
+                    if path_starts:
+                        inferred_target = Counter(path_starts).most_common(1)[0][0]
             except Exception:
                 changed_files = []
                 inferred_target = None
 
-            date_str = commit['date'].strip()
-            # Handle ISO 8601 with colon in timezone (Python < 3.11 compatibility)
-            # e.g. 2026-02-21 01:23:28 +03:00 -> 2026-02-21 01:23:28 +0300
-            if len(date_str) > 6 and date_str[-3] == ':':
-                date_str = date_str[:-3] + date_str[-2:]
-            
             event = MemoryEvent(
                 source="system",
                 kind="commit_change",
@@ -137,7 +143,7 @@ class GitIndexer:
                     "target": inferred_target,
                     "type": "git_history"
                 },
-                timestamp=datetime.fromisoformat(date_str)
+                timestamp=to_naive_utc(commit['date'])
             )
             
             # Deep Duplicate Check

@@ -1,5 +1,6 @@
 import logging
-from typing import List, Optional
+import json
+from typing import List, Optional, Set
 from ledgermind.core.api.memory import Memory
 from ledgermind.core.core.schemas import ProposalContent, KIND_PROPOSAL
 
@@ -12,7 +13,21 @@ class MergeEngine:
     def __init__(self, memory: Memory):
         self.memory = memory
 
-    def scan_for_duplicates(self, threshold: float = 0.85) -> List[str]:
+    def _get_active_merge_targets(self) -> Set[str]:
+        """Returns a set of decision IDs already pending for a merge."""
+        targets = set()
+        # Direct SQLite query via metadata store for efficiency
+        metas = self.memory.semantic.meta.list_all()
+        for m in metas:
+            if m.get('status') == 'draft' and m.get('kind') == KIND_PROPOSAL:
+                try:
+                    ctx = json.loads(m.get('context_json', '{}'))
+                    supersedes = ctx.get('suggested_supersedes', [])
+                    targets.update(supersedes)
+                except: continue
+        return targets
+
+    def scan_for_duplicates(self, threshold: float = 0.65) -> List[str]:
         """
         Scans active decisions and creates proposals for merging duplicates.
         Returns list of created proposal IDs.
@@ -20,25 +35,22 @@ class MergeEngine:
         active_ids = self.memory.get_decisions()
         proposals = []
         
-        # This is O(N^2) naive scan or O(N) search. 
-        # For efficiency, we only check the N most recent decisions against the whole base.
-        # But we need access to embeddings.
+        # Protect against merge loops (don't propose merge for files already in a draft merge)
+        pending_targets = self._get_active_merge_targets()
         
-        # Let's rely on 'search' being efficient.
-        # Check specific recent decisions
-        recent_ids = active_ids[:20] 
-        
-        for fid in recent_ids:
+        # Check all active decisions against the whole base
+        for fid in active_ids:
+            if fid in pending_targets:
+                continue
+
             try:
                 # We need the text content to search
-                # Currently Memory doesn't expose 'get_content(fid)' easily without reading file
-                # But we can assume we have it via search or load.
-                
-                # Let's read the file to get content
                 import os
                 from ledgermind.core.stores.semantic_store.loader import MemoryLoader
                 
                 path = os.path.join(self.memory.semantic.repo_path, fid)
+                if not os.path.exists(path): continue
+
                 with open(path, 'r', encoding='utf-8') as f:
                     data, _ = MemoryLoader.parse(f.read())
                 
@@ -52,33 +64,38 @@ class MergeEngine:
                 if not search_query: continue
                 
                 # Search for duplicates
-                # We use a strict threshold
                 results = self.memory.search_decisions(search_query, limit=5, mode="strict")
                 
-                # Normalize scores by the maximum found to account for lifecycle multipliers (Issue #10)
+                # Normalize scores
                 max_score = max((r['score'] for r in results), default=1.0)
                 
                 duplicates = []
                 total_norm_score = 0
                 for res in results:
                     normalized_score = res['score'] / max_score if max_score > 0 else 0
-                    if res['id'] != fid and normalized_score >= threshold:
+                    # Skip self and already pending targets
+                    if res['id'] != fid and res['id'] not in pending_targets and normalized_score >= threshold:
                         duplicates.append(res)
                         total_norm_score += normalized_score
                 
                 if duplicates:
-                    # Calculate dynamic confidence as average similarity
                     avg_confidence = total_norm_score / len(duplicates)
-                    
                     target_ids = [d['id'] for d in duplicates] + [fid]
-                    # Create a proposal to merge them
+                    
+                    # Logic for automatic consolidation vs validation
+                    # Threshold for auto-merge is 0.85
+                    target_mode = "knowledge_merge" if avg_confidence >= 0.85 else "knowledge_validation"
+                    
                     proposal_id = self._create_merge_proposal(
                         target_ids, 
                         title or search_query[:50],
-                        confidence=avg_confidence
+                        confidence=avg_confidence,
+                        target=target_mode
                     )
                     if proposal_id:
                         proposals.append(proposal_id)
+                        # Add new targets to pending set to avoid duplicates within same run
+                        pending_targets.update(target_ids)
                         
             except Exception as e:
                 logger.error(f"Error scanning {fid}: {e}")
@@ -86,34 +103,37 @@ class MergeEngine:
                 
         return proposals
 
-    def _create_merge_proposal(self, target_ids: List[str], topic: str, confidence: float = 0.90) -> Optional[str]:
-        # Check if proposal already exists for these targets? 
-        # For now just create one.
-        
-        target_ids = sorted(list(set(target_ids))) # Deduplicate and sort
+    def _create_merge_proposal(self, target_ids: List[str], topic: str, confidence: float = 0.90, target: str = "knowledge_merge") -> Optional[str]:
+        target_ids = sorted(list(set(target_ids))) 
         if len(target_ids) < 2: return None
         
-        title = f"Knowledge Consolidation: {topic[:50]}..."
+        is_validation = target == "knowledge_validation"
+        title = f"{'Validate' if is_validation else 'Consolidate'} Knowledge: {topic[:50]}..."
         
-        # Technical Intent Statement (Rationale)
-        rationale = (
-            f"Detected fragmented knowledge across {len(target_ids)} semantically identical entries.\n\n"
-            f"The identified decisions ({', '.join(target_ids)}) represent overlapping architectural "
-            f"patterns or procedural guides related to '{topic}'.\n\n"
-            f"Consolidation is necessary to maintain a Single Source of Truth and improve "
-            f"knowledge retrieval precision. This proposal initiates a synthesis to merge these "
-            f"into a single canonical guide."
-        )
+        # Technical Intent Statement
+        if is_validation:
+            rationale = (
+                f"POTENTIAL DUPLICATION: {len(target_ids)} entries found with moderate similarity ({confidence:.2%}).\n\n"
+                f"Entries: {', '.join(target_ids)}\n\n"
+                f"LLM validation is required to determine if these entries should be merged or kept separate. "
+                f"If they are duplicates, a synthesis will be performed."
+            )
+        else:
+            rationale = (
+                f"Detected fragmented knowledge across {len(target_ids)} semantically identical entries.\n\n"
+                f"The identified decisions ({', '.join(target_ids)}) represent overlapping architectural "
+                f"patterns or procedural guides related to '{topic}'.\n\n"
+                f"Consolidation is necessary to maintain a Single Source of Truth."
+            )
         
-        # Prepare context data
         ctx_data = {
             "title": title,
-            "target": "knowledge_merge",
+            "target": target,
             "status": "draft",
             "rationale": rationale,
             "confidence": round(confidence, 4),
             "suggested_supersedes": target_ids,
-            "enrichment_status": "pending",  # Signal for LLMEnricher to synthesize
+            "enrichment_status": "pending",
             "strengths": ["Reduces redundancy", "Improves retrieval precision"],
             "suggested_consequences": ["Original decisions will be superseded and archived"]
         }

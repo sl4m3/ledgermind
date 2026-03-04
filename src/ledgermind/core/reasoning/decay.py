@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Tuple
+from ledgermind.core.utils.datetime_utils import to_naive_utc
 
 class DecayReport:
     """
@@ -53,12 +54,8 @@ class DecayEngine:
                 # If never hit, use creation timestamp
                 last_hit = dec.get('timestamp')
             
-            try:
-                if isinstance(last_hit, str):
-                    last_hit_dt = datetime.fromisoformat(last_hit)
-                else:
-                    last_hit_dt = last_hit
-            except (ValueError, TypeError):
+            last_hit_dt = to_naive_utc(last_hit)
+            if not last_hit_dt:
                 last_hit_dt = now - timedelta(days=self.ttl_days)
 
             days_inactive = (now - last_hit_dt).days
@@ -106,17 +103,8 @@ class DecayEngine:
                 retained_count += 1
                 continue
             
-            try:
-                if isinstance(ev['timestamp'], str):
-                    ts = datetime.fromisoformat(ev['timestamp'])
-                else:
-                    ts = ev['timestamp']
-                
-                # Ensure consistency (Strip timezone if present to match datetime.now())
-                if ts.tzinfo is not None:
-                    ts = ts.replace(tzinfo=None)
-            except (ValueError, TypeError):
-                # If timestamp is invalid, treat it as very old to trigger archive/prune
+            ts = to_naive_utc(ev.get('timestamp'))
+            if not ts:
                 ts = datetime.min
             
             age = now - ts
