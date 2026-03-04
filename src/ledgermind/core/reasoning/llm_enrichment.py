@@ -160,12 +160,16 @@ class LLMEnricher:
                     else:
                         proposal = ProposalContent(**proposal_data)
 
-                    # Determine knowledge type (Behavioral vs Procedural vs Merge)
+                    # Determine knowledge type (Behavioral vs Procedural vs Merge vs Validation)
                     from ledgermind.core.core.schemas import DecisionPhase
                     is_behavioral = getattr(proposal, 'phase', None) == DecisionPhase.PATTERN
-                    is_merge = getattr(proposal, 'target', None) == "knowledge_merge"
+                    target_val = getattr(proposal, 'target', None)
+                    is_merge = target_val == "knowledge_merge"
+                    is_validation = target_val == "knowledge_validation"
                     
-                    if is_merge:
+                    if is_validation:
+                        instructions = self._build_validation_prompt(proposal.title)
+                    elif is_merge:
                         instructions = self._build_merge_prompt(proposal.title)
                     elif is_behavioral:
                         instructions = self._build_behavioral_prompt(proposal.target, existing_rationale=proposal.rationale)
@@ -173,15 +177,15 @@ class LLMEnricher:
                         instructions = self._build_procedural_prompt(proposal.target, existing_rationale=proposal.rationale)
 
                     # --- ITERATIVE CHUNKING LOGIC ---
-                    if is_merge:
-                        # For merge, "all_ids" are file IDs to consolidate
+                    if is_merge or is_validation:
+                        # For merge/validation, "all_ids" are file IDs to consolidate/check
                         all_ids = getattr(proposal, 'suggested_supersedes', []) or []
                     else:
                         all_ids = sorted(proposal.evidence_event_ids or [])
                     
                     total_items = len(all_ids)
                     
-                    print(f"   ({idx+1}/{len(pending_fids)}) Enriching {fid} ({'Merge' if is_merge else 'Analysis'}. Total items: {total_items})...")
+                    print(f"   ({idx+1}/{len(pending_fids)}) Enriching {fid} ({'Validation' if is_validation else 'Merge' if is_merge else 'Analysis'}. Total items: {total_items})...")
                     
                     # If no items to process, just mark as completed
                     if not all_ids:
@@ -209,7 +213,7 @@ class LLMEnricher:
 
                         for item_id in all_ids:
                             entry = ""
-                            if is_merge:
+                            if is_merge or is_validation:
                                 # Fetch rationale from source file
                                 try:
                                     src_path = os.path.join(memory.semantic.repo_path, item_id)
@@ -355,12 +359,16 @@ class LLMEnricher:
         if self.mode == "lite" or not cluster_logs:
             return proposal
             
-        # Determine knowledge type (Behavioral vs Procedural vs Merge)
+        # Determine knowledge type (Behavioral vs Procedural vs Merge vs Validation)
         from ledgermind.core.core.schemas import DecisionPhase
         is_behavioral = getattr(proposal, 'phase', None) == DecisionPhase.PATTERN
-        is_merge = getattr(proposal, 'target', None) == "knowledge_merge"
+        target_val = getattr(proposal, 'target', None)
+        is_merge = target_val == "knowledge_merge"
+        is_validation = target_val == "knowledge_validation"
         
-        if is_merge:
+        if is_validation:
+            instructions = self._build_validation_prompt(proposal.title)
+        elif is_merge:
             instructions = self._build_merge_prompt(proposal.title)
         elif is_behavioral:
             instructions = self._build_behavioral_prompt(proposal.target, existing_rationale=proposal.rationale)
@@ -416,6 +424,18 @@ class LLMEnricher:
                     
                     data = json.loads(json_text)
                     if isinstance(data, dict):
+                        # SPECIAL: Handling Validation Decision
+                        if is_validation:
+                            is_dup = data.get("is_duplicate", True)
+                            if is_dup is False:
+                                print(f"   [REJECTED] LLM determined entries are NOT duplicates. Aborting merge.")
+                                proposal.rationale = f"REJECTED: {data.get('reasoning', 'Not a duplicate')}"
+                                proposal._enrichment_failed = True # Will mark as failed/rejected in store
+                                return proposal
+                            else:
+                                print(f"   [VALIDATED] LLM confirmed entries ARE duplicates. Proceeding with synthesis.")
+                                proposal.target = "knowledge_merge"
+
                         if "goal" in data: proposal.title = data["goal"]
                         if "rationale" in data: proposal.rationale = data["rationale"]
                         if "compressive" in data: proposal.compressive_rationale = data["compressive"]
@@ -442,7 +462,7 @@ class LLMEnricher:
                 if parsed_successfully:
                     self._update_keywords(proposal)
                     if hasattr(proposal, 'compressive_rationale') and proposal.compressive_rationale:
-                        if is_merge:
+                        if is_merge or is_validation:
                             superseded = getattr(proposal, 'suggested_supersedes', [])
                             note = f"\n\n*Technical Note: This is a consolidated entry. Original details preserved in superseded files: {', '.join(superseded)}.*"
                         else:
@@ -718,6 +738,31 @@ class LLMEnricher:
             '  "goal": "One-sentence summary of the unified intent",\n'
             '  "rationale": "# Unified Architectural Guide: ' + title + '\\n\\n## 1. Primary Goal / Intent\\n[Detailed synthesis of the main goal]\\n\\n## 2. Key Insights & Principles\\n- **Insight 1**: [Merged description] + [Technical context]\\n\\n## 3. Strategic Implications\\n[Consolidated architectural impact]",\n'
             '  "compressive": "3 sentences summarizing the final state"\n'
+            "}\n"
+            "No additional text before or after the JSON."
+        )
+
+    def _build_validation_prompt(self, title: str) -> str:
+        """Expert prompt for determining if multiple technical entries are true duplicates."""
+        return (
+            "### SYSTEM ROLE\n"
+            "You are a Technical Knowledge Auditor and Architect. Your task is to determine if several knowledge entries "
+            "are truly semantically identical or if they represent distinct technical concepts.\n\n"
+            f"### TASK: Validate duplication for '{title}'.\n\n"
+            "### REQUIREMENTS\n"
+            "- Compare the provided source rationales deeply.\n"
+            "- If they describe the SAME solution, bug, or pattern (even with different words), they are DUPLICATES.\n"
+            "- If they describe DIFFERENT problems or use different incompatible architectures, they are DISTINCT.\n"
+            "- LANGUAGE: Detect the language of the provided data. Your entire response MUST be in the SAME language.\n"
+            "- CRITICAL: If the input is in Russian, respond in Russian. If German, respond in German.\n\n"
+            "### RESPONSE FORMAT\n"
+            "Respond with ONLY a JSON object with these keys:\n"
+            "{\n"
+            '  "is_duplicate": true,\n'
+            '  "reasoning": "A short professional explanation of your decision",\n'
+            '  "goal": "If duplicate, provide a unified title. If not, keep original title.",\n'
+            '  "rationale": "If duplicate, provide a unified technical rationale. If not, explain technical differences.",\n'
+            '  "compressive": "3 sentences summary"\n'
             "}\n"
             "No additional text before or after the JSON."
         )

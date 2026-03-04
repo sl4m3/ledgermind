@@ -2,6 +2,7 @@ import logging
 import statistics
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
+from ledgermind.core.utils.datetime_utils import to_naive_utc
 
 from ledgermind.core.core.schemas import (
     DecisionStream, DecisionPhase, DecisionVitality, PatternScope
@@ -30,10 +31,10 @@ class LifecycleEngine:
         Updates temporal metrics incrementally based on a NEW delta of reinforcement_dates.
         """
         # Normalize everything to naive UTC for safe comparison
-        now = now.replace(tzinfo=None)
-        reinforcement_dates = [d.replace(tzinfo=None) for d in reinforcement_dates]
-        if stream.first_seen: stream.first_seen = stream.first_seen.replace(tzinfo=None)
-        if stream.last_seen: stream.last_seen = stream.last_seen.replace(tzinfo=None)
+        now = to_naive_utc(now)
+        reinforcement_dates = [to_naive_utc(d) for d in reinforcement_dates if d]
+        if stream.first_seen: stream.first_seen = to_naive_utc(stream.first_seen)
+        if stream.last_seen: stream.last_seen = to_naive_utc(stream.last_seen)
 
         if not reinforcement_dates:
             # Still update lifetime metrics even with no new evidence
@@ -135,9 +136,12 @@ class LifecycleEngine:
         """
         Updates the vitality state: ACTIVE -> DECAYING -> DORMANT.
         """
-        now = now.replace(tzinfo=None)
-        if stream.last_seen: stream.last_seen = stream.last_seen.replace(tzinfo=None)
+        now = to_naive_utc(now)
+        if stream.last_seen: stream.last_seen = to_naive_utc(stream.last_seen)
         
+        if not stream.last_seen:
+            return stream
+
         days_since_last = (now - stream.last_seen).total_seconds() / 86400.0
         
         if days_since_last < 7.0:
@@ -181,6 +185,12 @@ class LifecycleEngine:
                 stream.estimated_removal_cost > 0.5 and
                 stream.vitality == DecisionVitality.ACTIVE):
                 stream.phase = DecisionPhase.CANONICAL
+                
+                # MEMORY OPTIMIZATION: Canonical knowledge is stable. 
+                # We clear evidence IDs to prevent file bloat.
+                # All links are still preserved in episodic.db via linked_id.
+                stream.evidence_event_ids = []
+                logger.info(f"Stream {stream.target} promoted to CANONICAL. Cleared evidence IDs for optimization.")
                 
         # Observe metrics
         if stream.phase != old_phase:
