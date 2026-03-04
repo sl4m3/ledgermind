@@ -191,3 +191,44 @@ class LedgerMindTools:
             return json.dumps({"status": "error", "message": str(e)})
         finally:
             TOOL_LATENCY.labels(tool="link_interaction_to_decision").observe(time.time() - start_time)
+
+    def repair_language(self) -> str:
+        """Scans enriched decisions and resets status for records that don't match the preferred language."""
+        start_time = time.time()
+        try:
+            self.server._check_capability("maintenance")
+            
+            lang = self.server.memory.semantic.meta.get_config("preferred_language", "russian")
+            metas = self.server.memory.semantic.meta.list_all()
+            
+            reset_count = 0
+            for m in metas:
+                if m.get('enrichment_status') == 'completed':
+                    fid = m['fid']
+                    path = os.path.join(self.server.memory.semantic.repo_path, fid)
+                    if not os.path.exists(path): continue
+                    
+                    with open(path, 'r', encoding='utf-8') as f:
+                        content = f.read().lower()
+                    
+                    should_reset = False
+                    if lang == "russian":
+                        # Simple check: if no cyrillic letters in a large text, it's probably not Russian
+                        import re
+                        if not re.search(r'[а-яё]', content):
+                            should_reset = True
+                    elif lang == "english":
+                        # If contains cyrillic, it's not purely English
+                        import re
+                        if re.search(r'[а-яё]', content):
+                            should_reset = True
+                    
+                    if should_reset:
+                        self.server.memory.semantic.update_decision(fid, {"enrichment_status": "pending"}, "Language repair trigger")
+                        reset_count += 1
+            
+            return json.dumps({"status": "success", "message": f"Reset {reset_count} records for re-enrichment in {lang}."})
+        except Exception as e:
+            return json.dumps({"status": "error", "message": str(e)})
+        finally:
+            TOOL_LATENCY.labels(tool="repair_language").observe(time.time() - start_time)

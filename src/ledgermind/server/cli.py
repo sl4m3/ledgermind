@@ -89,6 +89,16 @@ def init_project(path: str):
         default="lite"
     ).ask()
     if mode is None: return
+
+    # 6. Language Preference
+    console.print("\n[bold yellow]Step 6: Language Preference[/bold yellow]")
+    console.print("Enter preferred language for records (e.g., 'russian', 'english', 'german'):")
+    language = questionary.text(
+        "Preferred language:",
+        default="russian"
+    ).ask()
+    if language is None: return
+    language = language.strip().lower()
     
     enrichment_model = None
     if mode == "rich" and client in ["gemini", "claude"]:
@@ -191,12 +201,14 @@ def init_project(path: str):
         # Save Arbitration Mode and Client to config
         memory.semantic.meta.set_config("arbitration_mode", mode)
         memory.semantic.meta.set_config("client", client)
+        memory.semantic.meta.set_config("preferred_language", language)
         if enrichment_model:
             memory.semantic.meta.set_config("enrichment_model", enrichment_model)
 
         console.print(f"[green]✓ Created memory structure at {custom_path}[/green]")
         console.print(f"[green]✓ Configured vector model: {model_name}[/green]")
         console.print(f"[green]✓ Set arbitration mode: {mode}[/green]")
+        console.print(f"[green]✓ Set preferred language: {language}[/green]")
         console.print(f"[green]✓ Registered client: {client}[/green]")
         if enrichment_model:
             console.print(f"[green]✓ Configured enrichment model: {enrichment_model}[/green]")
