@@ -295,6 +295,7 @@ class MCPServer:
         self.mcp.tool()(tools.get_relevant_context)
         self.mcp.tool()(tools.record_interaction)
         self.mcp.tool()(tools.link_interaction_to_decision)
+        self.mcp.tool()(tools.repair_language)
 
     def stop(self):
         """Gracefully shuts down the server and all background processes."""
