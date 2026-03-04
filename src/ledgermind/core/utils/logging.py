@@ -2,7 +2,7 @@ import logging
 import sys
 from typing import Optional
 
-def setup_logging(level: int = logging.INFO, log_file: Optional[str] = None):
+def setup_logging(level: int = logging.INFO, log_file: Optional[str] = None, mode: str = 'a'):
     """
     Sets up a standardized logging configuration for Ledgermind.
     """
@@ -20,7 +20,7 @@ def setup_logging(level: int = logging.INFO, log_file: Optional[str] = None):
 
     # File handler (optional)
     if log_file:
-        file_handler = logging.FileHandler(log_file)
+        file_handler = logging.FileHandler(log_file, mode=mode)
         file_handler.setFormatter(formatter)
         handlers.append(file_handler)
 

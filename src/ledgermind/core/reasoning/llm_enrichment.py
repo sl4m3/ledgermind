@@ -35,25 +35,35 @@ class LLMEnricher:
             self._client.close()
             self._client = None
 
-    def synthesize_merged_rationale(self, rationales: List[str]) -> str:
+    def synthesize_knowledge_merge(self, items_data: List[Dict[str, Any]], hint_target: str) -> Dict[str, Any]:
         """
-        Synthesizes multiple rationales into a single coherent technical decision.
+        Synthesizes multiple knowledge entries into a single coherent technical decision.
+        Returns a dict with 'title', 'target', and 'rationale'.
         """
-        if self.mode == "lite" or not rationales:
-            return "\n\n".join(rationales)
+        if self.mode == "lite" or not items_data:
+            return {
+                "title": items_data[0]['title'] if items_data else "Merged Decision",
+                "target": hint_target,
+                "rationale": "\n\n".join([i['rationale'] for i in items_data]),
+                "compressive": ""
+            }
 
         # Build prompt for merging
         combined_text = ""
-        for i, rat in enumerate(rationales):
-            combined_text += f"HYPOTHESIS {i+1}:\n---\n{rat}\n---\n\n"
+        for i, item in enumerate(items_data):
+            combined_text += f"SOURCE ENTRY {i+1} [FID: {item['fid']}, TARGET: {item['target']}]:\n---\nTITLE: {item['title']}\n{item['rationale']}\n---\n\n"
 
         instructions = (
-            "You are a Senior Principal Engineer. I am merging multiple semantically identical hypotheses into one canonical decision.\n"
-            "Analyze the rationales below and synthesize them into a single, high-quality, non-redundant architectural guide.\n\n"
-            "RESPONSE FORMAT (STRICT):\n"
-            "1. <goal>One sentence summary of the unified intent.</goal>\n"
-            "2. <rationale>Full, detailed unified architectural rationale. Merge logic, resolve contradictions, keep it professional.</rationale>\n"
-            "3. <compressive>Exactly 3 sentences summarizing the final state.</compressive>\n\n"
+            "You are a Senior Principal Software Architect. I am merging multiple semantically identical technical entries into one canonical decision.\n"
+            "Analyze the sources below and synthesize them into a single, high-quality, non-redundant architectural guide.\n\n"
+            f"HINT: The most recent entry used target '{hint_target}'. Use it as a base or propose a more accurate one.\n\n"
+            "RESPONSE FORMAT (STRICT JSON):\n"
+            "{\n"
+            '  "title": "One sentence summary of the unified intent",\n'
+            '  "target": "Technical target string (e.g. auth/jwt)",\n'
+            '  "rationale": "Full, detailed unified architectural rationale. Use Markdown.",\n'
+            '  "compressive": "Exactly 3 sentences summarizing the final state."\n'
+            "}\n\n"
             "Ensure technical terms remain in English. Output must be in the same language as the input rationales."
         )
 
@@ -68,13 +78,33 @@ class LLMEnricher:
 
             if response_text:
                 import re
-                rationale_match = re.search(r'<rationale>(.*?)</rationale>', response_text, re.DOTALL | re.IGNORECASE)
-                if rationale_match:
-                    return rationale_match.group(1).strip()
+                import json
+                # Try to extract JSON
+                json_text = response_text
+                if "```json" in response_text:
+                    match = re.search(r"```json\s*(.*?)\s*```", response_text, re.DOTALL)
+                    if match: json_text = match.group(1)
+                elif "{" in response_text and "}" in response_text:
+                    start = response_text.find("{")
+                    end = response_text.rfind("}") + 1
+                    json_text = response_text[start:end]
+                
+                data = json.loads(json_text)
+                return {
+                    "title": data.get("title") or items_data[0]['title'],
+                    "target": data.get("target") or hint_target,
+                    "rationale": data.get("rationale") or "",
+                    "compressive": data.get("compressive") or ""
+                }
         except Exception as e:
-            logger.warning(f"Rationale synthesis failed: {e}")
+            logger.warning(f"Knowledge synthesis failed: {e}")
 
-        return "\n\n".join(rationales)
+        return {
+            "title": items_data[0]['title'] if items_data else "Merged Decision",
+            "target": hint_target,
+            "rationale": "\n\n".join([i['rationale'] for i in items_data]),
+            "compressive": ""
+        }
 
     def process_batch(self, memory: Any) -> List[Dict[str, Any]]:
         """
@@ -125,9 +155,11 @@ class LLMEnricher:
             print(f"   [ENRICH] Processing {len(pending_fids)} proposals...")
 
             for idx, fid in enumerate(pending_fids):
+                # Check if worker is still running before each file operation
                 if self.worker and not getattr(self.worker, 'running', True):
-                    print("   [INFO] Worker stopped, aborting enrichment batch.")
+                    print("   [INFO] Worker stopping, aborting enrichment batch.")
                     break
+                    
                 try:
                     # Load full proposal
                     from ledgermind.core.stores.semantic_store.loader import MemoryLoader
@@ -138,6 +170,9 @@ class LLMEnricher:
                         print(f"   [WARNING] File not found: {file_path}")
                         continue
 
+                    # Extra safety check before opening
+                    if self.worker and not getattr(self.worker, 'running', True): break
+                    
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
 
@@ -185,20 +220,156 @@ class LLMEnricher:
                     else:
                         all_ids = sorted(proposal.evidence_event_ids or [])
                     
-                    # Limit to 100 events for enrichment performance/cost
-                    if len(all_ids) > 100:
-                        all_ids = all_ids[:100]
+                    # Limit to 1000 events for enrichment performance/cost
+                    if len(all_ids) > 1000:
+                        all_ids = all_ids[:1000]
                     
                     total_items = len(all_ids)
                     
                     print(f"   ({idx+1}/{len(pending_fids)}) Enriching {fid} ({'Validation' if is_validation else 'Merge' if is_merge else 'Analysis'}. Total items: {total_items})...")
-                    
-                    # If no items to process, just mark as completed
+                    # If no items to process, check if we need translation/re-enrichment
                     if not all_ids:
-                        with memory.semantic.transaction():
-                            memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, "Enrichment: No items to process.")
-                        logger.info(f"Enrichment: No items for {fid}. Completed.")
+                        if hasattr(self, 'preferred_language') and self.preferred_language not in ("auto", "none", None):
+                            print(f"   [INFO] No events for {fid}, but language is '{self.preferred_language}'. Forcing translation.")
+                            # Use existing rationale as context to trigger translation
+                            current_rationale = getattr(proposal, 'rationale', '')
+                            updated_proposal = self.enrich_proposal(proposal, cluster_logs=f"### EXISTING CONTENT:\n{current_rationale}", file_path=file_path, memory=memory)
+                            if updated_proposal:
+                                proposal = updated_proposal
+                                with memory.semantic.transaction():
+                                    memory.semantic.update_decision(fid, {
+                                        "title": getattr(proposal, 'title', 'Untitled'),
+                                        "content": getattr(proposal, 'title', 'Untitled'),
+                                        "rationale": getattr(proposal, 'rationale', ''),
+                                        "keywords": getattr(proposal, 'keywords', []),
+                                        "compressive_rationale": getattr(proposal, 'compressive_rationale', None),
+                                        "enrichment_status": "completed"
+                                    }, "Enrichment: Forced translation completed")
+                                results.append({"fid": fid, "status": "completed", "events": 0})
+                        else:
+                            with memory.semantic.transaction():
+                                memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, "Enrichment: No items to process.")
+                            logger.info(f"Enrichment: No items for {fid}. Completed.")
                         continue
+
+                    processed_in_this_run = 0
+                    # CRITICAL: For knowledge_merge, skip enrichment loop entirely
+                    # The proposal remains unchanged, we just create the merged decision
+                    if is_merge:
+                        print(f"   [INFO] Skipping standard enrichment loop for knowledge_merge proposal, proceeding to atomic synthesis...")
+                        superseded_ids = getattr(proposal, 'suggested_supersedes', []) or []
+                        
+                        # 1. Get full metadata and sort by timestamp to find the most recent hint
+                        items_meta = []
+                        for s_fid in superseded_ids:
+                            m = memory.semantic.meta.get_by_fid(s_fid)
+                            if m: items_meta.append(m)
+                        
+                        if not items_meta:
+                            print(f"   [WARNING] No items found for merge proposal {fid}")
+                            with memory.semantic.transaction():
+                                memory.semantic.update_decision(fid, {"enrichment_status": "failed"}, "Enrichment: No items found")
+                            continue
+
+                        # Sort by timestamp DESC to find the latest
+                        items_meta.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+                        hint_target = items_meta[0].get('target') if items_meta else 'unknown'
+
+                        # 2. Read full files from disk (no truncation)
+                        items_data = []
+                        for m in items_meta:
+                            s_fid = m['fid']
+                            file_path_src = os.path.abspath(os.path.join(memory.semantic.repo_path, s_fid))
+                            if os.path.exists(file_path_src):
+                                try:
+                                    with open(file_path_src, 'r', encoding='utf-8') as f_src:
+                                        s_data, _ = MemoryLoader.parse(f_src.read())
+                                        items_data.append({
+                                            "fid": s_fid,
+                                            "title": s_data.get('context', {}).get('title', ''),
+                                            "target": m.get('target'),
+                                            "rationale": s_data.get('context', {}).get('rationale', '') or s_data.get('rationale', '')
+                                        })
+                                except Exception as fe:
+                                    print(f"   [WARNING] Failed to read {s_fid}: {fe}")
+
+                        if not items_data:
+                            print(f"   [ERROR] Could not retrieve full content for any items in merge {fid}")
+                            with memory.semantic.transaction():
+                                memory.semantic.update_decision(fid, {"enrichment_status": "failed"}, "Enrichment: Could not read source files")
+                            continue
+
+                        # 3. Perform LLM synthesis
+                        print(f"   [ENRICH] Synthesizing {len(items_data)} entries into one canonical decision...")
+                        merged_data = self.synthesize_knowledge_merge(items_data, hint_target)
+                        
+                        # COORDINATED ATOMIC FINALIZATION
+                        new_decision_fid = None
+                        try:
+                            # 4. Check for conflicts before opening a transaction
+                            conflict_fid = memory.semantic.meta.has_active_conflict(
+                                None, 
+                                merged_data['target'],
+                                getattr(proposal, 'namespace', 'default')
+                            )
+                            
+                            if conflict_fid:
+                                print(f"   [CONFLICT] Target '{merged_data['target']}' already has active decision {conflict_fid}.")
+                                with memory.semantic.transaction():
+                                    memory.semantic.update_decision(fid, {"enrichment_status": "obsolete"}, f"Merge aborted: Conflict with {conflict_fid}")
+                                continue
+
+                            with memory.semantic.transaction():
+                                # 1. Mark superseded elements
+                                for s_fid in superseded_ids:
+                                    memory.semantic.update_decision(s_fid, {"status": "superseded"}, f"Superseded by merge from {fid}")
+
+                                # 2. Create NEW decision event
+                                from ledgermind.core.core.schemas import MemoryEvent, TrustBoundary
+                                from datetime import datetime
+
+                                new_decision = MemoryEvent(
+                                    kind="decision",
+                                    content=merged_data['title'],
+                                    source="system",
+                                    trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
+                                    timestamp=datetime.now(),
+                                    target=merged_data['target'],
+                                    status="active",
+                                    supersedes=superseded_ids,
+                                    context={
+                                        "title": merged_data['title'],
+                                        "target": merged_data['target'],
+                                        "status": "active",
+                                        "rationale": merged_data['rationale'],
+                                        "compressive_rationale": merged_data.get('compressive'),
+                                        "namespace": getattr(proposal, 'namespace', 'default'),
+                                        "keywords": [], # Will be updated by saver
+                                        "confidence": getattr(proposal, 'confidence', 1.0),
+                                        "enrichment_status": "completed",
+                                        "phase": getattr(proposal, 'phase', 'pattern'),
+                                        "vitality": getattr(proposal, 'vitality', 'active'),
+                                        "supersedes": superseded_ids
+                                    }
+                                )
+
+                                # Save new decision
+                                new_decision_fid = memory.semantic.save(new_decision, namespace=getattr(proposal, 'namespace', 'default'))
+                                print(f"   [INFO] Created new decision: {new_decision_fid}")
+
+                                # 3. Update superseded_by links
+                                for s_fid in superseded_ids:
+                                    memory.semantic.update_decision(s_fid, {"superseded_by": new_decision_fid}, f"Link to merged result {new_decision_fid}")
+
+                                # 4. Mark proposal as processed
+                                memory.semantic.update_decision(fid, {"enrichment_status": "processed"}, f"Merge completed into {new_decision_fid}")
+
+                            results.append({"fid": new_decision_fid or fid, "status": "processed", "events": len(items_data)})
+                            continue
+                        except Exception as te:
+                            print(f"   [ERROR] Atomic merge failed: {te}")
+                            # The transaction will automatically roll back
+                            continue
 
                     processed_in_this_run = 0
                     iteration = 0
@@ -218,16 +389,23 @@ class LLMEnricher:
                         TOKEN_LIMIT = 100000
 
                         for item_id in all_ids:
+                            # Pre-emptive check during chunking loop
+                            if self.worker and not getattr(self.worker, 'running', True): break
+                            
                             entry = ""
                             if is_merge or is_validation:
                                 # Fetch rationale from source file
                                 try:
                                     src_path = os.path.join(memory.semantic.repo_path, item_id)
                                     if os.path.exists(src_path):
-                                        with open(src_path, 'r', encoding='utf-8') as sf:
-                                            s_data, _ = MemoryLoader.parse(sf.read())
-                                            s_rationale = s_data.get('context', {}).get('rationale', '') or s_data.get('rationale', '')
-                                            entry = f"SOURCE DECISION [{item_id}]:\n---\n{s_rationale}\n---\n"
+                                        # Use a small try-except block specifically for I/O
+                                        try:
+                                            with open(src_path, 'r', encoding='utf-8') as sf:
+                                                s_data, _ = MemoryLoader.parse(sf.read())
+                                                s_rationale = s_data.get('context', {}).get('rationale', '') or s_data.get('rationale', '')
+                                                entry = f"SOURCE DECISION [{item_id}]:\n---\n{s_rationale}\n---\n"
+                                        except (IOError, ValueError):
+                                            continue
                                 except: continue
                             else:
                                 # Fetch from episodic memory
@@ -300,6 +478,7 @@ class LLMEnricher:
                         # Save intermediate or final progress
                         updates = {
                             "title": getattr(proposal, 'title', 'Untitled'),
+                            "target": getattr(proposal, 'target', 'unknown'),
                             "content": getattr(proposal, 'title', 'Untitled'),
                             "rationale": getattr(proposal, 'rationale', ''),
                             "keywords": getattr(proposal, 'keywords', []),
@@ -309,13 +488,20 @@ class LLMEnricher:
                             "total_evidence_count": proposal.total_evidence_count
                         }
 
+                        # Special case: If validation transitioned to merge, KEEP status as pending
+                        # even if it was the last chunk, so it gets processed by the atomic merge branch next time.
+                        if getattr(proposal, 'target', None) == "knowledge_merge" and is_validation:
+                            updates["enrichment_status"] = "pending"
+                            status = "pending"
+
+                        # Standard intermediate update
                         with memory.semantic.transaction():
                             memory.semantic.update_decision(fid, updates, f"Enrichment iteration ({status})")
                         
                         if is_last_chunk:
                             break
                         
-                        if processed_in_this_run >= 100: # Safety break for very large files
+                        if processed_in_this_run >= 1000: # Safety break for very large files
                             print(f"   - Safety break for {fid} after {processed_in_this_run} events.")
                             break
 
@@ -367,20 +553,27 @@ class LLMEnricher:
         Takes a raw distilled proposal and converts it into a meaningful summary using event logs.
         Selects specialized prompts based on whether it is a Behavioral Pattern or a Procedural Trajectory.
         """
-        if self.mode == "lite" or not cluster_logs:
+        # If no items to process and we have no language requirement, skip
+        has_lang = hasattr(self, 'preferred_language') and self.preferred_language not in ("auto", "none", None)
+        if self.mode == "lite" or (not cluster_logs and not has_lang):
             return proposal
-            
+
         # Determine knowledge type (Behavioral vs Procedural vs Merge vs Validation)
         from ledgermind.core.core.schemas import DecisionPhase
         is_behavioral = getattr(proposal, 'phase', None) == DecisionPhase.PATTERN
         target_val = getattr(proposal, 'target', None)
         is_merge = target_val == "knowledge_merge"
         is_validation = target_val == "knowledge_validation"
-        
+
+        # CRITICAL: Skip LLM enrichment for knowledge_merge proposals
+        # The merge logic in process_batch will handle creating the merged decision
+        # The proposal itself should remain unchanged
+        if is_merge:
+            print(f"   [INFO] Skipping LLM enrichment for knowledge_merge proposal {file_path}")
+            return proposal
+
         if is_validation:
             instructions = self._build_validation_prompt(proposal.title)
-        elif is_merge:
-            instructions = self._build_merge_prompt(proposal.title)
         elif is_behavioral:
             instructions = self._build_behavioral_prompt(proposal.target, existing_rationale=proposal.rationale)
         else:
@@ -435,7 +628,15 @@ class LLMEnricher:
                     
                     data = json.loads(json_text)
                     if isinstance(data, dict):
-                        # SPECIAL: Handling Validation Decision
+                        # 1. Extract title (support both 'title' and 'goal' for robustness)
+                        val_title = data.get("title") or data.get("goal")
+                        if val_title: proposal.title = val_title
+
+                        # 2. Extract rationale and compressive
+                        if "rationale" in data: proposal.rationale = data["rationale"]
+                        if "compressive" in data: proposal.compressive_rationale = data["compressive"]
+
+                        # 3. SPECIAL: Handling Validation Decision
                         if is_validation:
                             is_dup = data.get("is_duplicate", True)
                             if is_dup is False:
@@ -444,12 +645,13 @@ class LLMEnricher:
                                 proposal._enrichment_failed = True # Will mark as failed/rejected in store
                                 return proposal
                             else:
-                                print(f"   [VALIDATED] LLM confirmed entries ARE duplicates. Proceeding with synthesis.")
+                                print(f"   [VALIDATED] LLM confirmed entries ARE duplicates. Transitioning to merge.")
+                                # Transition task to merge mode
                                 proposal.target = "knowledge_merge"
+                                # If LLM provided a unified target, use it
+                                if data.get("target"):
+                                    proposal._unified_target = data["target"]
 
-                        if "goal" in data: proposal.title = data["goal"]
-                        if "rationale" in data: proposal.rationale = data["rationale"]
-                        if "compressive" in data: proposal.compressive_rationale = data["compressive"]
                         parsed_successfully = True
                 except (json.JSONDecodeError, AttributeError, ValueError) as e:
                     # print(f"   [DEBUG] JSON extraction failed: {e}")
@@ -457,13 +659,14 @@ class LLMEnricher:
 
                 # 2. Try Regex parsing if JSON failed
                 if not parsed_successfully:
-                    goal_match = re.search(r'"goal":\s*"(.*?)"', response_text, re.DOTALL)
+                    # Robust regex for both 'title' and 'goal'
+                    title_match = re.search(r'"(?:title|goal)":\s*"(.*?)"', response_text, re.DOTALL)
                     rationale_match = re.search(r'"rationale":\s*"(.*?)"', response_text, re.DOTALL)
                     compressive_match = re.search(r'"compressive":\s*"(.*?)"', response_text, re.DOTALL)
                     
-                    if goal_match and rationale_match:
+                    if title_match and rationale_match:
                         # Clean escaped quotes/newlines for simple storage
-                        proposal.title = goal_match.group(1).replace('\\"', '"').replace('\\n', '\n')
+                        proposal.title = title_match.group(1).replace('\\"', '"').replace('\\n', '\n')
                         proposal.rationale = rationale_match.group(1).replace('\\"', '"').replace('\\n', '\n')
                         if compressive_match:
                             proposal.compressive_rationale = compressive_match.group(1).replace('\\"', '"').replace('\\n', '\n')
@@ -505,7 +708,7 @@ class LLMEnricher:
         
         all_text = f"{title} {target} {rationale}".lower()
         # Support RU/EN
-        words = re.findall(r'[a-zа-я0-9]{3,}', all_text)
+        words = re.findall(r'[a-zа-яё0-9]{3,}', all_text)
         
         stop_words = {
             "for", "the", "and", "with", "from", "this", "that", "was", "were", "been", "has", "had", 
@@ -542,13 +745,13 @@ class LLMEnricher:
             "- Uncover the core objective (what problem is being solved or opportunity pursued).\n"
             "- Detect recurring patterns in the work style or architectural decisions.\n"
             "- Base every conclusion on concrete evidence from the provided cluster.\n"
-            "- LANGUAGE: Detect the language of the provided logs/context. Your entire response (goal, rationale, compressive) MUST be in the SAME language.\n"
+            "- LANGUAGE: Detect the language of the provided logs/context. Your entire response (title, rationale, compressive) MUST be in the SAME language.\n"
             "- CRITICAL: If the input is in Russian, respond in Russian. If German, respond in German. Do not default to English unless the input is in English.\n\n"
             f"{context_part}"
             "### RESPONSE FORMAT\n"
             "Respond with ONLY a JSON object with these keys:\n"
             "{\n"
-            '  "goal": "One-sentence summary of the unified intent",\n'
+            '  "title": "One-sentence summary of the unified intent",\n'
             '  "rationale": "# Behavioral Analysis: ' + target + '\\n\\n## 1. Primary Goal / Intent\\n[Detailed description]\\n\\n## 2. Key Patterns Observed\\n- **Pattern 1**: [Description] + [Evidence]\\n\\n## 3. Architectural Implications\\n[Strategic impact]",\n'
             '  "compressive": "3 sentences summarizing the final state"\n'
             "}\n"
@@ -575,12 +778,12 @@ class LLMEnricher:
             "- For each step clearly state: WHAT is done and WHY it is done.\n"
             "- Remove noise, abstract technical details, but keep important parameters.\n"
             "- Use concise, professional language.\n"
-            "- LANGUAGE: Detect the language of the provided logs/context. Your entire response (goal, rationale, compressive) MUST be in the SAME language.\n"
+            "- LANGUAGE: Detect the language of the provided logs/context. Your entire response (title, rationale, compressive) MUST be in the SAME language.\n"
             "- CRITICAL: If the input is in Russian, respond in Russian. If German, respond in German. Do not default to English unless the input is in English.\n\n"
             f"{context_part}"
             "### RESPONSE FORMAT\n"
             "Respond with ONLY a JSON object with these keys:\n"
-            '{\n  "goal": "One-sentence summary of the overall objective",\n  "rationale": "# Procedural Guide: ' + target + '\\n\\n## 1. Overall Objective\\n[One-sentence summary]\\n\\n## 2. Step-by-Step Procedure\\n1. [Step Description]\\n   - **What**: ...\\n   - **Why**: ...\\n\\n## 3. Key Insights & Recommendations\\n[Architectural observations]",\n  "compressive": "3 sentences summarizing the procedure"\n}\n'
+            '{\n  "title": "One-sentence summary of the overall objective",\n  "rationale": "# Procedural Guide: ' + target + '\\n\\n## 1. Overall Objective\\n[One-sentence summary]\\n\\n## 2. Step-by-Step Procedure\\n1. [Step Description]\\n   - **What**: ...\\n   - **Why**: ...\\n\\n## 3. Key Insights & Recommendations\\n[Architectural observations]",\n  "compressive": "3 sentences summarizing the procedure"\n}\n'
             "No additional text before or after the JSON."
         )
 
@@ -653,7 +856,7 @@ class LLMEnricher:
                     
                     env = {**os.environ, "LEDGERMIND_BYPASS_HOOKS": "1"}
                     proc = subprocess.Popen(
-                        ["gemini", "-m", model_name, "Analyze the provided logs and return JSON as instructed."],
+                        ["gemini", "--extensions", "", "-m", model_name, "Analyze the provided logs and return JSON as instructed."],
                         stdin=subprocess.PIPE,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
@@ -661,7 +864,7 @@ class LLMEnricher:
                         env=env
                     )
                     
-                    if self.worker:
+                    if self.worker and getattr(self.worker, 'running', True):
                         self.worker.register_process(proc)
 
                     try:
@@ -741,32 +944,6 @@ class LLMEnricher:
             logger.debug(f"API call failed: {e}")
             return None
 
-    def _build_merge_prompt(self, title: str) -> str:
-        """Expert prompt for synthesizing multiple technical rationales into one canonical guide."""
-        return (
-            "### SYSTEM ROLE\n"
-            "You are a Senior Principal Software Architect and Technical Knowledge Manager (20+ years exp).\n"
-            "You excel at synthesizing fragmented technical insights, rationales, and architectural patterns "
-            "into a single, high-quality, non-redundant 'Source of Truth' document.\n\n"
-            f"### TASK: Consolidate several semantically identical technical decisions for '{title}'.\n"
-            "Analyze the provided rationales, resolve contradictions, and merge insights.\n\n"
-            "### REQUIREMENTS\n"
-            "- Identify the primary technical evolution or unified direction.\n"
-            "- Resolve any minor technical contradictions logically based on architectural best practices.\n"
-            "- Merge overlapping points and eliminate redundancy.\n"
-            "- Base every conclusion on the evidence provided in the combined source rationales.\n"
-            "- LANGUAGE: Detect the language of the provided input data. Your entire response MUST be in the SAME language.\n"
-            "- CRITICAL: If the input is in Russian, respond in Russian. If German, respond in German. Do not default to English unless the input is in English.\n\n"
-            "### RESPONSE FORMAT\n"
-            "Respond with ONLY a JSON object with these keys:\n"
-            "{\n"
-            '  "goal": "One-sentence summary of the unified intent",\n'
-            '  "rationale": "# Unified Architectural Guide: ' + title + '\\n\\n## 1. Primary Goal / Intent\\n[Detailed synthesis of the main goal]\\n\\n## 2. Key Insights & Principles\\n- **Insight 1**: [Merged description] + [Technical context]\\n\\n## 3. Strategic Implications\\n[Consolidated architectural impact]",\n'
-            '  "compressive": "3 sentences summarizing the final state"\n'
-            "}\n"
-            "No additional text before or after the JSON."
-        )
-
     def _build_validation_prompt(self, title: str) -> str:
         """Expert prompt for determining if multiple technical entries are true duplicates."""
         return (
@@ -776,8 +953,9 @@ class LLMEnricher:
             f"### TASK: Validate duplication for '{title}'.\n\n"
             "### REQUIREMENTS\n"
             "- Compare the provided source rationales deeply.\n"
-            "- If they describe the SAME solution, bug, or pattern (even with different words), they are DUPLICATES.\n"
-            "- If they describe DIFFERENT problems or use different incompatible architectures, they are DISTINCT.\n"
+            "- If they describe the SAME solution, bug, or architectural pattern (even with different words), they are DUPLICATES.\n"
+            "- If they describe DIFFERENT problems, use incompatible architectures, or have distinct technical outcomes, they are DISTINCT.\n"
+            "- BE STRICT: If there is a technical difference, mark as 'is_duplicate': false.\n"
             "- LANGUAGE: Detect the language of the provided data. Your entire response MUST be in the SAME language.\n"
             "- CRITICAL: If the input is in Russian, respond in Russian. If German, respond in German.\n\n"
             "### RESPONSE FORMAT\n"
@@ -785,7 +963,8 @@ class LLMEnricher:
             "{\n"
             '  "is_duplicate": true,\n'
             '  "reasoning": "A short professional explanation of your decision",\n'
-            '  "goal": "If duplicate, provide a unified title. If not, keep original title.",\n'
+            '  "title": "If duplicate, provide a unified title. If not, keep original title.",\n'
+            '  "target": "If duplicate, provide a unified target (e.g. auth/jwt). If not, null.",\n'
             '  "rationale": "If duplicate, provide a unified technical rationale. If not, explain technical differences.",\n'
             '  "compressive": "3 sentences summary"\n'
             "}\n"

@@ -125,14 +125,17 @@ class IntegrityChecker:
             # I4: Single active decision per target
             # ONLY for decisions, proposals are excluded from reality checks
             if kind == "decision" and status == "active" and target:
-                key = (target, namespace)
+                # Normalize target to first level for category-wide uniqueness
+                base_target = target.split("/")[0] if "/" in target else target
+                key = (base_target, namespace)
+                
                 if key in active_targets:
                     raise IntegrityViolation(
-                        f"I4 Violation: Multiple active decisions for target '{target}' in namespace '{namespace}'",
+                        f"I4 Violation: Multiple active decisions for base target '{base_target}' in namespace '{namespace}' (found '{target}' and '{active_targets[key][1]}')",
                         fid=fid,
-                        details={"conflicting_file": active_targets[key]}
+                        details={"conflicting_file": active_targets[key][0], "conflicting_target": active_targets[key][1]}
                     )
-                active_targets[key] = fid
+                active_targets[key] = (fid, target)
 
             # I3: Bidirectional Supersede
             superseded_by = ctx.get("superseded_by")

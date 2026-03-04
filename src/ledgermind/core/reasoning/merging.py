@@ -27,72 +27,82 @@ class MergeEngine:
                 except: continue
         return targets
 
-    def scan_for_duplicates(self, threshold: float = 0.65) -> List[str]:
+    def scan_for_duplicates(self, threshold: float = 0.75) -> List[str]:
         """
         Scans enriched decisions and creates proposals for merging duplicates.
         Returns list of created proposal IDs.
         """
-        # CRITICAL: Only merge decisions that have been fully enriched by LLM.
-        # This ensures we have high-quality text and keywords for comparison.
+        # 1. Get all active and enriched decisions
         all_metas = self.memory.semantic.meta.list_all()
-        active_ids = [
-            m['fid'] for m in all_metas 
+        enriched_metas = [
+            m for m in all_metas 
             if m.get('status') == 'active' and m.get('enrichment_status') == 'completed'
         ]
+
+        if not enriched_metas:
+            return []
+
+        # Optimization: Only initiate search FROM the most recent decisions (last 50)
+        # to avoid O(N^2) every cycle, but still search against the WHOLE database.
+        recent_candidates = sorted(enriched_metas, key=lambda x: x.get('timestamp', ''), reverse=True)[:50]
         
         proposals = []
-        
-        # Protect against merge loops (don't propose merge for files already in a draft merge)
         pending_targets = self._get_active_merge_targets()
-        
-        # Check all active decisions against the whole base
-        for fid in active_ids:
+
+        # 2. SEMANTIC SEARCH for each recent candidate against the entire enriched set
+        for m in recent_candidates:
+            fid = m['fid']
             if fid in pending_targets:
                 continue
 
             try:
-                # We need the text content to search
-                import os
-                from ledgermind.core.stores.semantic_store.loader import MemoryLoader
-                
-                path = os.path.join(self.memory.semantic.repo_path, fid)
-                if not os.path.exists(path): continue
+                # Use title and content for semantic fingerprint
+                title = m.get('title') or ""
+                content_desc = m.get('content') or ""
+                keywords = m.get('keywords') or ""
 
-                with open(path, 'r', encoding='utf-8') as f:
-                    data, _ = MemoryLoader.parse(f.read())
-                
-                # ENHANCED: Use title, content, and keywords for a robust semantic fingerprint
-                title = data.get("title") or data.get("context", {}).get("title", "")
-                content_desc = data.get("content") or data.get("context", {}).get("content", "")
-                keywords = data.get("context", {}).get("keywords", [])
-                keywords_str = ", ".join(keywords) if isinstance(keywords, list) else str(keywords)
-
-                search_query = f"{title} {content_desc} {keywords_str}".strip()
+                search_query = f"{title} {content_desc} {keywords}".strip()
                 if not search_query: continue
                 
-                # Search for duplicates
-                results = self.memory.search_decisions(search_query, limit=5, mode="strict")
+                # Search against ALL active decisions
+                results = self.memory.search_decisions(search_query, limit=10, mode="strict")
                 
                 # Normalize scores
                 max_score = max((r['score'] for r in results), default=1.0)
                 
                 duplicates = []
                 total_norm_score = 0
+                
                 for res in results:
-                    normalized_score = res['score'] / max_score if max_score > 0 else 0
+                    res_fid = res['id']
                     # Skip self and already pending targets
-                    if res['id'] != fid and res['id'] not in pending_targets and normalized_score >= threshold:
+                    if res_fid == fid or res_fid in pending_targets:
+                        continue
+                        
+                    normalized_score = res['score'] / max_score if max_score > 0 else 0
+                    
+                    # Only consider if it's also in our enriched_metas set (double check)
+                    if normalized_score >= threshold:
                         duplicates.append(res)
                         total_norm_score += normalized_score
                 
                 if duplicates:
-                    avg_confidence = total_norm_score / len(duplicates)
-                    target_ids = [d['id'] for d in duplicates] + [fid]
+                    # We found potential matches. 
+                    # Group them: Current file + all found duplicates
+                    target_ids = [fid] + [d['id'] for d in duplicates]
+                    avg_confidence = (total_norm_score + 1.0) / (len(duplicates) + 1)
                     
-                    # Logic for automatic consolidation vs validation
-                    # Threshold for auto-merge is 0.85
-                    target_mode = "knowledge_merge" if avg_confidence >= 0.85 else "knowledge_validation"
+                    # High confidence (0.90+) -> Auto-merge
+                    # Medium confidence (0.75-0.90) -> Validation
+                    target_mode = "knowledge_merge" if avg_confidence >= 0.90 else "knowledge_validation"
                     
+                    # Sort IDs to ensure stable grouping
+                    target_ids = sorted(list(set(target_ids)))
+                    
+                    # Check if this EXACT group is already being merged
+                    group_key = ",".join(target_ids)
+                    if any(group_key in p for p in proposals): continue
+
                     proposal_id = self._create_merge_proposal(
                         target_ids, 
                         title or search_query[:50],
@@ -101,11 +111,10 @@ class MergeEngine:
                     )
                     if proposal_id:
                         proposals.append(proposal_id)
-                        # Add new targets to pending set to avoid duplicates within same run
                         pending_targets.update(target_ids)
                         
             except Exception as e:
-                logger.error(f"Error scanning {fid}: {e}")
+                logger.error(f"Error scanning {fid} for duplicates: {e}")
                 continue
                 
         return proposals

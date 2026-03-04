@@ -110,10 +110,20 @@ class ReflectionEngine:
                     procedural_list = target_to_procedural.get(target, [])
                     
                     if relevant_streams:
+                        # Challenger Model (Issue #16): If a decision exists, don't just confirm it.
+                        # Instead, create a new Proposal (Hypothesis) based on the fresh evidence.
+                        # This new proposal will eventually supersede or merge with the old decision.
+                        
+                        # 1. Update existing streams' vitality/decay ONLY (No new evidence linking)
                         for fid, data in relevant_streams:
-                            self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode)
+                            self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode, update_only=True)
                             processed_fids.add(fid)
-                            result_ids.append(fid)
+                        
+                        # 2. Create a NEW proposal for the new batch of evidence
+                        if stats['weight'] >= 1.0 or stats['commits'] >= 1:
+                            supersedes = [fid for fid, _ in relevant_streams]
+                            new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode, supersedes_ids=supersedes)
+                            if new_fid: result_ids.append(new_fid)
                     else:
                         if stats['weight'] >= 1.0 or stats['commits'] >= 1:
                             new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode)
@@ -127,25 +137,16 @@ class ReflectionEngine:
                     stream = self.lifecycle.update_vitality(stream, now)
                     
                     if stream.vitality != old_vit or abs(stream.confidence - data['context'].get('confidence', 0)) > 0.01:
-                        self.processor.update_decision(fid, stream.model_dump(), commit_msg="Lifecycle: Vitality decay update.")
+                        self.processor.update_decision(fid, stream.model_dump(), commit_msg="Lifecycle: Vitality decay update.", skip_episodic=True)
                         result_ids.append(fid)
 
-            # 6. Log Reflection Summary
-            if result_ids:
-                summary_event = MemoryEvent(
-                    source="reflection_engine",
-                    kind="reflection_summary",
-                    content=f"Reflection cycle completed. Distilled or updated {len(set(result_ids))} knowledge records.",
-                    context={"updated_fids": list(set(result_ids))}
-                )
-                self.episodic.append(summary_event).value
-                
         return result_ids, max_id
 
     def _process_stream(self, fid: str, data: Dict[str, Any], stats: Dict[str, Any], now: datetime, 
                         event_map: Optional[Dict[int, Any]] = None, 
                         procedural_links: Optional[List[ProposalContent]] = None,
-                        arbitration_mode: str = "lite"):
+                        arbitration_mode: str = "lite",
+                        update_only: bool = False):
         stream = DecisionStream(**data['context'])
         
         # Collect timestamps
@@ -156,15 +157,16 @@ class ReflectionEngine:
         reinforcement_dates = []
         
         # Update evidence list (queue for LLM enrichment)
-        # Only add IDs that aren't already in the pending list
-        new_ids = [eid for eid in stats['all_ids'] if eid not in stream.evidence_event_ids]
-        if new_ids:
-            stream.evidence_event_ids.extend(new_ids)
-            if arbitration_mode != "lite":
-                stream.enrichment_status = "pending"
+        # ONLY if not in update_only mode (Challenger Model)
+        if not update_only:
+            new_ids = [eid for eid in stats['all_ids'] if eid not in stream.evidence_event_ids]
+            if new_ids:
+                stream.evidence_event_ids.extend(new_ids)
+                if arbitration_mode != "lite":
+                    stream.enrichment_status = "pending"
         
-        # Link procedural instructions if provided
-        if procedural_links:
+        # Link procedural instructions if provided (Only in full mode)
+        if not update_only and procedural_links:
             for prop in procedural_links:
                 if prop.confidence >= 0.7:
                     for kw in prop.keywords:
@@ -212,24 +214,31 @@ class ReflectionEngine:
         update_data = stream.model_dump()
         update_data['kind'] = new_kind
 
-        self.processor.update_decision(fid, update_data, commit_msg=f"Lifecycle: Promoted/Updated stream to {stream.phase.value} ({new_kind})")
+        self.processor.update_decision(fid, update_data, commit_msg=f"Lifecycle: Promoted/Updated stream to {stream.phase.value} ({new_kind})", skip_episodic=True)
 
     def _create_pattern_stream(self, target: str, stats: Dict[str, Any], now: datetime, 
                                event_map: Optional[Dict[int, Any]] = None,
                                procedural_links: Optional[List[ProposalContent]] = None,
-                               arbitration_mode: str = "lite") -> str:
+                               arbitration_mode: str = "lite",
+                               supersedes_ids: Optional[List[str]] = None) -> str:
         stream = DecisionStream(
             decision_id=str(uuid.uuid4()),
             target=target,
-            title=f"Behavioral pattern in {target}",
+            title=f"New behavioral pattern in {target}",
             rationale=f"Observed emerging activity for {target}",
             phase=DecisionPhase.PATTERN,
             vitality=DecisionVitality.ACTIVE,
             evidence_event_ids=stats['all_ids'],
             first_seen=now,
             last_seen=now,
-            frequency=0 # Will be updated by calculate_temporal_signals
+            frequency=0, # Will be updated by calculate_temporal_signals
+            supersedes=supersedes_ids or []
         )
+        
+        if supersedes_ids:
+            stream.title = f"Refinement: Evolutionary update for {target}"
+            stream.rationale = f"Detected new patterns that challenge or refine existing knowledge for {target} ({', '.join(supersedes_ids)})."
+            stream.suggested_supersedes = supersedes_ids
 
         if arbitration_mode != "lite":
             stream.enrichment_status = "pending"
