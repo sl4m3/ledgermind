@@ -483,7 +483,9 @@ class SemanticStore:
             file_path = os.path.join(self.repo_path, filename)
             with open(file_path, "r", encoding="utf-8") as f: content = f.read()
             old_data, body = MemoryLoader.parse(content)
-            new_data = yaml.safe_load(yaml.dump(old_data))
+            
+            import copy
+            new_data = copy.deepcopy(old_data)
             
             # 1. Update Core Fields (Top-level in YAML)
             CORE_FIELDS = ["title", "content", "target", "status", "kind"]
