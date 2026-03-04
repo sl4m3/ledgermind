@@ -78,7 +78,7 @@ jobs:
       - name: Run Safety (Dependency Check)
         id: safety
         run: |
-          safety check --json --db > safety-report.json || true
+          safety check --json > safety-report.json || true
         continue-on-error: true
 
       - name: Run Pip-audit
@@ -104,7 +104,10 @@ jobs:
           # Safety
           try:
               with open('safety-report.json') as f:
-                  safety = json.load(f)
+                  content = f.read()
+              start, end = content.find('{'), content.rfind('}')
+              if start != -1 and end != -1:
+                  safety = json.loads(content[start:end+1])
                   vulns = safety.get('vulnerabilities', [])
                   print(f"Safety: {len(vulns)} known vulnerabilities")
           except:
@@ -137,25 +140,29 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const issue_number = context.issue.number;
-            const bandit = fs.readFileSync('bandit-report.json');
-            const safety = fs.readFileSync('safety-report.json');
-            const pipAudit = fs.readFileSync('pip-audit-report.json');
+
+            const parseFile = f => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch(e) { return {}; } };
+            const bandit = parseFile('bandit-report.json');
+            const pipAudit = parseFile('pip-audit-report.json');
+
+            let safety = {};
+            try {
+              const safeText = fs.readFileSync('safety-report.json', 'utf8');
+              const safeStart = safeText.indexOf('{'), safeEnd = safeText.lastIndexOf('}');
+              if (safeStart !== -1 && safeEnd !== -1) {
+                safety = JSON.parse(safeText.substring(safeStart, safeEnd + 1));
+              }
+            } catch(e) {}
 
             let body = '## 🔒 Security Scan Results\\n\\n';
             body += '### Bandit (SAST)\\n';
-            body += `- ${JSON.parse(bandit).metrics['SEVERITY.HIGH'] || 0} HIGH severity issues\\n\\n`;
+            body += `- ${(bandit.metrics && bandit.metrics['SEVERITY.HIGH']) || 0} HIGH severity issues\\n\\n`;
             body += '### Safety (Dependencies)\\n';
-            body += `- ${JSON.parse(safety).vulnerabilities?.length || 0} known vulnerabilities\\n\\n`;
+            body += `- ${safety.vulnerabilities?.length || 0} known vulnerabilities\\n\\n`;
             body += '### Pip-audit (Dependencies)\\n';
-            body += `- ${JSON.parse(pipAudit).dependencies?.filter(d => d.vulnerabilities?.length)?.length || 0} vulnerable packages\\n`;
+            body += `- ${pipAudit.dependencies?.filter(d => d.vulnerabilities?.length)?.length || 0} vulnerable packages\\n`;
 
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue_number,
-              body: body
-            });
+            core.summary.addHeading('🔒 Security Scan Results').addRaw(body).write();
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   lint:
