@@ -568,8 +568,10 @@ def main():
     args = parser.parse_args()
     
     # Initialize logging
-    log_level = logging.DEBUG if args.verbose else logging.INFO
-    setup_logging(level=log_level, log_file=args.log_file)
+    # Skip global setup for 'run' command as it handles its own logging with overwrite mode
+    if args.command != "run":
+        log_level = logging.DEBUG if args.verbose else logging.INFO
+        setup_logging(level=log_level, log_file=args.log_file)
     
     if args.command == "export-schema":
         export_schemas()
@@ -590,12 +592,28 @@ def main():
         show_stats(args.path)
     elif args.command == "run":
         # Setup automatic server logging
-        log_dir = os.path.join(os.getcwd(), "logs")
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(log_dir, "server.log")
-        setup_logging(level=logging.DEBUG if args.verbose else logging.INFO, log_file=log_file)
-        
+        if not args.log_file:
+            log_dir = os.path.join(os.getcwd(), "logs")
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir, exist_ok=True)
+            log_file = os.path.join(log_dir, "server.log")
+        else:
+            log_file = args.log_file
+
+        setup_logging(level=logging.DEBUG if args.verbose else logging.INFO, log_file=log_file, mode='a')
+
+        # Create server.pid to help background processes detect server status
+        pid_file = os.path.join(os.path.abspath(args.path), "server.pid")
+        try:
+            with open(pid_file, 'w') as f:
+                f.write(str(os.getpid()))
+            import atexit
+            def cleanup_pid():
+                if os.path.exists(pid_file): os.remove(pid_file)
+            atexit.register(cleanup_pid)
+        except Exception as e:
+            print(f"Warning: Could not create server.pid: {e}")
+
         capabilities = None
         if args.capabilities:
             try:
@@ -611,13 +629,16 @@ def main():
         memory = MCPServer.memory_instance_for_cli = None # Placeholder for signal handler access
 
         def signal_handler(sig, frame):
-            print("\nInterrupt received, shutting down...")
+            print("\nSignal received, shutting down...")
             if MCPServer.current_instance:
                 MCPServer.current_instance.stop()
             sys.exit(0)
 
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
+        # SIGHUP is sent when the terminal session is closed (common in Termux)
+        if hasattr(signal, "SIGHUP"):
+            signal.signal(signal.SIGHUP, signal_handler)
 
         try:
             memory = Memory(storage_path=args.path, trust_boundary=TrustBoundary.AGENT_WITH_INTENT, vector_workers=args.vector_workers)
