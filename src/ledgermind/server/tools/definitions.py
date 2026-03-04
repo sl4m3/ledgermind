@@ -1,7 +1,10 @@
 import json
 import os
 import time
+import logging
 from typing import List, Optional, TYPE_CHECKING
+
+logger = logging.getLogger(__name__)
 from ledgermind.server.contracts import (
     RecordDecisionRequest, SupersedeDecisionRequest,
     SearchDecisionsRequest, AcceptProposalRequest,
@@ -198,37 +201,39 @@ class LedgerMindTools:
         try:
             self.server._check_capability("maintenance")
             
-            lang = self.server.memory.semantic.meta.get_config("preferred_language", "russian")
+            lang = self.server.memory.semantic.meta.get_config("preferred_language", "russian").lower()
             metas = self.server.memory.semantic.meta.list_all()
             
             reset_count = 0
-            for m in metas:
-                if m.get('enrichment_status') == 'completed':
-                    fid = m['fid']
-                    path = os.path.join(self.server.memory.semantic.repo_path, fid)
-                    if not os.path.exists(path): continue
-                    
-                    with open(path, 'r', encoding='utf-8') as f:
-                        content = f.read().lower()
-                    
-                    should_reset = False
-                    if lang == "russian":
-                        # Simple check: if no cyrillic letters in a large text, it's probably not Russian
-                        import re
-                        if not re.search(r'[а-яё]', content):
+            import re
+            cyrillic_pattern = re.compile(r'[а-яё]', re.IGNORECASE)
+
+            # Use a transaction for bulk updates to maintain integrity and performance
+            with self.server.memory.semantic.transaction():
+                for m in metas:
+                    if m.get('enrichment_status') == 'completed':
+                        fid = m['fid']
+                        path = os.path.join(self.server.memory.semantic.repo_path, fid)
+                        if not os.path.exists(path): continue
+                        
+                        with open(path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                        
+                        has_cyrillic = bool(cyrillic_pattern.search(content))
+                        
+                        should_reset = False
+                        if lang == "russian" and not has_cyrillic:
                             should_reset = True
-                    elif lang == "english":
-                        # If contains cyrillic, it's not purely English
-                        import re
-                        if re.search(r'[а-яё]', content):
+                        elif lang == "english" and has_cyrillic:
                             should_reset = True
-                    
-                    if should_reset:
-                        self.server.memory.semantic.update_decision(fid, {"enrichment_status": "pending"}, "Language repair trigger")
-                        reset_count += 1
+                        
+                        if should_reset:
+                            self.server.memory.semantic.update_decision(fid, {"enrichment_status": "pending"}, "Language repair trigger")
+                            reset_count += 1
             
             return json.dumps({"status": "success", "message": f"Reset {reset_count} records for re-enrichment in {lang}."})
         except Exception as e:
+            logger.error(f"Repair language failed: {e}", exc_info=True)
             return json.dumps({"status": "error", "message": str(e)})
         finally:
             TOOL_LATENCY.labels(tool="repair_language").observe(time.time() - start_time)

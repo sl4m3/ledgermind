@@ -2,7 +2,7 @@ import logging
 import time
 import os
 import threading
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 from datetime import datetime
 
 from ledgermind.core.api.memory import Memory
