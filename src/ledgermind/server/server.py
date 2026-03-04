@@ -115,6 +115,9 @@ class MCPServer:
         self.metrics_port = metrics_port
         self.rest_port = rest_port
         self.webhooks = webhooks or []
+        self._webhook_semaphore = asyncio.Semaphore(5) # Limit concurrent webhooks
+        self._active_tasks: List[asyncio.Task] = []
+        self._rest_stop_event: Optional[asyncio.Event] = None
 
         self.mcp = FastMCP(f"{server_name} (v{MCP_API_VERSION})")
 
@@ -147,17 +150,21 @@ class MCPServer:
             self.worker.start()
 
     def _trigger_webhooks(self, event_type: str, data: Any):
-        """Dispatches event to all registered webhook URLs."""
+        """Dispatches event to all registered webhook URLs with concurrency limits."""
         if not self.webhooks: return
         
         async def _notify():
-            async with httpx.AsyncClient() as client:
-                payload = {"event": event_type, "data": data, "timestamp": time.time()}
-                tasks = [client.post(url, json=payload, timeout=2.0) for url in self.webhooks]
-                await asyncio.gather(*tasks, return_exceptions=True)
+            async with self._webhook_semaphore:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    payload = {"event": event_type, "data": data, "timestamp": time.time()}
+                    tasks = [client.post(url, json=payload) for url in self.webhooks]
+                    await asyncio.gather(*tasks, return_exceptions=True)
         
-        # Run in background to avoid blocking main thread
-        asyncio.create_task(_notify())
+        # Run in background and track the task
+        task = asyncio.create_task(_notify())
+        self._active_tasks.append(task)
+        # Periodic cleanup of completed tasks
+        self._active_tasks = [t for t in self._active_tasks if not t.done()]
 
     def _validate_auth(self):
         """Validates the request against the configured API key."""
@@ -176,17 +183,30 @@ class MCPServer:
 
     def _validate_isolation(self, decision_ids: List[str]):
         """
-        Enforces that agents can only supersede decisions created via MCP.
-        Human-created decisions are protected.
+        Enforces that agents can only supersede decisions created by other agents.
+        Human-created decisions are protected and require ADMIN role to supersede.
         """
-        if self.default_role != MCPRole.ADMIN:
-            for d_id in decision_ids:
-                path = os.path.join(self.memory.semantic.repo_path, d_id)
-                if os.path.exists(path):
-                    with open(path, 'r') as f:
-                        content = f.read()
-                        if "[via MCP]" not in content:
-                            raise PermissionError(f"Isolation Violation: Decision {d_id} was created by a human and cannot be modified by an agent.")
+        if self.default_role == MCPRole.ADMIN:
+            return
+
+        for d_id in decision_ids:
+            # Fetch metadata from the database
+            meta = self.memory.semantic.meta.get_by_fid(d_id)
+            if meta:
+                # Check source in context (stored as JSON in meta)
+                try:
+                    import json
+                    ctx = json.loads(meta.get('context_json', '{}'))
+                    source = ctx.get('source', 'human') # Default to human for safety
+                    
+                    if source != 'agent' and '[via MCP]' not in (meta.get('content', '') + meta.get('title', '')):
+                        raise PermissionError(
+                            f"Security Violation: Decision {d_id} was created by a human ('{source}') "
+                            "and cannot be modified by an agent. Requires ADMIN role."
+                        )
+                except (json.JSONDecodeError, TypeError):
+                    # If metadata is corrupt, assume human for safety
+                    raise PermissionError(f"Security Violation: Metadata for {d_id} is unreadable. Access denied.")
 
     def _check_capability(self, capability: str):
         if not self.capabilities.get(capability, False):
@@ -279,10 +299,28 @@ class MCPServer:
     def stop(self):
         """Gracefully shuts down the server and all background processes."""
         logger.info("Shutting down MCPServer...")
+        
+        # 1. Signal REST Gateway to stop
+        if self._rest_stop_event:
+            logger.info("Signaling REST Gateway shutdown...")
+            self._rest_stop_event.set()
+
+        # 2. Stop the worker threads
         if hasattr(self, 'worker'):
             self.worker.stop()
         
-        if hasattr(self.memory, 'vector'):
+        # 3. Wait for background webhooks to finish
+        if self._active_tasks:
+            logger.info(f"Waiting for {len(self._active_tasks)} background webhook tasks...")
+            # We can't easily await from sync stop() if called via signal, 
+            # but FastMCP stop/run handles the loop.
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(asyncio.gather(*self._active_tasks, return_exceptions=True))
+            except: pass
+
+        if hasattr(self, 'memory') and hasattr(self.memory, 'vector'):
             self.memory.vector.close()
             
         logger.info("MCPServer shutdown complete.")
@@ -295,11 +333,13 @@ class MCPServer:
         if self.rest_port:
             logger.info(f"Starting REST Gateway on port {self.rest_port}")
             from ledgermind.server.gateway import run_gateway
-            import threading
+            self._rest_stop_event = asyncio.Event()
+            
+            def start_rest():
+                asyncio.run(run_gateway(self.memory, port=self.rest_port, stop_event=self._rest_stop_event))
+
             gateway_thread = threading.Thread(
-                target=run_gateway, 
-                args=(self.memory,), 
-                kwargs={"port": self.rest_port},
+                target=start_rest,
                 daemon=True
             )
             gateway_thread.start()

@@ -41,10 +41,10 @@ class ClaudeInstaller(BaseInstaller):
         self._create_hook_script(before_script_path, f"""#!/bin/bash
 # LedgerMind UserPromptSubmit Hook (Local to {project_path})
 if [ "$LEDGERMIND_BYPASS_HOOKS" = "1" ]; then exit 0; fi
-LOG_FILE=\"$HOME/.claude/ledgermind_hooks.log\"
-echo \"[$(date)] UserPromptSubmit triggered\" >> \"$LOG_FILE\"
-export PYTHONPATH={project_path}/src:$PYTHONPATH
-cat | {cli_entry} bridge-context --path \"{memory_path}\" --prompt \"-\" --cli \"claude\" --stdin 2>> \"$LOG_FILE\"
+LOG_FILE="$HOME/.claude/ledgermind_hooks.log"
+echo "[$(date)] UserPromptSubmit triggered" >> "$LOG_FILE"
+export PYTHONPATH="{project_path}/src":$PYTHONPATH
+cat | {cli_entry} bridge-context --path "{memory_path}" --prompt "-" --cli "claude" --stdin 2>> "$LOG_FILE"
 """)
 
         # 2. Create Stop script (Real-time transcript sync)
@@ -52,10 +52,10 @@ cat | {cli_entry} bridge-context --path \"{memory_path}\" --prompt \"-\" --cli \
         self._create_hook_script(stop_script_path, f"""#!/bin/bash
 # LedgerMind Stop Hook (Local to {project_path})
 if [ "$LEDGERMIND_BYPASS_HOOKS" = "1" ]; then exit 0; fi
-LOG_FILE=\"$HOME/.claude/ledgermind_hooks.log\"
-echo \"[$(date)] Stop hook triggered\" >> \"$LOG_FILE\"
-export PYTHONPATH={project_path}/src:$PYTHONPATH
-cat | {cli_entry} bridge-sync --path \"{memory_path}\" --cli \"claude\" --stdin 2>> \"$LOG_FILE\"
+LOG_FILE="$HOME/.claude/ledgermind_hooks.log"
+echo "[$(date)] Stop hook triggered" >> "$LOG_FILE"
+export PYTHONPATH="{project_path}/src":$PYTHONPATH
+cat | {cli_entry} bridge-sync --path "{memory_path}" --cli "claude" --stdin 2>> "$LOG_FILE"
 """)
 
         # 3. Update global and local settings.json

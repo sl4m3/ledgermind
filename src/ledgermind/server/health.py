@@ -229,17 +229,29 @@ def _check_vector_store(vector_path: str) -> Dict[str, Any]:
                 "files": files_exist
             }
 
-        # Check vector dimensions
-        import numpy as np
-        vectors = np.load(vector_file)
-        doc_count = len(vectors)
+        # OPTIMIZED: Do not load the entire vector file into RAM during health check
+        # Use existing memory instance if available, otherwise check file size
+        doc_count = 0
+        dimensions = 0
+        
+        global memory_instance
+        if memory_instance and hasattr(memory_instance, 'vector') and memory_instance.vector._vectors is not None:
+            # Get data from memory if already loaded
+            doc_count = len(memory_instance.vector._doc_ids)
+            dimensions = memory_instance.vector._vectors.shape[1] if memory_instance.vector._vectors.ndim > 1 else 0
+        else:
+            # Minimal file check without loading content
+            if files_exist["vectors"]:
+                # Approximation or deferred info
+                doc_count = "deferred"
+                dimensions = "deferred"
 
         return {
             "status": "healthy",
             "accessible": True,
             "document_count": doc_count,
-            "dimensions": vectors.shape[1] if vectors.ndim > 1 else 0,
-            "size_mb": os.path.getsize(vector_file) / (1024 * 1024)
+            "dimensions": dimensions,
+            "size_mb": os.path.getsize(vector_file) / (1024 * 1024) if files_exist["vectors"] else 0
         }
 
     except Exception as e:

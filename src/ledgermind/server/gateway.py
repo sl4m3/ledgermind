@@ -140,9 +140,24 @@ async def websocket_endpoint(
     finally:
         mem.events.unsubscribe(on_change)
 
-def run_gateway(memory: Memory, host: str = "0.0.0.0", port: int = 8000): # nosec B104
+async def run_gateway(memory: Memory, host: str = "0.0.0.0", port: int = 8000, stop_event: Optional[asyncio.Event] = None): # nosec B104
     global memory_instance
     memory_instance = memory
     set_memory(memory)
+    
     import uvicorn
-    uvicorn.run(app, host=host, port=port)
+    config = uvicorn.Config(app, host=host, port=port, log_level="info")
+    server = uvicorn.Server(config)
+    
+    # Run server in the foreground of this task/thread
+    # but check for stop_event if provided
+    if stop_event:
+        # We need a custom loop handler to react to the event
+        async def check_stop():
+            await stop_event.wait()
+            server.should_exit = True
+        
+        # Start both the server and the stop watcher
+        await asyncio.gather(server.serve(), check_stop())
+    else:
+        await server.serve()

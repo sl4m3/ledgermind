@@ -37,12 +37,28 @@ class AuditLogger:
         self.logger.info(msg)
 
     def get_logs(self, limit: int = 50) -> List[str]:
-        """Reads the last N lines from the audit log."""
+        """Reads the last N lines from the audit log efficiently."""
         if not os.path.exists(self.log_path):
             return []
         try:
-            with open(self.log_path, 'r') as f:
-                lines = f.readlines()
-                return lines[-limit:]
+            with open(self.log_path, 'rb') as f:
+                # Seek to end of file
+                f.seek(0, os.SEEK_END)
+                buffer = bytearray()
+                pointer = f.tell()
+                lines_found = 0
+                
+                # Read backwards in chunks
+                while pointer > 0 and lines_found < limit + 1:
+                    chunk_size = min(pointer, 4096)
+                    pointer -= chunk_size
+                    f.seek(pointer)
+                    chunk = f.read(chunk_size)
+                    buffer[:0] = chunk
+                    lines_found = buffer.count(b'\n')
+                
+                # Convert back to list of strings and take the last N
+                result = buffer.decode('utf-8', errors='replace').splitlines()
+                return result[-limit:]
         except Exception as e:
             return [f"Error reading logs: {e}"]
