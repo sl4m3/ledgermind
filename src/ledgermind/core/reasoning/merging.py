@@ -29,10 +29,17 @@ class MergeEngine:
 
     def scan_for_duplicates(self, threshold: float = 0.65) -> List[str]:
         """
-        Scans active decisions and creates proposals for merging duplicates.
+        Scans enriched decisions and creates proposals for merging duplicates.
         Returns list of created proposal IDs.
         """
-        active_ids = self.memory.get_decisions()
+        # CRITICAL: Only merge decisions that have been fully enriched by LLM.
+        # This ensures we have high-quality text and keywords for comparison.
+        all_metas = self.memory.semantic.meta.list_all()
+        active_ids = [
+            m['fid'] for m in all_metas 
+            if m.get('status') == 'active' and m.get('enrichment_status') == 'completed'
+        ]
+        
         proposals = []
         
         # Protect against merge loops (don't propose merge for files already in a draft merge)
