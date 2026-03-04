@@ -78,7 +78,20 @@ jobs:
       - name: Run Safety (Dependency Check)
         id: safety
         run: |
-          safety check --json --db > safety-report.json || true
+          safety check --json > safety_raw.txt || true
+          node -e "
+          const fs = require('fs');
+          try {
+            const out = fs.readFileSync('safety_raw.txt', 'utf8');
+            const start = out.indexOf('{');
+            const end = out.lastIndexOf('}');
+            if (start !== -1 && end !== -1) {
+              fs.writeFileSync('safety-report.json', out.substring(start, end + 1));
+            } else {
+              fs.writeFileSync('safety-report.json', '{}');
+            }
+          } catch(e) { fs.writeFileSync('safety-report.json', '{}'); }
+          "
         continue-on-error: true
 
       - name: Run Pip-audit
@@ -150,12 +163,7 @@ jobs:
             body += '### Pip-audit (Dependencies)\\n';
             body += `- ${JSON.parse(pipAudit).dependencies?.filter(d => d.vulnerabilities?.length)?.length || 0} vulnerable packages\\n`;
 
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue_number,
-              body: body
-            });
+            core.summary.addRaw(body).write();
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   lint:

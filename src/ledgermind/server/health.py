@@ -13,7 +13,7 @@ Endpoints:
 """
 from fastapi import FastAPI, HTTPException
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import os
 import logging
 
@@ -158,9 +158,18 @@ def _check_git_repo(repo_path: str) -> Dict[str, Any]:
 
         # Try to get HEAD (quick health check)
         import subprocess
+        import shutil
         try:
-            result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
+            git_path = shutil.which("git")
+            if not git_path:
+                return {
+                    "status": "error",
+                    "accessible": False,
+                    "error": "git executable not found in PATH"
+                }
+
+            result = subprocess.run(  # nosec B603
+                [git_path, "rev-parse", "HEAD"],
                 cwd=repo_path,
                 capture_output=True,
                 text=True,
