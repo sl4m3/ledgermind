@@ -2,7 +2,7 @@ import logging
 import sys
 from typing import Optional
 
-def setup_logging(level: int = logging.INFO, log_file: Optional[str] = None, mode: str = 'a'):
+def setup_logging(level: int = logging.INFO, log_file: Optional[str] = None, mode: str = 'w'):
     """
     Sets up a standardized logging configuration for Ledgermind.
     """

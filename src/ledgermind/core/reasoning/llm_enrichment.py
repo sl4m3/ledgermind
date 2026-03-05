@@ -854,7 +854,20 @@ class LLMEnricher:
                     # We pass instructions as positional, but now we include them in the full_prompt for redundancy
                     # and clarity. The CLI interprets positional argument as the primary task.
                     
-                    env = {**os.environ, "LEDGERMIND_BYPASS_HOOKS": "1"}
+                    # Increase Node.js heap limit to 2GB to handle large string processing/JSON serialization
+                    # This prevents 'FATAL ERROR: Ineffective mark-compact' (exit -6)
+                    env = {
+                        **os.environ, 
+                        "LEDGERMIND_BYPASS_HOOKS": "1",
+                        "NODE_OPTIONS": "--max-old-space-size=2048"
+                    }
+                    
+                    # Hard safety limit: avoid sending more than 2MB of raw text to CLI
+                    # to prevent excessive memory usage even with increased heap.
+                    if len(full_prompt) > 2000000:
+                        print(f"   [WARNING] Prompt too large ({len(full_prompt)} chars). Truncating to 2M safety limit.")
+                        full_prompt = full_prompt[:2000000] + "\n\n[TRUNCATED FOR MEMORY SAFETY]"
+
                     proc = subprocess.Popen(
                         ["gemini", "--extensions", "", "-m", model_name, "Analyze the provided logs and return JSON as instructed."],
                         stdin=subprocess.PIPE,
