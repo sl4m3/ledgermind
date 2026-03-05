@@ -159,14 +159,21 @@ class MCPServer:
             self._start_background_worker()
 
     def _orphan_monitor(self):
-        """Periodically checks if the parent process is still alive."""
+        """Periodically checks if the parent process is still alive and reaps child processes."""
         while not self._stop_event.is_set():
+            # 1. Child Reaping (Zombie prevention)
+            if self._worker_process is not None:
+                # poll() non-blockingly checks if the process has terminated
+                exit_code = self._worker_process.poll()
+                if exit_code is not None:
+                    logger.warning(f"Background worker (PID {self._worker_process.pid}) terminated with code {exit_code}.")
+                    # The zombie is now reaped by the poll() call in subprocess
+                    self._worker_process = None
+
+            # 2. Parent detection (Unix/Android only)
             # In Unix/Android, if parent dies, process is re-parented to PID 1
             if os.getppid() == 1:
                 logger.warning("Parent process died (orphaned). Initiating self-shutdown.")
-                # We can't call self.stop() directly if it's not thread-safe with mcp.run()
-                # But self.stop() just cleans up files, which is fine.
-                # The main thread will still be blocked in mcp.run(), so we exit.
                 self.stop()
                 os._exit(0) 
             time.sleep(5.0) # Check every 5 seconds
@@ -202,9 +209,17 @@ class MCPServer:
         import os
 
         log_abs = os.path.abspath(os.path.join(os.getcwd(), "logs/background_worker.log"))
+        err_log_abs = os.path.abspath(os.path.join(os.getcwd(), "logs/worker_error.log"))
+        
+        # Ensure log directory exists
+        os.makedirs(os.path.dirname(log_abs), exist_ok=True)
+
+        # Get absolute path to background.py script to run it directly
+        import ledgermind.server.background as bg_module
+        script_path = os.path.abspath(bg_module.__file__)
 
         cmd = [
-            sys.executable, "-m", "ledgermind.server.background",
+            sys.executable, script_path,
             "--storage", self.storage_path,
             "--log", log_abs
         ]
@@ -213,20 +228,20 @@ class MCPServer:
             base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
             env = {**os.environ, "PYTHONPATH": base_dir}
 
-            # We use start_new_session=True to decouple from parent's session.
-            # We redirect all I/O to DEVNULL to avoid any pipe-related hangs or zombie issues.
-            # We do NOT store the process object in self._worker_process to ensure 
-            # it is orphaned and re-parented to init (PID 1) if the server restarts.
-            subprocess.Popen(
+            # We use a persistent file handle that stays open for the child process.
+            # buffering=1 ensures lines are flushed quickly.
+            # Using 'w' mode to start fresh on every server restart.
+            err_file = open(err_log_abs, 'w', buffering=1)
+
+            self._worker_process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=err_file,
                 stdin=subprocess.DEVNULL,
                 env=env,
-                start_new_session=True,
                 close_fds=True
             )
-            logger.info("Background Worker detached successfully (autonomous mode).")
+            logger.info(f"Background Worker started (PID: {self._worker_process.pid}, ErrorLog: {err_log_abs})")
         except Exception as e:
             logger.error(f"Failed to start background worker: {e}")
 
