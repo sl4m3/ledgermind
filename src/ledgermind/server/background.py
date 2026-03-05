@@ -91,7 +91,14 @@ class BackgroundWorker:
 
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGHUP, signal_handler)
+        
+        # PERSISTENCE: Ignore SIGHUP to stay alive after TTY disconnect
+        if hasattr(signal, 'SIGHUP'):
+            signal.signal(signal.SIGHUP, signal.SIG_IGN)
+        
+        # Ignore SIGPIPE to avoid crashing if stderr is closed prematurely (Issue #42)
+        if hasattr(signal, 'SIGPIPE'):
+            signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 
     def _cleanup_on_exit(self):
         """Cleanup called by atexit."""
@@ -116,13 +123,11 @@ class BackgroundWorker:
         self._stop_event.clear()
         self.status = "running"
 
-        self.maintenance_thread = threading.Thread(target=self._maintenance_loop, name="MaintWorker", daemon=True)
-        self.maintenance_thread.start()
-
+        # Only Enrichment runs in a separate thread (it's I/O bound and doesn't use Llama stack)
         self.enrichment_thread = threading.Thread(target=self._enrichment_loop, name="EnrichWorker", daemon=True)
         self.enrichment_thread.start()
 
-        logger.info("Background Worker started.")
+        logger.info("Background Worker started (Maintenance: MainThread, Enrichment: Parallel).")
 
     def _cleanup_orphans(self):
         """Cleans up orphan gemini processes belonging to this worker instance."""
@@ -159,13 +164,9 @@ class BackgroundWorker:
                     logger.warning(f"Failed to terminate subprocess: {e}")
             self._active_subprocesses.clear()
 
-        # 2. Wait for threads to finish
-        if self.maintenance_thread:
-            self.maintenance_thread.join(timeout=timeout/2)
-            if self.maintenance_thread.is_alive():
-                logger.warning("Maintenance thread did not stop gracefully")
+        # 2. Wait for enrichment thread to finish
         if self.enrichment_thread:
-            self.enrichment_thread.join(timeout=timeout/2)
+            self.enrichment_thread.join(timeout=timeout)
             if self.enrichment_thread.is_alive():
                 logger.warning("Enrichment thread did not stop gracefully")
 
@@ -283,20 +284,6 @@ class BackgroundWorker:
             except Exception: pass
             finally: self._worker_lock_fd = None
 
-    def _maintenance_loop(self):
-        self._stop_event.wait(2.0)
-        while self.running:
-            try:
-                start_time = time.time()
-                self._run_health_check()
-                self._run_git_sync()
-                self._run_maintenance()
-                elapsed = time.time() - start_time
-                if self._stop_event.wait(max(1.0, self.interval - elapsed)): break
-            except Exception as e:
-                logger.error(f"Maintenance Loop crashed: {e}")
-                if self._stop_event.wait(60.0): break
-
     def _enrichment_loop(self):
         self._stop_event.wait(15.0)
         while self.running:
@@ -342,54 +329,58 @@ class BackgroundWorker:
         except Exception as e: logger.error(f"Maintenance failed: {e}")
 
     def run_forever(self):
-        """Main worker loop with session registration monitor."""
-        self.start()
-        
-        session_dir = os.path.join(self.memory.storage_path, "sessions")
-        os.makedirs(session_dir, exist_ok=True)
-        
+        """Main worker loop with session registration and maintenance."""
         try:
+            self.start()
+            
+            session_dir = os.path.join(self.memory.storage_path, "sessions")
+            os.makedirs(session_dir, exist_ok=True)
+            
+            logger.info(f"Worker active. Monitoring sessions and performing maintenance in main thread.")
+            
             while self.running:
-                # 1. Scan sessions/ for active PIDs or any generic lock files
-                active_sessions = 0
+                # 1. MAINTENANCE CYCLE (Directly in main thread for stack safety)
+                # This includes GGUF indexing, reflection, and merging
                 try:
-                    for filename in os.listdir(session_dir):
-                        if not filename.endswith(".lock"): continue
-                        
-                        file_path = os.path.join(session_dir, filename)
-                        try:
-                            # Try to treat filename as PID for deep verification
-                            pid_str = filename.split(".")[0]
-                            if pid_str.isdigit():
-                                pid = int(pid_str)
-                                # Only clean up if we are SURE the process is dead
-                                if self._is_process_running(pid):
-                                    active_sessions += 1
-                                else:
-                                    # Clean up stale session file
-                                    try: os.remove(file_path)
-                                    except: pass
-                            else:
-                                # Generic lock file (e.g. server.lock), assume active
-                                active_sessions += 1
-                        except Exception:
-                            # In case of any error parsing/checking, be safe and assume active
-                            active_sessions += 1
-                except OSError:
-                    # Dir might be temporarily unavailable
-                    active_sessions = 1 # Assume someone is active to be safe
-                
-                # 2. If no active sessions remain, initiate shutdown
-                if active_sessions == 0:
-                    logger.info("No active sessions detected. Shutting down worker.")
-                    break
+                    logger.info("Starting maintenance cycle in main thread...")
+                    start_time = time.time()
+                    
+                    # Complete maintenance suite
+                    self._run_health_check()
+                    self._run_git_sync()
+                    res = self.memory.run_maintenance()
+                    
+                    elapsed = time.time() - start_time
+                    logger.info(f"Maintenance finished in {elapsed:.2f}s. Results: {res}")
+                    self.last_run["maintenance"] = datetime.now()
+                except Exception as me:
+                    logger.error(f"Maintenance cycle failed: {me}")
 
-                if self._stop_event.wait(5.0): # Check sessions every 5s
-                    break
-                if self._signal_received:
-                    break
-        except (KeyboardInterrupt, SystemExit):
-            logger.info("Interrupt received, initiating shutdown...")
+                # 2. SESSION MONITORING & SLEEP
+                # We check sessions periodically between maintenance runs
+                for _ in range(int(self.interval / 10)):
+                    if not self.running: break
+                    
+                    active_sessions = 0
+                    try:
+                        for filename in os.listdir(session_dir):
+                            if not filename.endswith(".lock"): continue
+                            pid_str = filename.split(".")[0]
+                            if pid_str.isdigit() and self._is_process_running(int(pid_str)):
+                                active_sessions += 1
+                    except Exception: active_sessions = 1
+                    
+                    if active_sessions == 0:
+                        logger.info("No active sessions detected. Shutting down worker.")
+                        self.running = False
+                        break
+
+                    if self._stop_event.wait(10.0) or self._signal_received:
+                        self.running = False
+                        break
+                        
+        except Exception as fatal_e:
+            logger.critical(f"FATAL: Worker crashed in main loop: {fatal_e}", exc_info=True)
         finally:
             self.stop()
 
