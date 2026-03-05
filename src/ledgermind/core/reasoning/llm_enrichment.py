@@ -1,10 +1,8 @@
 import logging
-import json
 import httpx
 import os
 import subprocess
-from typing import Dict, Any, Optional, List
-from ledgermind.core.core.schemas import ProposalContent, ProceduralContent
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -279,6 +277,7 @@ class LLMEnricher:
         """
         import tempfile
         import uuid
+        import shutil
         
         prompt_file = os.path.join(tempfile.gettempdir(), f"lm_prompt_{uuid.uuid4().hex[:8]}.txt")
         response_file = os.path.join(tempfile.gettempdir(), f"lm_res_{uuid.uuid4().hex[:8]}.txt")
@@ -289,13 +288,26 @@ class LLMEnricher:
                 f.write(prompt)
             
             if self.client_name == "gemini":
-                # Using shell redirect for 100% reliable capture
-                cmd = f"gemini --model {self.model_name or 'gemini-2.5-flash-lite'} --prompt \"$(cat {prompt_file})\" > {response_file} 2>/dev/null"
-                subprocess.run(cmd, shell=True, check=True, timeout=120) # nosec B602
+                # Securely locate the binary and use list-based arguments
+                gemini_bin = shutil.which("gemini")
+                if gemini_bin:
+                    # Construct command array securely
+                    cmd = [
+                        gemini_bin,
+                        "--model",
+                        self.model_name or 'gemini-2.5-flash-lite',
+                        "--prompt",
+                        prompt
+                    ]
+                    with open(response_file, "w") as out_f:
+                        subprocess.run(cmd, stdout=out_f, stderr=subprocess.DEVNULL, check=True, timeout=120) # nosec B603
                 
             elif self.client_name == "claude":
-                cmd = f"claude \"$(cat {prompt_file})\" > {response_file} 2>/dev/null"
-                subprocess.run(cmd, shell=True, check=True, timeout=120) # nosec B602
+                claude_bin = shutil.which("claude")
+                if claude_bin:
+                    cmd = [claude_bin, prompt]
+                    with open(response_file, "w") as out_f:
+                        subprocess.run(cmd, stdout=out_f, stderr=subprocess.DEVNULL, check=True, timeout=120) # nosec B603
             
             # Read response from buffer
             if os.path.exists(response_file):
