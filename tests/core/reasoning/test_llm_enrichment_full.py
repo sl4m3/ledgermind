@@ -60,19 +60,18 @@ def test_mode_optimal_calls_local_api(mock_post, sample_proposal):
 
 # --- 2. Testing CLI Integration (Rich Mode) ---
 
+@patch('shutil.which')
 @patch('subprocess.run')
-def test_rich_mode_prefers_gemini_cli(mock_run, sample_proposal):
+def test_rich_mode_prefers_gemini_cli(mock_run, mock_which, sample_proposal):
+    mock_which.return_value = "/usr/bin/gemini"
     enricher = LLMEnricher(mode="rich", client_name="gemini")
     
     # Mock successful gemini run with file-writing side effect
     def side_effect(cmd, **kwargs):
-        # Extract response file path from cmd string
-        import re
-        match = re.search(r'> (/[^ ]+)', cmd)
-        if match:
-            res_path = match.group(1)
-            with open(res_path, "w", encoding="utf-8") as f:
-                f.write("<goal>CLI Goal</goal><rationale>Human Gemini Text</rationale><compressive>CLI Comp</compressive>")
+        # Write to the file descriptor passed as stdout
+        if 'stdout' in kwargs:
+            kwargs['stdout'].write("<goal>CLI Goal</goal><rationale>Human Gemini Text</rationale><compressive>CLI Comp</compressive>")
+            kwargs['stdout'].flush()
         return MagicMock(returncode=0)
 
     mock_run.side_effect = side_effect
