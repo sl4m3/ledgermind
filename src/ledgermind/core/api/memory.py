@@ -917,6 +917,20 @@ class Memory:
                         final_rationale = f"Accepted proposal {proposal_id}. {final_rationale}"
 
                 grounding_ids = set(ctx.get("evidence_event_ids", []))
+                
+                # --- EVIDENCE INHERITANCE ---
+                # Automatically collect all evidence IDs from the decisions being superseded
+                if supersedes:
+                    for sid in supersedes:
+                        try:
+                            old_data = self.semantic.meta.get_by_fid(sid)
+                            if old_data and old_data.get('context_json'):
+                                import json
+                                old_ctx = json.loads(old_data['context_json'])
+                                grounding_ids.update(old_ctx.get('evidence_event_ids', []))
+                        except Exception as e:
+                            logger.warning(f"Failed to inherit evidence from {sid}: {e}")
+
                 try:
                     grounding_ids.update(self.episodic.get_linked_event_ids(proposal_id))
                 except Exception: pass
@@ -1254,6 +1268,10 @@ class Memory:
                 PHASE_DISTRIBUTION.labels(phase=p).set(count)
 
         from ledgermind.core.reasoning.merging import MergeEngine
+        
+        # --- VECTOR SYNC (Auto-reindexing missing entries) ---
+        self.reindex_missing()
+
         merger = MergeEngine(self)
         merges = merger.scan_for_duplicates()
 
@@ -1263,6 +1281,58 @@ class Memory:
             "merging": {"proposals_created": len(merges), "ids": merges},
             "integrity": integrity_status
         }
+
+    def reindex_missing(self, limit: int = 50):
+        """
+        Identifies active decisions missing from the vector index and re-indexes them.
+        """
+        if not self.vector: return
+        
+        try:
+            # 1. Get all active & enriched FIDs from Meta
+            all_metas = self.semantic.meta.list_all()
+            active_metas = [m for m in all_metas if m.get('status') == 'active']
+            
+            if not active_metas: return
+            
+            # 2. Get all IDs currently in Vector Store
+            indexed_ids = set(self.vector.get_all_ids())
+            
+            # 3. Find delta
+            missing = [m for m in active_metas if m['fid'] not in indexed_ids]
+            
+            if not missing:
+                return
+                
+            logger.info(f"Re-indexing {len(missing)} missing entries in vector store...")
+            
+            # 4. Batch Process
+            docs_to_add = []
+            for m in missing[:limit]:
+                try:
+                    # Construct content for indexing (Title + Rationale)
+                    # We need to read the rationale from context_json or file
+                    import json
+                    ctx = json.loads(m.get('context_json', '{}'))
+                    rationale = ctx.get('rationale', '') or m.get('content', '')
+                    
+                    indexed_text = f"{m.get('title', '')}\n{rationale}"
+                    docs_to_add.append({
+                        "id": m['fid'],
+                        "content": indexed_text,
+                        "metadata": {"target": m.get('target'), "kind": m.get('kind')}
+                    })
+                except Exception as e:
+                    logger.warning(f"Failed to prepare {m['fid']} for re-indexing: {e}")
+            
+            if docs_to_add:
+                # We use None for embeddings to force VectorStore to compute them using its internal model
+                self.vector.add_documents(docs_to_add)
+                self.vector.save()
+                logger.info(f"Successfully re-indexed {len(docs_to_add)} documents.")
+                
+        except Exception as e:
+            logger.error(f"Auto-reindexing failed: {e}")
 
     def get_stats(self) -> Dict[str, Any]:
         """Returns diagnostic statistics including lifecycle distribution."""

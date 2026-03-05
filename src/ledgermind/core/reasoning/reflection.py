@@ -110,20 +110,69 @@ class ReflectionEngine:
                     procedural_list = target_to_procedural.get(target, [])
                     
                     if relevant_streams:
-                        # Challenger Model (Issue #16): If a decision exists, don't just confirm it.
-                        # Instead, create a new Proposal (Hypothesis) based on the fresh evidence.
-                        # This new proposal will eventually supersede or merge with the old decision.
+                        # Direct Update Model: We do not create separate "Refinement" proposals.
+                        # Instead, we mutate existing hypotheses directly to trigger re-enrichment,
+                        # or we delegate to a pending merge proposal if the memory is fragmented.
                         
-                        # 1. Update existing streams' vitality/decay ONLY (No new evidence linking)
-                        for fid, data in relevant_streams:
-                            self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode, update_only=True)
+                        if len(relevant_streams) == 1:
+                            # Scenario B: Exactly 1 active hypothesis. Mutate it directly.
+                            fid, data = relevant_streams[0]
+                            self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode, update_only=False)
                             processed_fids.add(fid)
-                        
-                        # 2. Create a NEW proposal for the new batch of evidence
-                        if stats['weight'] >= 1.0 or stats['commits'] >= 1:
-                            supersedes = [fid for fid, _ in relevant_streams]
-                            new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode, supersedes_ids=supersedes)
-                            if new_fid: result_ids.append(new_fid)
+                            result_ids.append(fid)
+                        else:
+                            # Scenario C: > 1 active hypothesis (fragmentation).
+                            import json
+                            active_fids = {fid for fid, _ in relevant_streams}
+                            merge_fid = None
+                            
+                            try:
+                                draft_proposals = self.processor.semantic.meta.list_draft_proposals()
+                                for p in draft_proposals:
+                                    if p.get('target') == 'knowledge_merge':
+                                        ctx = json.loads(p.get('context_json', '{}'))
+                                        supersedes = set(ctx.get('suggested_supersedes', []))
+                                        if active_fids.intersection(supersedes):
+                                            merge_fid = p['fid']
+                                            break
+                            except Exception as e:
+                                logger.error(f"Failed to search for merge proposals: {e}")
+                                
+                            if merge_fid:
+                                # Scenario C1: Existing merge proposal found. Add events to it.
+                                try:
+                                    from ledgermind.core.stores.semantic_store.loader import MemoryLoader
+                                    file_path = __import__('os').path.join(self.processor.semantic.repo_path, merge_fid)
+                                    with open(file_path, 'r', encoding='utf-8') as f:
+                                        content = f.read()
+                                    p_data, _ = MemoryLoader.parse(content)
+                                    p_ctx = p_data.get('context', {})
+                                    
+                                    new_ids = [eid for eid in stats['all_ids'] if eid not in p_ctx.get('evidence_event_ids', [])]
+                                    if new_ids:
+                                        evidence_list = p_ctx.get('evidence_event_ids', [])
+                                        evidence_list.extend(new_ids)
+                                        # Also reset enrichment status to pending to catch new events
+                                        self.processor.semantic.update_decision(merge_fid, {
+                                            "evidence_event_ids": evidence_list,
+                                            "enrichment_status": "pending"
+                                        }, commit_msg="Reflection: Attached new evidence to pending merge proposal.")
+                                        
+                                    result_ids.append(merge_fid)
+                                except Exception as e:
+                                    logger.error(f"Failed to update merge proposal {merge_fid}: {e}")
+                                
+                                # Still need to update vitality (decay) of the active streams without adding events
+                                for fid, data in relevant_streams:
+                                    self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode, update_only=True)
+                                    processed_fids.add(fid)
+                            else:
+                                # Scenario C2: No merge proposal exists. Mutate all active streams individually.
+                                # MergeEngine will find them in the next pass.
+                                for fid, data in relevant_streams:
+                                    self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode, update_only=False)
+                                    processed_fids.add(fid)
+                                    result_ids.append(fid)
                     else:
                         if stats['weight'] >= 1.0 or stats['commits'] >= 1:
                             new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode)

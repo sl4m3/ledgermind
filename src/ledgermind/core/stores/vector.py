@@ -44,6 +44,11 @@ def _is_llama_available():
     return _LLAMA_AVAILABLE
 
 def _is_annoy_available():
+    # Disable Annoy on Android/Termux to prevent SIGSEGV/mmap conflicts with llama.cpp
+    import platform
+    if os.path.exists("/data/data/com.termux") or platform.system() == "Android":
+        return False
+        
     global ANNOY_AVAILABLE
     if ANNOY_AVAILABLE is not None:
         return ANNOY_AVAILABLE
@@ -74,18 +79,24 @@ class GGUFEmbeddingAdapter:
         
         logger.info(f"Loading GGUF Model: {model_path}")
         self._lock = threading.Lock()
-        # Optimized for Termux/Mobile: 4 threads is usually the sweet spot for performance vs heat
-        with contextlib.redirect_stderr(io.StringIO()):
-            self.client = Llama(
-                model_path=model_path, 
-                embedding=True, 
-                verbose=False, 
-                n_ctx=8192, 
-                n_gpu_layers=0,
-                n_threads=4,
-                n_batch=512,
-                pooling_type=1 
-            )
+        
+        # Determine if we are running on Android/Termux
+        import platform
+        is_android = os.path.exists("/data/data/com.termux") or platform.system() == "Android"
+        
+        # use_mmap=False is CRITICAL for Android to avoid SIGSEGV (Exit Code 139)
+        # when Llama competes with NumPy/Python heap for virtual address space.
+        self.client = Llama(
+            model_path=model_path, 
+            embedding=True, 
+            verbose=False, 
+            n_ctx=4096, 
+            n_gpu_layers=0,
+            n_threads=2,
+            n_batch=512,
+            use_mmap=not is_android,
+            pooling_type=1
+        )
         self._cache = {}
         self._max_cache = 100
         self.model_path = model_path.lower()
@@ -98,10 +109,13 @@ class GGUFEmbeddingAdapter:
             data = test_emb_res.get('data', [])
             if data and 'embedding' in data[0]:
                 raw_emb = data[0]['embedding']
-                self.dimension = len(raw_emb)
+                # Ensure it's a list/array and not a scalar
+                if isinstance(raw_emb, (list, np.ndarray)):
+                    self.dimension = len(raw_emb)
+                else:
+                    self.dimension = 1024
             else:
-                # Fallback: some versions might return different structure
-                self.dimension = 1024 # Standard for Jina v5 Small
+                self.dimension = 1024
             
             logger.info(f"GGUF Model Initialized. Dimension: {self.dimension}")
         except Exception as e:
@@ -121,35 +135,43 @@ class GGUFEmbeddingAdapter:
             prefix = "text-matching: "
 
         embeddings = []
-        with contextlib.redirect_stderr(io.StringIO()):
-            for text in input_list:
-                with self._lock:
-                    if text in self._cache:
-                        embeddings.append(self._cache[text])
-                        continue
-                        
-                    try:
-                        # Apply prefix if needed
-                        processed_text = f"{prefix}{text}" if prefix else text
-                        res = self.client.create_embedding(processed_text)
-                        emb = res['data'][0]['embedding']
-                        # If llama-cpp returns a scalar or malformed list, wrap it
-                        if not isinstance(emb, list):
-                            emb = [emb]
-                        
-                        # Update cache
-                        if len(self._cache) >= self._max_cache:
-                            # Basic eviction
-                            self._cache.pop(next(iter(self._cache)))
-                        self._cache[text] = emb
-                        
-                        embeddings.append(emb)
-                    except Exception as e:
-                        logger.error(f"GGUF Encoding failed for text: {e}")
-                        # Return zero vector on failure to maintain shape
-                        embeddings.append([0.0] * self.dimension)
+        # Optimization: Process the entire batch
+        for text in input_list:
+            # 1. Quick cache check
+            if text in self._cache:
+                embeddings.append(self._cache[text])
+                continue
+                
+            # 2. Compute embedding
+            with self._lock:
+                try:
+                    processed_text = f"{prefix}{text}" if prefix else text
+                    res = self.client.create_embedding(processed_text)
+                    emb = res['data'][0]['embedding']
+                    
+                    # Ensure emb is a flat list of floats
+                    if not isinstance(emb, list):
+                        if hasattr(emb, 'tolist'):
+                            emb = emb.tolist()
+                        else:
+                            emb = [float(emb)]
+
+                    # Update cache
+                    if len(self._cache) >= self._max_cache:
+                        self._cache.pop(next(iter(self._cache)))
+                    self._cache[text] = emb
+                    
+                    embeddings.append(emb)
+                except Exception as e:
+                    logger.error(f"GGUF Encoding failed: {e}")
+                    embeddings.append([0.0] * self.dimension)
         
+        # Final result assembly
         arr = np.array(embeddings).astype('float32')
+        # Ensure 2D shape (n_sentences, dimension)
+        if arr.ndim == 1:
+            arr = arr.reshape(1, -1)
+            
         return arr[0] if is_single else arr
 
     def get_sentence_embedding_dimension(self):
@@ -212,9 +234,23 @@ class VectorStore:
         # Annoy Index for Approximate Nearest Neighbor Search
         self._annoy_index = None
         self._indexed_count = 0
+        self._loaded = False
 
         if not os.path.exists(storage_path):
             os.makedirs(storage_path, exist_ok=True)
+
+    def _ensure_loaded(self):
+        """Ensures that the index is loaded from disk (Lazy Loading)."""
+        if not self._loaded:
+            # CRITICAL Fix for SIGSEGV: Initialize Llama model FIRST.
+            # This reserves contiguous memory for the model before NumPy fragments the heap.
+            try:
+                _ = self.model 
+            except Exception as e:
+                logger.error(f"Failed to eager-load GGUF model: {e}")
+
+            self.load()
+            self._loaded = True
 
     def _build_annoy_index(self):
         """Builds an Annoy index for the current vectors."""
@@ -248,6 +284,7 @@ class VectorStore:
 
     def _get_embedding(self, text: str) -> np.ndarray:
         """Internal helper with caching."""
+        self._ensure_loaded()
         if text in self._embedding_cache:
             return self._embedding_cache[text]
         
@@ -501,6 +538,7 @@ class VectorStore:
 
     def add_documents(self, documents: List[Dict[str, Any]], embeddings: Optional[List[np.ndarray]] = None):
         if not documents: return
+        self._ensure_loaded()
         
         if embeddings is not None:
             new_embeddings = np.array(embeddings).astype('float32')
@@ -552,6 +590,7 @@ class VectorStore:
 
     def get_vector(self, fid: str) -> Optional[np.ndarray]:
         """Retrieves the vector for a specific document ID."""
+        self._ensure_loaded()
         if self._vectors is None or fid not in self._doc_ids:
             return None
         try:
@@ -561,7 +600,13 @@ class VectorStore:
         except ValueError:
             return None
 
+    def get_all_ids(self) -> List[str]:
+        """Returns a list of all document IDs currently in the index."""
+        self._ensure_loaded()
+        return list(self._doc_ids) if self._doc_ids is not None else []
+
     def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        self._ensure_loaded()
         # If we have vectors, we can search regardless of engine availability (using NumPy)
         if self._vectors is None or len(self._vectors) == 0:
             # If no vectors, we need the engine to encode the query (unless it's already a vector, but search expects string)
