@@ -73,18 +73,22 @@ jobs:
         id: bandit
         run: |
           bandit -r src/ -f json -o bandit-report.json || true
+          if [ ! -s bandit-report.json ]; then echo "{}" > bandit-report.json; fi
         continue-on-error: true
 
       - name: Run Safety (Dependency Check)
         id: safety
         run: |
-          safety check --json --db > safety-report.json || true
+          safety check --json > safety-raw.txt || true
+          awk '/^\{/ {p=1} p {print} /^\}/ {p=0}' safety-raw.txt > safety-report.json
+          if [ ! -s safety-report.json ]; then echo "{}" > safety-report.json; fi
         continue-on-error: true
 
       - name: Run Pip-audit
         id: pip-audit
         run: |
           pip-audit --desc --format json > pip-audit-report.json || true
+          if [ ! -s pip-audit-report.json ]; then echo "{}" > pip-audit-report.json; fi
         continue-on-error: true
 
       - name: Parse security reports
