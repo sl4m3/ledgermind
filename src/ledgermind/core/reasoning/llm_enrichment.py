@@ -227,29 +227,37 @@ class LLMEnricher:
                     total_items = len(all_ids)
                     
                     logger.info(f"({idx+1}/{len(pending_fids)}) Enriching {fid} ({'Validation' if is_validation else 'Merge' if is_merge else 'Analysis'}. Total items: {total_items})...")
-                    # If no items to process, check if we need translation/re-enrichment
+                    
+                    # --- NO ITEMS HANDLING (Language Audit or Completion) ---
                     if not all_ids:
+                        # Check if we need to fix the language even with 0 events
+                        needs_translation = False
                         if hasattr(self, 'preferred_language') and self.preferred_language not in ("auto", "none", None):
-                            logger.info(f"No events for {fid}, but language is '{self.preferred_language}'. Forcing translation.")
-                            # Use existing rationale as context to trigger translation
+                            if not self._validate_language(proposal):
+                                logger.info(f"Language audit failed for {fid} (0 events). Forcing translation to {self.preferred_language}...")
+                                needs_translation = True
+                        
+                        if needs_translation:
+                            # Use existing rationale as context to trigger translation/correction
                             current_rationale = getattr(proposal, 'rationale', '')
-                            updated_proposal = self.enrich_proposal(proposal, cluster_logs=f"### EXISTING CONTENT:\n{current_rationale}", file_path=file_path, memory=memory)
+                            # We send it to enrich_proposal which will use the standard prompt but with current text as context
+                            updated_proposal = self.enrich_proposal(proposal, cluster_logs=f"### SYSTEM NOTE: Language mismatch detected. Rewrite the following content strictly in {self.preferred_language}.\n\n### CONTENT TO FIX:\n{current_rationale}", file_path=file_path, memory=memory)
                             if updated_proposal:
-                                proposal = updated_proposal
                                 with memory.semantic.transaction():
                                     memory.semantic.update_decision(fid, {
-                                        "title": getattr(proposal, 'title', 'Untitled'),
-                                        "content": getattr(proposal, 'title', 'Untitled'),
-                                        "rationale": getattr(proposal, 'rationale', ''),
-                                        "keywords": getattr(proposal, 'keywords', []),
-                                        "compressive_rationale": getattr(proposal, 'compressive_rationale', None),
-                                        "enrichment_status": "completed"
-                                    }, "Enrichment: Forced translation completed")
+                                        "title": getattr(updated_proposal, 'title', 'Untitled'),
+                                        "content": getattr(updated_proposal, 'title', 'Untitled'),
+                                        "rationale": getattr(updated_proposal, 'rationale', ''),
+                                        "keywords": getattr(updated_proposal, 'keywords', []),
+                                        "compressive_rationale": getattr(updated_proposal, 'compressive_rationale', None),
+                                        "enrichment_status": "completed" # Now it is truly done
+                                    }, "Enrichment: Language repair completed")
                                 results.append({"fid": fid, "status": "completed", "events": 0})
                         else:
+                            # No items and language is OK
                             with memory.semantic.transaction():
-                                memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, "Enrichment: No items to process.")
-                            logger.info(f"Enrichment: No items for {fid}. Completed.")
+                                memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, "Enrichment: Verified and completed.")
+                            results.append({"fid": fid, "status": "completed", "events": 0})
                         continue
 
                     processed_in_this_run = 0
@@ -764,33 +772,61 @@ class LLMEnricher:
 
     def _validate_language(self, proposal: Any) -> bool:
         """
-        Internal language safety detector based on character presence.
-        Returns True if the content matches preferred language expectations.
+        Global language safety detector using Unicode block analysis and keyword markers.
         """
-        # 1. Skip if no specific language is preferred
         preferred_lang = getattr(self, 'preferred_language', 'auto').lower()
         if preferred_lang in ("auto", "none", None):
             return True
 
-        # 2. Skip for knowledge merge (contains heterogeneous sources)
-        # Check both the proposal target and the underlying object type
-        is_merge = getattr(proposal, 'target', None) == "knowledge_merge"
-        if is_merge:
+        content = f"{getattr(proposal, 'title', '')} {getattr(proposal, 'rationale', '')}"
+        if not content.strip():
+            return True
+            
+        import re
+        
+        # 1. Scripts with dedicated Unicode blocks (Density check)
+        unicode_ranges = {
+            "russian": r'[\u0400-\u04FF]',        # Cyrillic
+            "chinese": r'[\u4E00-\u9FFF]',        # CJK Unified Ideographs
+            "hindi": r'[\u0900-\u097F]',          # Devanagari
+            "japanese": r'[\u3040-\u30FF\u4E00-\u9FFF]', # Hiragana, Katakana, Kanji
+            "korean": r'[\uAC00-\uD7AF\u1100-\u11FF]',   # Hangul
+            "arabic": r'[\u0600-\u06FF]',         # Arabic
+        }
+
+        if preferred_lang in unicode_ranges:
+            pattern = unicode_ranges[preferred_lang]
+            # Find all target characters vs total alphabetical characters
+            all_letters = re.findall(r'[\w]', content)
+            if not all_letters: return True
+            
+            target_chars = re.findall(pattern, content)
+            density = len(target_chars) / len(all_letters)
+            
+            # Lower threshold for complex scripts like Chinese/Hindi (10%)
+            if density < 0.10:
+                logger.warning(f"Language check failed: {preferred_lang.capitalize()} expected, but script density is {density:.1%}")
+                return False
             return True
 
-        # 3. Analyze content (Title + Rationale)
-        content = f"{getattr(proposal, 'title', '')} {getattr(proposal, 'rationale', '')}"
-        
-        import re
-        # Simple but effective cyrillic detection
-        cyrillic_pattern = re.compile(r'[а-яё]', re.IGNORECASE)
-        has_cyrillic = bool(cyrillic_pattern.search(content))
+        # 2. Latin-based scripts (Keyword marker check)
+        markers = {
+            "spanish": {" el ", " la ", " que ", " en ", " y ", " es ", " con ", " para "},
+            "english": {" the ", " and ", " with ", " from ", " this ", " that ", " for "},
+            "german": {" der ", " die ", " das ", " und ", " mit ", " von ", " ist "},
+            "french": {" le ", " la ", " les ", " et ", " avec ", " dans ", " pour "},
+            "italian": {" il ", " lo ", " la ", " che ", " in ", " di ", " per "}
+        }
 
-        # 4. Enforcement Logic
-        if preferred_lang == "russian" and not has_cyrillic:
-            return False
-        elif preferred_lang == "english" and has_cyrillic:
-            return False
+        if preferred_lang in markers:
+            content_lower = content.lower()
+            target_markers = markers[preferred_lang]
+            found_count = sum(1 for m in target_markers if m in content_lower)
+            
+            if len(content) > 150 and found_count < 2:
+                logger.warning(f"Language check failed: {preferred_lang.capitalize()} expected, but no language markers found.")
+                return False
+            return True
 
         return True
 
