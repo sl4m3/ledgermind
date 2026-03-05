@@ -29,8 +29,8 @@ class MergeEngine:
 
     def scan_for_duplicates(self, threshold: float = 0.75) -> List[str]:
         """
-        Scans enriched decisions and creates proposals for merging duplicates.
-        Returns list of created proposal IDs.
+        Scans enriched decisions and creates proposals for merging or disambiguation.
+        Handles both semantic similarity and structural I4 violations.
         """
         # 1. Get all active and enriched decisions
         all_metas = self.memory.semantic.meta.list_all()
@@ -42,14 +42,37 @@ class MergeEngine:
         if not enriched_metas:
             return []
 
-        # Optimization: Only initiate search FROM the most recent decisions (last 50)
-        # to avoid O(N^2) every cycle, but still search against the WHOLE database.
-        recent_candidates = sorted(enriched_metas, key=lambda x: x.get('timestamp', ''), reverse=True)[:50]
-        
         proposals = []
         pending_targets = self._get_active_merge_targets()
 
-        # 2. SEMANTIC SEARCH for each recent candidate against the entire enriched set
+        # --- PHASE A: STRUCTURAL CONFLICT DETECTION (I4 Resolution) ---
+        # Group by EXACT target to find multiple active decisions for the same path.
+        # This handles cases where different concepts share the same name.
+        target_groups = {}
+        for m in enriched_metas:
+            t = m.get('target')
+            if not t or m['fid'] in pending_targets: continue
+            if t not in target_groups: target_groups[t] = []
+            target_groups[t].append(m['fid'])
+            
+        for target, fids in target_groups.items():
+            if len(fids) > 1:
+                logger.info(f"Structural Conflict: {len(fids)} active decisions for target '{target}'. Creating disambiguation proposal.")
+                # We use knowledge_validation here to let LLM decide: Merge or Rename?
+                proposal_id = self._create_merge_proposal(
+                    fids, 
+                    target,
+                    confidence=0.8, # Validation mode (not auto-merge)
+                    target="knowledge_validation"
+                )
+                if proposal_id:
+                    proposals.append(proposal_id)
+                    pending_targets.update(fids)
+
+        # --- PHASE B: SEMANTIC CONSOLIDATION ---
+        # Optimization: Only initiate search FROM the most recent decisions (last 50)
+        recent_candidates = sorted(enriched_metas, key=lambda x: x.get('timestamp', ''), reverse=True)[:50]
+        
         for m in recent_candidates:
             fid = m['fid']
             if fid in pending_targets:
@@ -153,14 +176,24 @@ class MergeEngine:
             "strengths": ["Reduces redundancy", "Improves retrieval precision"],
             "suggested_consequences": ["Original decisions will be superseded and archived"]
         }
-        
+
         try:
-            decision = self.memory.process_event(
-                source="system",
-                kind=KIND_PROPOSAL,
-                content=title,
-                context=ctx_data
-            )
+            # COORDINATED LOCKING:
+            # We switch all target files to 'pending_merge' atomically 
+            # to prevent other merge cycles from picking them up.
+            with self.memory.semantic.transaction():
+                # 1. Create the proposal file
+                decision = self.memory.record_decision(
+                    title=title,
+                    target=target,
+                    rationale=rationale,
+                    context=ctx_data
+                )
+
+                # 2. Lock the source files
+                for s_fid in target_ids:
+                    self.memory.semantic.update_decision(s_fid, {"status": "pending_merge"}, f"Locked for merge in {decision.metadata.get('file_id')}")
+
             return decision.metadata.get("file_id")
         except Exception as e:
             logger.error(f"Failed to create merge proposal: {e}")

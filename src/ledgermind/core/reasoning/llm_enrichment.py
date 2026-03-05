@@ -319,21 +319,20 @@ class LLMEnricher:
                         # COORDINATED ATOMIC FINALIZATION
                         new_decision_fid = None
                         try:
-                            # 4. Check for conflicts before opening a transaction
-                            conflict_fid = memory.semantic.meta.has_active_conflict(
+                            # 4. Check for existing active decisions on this target
+                            current_conflict = memory.semantic.meta.has_active_conflict(
                                 None, 
                                 merged_data['target'],
                                 getattr(proposal, 'namespace', 'default')
                             )
                             
-                            if conflict_fid:
-                                logger.info(f"Target '{merged_data['target']}' already has active decision {conflict_fid}. Conflict aborted.")
-                                with memory.semantic.transaction():
-                                    memory.semantic.update_decision(fid, {"enrichment_status": "obsolete"}, f"Merge aborted: Conflict with {conflict_fid}")
-                                continue
+                            # RESOLUTION: If conflict exists, include it in the merge to resolve I4
+                            if current_conflict and current_conflict not in superseded_ids:
+                                logger.info(f"Target '{merged_data['target']}' has existing decision {current_conflict}. Including it in the merge to resolve I4 conflict.")
+                                superseded_ids.append(current_conflict)
 
                             with memory.semantic.transaction():
-                                # 1. Mark superseded elements
+                                # 1. Mark all superseded elements (original + newly found conflict)
                                 for s_fid in superseded_ids:
                                     memory.semantic.update_decision(s_fid, {"status": "superseded"}, f"Superseded by merge from {fid}")
 
@@ -380,8 +379,14 @@ class LLMEnricher:
                             results.append({"fid": new_decision_fid or fid, "status": "processed", "events": len(items_data)})
                             continue
                         except Exception as te:
-                            logger.error(f"Atomic merge failed: {te}")
-                            # The transaction will automatically roll back
+                            logger.error(f"Atomic merge failed: {te}. Reverting source files to active status.")
+                            # RECOVERY: Revert source files to active if the merge failed
+                            try:
+                                with memory.semantic.transaction():
+                                    for s_fid in superseded_ids:
+                                        memory.semantic.update_decision(s_fid, {"status": "active"}, "Merge failed: Restored to active status.")
+                            except Exception as re:
+                                logger.error(f"Critical: Failed to revert source files for {fid}: {re}")
                             continue
 
                     processed_in_this_run = 0
@@ -590,11 +595,11 @@ class LLMEnricher:
             return proposal
 
         if is_validation:
-            instructions = self._build_validation_prompt(proposal.title)
+            instructions = self._build_validation_prompt(proposal.title, lang=self.preferred_language)
         elif is_behavioral:
-            instructions = self._build_behavioral_prompt(proposal.target, existing_rationale=proposal.rationale)
+            instructions = self._build_behavioral_prompt(proposal.target, existing_rationale=proposal.rationale, lang=self.preferred_language)
         else:
-            instructions = self._build_procedural_prompt(proposal.target, existing_rationale=proposal.rationale)
+            instructions = self._build_procedural_prompt(proposal.target, existing_rationale=proposal.rationale, lang=self.preferred_language)
         
         # --- ATTEMPT CYCLE (Up to 3 retries for parsing errors) ---
         max_enrichment_attempts = 3
@@ -653,14 +658,31 @@ class LLMEnricher:
                         if "rationale" in data: proposal.rationale = data["rationale"]
                         if "compressive" in data: proposal.compressive_rationale = data["compressive"]
 
-                        # 3. SPECIAL: Handling Validation Decision
+                        # 3. SPECIAL: Handling Validation Decision (Disambiguation vs Merge)
                         if is_validation:
                             is_dup = data.get("is_duplicate", True)
+                            refined = data.get("refined_targets")
+                            
                             if is_dup is False:
-                                logger.info(f"LLM determined entries are NOT duplicates. Aborting merge.")
-                                proposal.rationale = f"REJECTED: {data.get('reasoning', 'Not a duplicate')}"
-                                proposal._enrichment_failed = True # Will mark as failed/rejected in store
-                                return proposal
+                                if refined and isinstance(refined, dict):
+                                    logger.info(f"LLM proposed DISAMBIGUATION for {len(refined)} files.")
+                                    for r_fid, new_target in refined.items():
+                                        try:
+                                            with memory.semantic.transaction():
+                                                memory.semantic.update_decision(r_fid, {"target": new_target}, f"Disambiguation: Refined target to '{new_target}'")
+                                            logger.info(f"Successfully refined target for {r_fid} -> {new_target}")
+                                        except Exception as re:
+                                            logger.error(f"Failed to refine target for {r_fid}: {re}")
+                                    
+                                    # Mark this proposal as "processed" since the conflict is resolved by renaming
+                                    proposal._disambiguated = True
+                                    parsed_successfully = True
+                                    return proposal # Conflict resolved
+                                else:
+                                    logger.info(f"LLM determined entries are NOT duplicates but no refined targets provided. Aborting merge.")
+                                    proposal.rationale = f"REJECTED: {data.get('reasoning', 'Not a duplicate')}"
+                                    proposal._enrichment_failed = True 
+                                    return proposal
                             else:
                                 logger.info(f"LLM confirmed entries ARE duplicates. Transitioning to merge.")
                                 # Transition task to merge mode
@@ -838,23 +860,26 @@ class LLMEnricher:
         )
 
     def _build_validation_prompt(self, title: str, lang: str = "auto") -> str:
-        """Expert prompt for validating and deduplicating high-confidence semantic matches."""
+        """Expert prompt for validating, deduplicating, or disambiguating high-confidence semantic matches."""
         lang_instruction = f"Your entire response (title, rationale, compressive) MUST be strictly in {lang}. Ignore the language of the input logs and context; the output language is non-negotiable." if lang != "auto" else "Respond in the same language as the majority of the input."
         return (
             "### SYSTEM ROLE\n"
             "You are a Knowledge Integrity Auditor and Semantic Architect.\n"
-            "Your task is to validate whether multiple knowledge entries are indeed duplicates or represent distinct concepts.\n\n"
+            "Your task is to validate whether multiple knowledge entries are indeed duplicates or represent distinct concepts sharing the same name.\n\n"
             f"### TASK: Validate the following potential duplicates for topic: '{title}'.\n\n"
             "### REQUIREMENTS\n"
             "- Compare the provided source decisions and event logs.\n"
-            "- If they represent the SAME architectural decision or behavioral pattern, synthesize them into one perfect entry.\n"
-            "- If they are DISTINCT, clearly explain the difference and why they should remain separate.\n"
+            "- If they represent the SAME architectural decision or behavioral pattern, synthesize them into one perfect entry. Set 'is_duplicate': true.\n"
+            "- If they are DISTINCT (Ambiguation), clearly explain the difference. Set 'is_duplicate': false.\n"
+            "- DISAMBIGUATION: If 'is_duplicate' is false, you MUST propose new unique and more specific target names for each file to resolve the naming conflict.\n"
             f"- LANGUAGE: {lang_instruction}\n\n"
             "### RESPONSE FORMAT\n"
             "Respond with ONLY a JSON object with these keys:\n"
             "{\n"
-            '  "title": "Unified title (if merging) or Distinction summary (if keeping separate)",\n'
-            '  "rationale": "# Validation Analysis\\n\\n## 1. Decision: [Merge / Keep Separate]\\n\\n## 2. Evidence Synthesis\\n[Detailed explanation based on provided data]\\n\\n## 3. Final Canonical Knowledge\\n[The most accurate description of the truth]",\n'
+            '  "is_duplicate": true/false,\n'
+            '  "title": "Unified title (if duplicate) or Distinction summary (if distinct)",\n'
+            '  "rationale": "# Validation Analysis\\n\\n[Detailed explanation of why they are the same or different]",\n'
+            '  "refined_targets": {"file_id_1.md": "new/specific/target/1", "file_id_2.md": "new/specific/target/2"},\n'
             '  "compressive": "3 sentences summarizing the validation result"\n'
             "}\n"
             "No additional text before or after the JSON."
