@@ -150,8 +150,26 @@ class MCPServer:
         self.storage_path = os.path.abspath(storage_path)
         self._worker_process: Optional[subprocess.Popen] = None
         
+        # Start orphan monitor thread
+        self._stop_event = threading.Event()
+        self._orphan_thread = threading.Thread(target=self._orphan_monitor, name="OrphanMonitor", daemon=True)
+        self._orphan_thread.start()
+        
         if start_worker:
             self._start_background_worker()
+
+    def _orphan_monitor(self):
+        """Periodically checks if the parent process is still alive."""
+        while not self._stop_event.is_set():
+            # In Unix/Android, if parent dies, process is re-parented to PID 1
+            if os.getppid() == 1:
+                logger.warning("Parent process died (orphaned). Initiating self-shutdown.")
+                # We can't call self.stop() directly if it's not thread-safe with mcp.run()
+                # But self.stop() just cleans up files, which is fine.
+                # The main thread will still be blocked in mcp.run(), so we exit.
+                self.stop()
+                os._exit(0) 
+            time.sleep(5.0) # Check every 5 seconds
 
     def _register_session(self):
         """Registers the current PID as an active session for the background worker."""
@@ -178,9 +196,10 @@ class MCPServer:
             logger.error(f"Failed to register session in {session_dir}: {e}")
 
     def _start_background_worker(self):
-        """Starts the background worker as a detached subprocess."""
+        """Starts the background worker as a fully detached daemon-like process."""
         import subprocess
         import sys
+        import os
 
         log_abs = os.path.abspath(os.path.join(os.getcwd(), "logs/background_worker.log"))
 
@@ -194,16 +213,20 @@ class MCPServer:
             base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
             env = {**os.environ, "PYTHONPATH": base_dir}
 
-            # Start worker in a new session so it doesn't die with MCP
-            # But it will monitor sessions/ and stop when all clients are gone
-            self._worker_process = subprocess.Popen(
+            # We use start_new_session=True to decouple from parent's session.
+            # We redirect all I/O to DEVNULL to avoid any pipe-related hangs or zombie issues.
+            # We do NOT store the process object in self._worker_process to ensure 
+            # it is orphaned and re-parented to init (PID 1) if the server restarts.
+            subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
                 env=env,
-                start_new_session=True 
+                start_new_session=True,
+                close_fds=True
             )
-            logger.info(f"Background Worker detached (PID: {self._worker_process.pid})")
+            logger.info("Background Worker detached successfully (autonomous mode).")
         except Exception as e:
             logger.error(f"Failed to start background worker: {e}")
 

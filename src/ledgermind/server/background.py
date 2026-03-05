@@ -73,7 +73,7 @@ class BackgroundWorker:
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
 
-        fh = logging.FileHandler(log_path, mode='a')
+        fh = logging.FileHandler(log_path, mode='w')
         fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         root_logger.addHandler(fh)
         root_logger.setLevel(logging.INFO)
@@ -244,9 +244,30 @@ class BackgroundWorker:
 
     @staticmethod
     def _is_process_running(pid: int) -> bool:
-        """Check if a process with given PID is still running."""
+        """
+        Check if a process with given PID is still running and not a zombie.
+        On Unix, we check /proc/PID/status for 'State: Z (zombie)'.
+        """
         try:
-            os.kill(pid, 0)  # Signal 0 doesn't kill, just checks if process exists
+            # 1. Basic signal check
+            os.kill(pid, 0)
+            
+            # 2. Deep check for Zombie state (Unix only)
+            status_path = f"/proc/{pid}/status"
+            if os.path.exists(status_path):
+                try:
+                    with open(status_path, 'r') as f:
+                        for line in f:
+                            if line.startswith("State:"):
+                                if "Z (zombie)" in line:
+                                    logger.warning(f"Detected zombie process (PID: {pid}). Treating as dead.")
+                                    return False
+                                break
+                except Exception: 
+                    # If we can't read /proc (unlikely on Termux), 
+                    # fallback to True since kill(0) succeeded
+                    pass
+                
             return True
         except OSError:
             return False
@@ -329,25 +350,31 @@ class BackgroundWorker:
         
         try:
             while self.running:
-                # 1. Scan sessions/ for active PIDs
+                # 1. Scan sessions/ for active PIDs or any generic lock files
                 active_sessions = 0
                 try:
                     for filename in os.listdir(session_dir):
                         if not filename.endswith(".lock"): continue
                         
+                        file_path = os.path.join(session_dir, filename)
                         try:
-                            # Extract PID from filename
-                            pid = int(filename.split(".")[0])
-                            
-                            # Check if process is still alive
-                            if self._is_process_running(pid):
-                                active_sessions += 1
+                            # Try to treat filename as PID for deep verification
+                            pid_str = filename.split(".")[0]
+                            if pid_str.isdigit():
+                                pid = int(pid_str)
+                                # Only clean up if we are SURE the process is dead
+                                if self._is_process_running(pid):
+                                    active_sessions += 1
+                                else:
+                                    # Clean up stale session file
+                                    try: os.remove(file_path)
+                                    except: pass
                             else:
-                                # Clean up stale session file
-                                try: os.remove(os.path.join(session_dir, filename))
-                                except: pass
-                        except (ValueError, IndexError):
-                            pass
+                                # Generic lock file (e.g. server.lock), assume active
+                                active_sessions += 1
+                        except Exception:
+                            # In case of any error parsing/checking, be safe and assume active
+                            active_sessions += 1
                 except OSError:
                     # Dir might be temporarily unavailable
                     active_sessions = 1 # Assume someone is active to be safe

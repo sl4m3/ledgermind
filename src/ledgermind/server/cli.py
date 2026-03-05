@@ -500,6 +500,34 @@ def bridge_record(path: str, prompt: str, response: str, success: bool, metadata
     except Exception as e:
         print(f"✗ Error: {e}")
 
+def cleanup_orphans():
+    """Finds and terminates all Ledgermind processes that are orphaned (PPID=1)."""
+    import psutil
+    import os
+    import signal
+    
+    current_pid = os.getpid()
+    count = 0
+    for proc in psutil.process_iter(['pid', 'ppid', 'cmdline', 'name']):
+        try:
+            pinfo = proc.info
+            # Filter for Ledgermind processes that are orphaned
+            if pinfo['ppid'] == 1 and pinfo['pid'] != current_pid:
+                cmd = " ".join(pinfo['cmdline'] or [])
+                # Identify if it's our process (by name or command line)
+                if 'ledgermind' in cmd.lower() or 'python' in pinfo['name'].lower():
+                    if 'ledgermind.server' in cmd or 'mcp' in cmd:
+                        try:
+                            os.kill(pinfo['pid'], signal.SIGTERM)
+                            count += 1
+                        except (OSError, ProcessLookupError):
+                            pass
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            continue
+            
+    if count > 0:
+        sys.stderr.write(f"* Cleaned up {count} orphaned Ledgermind processes.\n")
+
 def main():
     parser = argparse.ArgumentParser(description="Ledgermind MCP Server Launcher")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -591,6 +619,9 @@ def main():
     elif args.command == "stats":
         show_stats(args.path)
     elif args.command == "run":
+        # Cleanup any previous orphaned processes before starting
+        cleanup_orphans()
+        
         # Setup automatic server logging
         if not args.log_file:
             log_dir = os.path.join(os.getcwd(), "logs")
@@ -600,7 +631,7 @@ def main():
         else:
             log_file = args.log_file
 
-        setup_logging(level=logging.DEBUG if args.verbose else logging.INFO, log_file=log_file, mode='a')
+        setup_logging(level=logging.DEBUG if args.verbose else logging.INFO, log_file=log_file, mode='w')
 
         # Create server.pid to help background processes detect server status
         pid_file = os.path.join(os.path.abspath(args.path), "server.pid")
