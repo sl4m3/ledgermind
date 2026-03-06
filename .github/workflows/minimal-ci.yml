@@ -72,19 +72,19 @@ jobs:
       - name: Run Bandit (SAST)
         id: bandit
         run: |
-          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ -f json -o bandit-report.json || { [[ -f bandit-report.json && -s bandit-report.json ]] || echo "{}" > bandit-report.json; }
         continue-on-error: true
 
       - name: Run Safety (Dependency Check)
         id: safety
         run: |
-          safety check --json --db > safety-report.json || true
+          safety check --json | awk '/^\{/,/^\}/' > safety-report.json || echo "{}" > safety-report.json
         continue-on-error: true
 
       - name: Run Pip-audit
         id: pip-audit
         run: |
-          pip-audit --desc --format json > pip-audit-report.json || true
+          pip-audit --desc --format json > pip-audit-report.json || { [[ -f pip-audit-report.json && -s pip-audit-report.json ]] || echo "{}" > pip-audit-report.json; }
         continue-on-error: true
 
       - name: Parse security reports
@@ -150,12 +150,9 @@ jobs:
             body += '### Pip-audit (Dependencies)\\n';
             body += `- ${JSON.parse(pipAudit).dependencies?.filter(d => d.vulnerabilities?.length)?.length || 0} vulnerable packages\\n`;
 
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue_number,
-              body: body
-            });
+            core.summary.addHeading('🔒 Security Scan Results');
+            core.summary.addRaw(body);
+            core.summary.write();
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   lint:

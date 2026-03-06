@@ -1,0 +1,1866 @@
+{
+    "report_meta": {
+        "scan_target": "environment",
+        "scanned": [
+            "/app/src",
+            "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages"
+        ],
+        "scanned_full_path": [
+            "/app/src",
+            "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages"
+        ],
+        "target_languages": [
+            "python"
+        ],
+        "policy_file": null,
+        "policy_file_source": "local",
+        "audit_and_monitor": false,
+        "api_key": false,
+        "account": "",
+        "local_database_path": null,
+        "safety_version": "3.7.0",
+        "timestamp": "2026-03-06 05:33:26",
+        "packages_found": 121,
+        "vulnerabilities_found": 0,
+        "vulnerabilities_ignored": 0,
+        "remediations_recommended": 0,
+        "telemetry": {
+            "safety_options": {
+                "json": {
+                    "--json": 1
+                }
+            },
+            "safety_version": "3.7.0",
+            "safety_source": "cli",
+            "os_type": "Linux",
+            "os_release": "6.8.0",
+            "os_description": "Linux-6.8.0-x86_64-with-glibc2.39",
+            "python_version": "3.12.12",
+            "safety_command": "check"
+        },
+        "git": {
+            "branch": "jules-14995449865540353190-fe3a1500",
+            "tag": "v3.2.1",
+            "commit": "61cba58c736318a5770c40fe632479a8e5f9c478",
+            "dirty": "True",
+            "origin": "https://github.com/sl4m3/ledgermind"
+        },
+        "project": null,
+        "json_version": "1.1",
+        "remediations_attempted": 0,
+        "remediations_completed": 0,
+        "remediation_mode": "NON_INTERACTIVE"
+    },
+    "scanned_packages": {
+        "greenlet": {
+            "name": "greenlet",
+            "version": "3.3.0",
+            "requirements": [
+                {
+                    "raw": "greenlet==3.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "greenlet",
+                    "specifier": "==3.3.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/greenlet-3.3.0.dist-info"
+                }
+            ]
+        },
+        "pip": {
+            "name": "pip",
+            "version": "25.3",
+            "requirements": [
+                {
+                    "raw": "pip==25.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pip",
+                    "specifier": "==25.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pip-25.3.dist-info"
+                }
+            ]
+        },
+        "playwright": {
+            "name": "playwright",
+            "version": "1.57.0",
+            "requirements": [
+                {
+                    "raw": "playwright==1.57.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "playwright",
+                    "specifier": "==1.57.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/playwright-1.57.0.dist-info"
+                }
+            ]
+        },
+        "pyee": {
+            "name": "pyee",
+            "version": "13.0.0",
+            "requirements": [
+                {
+                    "raw": "pyee==13.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pyee",
+                    "specifier": "==13.0.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pyee-13.0.0.dist-info"
+                }
+            ]
+        },
+        "typing_extensions": {
+            "name": "typing_extensions",
+            "version": "4.15.0",
+            "requirements": [
+                {
+                    "raw": "typing_extensions==4.15.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "typing_extensions",
+                    "specifier": "==4.15.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/typing_extensions-4.15.0.dist-info"
+                }
+            ]
+        },
+        "PyYAML": {
+            "name": "PyYAML",
+            "version": "6.0.3",
+            "requirements": [
+                {
+                    "raw": "PyYAML==6.0.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "PyYAML",
+                    "specifier": "==6.0.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pyyaml-6.0.3.dist-info"
+                }
+            ]
+        },
+        "prompt_toolkit": {
+            "name": "prompt_toolkit",
+            "version": "3.0.52",
+            "requirements": [
+                {
+                    "raw": "prompt_toolkit==3.0.52",
+                    "extras": [],
+                    "marker": null,
+                    "name": "prompt_toolkit",
+                    "specifier": "==3.0.52",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/prompt_toolkit-3.0.52.dist-info"
+                }
+            ]
+        },
+        "urllib3": {
+            "name": "urllib3",
+            "version": "2.6.3",
+            "requirements": [
+                {
+                    "raw": "urllib3==2.6.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "urllib3",
+                    "specifier": "==2.6.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/urllib3-2.6.3.dist-info"
+                }
+            ]
+        },
+        "jaraco.context": {
+            "name": "jaraco.context",
+            "version": "6.1.0",
+            "requirements": [
+                {
+                    "raw": "jaraco.context==6.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "jaraco.context",
+                    "specifier": "==6.1.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/jaraco_context-6.1.0.dist-info"
+                }
+            ]
+        },
+        "rpds-py": {
+            "name": "rpds-py",
+            "version": "0.30.0",
+            "requirements": [
+                {
+                    "raw": "rpds-py==0.30.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "rpds-py",
+                    "specifier": "==0.30.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/rpds_py-0.30.0.dist-info"
+                }
+            ]
+        },
+        "beartype": {
+            "name": "beartype",
+            "version": "0.22.9",
+            "requirements": [
+                {
+                    "raw": "beartype==0.22.9",
+                    "extras": [],
+                    "marker": null,
+                    "name": "beartype",
+                    "specifier": "==0.22.9",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/beartype-0.22.9.dist-info"
+                }
+            ]
+        },
+        "diskcache": {
+            "name": "diskcache",
+            "version": "5.6.3",
+            "requirements": [
+                {
+                    "raw": "diskcache==5.6.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "diskcache",
+                    "specifier": "==5.6.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/diskcache-5.6.3.dist-info"
+                }
+            ]
+        },
+        "py-key-value-aio": {
+            "name": "py-key-value-aio",
+            "version": "0.4.4",
+            "requirements": [
+                {
+                    "raw": "py-key-value-aio==0.4.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "py-key-value-aio",
+                    "specifier": "==0.4.4",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/py_key_value_aio-0.4.4.dist-info"
+                }
+            ]
+        },
+        "ruamel.yaml": {
+            "name": "ruamel.yaml",
+            "version": "0.19.1",
+            "requirements": [
+                {
+                    "raw": "ruamel.yaml==0.19.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "ruamel.yaml",
+                    "specifier": "==0.19.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ruamel_yaml-0.19.1.dist-info"
+                }
+            ]
+        },
+        "annotated-doc": {
+            "name": "annotated-doc",
+            "version": "0.0.4",
+            "requirements": [
+                {
+                    "raw": "annotated-doc==0.0.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "annotated-doc",
+                    "specifier": "==0.0.4",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/annotated_doc-0.0.4.dist-info"
+                }
+            ]
+        },
+        "SQLAlchemy": {
+            "name": "SQLAlchemy",
+            "version": "2.0.48",
+            "requirements": [
+                {
+                    "raw": "SQLAlchemy==2.0.48",
+                    "extras": [],
+                    "marker": null,
+                    "name": "SQLAlchemy",
+                    "specifier": "==2.0.48",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sqlalchemy-2.0.48.dist-info"
+                }
+            ]
+        },
+        "tenacity": {
+            "name": "tenacity",
+            "version": "9.1.4",
+            "requirements": [
+                {
+                    "raw": "tenacity==9.1.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "tenacity",
+                    "specifier": "==9.1.4",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/tenacity-9.1.4.dist-info"
+                }
+            ]
+        },
+        "email-validator": {
+            "name": "email-validator",
+            "version": "2.3.0",
+            "requirements": [
+                {
+                    "raw": "email-validator==2.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "email-validator",
+                    "specifier": "==2.3.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/email_validator-2.3.0.dist-info"
+                }
+            ]
+        },
+        "uvicorn": {
+            "name": "uvicorn",
+            "version": "0.41.0",
+            "requirements": [
+                {
+                    "raw": "uvicorn==0.41.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "uvicorn",
+                    "specifier": "==0.41.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/uvicorn-0.41.0.dist-info"
+                }
+            ]
+        },
+        "mdurl": {
+            "name": "mdurl",
+            "version": "0.1.2",
+            "requirements": [
+                {
+                    "raw": "mdurl==0.1.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "mdurl",
+                    "specifier": "==0.1.2",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/mdurl-0.1.2.dist-info"
+                }
+            ]
+        },
+        "h11": {
+            "name": "h11",
+            "version": "0.16.0",
+            "requirements": [
+                {
+                    "raw": "h11==0.16.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "h11",
+                    "specifier": "==0.16.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/h11-0.16.0.dist-info"
+                }
+            ]
+        },
+        "bleach": {
+            "name": "bleach",
+            "version": "6.3.0",
+            "requirements": [
+                {
+                    "raw": "bleach==6.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "bleach",
+                    "specifier": "==6.3.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/bleach-6.3.0.dist-info"
+                }
+            ]
+        },
+        "MarkupSafe": {
+            "name": "MarkupSafe",
+            "version": "3.0.3",
+            "requirements": [
+                {
+                    "raw": "MarkupSafe==3.0.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "MarkupSafe",
+                    "specifier": "==3.0.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/markupsafe-3.0.3.dist-info"
+                }
+            ]
+        },
+        "markdown-it-py": {
+            "name": "markdown-it-py",
+            "version": "4.0.0",
+            "requirements": [
+                {
+                    "raw": "markdown-it-py==4.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "markdown-it-py",
+                    "specifier": "==4.0.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/markdown_it_py-4.0.0.dist-info"
+                }
+            ]
+        },
+        "certifi": {
+            "name": "certifi",
+            "version": "2026.2.25",
+            "requirements": [
+                {
+                    "raw": "certifi==2026.2.25",
+                    "extras": [],
+                    "marker": null,
+                    "name": "certifi",
+                    "specifier": "==2026.2.25",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/certifi-2026.2.25.dist-info"
+                }
+            ]
+        },
+        "docstring_parser": {
+            "name": "docstring_parser",
+            "version": "0.17.0",
+            "requirements": [
+                {
+                    "raw": "docstring_parser==0.17.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "docstring_parser",
+                    "specifier": "==0.17.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/docstring_parser-0.17.0.dist-info"
+                }
+            ]
+        },
+        "tqdm": {
+            "name": "tqdm",
+            "version": "4.67.3",
+            "requirements": [
+                {
+                    "raw": "tqdm==4.67.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "tqdm",
+                    "specifier": "==4.67.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/tqdm-4.67.3.dist-info"
+                }
+            ]
+        },
+        "docutils": {
+            "name": "docutils",
+            "version": "0.22.4",
+            "requirements": [
+                {
+                    "raw": "docutils==0.22.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "docutils",
+                    "specifier": "==0.22.4",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/docutils-0.22.4.dist-info"
+                }
+            ]
+        },
+        "watchfiles": {
+            "name": "watchfiles",
+            "version": "1.1.1",
+            "requirements": [
+                {
+                    "raw": "watchfiles==1.1.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "watchfiles",
+                    "specifier": "==1.1.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/watchfiles-1.1.1.dist-info"
+                }
+            ]
+        },
+        "websockets": {
+            "name": "websockets",
+            "version": "16.0",
+            "requirements": [
+                {
+                    "raw": "websockets==16.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "websockets",
+                    "specifier": "==16.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/websockets-16.0.dist-info"
+                }
+            ]
+        },
+        "dparse": {
+            "name": "dparse",
+            "version": "0.6.4",
+            "requirements": [
+                {
+                    "raw": "dparse==0.6.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "dparse",
+                    "specifier": "==0.6.4",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/dparse-0.6.4.dist-info"
+                }
+            ]
+        },
+        "aiofile": {
+            "name": "aiofile",
+            "version": "3.9.0",
+            "requirements": [
+                {
+                    "raw": "aiofile==3.9.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "aiofile",
+                    "specifier": "==3.9.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/aiofile-3.9.0.dist-info"
+                }
+            ]
+        },
+        "SecretStorage": {
+            "name": "SecretStorage",
+            "version": "3.5.0",
+            "requirements": [
+                {
+                    "raw": "SecretStorage==3.5.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "SecretStorage",
+                    "specifier": "==3.5.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/secretstorage-3.5.0.dist-info"
+                }
+            ]
+        },
+        "click": {
+            "name": "click",
+            "version": "8.3.1",
+            "requirements": [
+                {
+                    "raw": "click==8.3.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "click",
+                    "specifier": "==8.3.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/click-8.3.1.dist-info"
+                }
+            ]
+        },
+        "pydantic_core": {
+            "name": "pydantic_core",
+            "version": "2.41.5",
+            "requirements": [
+                {
+                    "raw": "pydantic_core==2.41.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pydantic_core",
+                    "specifier": "==2.41.5",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pydantic_core-2.41.5.dist-info"
+                }
+            ]
+        },
+        "Jinja2": {
+            "name": "Jinja2",
+            "version": "3.1.6",
+            "requirements": [
+                {
+                    "raw": "Jinja2==3.1.6",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Jinja2",
+                    "specifier": "==3.1.6",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/jinja2-3.1.6.dist-info"
+                }
+            ]
+        },
+        "cyclopts": {
+            "name": "cyclopts",
+            "version": "4.7.0",
+            "requirements": [
+                {
+                    "raw": "cyclopts==4.7.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "cyclopts",
+                    "specifier": "==4.7.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/cyclopts-4.7.0.dist-info"
+                }
+            ]
+        },
+        "PyJWT": {
+            "name": "PyJWT",
+            "version": "2.11.0",
+            "requirements": [
+                {
+                    "raw": "PyJWT==2.11.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "PyJWT",
+                    "specifier": "==2.11.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pyjwt-2.11.0.dist-info"
+                }
+            ]
+        },
+        "idna": {
+            "name": "idna",
+            "version": "3.11",
+            "requirements": [
+                {
+                    "raw": "idna==3.11",
+                    "extras": [],
+                    "marker": null,
+                    "name": "idna",
+                    "specifier": "==3.11",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/idna-3.11.dist-info"
+                }
+            ]
+        },
+        "jsonref": {
+            "name": "jsonref",
+            "version": "1.1.0",
+            "requirements": [
+                {
+                    "raw": "jsonref==1.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "jsonref",
+                    "specifier": "==1.1.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/jsonref-1.1.0.dist-info"
+                }
+            ]
+        },
+        "joblib": {
+            "name": "joblib",
+            "version": "1.5.3",
+            "requirements": [
+                {
+                    "raw": "joblib==1.5.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "joblib",
+                    "specifier": "==1.5.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/joblib-1.5.3.dist-info"
+                }
+            ]
+        },
+        "dnspython": {
+            "name": "dnspython",
+            "version": "2.8.0",
+            "requirements": [
+                {
+                    "raw": "dnspython==2.8.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "dnspython",
+                    "specifier": "==2.8.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/dnspython-2.8.0.dist-info"
+                }
+            ]
+        },
+        "filelock": {
+            "name": "filelock",
+            "version": "3.25.0",
+            "requirements": [
+                {
+                    "raw": "filelock==3.25.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "filelock",
+                    "specifier": "==3.25.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/filelock-3.25.0.dist-info"
+                }
+            ]
+        },
+        "keyring": {
+            "name": "keyring",
+            "version": "25.7.0",
+            "requirements": [
+                {
+                    "raw": "keyring==25.7.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "keyring",
+                    "specifier": "==25.7.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/keyring-25.7.0.dist-info"
+                }
+            ]
+        },
+        "python-multipart": {
+            "name": "python-multipart",
+            "version": "0.0.22",
+            "requirements": [
+                {
+                    "raw": "python-multipart==0.0.22",
+                    "extras": [],
+                    "marker": null,
+                    "name": "python-multipart",
+                    "specifier": "==0.0.22",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/python_multipart-0.0.22.dist-info"
+                }
+            ]
+        },
+        "bandit": {
+            "name": "bandit",
+            "version": "1.9.4",
+            "requirements": [
+                {
+                    "raw": "bandit==1.9.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "bandit",
+                    "specifier": "==1.9.4",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/bandit-1.9.4.dist-info"
+                }
+            ]
+        },
+        "nest-asyncio": {
+            "name": "nest-asyncio",
+            "version": "1.6.0",
+            "requirements": [
+                {
+                    "raw": "nest-asyncio==1.6.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "nest-asyncio",
+                    "specifier": "==1.6.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/nest_asyncio-1.6.0.dist-info"
+                }
+            ]
+        },
+        "ledgermind": {
+            "name": "ledgermind",
+            "version": "3.2.1",
+            "requirements": [
+                {
+                    "raw": "ledgermind==3.2.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "ledgermind",
+                    "specifier": "==3.2.1",
+                    "url": null,
+                    "found": "/app/src/ledgermind.egg-info"
+                }
+            ]
+        },
+        "jsonschema": {
+            "name": "jsonschema",
+            "version": "4.26.0",
+            "requirements": [
+                {
+                    "raw": "jsonschema==4.26.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "jsonschema",
+                    "specifier": "==4.26.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/jsonschema-4.26.0.dist-info"
+                }
+            ]
+        },
+        "exceptiongroup": {
+            "name": "exceptiongroup",
+            "version": "1.3.1",
+            "requirements": [
+                {
+                    "raw": "exceptiongroup==1.3.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "exceptiongroup",
+                    "specifier": "==1.3.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/exceptiongroup-1.3.1.dist-info"
+                }
+            ]
+        },
+        "fastapi": {
+            "name": "fastapi",
+            "version": "0.135.1",
+            "requirements": [
+                {
+                    "raw": "fastapi==0.135.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "fastapi",
+                    "specifier": "==0.135.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/fastapi-0.135.1.dist-info"
+                }
+            ]
+        },
+        "fastmcp": {
+            "name": "fastmcp",
+            "version": "3.1.0",
+            "requirements": [
+                {
+                    "raw": "fastmcp==3.1.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "fastmcp",
+                    "specifier": "==3.1.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/fastmcp-3.1.0.dist-info"
+                }
+            ]
+        },
+        "cryptography": {
+            "name": "cryptography",
+            "version": "46.0.5",
+            "requirements": [
+                {
+                    "raw": "cryptography==46.0.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "cryptography",
+                    "specifier": "==46.0.5",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/cryptography-46.0.5.dist-info"
+                }
+            ]
+        },
+        "pycparser": {
+            "name": "pycparser",
+            "version": "3.0",
+            "requirements": [
+                {
+                    "raw": "pycparser==3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pycparser",
+                    "specifier": "==3.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pycparser-3.0.dist-info"
+                }
+            ]
+        },
+        "jsonschema-specifications": {
+            "name": "jsonschema-specifications",
+            "version": "2025.9.1",
+            "requirements": [
+                {
+                    "raw": "jsonschema-specifications==2025.9.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "jsonschema-specifications",
+                    "specifier": "==2025.9.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/jsonschema_specifications-2025.9.1.dist-info"
+                }
+            ]
+        },
+        "regex": {
+            "name": "regex",
+            "version": "2026.2.28",
+            "requirements": [
+                {
+                    "raw": "regex==2026.2.28",
+                    "extras": [],
+                    "marker": null,
+                    "name": "regex",
+                    "specifier": "==2026.2.28",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/regex-2026.2.28.dist-info"
+                }
+            ]
+        },
+        "safety": {
+            "name": "safety",
+            "version": "3.7.0",
+            "requirements": [
+                {
+                    "raw": "safety==3.7.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "safety",
+                    "specifier": "==3.7.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/safety-3.7.0.dist-info"
+                }
+            ]
+        },
+        "requests": {
+            "name": "requests",
+            "version": "2.32.5",
+            "requirements": [
+                {
+                    "raw": "requests==2.32.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "requests",
+                    "specifier": "==2.32.5",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/requests-2.32.5.dist-info"
+                }
+            ]
+        },
+        "typing-inspection": {
+            "name": "typing-inspection",
+            "version": "0.4.2",
+            "requirements": [
+                {
+                    "raw": "typing-inspection==0.4.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "typing-inspection",
+                    "specifier": "==0.4.2",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/typing_inspection-0.4.2.dist-info"
+                }
+            ]
+        },
+        "jsonschema-path": {
+            "name": "jsonschema-path",
+            "version": "0.4.5",
+            "requirements": [
+                {
+                    "raw": "jsonschema-path==0.4.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "jsonschema-path",
+                    "specifier": "==0.4.5",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/jsonschema_path-0.4.5.dist-info"
+                }
+            ]
+        },
+        "pytest-asyncio": {
+            "name": "pytest-asyncio",
+            "version": "1.3.0",
+            "requirements": [
+                {
+                    "raw": "pytest-asyncio==1.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pytest-asyncio",
+                    "specifier": "==1.3.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pytest_asyncio-1.3.0.dist-info"
+                }
+            ]
+        },
+        "safety-schemas": {
+            "name": "safety-schemas",
+            "version": "0.0.16",
+            "requirements": [
+                {
+                    "raw": "safety-schemas==0.0.16",
+                    "extras": [],
+                    "marker": null,
+                    "name": "safety-schemas",
+                    "specifier": "==0.0.16",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/safety_schemas-0.0.16.dist-info"
+                }
+            ]
+        },
+        "zipp": {
+            "name": "zipp",
+            "version": "3.23.0",
+            "requirements": [
+                {
+                    "raw": "zipp==3.23.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "zipp",
+                    "specifier": "==3.23.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/zipp-3.23.0.dist-info"
+                }
+            ]
+        },
+        "starlette": {
+            "name": "starlette",
+            "version": "0.52.1",
+            "requirements": [
+                {
+                    "raw": "starlette==0.52.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "starlette",
+                    "specifier": "==0.52.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/starlette-0.52.1.dist-info"
+                }
+            ]
+        },
+        "pytest-benchmark": {
+            "name": "pytest-benchmark",
+            "version": "5.2.3",
+            "requirements": [
+                {
+                    "raw": "pytest-benchmark==5.2.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pytest-benchmark",
+                    "specifier": "==5.2.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pytest_benchmark-5.2.3.dist-info"
+                }
+            ]
+        },
+        "typer": {
+            "name": "typer",
+            "version": "0.24.1",
+            "requirements": [
+                {
+                    "raw": "typer==0.24.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "typer",
+                    "specifier": "==0.24.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/typer-0.24.1.dist-info"
+                }
+            ]
+        },
+        "sse-starlette": {
+            "name": "sse-starlette",
+            "version": "3.3.2",
+            "requirements": [
+                {
+                    "raw": "sse-starlette==3.3.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "sse-starlette",
+                    "specifier": "==3.3.2",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sse_starlette-3.3.2.dist-info"
+                }
+            ]
+        },
+        "cachetools": {
+            "name": "cachetools",
+            "version": "7.0.3",
+            "requirements": [
+                {
+                    "raw": "cachetools==7.0.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "cachetools",
+                    "specifier": "==7.0.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/cachetools-7.0.3.dist-info"
+                }
+            ]
+        },
+        "llama_cpp_python": {
+            "name": "llama_cpp_python",
+            "version": "0.3.16",
+            "requirements": [
+                {
+                    "raw": "llama_cpp_python==0.3.16",
+                    "extras": [],
+                    "marker": null,
+                    "name": "llama_cpp_python",
+                    "specifier": "==0.3.16",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/llama_cpp_python-0.3.16.dist-info"
+                }
+            ]
+        },
+        "prometheus_client": {
+            "name": "prometheus_client",
+            "version": "0.24.1",
+            "requirements": [
+                {
+                    "raw": "prometheus_client==0.24.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "prometheus_client",
+                    "specifier": "==0.24.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/prometheus_client-0.24.1.dist-info"
+                }
+            ]
+        },
+        "pluggy": {
+            "name": "pluggy",
+            "version": "1.6.0",
+            "requirements": [
+                {
+                    "raw": "pluggy==1.6.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pluggy",
+                    "specifier": "==1.6.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pluggy-1.6.0.dist-info"
+                }
+            ]
+        },
+        "Authlib": {
+            "name": "Authlib",
+            "version": "1.6.9",
+            "requirements": [
+                {
+                    "raw": "Authlib==1.6.9",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Authlib",
+                    "specifier": "==1.6.9",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/authlib-1.6.9.dist-info"
+                }
+            ]
+        },
+        "httpx-sse": {
+            "name": "httpx-sse",
+            "version": "0.4.3",
+            "requirements": [
+                {
+                    "raw": "httpx-sse==0.4.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "httpx-sse",
+                    "specifier": "==0.4.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/httpx_sse-0.4.3.dist-info"
+                }
+            ]
+        },
+        "uncalled-for": {
+            "name": "uncalled-for",
+            "version": "0.2.0",
+            "requirements": [
+                {
+                    "raw": "uncalled-for==0.2.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "uncalled-for",
+                    "specifier": "==0.2.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/uncalled_for-0.2.0.dist-info"
+                }
+            ]
+        },
+        "python-dotenv": {
+            "name": "python-dotenv",
+            "version": "1.2.2",
+            "requirements": [
+                {
+                    "raw": "python-dotenv==1.2.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "python-dotenv",
+                    "specifier": "==1.2.2",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/python_dotenv-1.2.2.dist-info"
+                }
+            ]
+        },
+        "referencing": {
+            "name": "referencing",
+            "version": "0.37.0",
+            "requirements": [
+                {
+                    "raw": "referencing==0.37.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "referencing",
+                    "specifier": "==0.37.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/referencing-0.37.0.dist-info"
+                }
+            ]
+        },
+        "openapi-pydantic": {
+            "name": "openapi-pydantic",
+            "version": "0.5.1",
+            "requirements": [
+                {
+                    "raw": "openapi-pydantic==0.5.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "openapi-pydantic",
+                    "specifier": "==0.5.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/openapi_pydantic-0.5.1.dist-info"
+                }
+            ]
+        },
+        "caio": {
+            "name": "caio",
+            "version": "0.9.25",
+            "requirements": [
+                {
+                    "raw": "caio==0.9.25",
+                    "extras": [],
+                    "marker": null,
+                    "name": "caio",
+                    "specifier": "==0.9.25",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/caio-0.9.25.dist-info"
+                }
+            ]
+        },
+        "httpcore": {
+            "name": "httpcore",
+            "version": "1.0.9",
+            "requirements": [
+                {
+                    "raw": "httpcore==1.0.9",
+                    "extras": [],
+                    "marker": null,
+                    "name": "httpcore",
+                    "specifier": "==1.0.9",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/httpcore-1.0.9.dist-info"
+                }
+            ]
+        },
+        "wcwidth": {
+            "name": "wcwidth",
+            "version": "0.6.0",
+            "requirements": [
+                {
+                    "raw": "wcwidth==0.6.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "wcwidth",
+                    "specifier": "==0.6.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/wcwidth-0.6.0.dist-info"
+                }
+            ]
+        },
+        "pathable": {
+            "name": "pathable",
+            "version": "0.5.0",
+            "requirements": [
+                {
+                    "raw": "pathable==0.5.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pathable",
+                    "specifier": "==0.5.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pathable-0.5.0.dist-info"
+                }
+            ]
+        },
+        "execnet": {
+            "name": "execnet",
+            "version": "2.1.2",
+            "requirements": [
+                {
+                    "raw": "execnet==2.1.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "execnet",
+                    "specifier": "==2.1.2",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/execnet-2.1.2.dist-info"
+                }
+            ]
+        },
+        "hypothesis": {
+            "name": "hypothesis",
+            "version": "6.151.9",
+            "requirements": [
+                {
+                    "raw": "hypothesis==6.151.9",
+                    "extras": [],
+                    "marker": null,
+                    "name": "hypothesis",
+                    "specifier": "==6.151.9",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/hypothesis-6.151.9.dist-info"
+                }
+            ]
+        },
+        "psutil": {
+            "name": "psutil",
+            "version": "7.2.2",
+            "requirements": [
+                {
+                    "raw": "psutil==7.2.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "psutil",
+                    "specifier": "==7.2.2",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/psutil-7.2.2.dist-info"
+                }
+            ]
+        },
+        "numpy": {
+            "name": "numpy",
+            "version": "2.4.2",
+            "requirements": [
+                {
+                    "raw": "numpy==2.4.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "numpy",
+                    "specifier": "==2.4.2",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/numpy-2.4.2.dist-info"
+                }
+            ]
+        },
+        "platformdirs": {
+            "name": "platformdirs",
+            "version": "4.9.4",
+            "requirements": [
+                {
+                    "raw": "platformdirs==4.9.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "platformdirs",
+                    "specifier": "==4.9.4",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/platformdirs-4.9.4.dist-info"
+                }
+            ]
+        },
+        "annotated-types": {
+            "name": "annotated-types",
+            "version": "0.7.0",
+            "requirements": [
+                {
+                    "raw": "annotated-types==0.7.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "annotated-types",
+                    "specifier": "==0.7.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/annotated_types-0.7.0.dist-info"
+                }
+            ]
+        },
+        "shellingham": {
+            "name": "shellingham",
+            "version": "1.5.4",
+            "requirements": [
+                {
+                    "raw": "shellingham==1.5.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "shellingham",
+                    "specifier": "==1.5.4",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/shellingham-1.5.4.dist-info"
+                }
+            ]
+        },
+        "jaraco.classes": {
+            "name": "jaraco.classes",
+            "version": "3.4.0",
+            "requirements": [
+                {
+                    "raw": "jaraco.classes==3.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "jaraco.classes",
+                    "specifier": "==3.4.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/jaraco.classes-3.4.0.dist-info"
+                }
+            ]
+        },
+        "tomlkit": {
+            "name": "tomlkit",
+            "version": "0.14.0",
+            "requirements": [
+                {
+                    "raw": "tomlkit==0.14.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "tomlkit",
+                    "specifier": "==0.14.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/tomlkit-0.14.0.dist-info"
+                }
+            ]
+        },
+        "sortedcontainers": {
+            "name": "sortedcontainers",
+            "version": "2.4.0",
+            "requirements": [
+                {
+                    "raw": "sortedcontainers==2.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "sortedcontainers",
+                    "specifier": "==2.4.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/sortedcontainers-2.4.0.dist-info"
+                }
+            ]
+        },
+        "rich-rst": {
+            "name": "rich-rst",
+            "version": "1.3.2",
+            "requirements": [
+                {
+                    "raw": "rich-rst==1.3.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "rich-rst",
+                    "specifier": "==1.3.2",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/rich_rst-1.3.2.dist-info"
+                }
+            ]
+        },
+        "opentelemetry-api": {
+            "name": "opentelemetry-api",
+            "version": "1.40.0",
+            "requirements": [
+                {
+                    "raw": "opentelemetry-api==1.40.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "opentelemetry-api",
+                    "specifier": "==1.40.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/opentelemetry_api-1.40.0.dist-info"
+                }
+            ]
+        },
+        "ruff": {
+            "name": "ruff",
+            "version": "0.15.5",
+            "requirements": [
+                {
+                    "raw": "ruff==0.15.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "ruff",
+                    "specifier": "==0.15.5",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/ruff-0.15.5.dist-info"
+                }
+            ]
+        },
+        "iniconfig": {
+            "name": "iniconfig",
+            "version": "2.3.0",
+            "requirements": [
+                {
+                    "raw": "iniconfig==2.3.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "iniconfig",
+                    "specifier": "==2.3.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/iniconfig-2.3.0.dist-info"
+                }
+            ]
+        },
+        "webencodings": {
+            "name": "webencodings",
+            "version": "0.5.1",
+            "requirements": [
+                {
+                    "raw": "webencodings==0.5.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "webencodings",
+                    "specifier": "==0.5.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/webencodings-0.5.1.dist-info"
+                }
+            ]
+        },
+        "nltk": {
+            "name": "nltk",
+            "version": "3.9.3",
+            "requirements": [
+                {
+                    "raw": "nltk==3.9.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "nltk",
+                    "specifier": "==3.9.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/nltk-3.9.3.dist-info"
+                }
+            ]
+        },
+        "packaging": {
+            "name": "packaging",
+            "version": "26.0",
+            "requirements": [
+                {
+                    "raw": "packaging==26.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "packaging",
+                    "specifier": "==26.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/packaging-26.0.dist-info"
+                }
+            ]
+        },
+        "cffi": {
+            "name": "cffi",
+            "version": "2.0.0",
+            "requirements": [
+                {
+                    "raw": "cffi==2.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "cffi",
+                    "specifier": "==2.0.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/cffi-2.0.0.dist-info"
+                }
+            ]
+        },
+        "pydantic-settings": {
+            "name": "pydantic-settings",
+            "version": "2.13.1",
+            "requirements": [
+                {
+                    "raw": "pydantic-settings==2.13.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pydantic-settings",
+                    "specifier": "==2.13.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pydantic_settings-2.13.1.dist-info"
+                }
+            ]
+        },
+        "py-cpuinfo": {
+            "name": "py-cpuinfo",
+            "version": "9.0.0",
+            "requirements": [
+                {
+                    "raw": "py-cpuinfo==9.0.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "py-cpuinfo",
+                    "specifier": "==9.0.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/py_cpuinfo-9.0.0.dist-info"
+                }
+            ]
+        },
+        "jaraco.functools": {
+            "name": "jaraco.functools",
+            "version": "4.4.0",
+            "requirements": [
+                {
+                    "raw": "jaraco.functools==4.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "jaraco.functools",
+                    "specifier": "==4.4.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/jaraco_functools-4.4.0.dist-info"
+                }
+            ]
+        },
+        "Pygments": {
+            "name": "Pygments",
+            "version": "2.19.2",
+            "requirements": [
+                {
+                    "raw": "Pygments==2.19.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "Pygments",
+                    "specifier": "==2.19.2",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pygments-2.19.2.dist-info"
+                }
+            ]
+        },
+        "marshmallow": {
+            "name": "marshmallow",
+            "version": "4.2.2",
+            "requirements": [
+                {
+                    "raw": "marshmallow==4.2.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "marshmallow",
+                    "specifier": "==4.2.2",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/marshmallow-4.2.2.dist-info"
+                }
+            ]
+        },
+        "jeepney": {
+            "name": "jeepney",
+            "version": "0.9.0",
+            "requirements": [
+                {
+                    "raw": "jeepney==0.9.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "jeepney",
+                    "specifier": "==0.9.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/jeepney-0.9.0.dist-info"
+                }
+            ]
+        },
+        "more-itertools": {
+            "name": "more-itertools",
+            "version": "10.8.0",
+            "requirements": [
+                {
+                    "raw": "more-itertools==10.8.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "more-itertools",
+                    "specifier": "==10.8.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/more_itertools-10.8.0.dist-info"
+                }
+            ]
+        },
+        "mcp": {
+            "name": "mcp",
+            "version": "1.26.0",
+            "requirements": [
+                {
+                    "raw": "mcp==1.26.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "mcp",
+                    "specifier": "==1.26.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/mcp-1.26.0.dist-info"
+                }
+            ]
+        },
+        "attrs": {
+            "name": "attrs",
+            "version": "25.4.0",
+            "requirements": [
+                {
+                    "raw": "attrs==25.4.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "attrs",
+                    "specifier": "==25.4.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/attrs-25.4.0.dist-info"
+                }
+            ]
+        },
+        "stevedore": {
+            "name": "stevedore",
+            "version": "5.7.0",
+            "requirements": [
+                {
+                    "raw": "stevedore==5.7.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "stevedore",
+                    "specifier": "==5.7.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/stevedore-5.7.0.dist-info"
+                }
+            ]
+        },
+        "pytest-xdist": {
+            "name": "pytest-xdist",
+            "version": "3.8.0",
+            "requirements": [
+                {
+                    "raw": "pytest-xdist==3.8.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pytest-xdist",
+                    "specifier": "==3.8.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pytest_xdist-3.8.0.dist-info"
+                }
+            ]
+        },
+        "importlib_metadata": {
+            "name": "importlib_metadata",
+            "version": "8.7.1",
+            "requirements": [
+                {
+                    "raw": "importlib_metadata==8.7.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "importlib_metadata",
+                    "specifier": "==8.7.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/importlib_metadata-8.7.1.dist-info"
+                }
+            ]
+        },
+        "charset-normalizer": {
+            "name": "charset-normalizer",
+            "version": "3.4.4",
+            "requirements": [
+                {
+                    "raw": "charset-normalizer==3.4.4",
+                    "extras": [],
+                    "marker": null,
+                    "name": "charset-normalizer",
+                    "specifier": "==3.4.4",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/charset_normalizer-3.4.4.dist-info"
+                }
+            ]
+        },
+        "anyio": {
+            "name": "anyio",
+            "version": "4.12.1",
+            "requirements": [
+                {
+                    "raw": "anyio==4.12.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "anyio",
+                    "specifier": "==4.12.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/anyio-4.12.1.dist-info"
+                }
+            ]
+        },
+        "rich": {
+            "name": "rich",
+            "version": "14.3.3",
+            "requirements": [
+                {
+                    "raw": "rich==14.3.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "rich",
+                    "specifier": "==14.3.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/rich-14.3.3.dist-info"
+                }
+            ]
+        },
+        "pyperclip": {
+            "name": "pyperclip",
+            "version": "1.11.0",
+            "requirements": [
+                {
+                    "raw": "pyperclip==1.11.0",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pyperclip",
+                    "specifier": "==1.11.0",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pyperclip-1.11.0.dist-info"
+                }
+            ]
+        },
+        "httpx": {
+            "name": "httpx",
+            "version": "0.28.1",
+            "requirements": [
+                {
+                    "raw": "httpx==0.28.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "httpx",
+                    "specifier": "==0.28.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/httpx-0.28.1.dist-info"
+                }
+            ]
+        },
+        "pytest": {
+            "name": "pytest",
+            "version": "9.0.2",
+            "requirements": [
+                {
+                    "raw": "pytest==9.0.2",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pytest",
+                    "specifier": "==9.0.2",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pytest-9.0.2.dist-info"
+                }
+            ]
+        },
+        "annoy": {
+            "name": "annoy",
+            "version": "1.17.3",
+            "requirements": [
+                {
+                    "raw": "annoy==1.17.3",
+                    "extras": [],
+                    "marker": null,
+                    "name": "annoy",
+                    "specifier": "==1.17.3",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/annoy-1.17.3.dist-info"
+                }
+            ]
+        },
+        "pydantic": {
+            "name": "pydantic",
+            "version": "2.12.5",
+            "requirements": [
+                {
+                    "raw": "pydantic==2.12.5",
+                    "extras": [],
+                    "marker": null,
+                    "name": "pydantic",
+                    "specifier": "==2.12.5",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/pydantic-2.12.5.dist-info"
+                }
+            ]
+        },
+        "questionary": {
+            "name": "questionary",
+            "version": "2.1.1",
+            "requirements": [
+                {
+                    "raw": "questionary==2.1.1",
+                    "extras": [],
+                    "marker": null,
+                    "name": "questionary",
+                    "specifier": "==2.1.1",
+                    "url": null,
+                    "found": "/home/jules/.pyenv/versions/3.12.12/lib/python3.12/site-packages/questionary-2.1.1.dist-info"
+                }
+            ]
+        }
+    },
+    "affected_packages": {},
+    "announcements": [],
+    "vulnerabilities": [],
+    "ignored_vulnerabilities": [],
+    "remediations": {},
+    "remediations_results": {
+        "vulnerabilities_fixed": [],
+        "remediations_applied": {},
+        "remediations_skipped": {}
+    }
+}
