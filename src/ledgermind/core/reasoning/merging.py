@@ -14,16 +14,25 @@ class MergeEngine:
         self.memory = memory
 
     def _get_active_merge_targets(self) -> Set[str]:
-        """Returns a set of decision IDs already pending for a merge."""
+        """Returns a set of decision IDs already locked or pending for a merge."""
         targets = set()
         # Direct SQLite query via metadata store for efficiency
         metas = self.memory.semantic.meta.list_all()
         for m in metas:
-            if m.get('status') == 'draft' and m.get('kind') == KIND_PROPOSAL:
+            status = m.get('status')
+            fid = m.get('fid')
+            
+            # Source 1: Files explicitly locked with 'pending_merge' status
+            if status == 'pending_merge':
+                targets.add(fid)
+            
+            # Source 2: Files mentioned in existing merge proposals (redundancy check)
+            if status == 'draft' and m.get('kind') == KIND_PROPOSAL:
                 try:
                     ctx = json.loads(m.get('context_json', '{}'))
-                    supersedes = ctx.get('suggested_supersedes', [])
-                    targets.update(supersedes)
+                    if m.get('target') in ('knowledge_merge', 'knowledge_validation'):
+                        supersedes = ctx.get('suggested_supersedes', [])
+                        targets.update(supersedes)
                 except: continue
         return targets
 
