@@ -66,11 +66,17 @@ class ConflictEngine:
 
         raise RuntimeError("Metadata store required for performance")
 
-    def check_for_conflicts(self, event: MemoryEvent, namespace: Optional[str] = None) -> Optional[str]:
+    def check_for_conflicts(self, event: MemoryEvent, namespace: Optional[str] = None, supersedes: Optional[List[str]] = None) -> Optional[str]:
         """
         Check for conflicts and return a human-readable message if any exist.
+        Excludes files that are intended to be superseded by this event.
         """
         conflicts = self.get_conflict_files(event, namespace=namespace)
         if conflicts:
-            return f"Conflict detected with: {', '.join(conflicts)}"
+            # Filter out files we are already superseding in this transaction
+            if supersedes:
+                conflicts = [c for c in conflicts if c not in supersedes]
+            
+            if conflicts:
+                return f"Conflict detected with: {', '.join(conflicts)}"
         return None
