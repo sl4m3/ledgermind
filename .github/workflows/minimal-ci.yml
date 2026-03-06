@@ -78,7 +78,7 @@ jobs:
       - name: Run Safety (Dependency Check)
         id: safety
         run: |
-          safety check --json > safety-report.json || echo "{}" > safety-report.json
+          safety check --json | awk '/^\{/,/^\}/' > safety-report.json || echo "{}" > safety-report.json
         continue-on-error: true
 
       - name: Run Pip-audit
