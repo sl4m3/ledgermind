@@ -108,7 +108,7 @@ class DecisionStream(BaseModel):
     compressive_rationale: Optional[str] = None
     namespace: str = "default"
     scope: PatternScope = PatternScope.LOCAL
-    status: Literal["active", "deprecated", "superseded", "draft", "accepted", "rejected", "falsified", "pending_merge"] = "active"
+    status: Literal["active", "deprecated", "superseded", "draft", "accepted", "rejected", "falsified", "pending_merge"] = "draft"
     
     phase: DecisionPhase = DecisionPhase.PATTERN
     vitality: DecisionVitality = DecisionVitality.ACTIVE
@@ -146,7 +146,7 @@ class DecisionStream(BaseModel):
 class DecisionContent(BaseModel):
     title: StrictStr
     target: TargetStr
-    status: Literal["active", "deprecated", "superseded", "draft", "accepted", "rejected", "falsified", "pending_merge"] = "active"
+    status: Literal["active", "deprecated", "superseded", "draft", "accepted", "rejected", "falsified", "pending_merge"] = "draft"
     rationale: RationaleStr
     compressive_rationale: Optional[str] = None
     namespace: str = "default"
