@@ -603,10 +603,11 @@ class SemanticStore:
         should_lock = not self._in_transaction
         if should_lock: self._fs_lock.acquire(exclusive=False)
         try:
-            # Use targeted SQL query instead of list_all() to avoid O(N) memory/cpu overhead
+            # We now check against BOTH active decisions and draft proposals
+            # to prevent semantic fragmentation early in the lifecycle.
             cursor = self.meta._conn.cursor()
             cursor.execute(
-                "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status = 'active' AND kind = 'decision'",
+                "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status IN ('active', 'draft') AND kind IN ('decision', 'proposal')",
                 (target, namespace)
             )
             return [row[0] for row in cursor.fetchall()]
