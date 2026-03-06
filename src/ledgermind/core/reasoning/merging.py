@@ -194,9 +194,24 @@ class MergeEngine:
                     }
                 )
                 
-                # 2. Process event via high-level API (handles saving + episodic logging)
-                # Note: process_event returns a result object containing the metadata
-                result = self.memory.process_event(proposal_event)
+                # 2. Process event via high-level API
+                # Correct positional call: process_event(source, kind, content, context, ...)
+                result = self.memory.process_event(
+                    source="system",
+                    kind="proposal",
+                    content=title,
+                    context={
+                        "title": title,
+                        "target": target,
+                        "status": "draft",
+                        "rationale": rationale,
+                        "confidence": round(confidence, 4),
+                        "suggested_supersedes": target_ids,
+                        "enrichment_status": "pending",
+                        "strengths": ["Reduces redundancy", "Improves retrieval precision"],
+                        "suggested_consequences": ["Original decisions will be superseded and archived"]
+                    }
+                )
                 fid = result.metadata.get("file_id")
                 
                 if not fid:
