@@ -731,6 +731,12 @@ class Memory:
         self.targets.register(target, description=title)
 
         active_conflicts = self.semantic.list_active_conflicts(target, namespace=effective_namespace)
+        
+        # EXCLUSION: If we are in a supersede flow, don't conflict with files we are replacing
+        if intent and intent.resolution_type == "supersede":
+            to_supersede = set(intent.target_decision_ids)
+            active_conflicts = [c for c in active_conflicts if c not in to_supersede]
+
         new_vec_cached = None
         
         if self.vector:
