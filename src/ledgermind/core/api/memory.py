@@ -1122,10 +1122,17 @@ class Memory:
                 continue
 
             # Filter based on history mode
-            # Whitelist pending_merge so it stays visible during consolidation
-            if not self.include_history and status not in ("active", "superseded", "deprecated", "pending_merge"):
-                continue
+            # Whitelist pending_merge and draft so they stay visible during consolidation/evolution
+            if not self.include_history and status not in ("active", "superseded", "deprecated", "pending_merge", "draft"):
+                # Maintenance mode allows seeing drafts even if history is disabled
+                if mode != "maintenance" or status != "draft":
+                    continue
+            
             if mode == "strict" and status not in ("active", "pending_merge"):
+                continue
+            
+            if mode == "balanced" and status == "draft":
+                # By default, don't inject drafts into agent context unless specifically in maintenance
                 continue
 
             resolved_records.append((fid, meta, scores[fid] / max_rrf))
