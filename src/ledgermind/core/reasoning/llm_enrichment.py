@@ -340,52 +340,36 @@ class LLMEnricher:
                         
                         try:
                             # 4. Check for existing active decisions on this target (I4 resolution)
-                            current_conflict = memory.semantic.meta.has_active_conflict(
-                                None, 
+                            # We must find ALL active decisions for this target to satisfy ResolutionEngine
+                            all_conflicts = memory.semantic.meta.list_all_active_by_target(
                                 merged_data['target'],
                                 getattr(proposal, 'namespace', 'default')
                             )
                             
-                            # PATH B: CONFLICT DETECTED -> Create Pseudo-Decision (Validation)
-                            if current_conflict and current_conflict not in final_superseded_ids:
-                                logger.info(f"Target '{merged_data['target']}' already has active decision {current_conflict}. Transitioning to final validation.")
-                                
-                                # Create a new validation proposal that will compare our NEW synthesis with the OLD active decision.
-                                validation_res = memory.process_event(
-                                    source="system",
-                                    kind="proposal",
-                                    content=f"Validation: {merged_data['title']}",
-                                    context={
-                                        "title": merged_data['title'],
-                                        "target": "knowledge_validation",
-                                        "status": "draft",
-                                        "rationale": merged_data['rationale'],
-                                        "compressive_rationale": merged_data.get('compressive'),
-                                        "confidence": 0.85,
-                                        "suggested_supersedes": [current_conflict], 
-                                        "enrichment_status": "pending"
-                                    }
-                                )
-                                new_val_fid = validation_res.metadata.get("file_id")
-                                
-                                if new_val_fid:
-                                    logger.info(f"Created pseudo-decision validation: {new_val_fid}. Archiving original items.")
-                                    # Archive the original small items that were merged into this synthesis
-                                    with memory.semantic.transaction():
-                                        for s_fid in final_superseded_ids:
-                                            memory.semantic.update_decision(s_fid, {"status": "superseded", "superseded_by": new_val_fid}, f"Consolidated into {new_val_fid}")
-                                        # Mark the current merge proposal as processed
-                                        memory.semantic.update_decision(fid, {"enrichment_status": "processed"}, f"Transitioned to validation {new_val_fid}")
-                                
-                                results.append({"fid": new_val_fid or fid, "status": "processed", "events": len(items_data)})
-                                continue
+                            # RESOLUTION: Include all found conflicts in the merge
+                            for c_fid in all_conflicts:
+                                if c_fid not in final_superseded_ids:
+                                    logger.info(f"Target '{merged_data['target']}' has existing active decision {c_fid}. Including it in the merge to resolve I4 conflict.")
+                                    final_superseded_ids.append(c_fid)
 
-                            # PATH A: NO CONFLICT -> Finalize as a regular Decision
+                            # FINALIZE as a regular Decision
+                            # We split files into 'to_supersede' (active) and 'to_archive' (drafts)
+                            # because ResolutionEngine only allows superseding active records.
+                            to_supersede = []
+                            to_archive_manually = []
+                            
+                            for s_fid in final_superseded_ids:
+                                m = memory.semantic.meta.get_by_fid(s_fid)
+                                if m and m.get('status') in ('active', 'pending_merge', 'accepted'):
+                                    to_supersede.append(s_fid)
+                                else:
+                                    to_archive_manually.append(s_fid)
+
                             res = memory.supersede_decision(
                                 title=merged_data['title'],
                                 target=merged_data['target'],
                                 rationale=merged_data['rationale'],
-                                old_decision_ids=final_superseded_ids,
+                                old_decision_ids=to_supersede,
                                 consequences=getattr(proposal, 'suggested_consequences', []),
                                 namespace=getattr(proposal, 'namespace', 'default')
                             )
@@ -393,9 +377,11 @@ class LLMEnricher:
                             new_decision_fid = res.metadata.get("file_id")
                             if new_decision_fid:
                                 logger.info(f"Created new consolidated decision: {new_decision_fid}")
-                                # Mark trigger proposal as processed
+                                # Mark trigger proposal AND non-active sources as processed
                                 with memory.semantic.transaction():
                                     memory.semantic.update_decision(fid, {"enrichment_status": "processed"}, f"Merge completed into {new_decision_fid}")
+                                    for a_fid in to_archive_manually:
+                                        memory.semantic.update_decision(a_fid, {"status": "superseded", "superseded_by": new_decision_fid}, f"Absorbed into merge {new_decision_fid}")
 
                             results.append({"fid": new_decision_fid or fid, "status": "processed", "events": len(items_data)})
                             continue
@@ -1143,30 +1129,3 @@ class LLMEnricher:
         except Exception as e:
             logger.debug(f"API call failed: {e}")
             return None
-
-    def _build_validation_prompt(self, title: str) -> str:
-        """Expert prompt for determining if multiple technical entries are true duplicates."""
-        return (
-            "### SYSTEM ROLE\n"
-            "You are a Technical Knowledge Auditor and Architect. Your task is to determine if several knowledge entries "
-            "are truly semantically identical or if they represent distinct technical concepts.\n\n"
-            f"### TASK: Validate duplication for '{title}'.\n\n"
-            "### REQUIREMENTS\n"
-            "- Compare the provided source rationales deeply.\n"
-            "- If they describe the SAME solution, bug, or architectural pattern (even with different words), they are DUPLICATES.\n"
-            "- If they describe DIFFERENT problems, use incompatible architectures, or have distinct technical outcomes, they are DISTINCT.\n"
-            "- BE STRICT: If there is a technical difference, mark as 'is_duplicate': false.\n"
-            "- LANGUAGE: Detect the language of the provided data. Your entire response MUST be in the SAME language.\n"
-            "- CRITICAL: If the input is in Russian, respond in Russian. If German, respond in German.\n\n"
-            "### RESPONSE FORMAT\n"
-            "Respond with ONLY a JSON object with these keys:\n"
-            "{\n"
-            '  "is_duplicate": true,\n'
-            '  "reasoning": "A short professional explanation of your decision",\n'
-            '  "title": "If duplicate, provide a unified title. If not, keep original title.",\n'
-            '  "target": "If duplicate, provide a unified target (e.g. auth/jwt). If not, null.",\n'
-            '  "rationale": "If duplicate, provide a unified technical rationale. If not, explain technical differences.",\n'
-            '  "compressive": "3 sentences summary"\n'
-            "}\n"
-            "No additional text before or after the JSON."
-        )
