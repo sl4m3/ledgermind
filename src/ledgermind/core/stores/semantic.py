@@ -333,7 +333,11 @@ class SemanticStore:
         except Exception as e:
             logger.error(f"Transaction Failed: {e}. Rolling back...")
             if isinstance(self.audit, GitAuditProvider):
+                # Hard reset tracked files and CLEAN untracked files/directories
+                # This is critical to prevent 'ghost files' when a transaction fails 
+                # after creating a new file but before indexing.
                 self.audit.run(["reset", "--hard", "HEAD"])
+                self.audit.run(["clean", "-fd"])
             
             # Reset transaction state BEFORE sync to ensure it can re-acquire locks if needed
             self._in_transaction = False
