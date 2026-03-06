@@ -362,8 +362,8 @@ class LLMEnricher:
                                 semantic_results = memory.search_decisions(search_query, limit=10, mode="maintenance")
                                 for res in semantic_results:
                                     # Confidence threshold 0.95 is very high, only for true duplicates
-                                    # We include 'draft' status here to resolve conflicts with new proposals
-                                    if res['score'] > 0.95 and res['status'] in ('active', 'draft'):
+                                    # We include all possible active-like statuses to resolve conflicts comprehensively
+                                    if res['score'] > 0.95 and res['status'] in ('active', 'draft', 'pending_merge', 'accepted'):
                                         if res['id'] not in all_conflicts:
                                             logger.info(f"Detected semantic conflict: {res['id']} ({res['status']}) matches new merge result. Adding to supersedes.")
                                             all_conflicts.append(res['id'])
