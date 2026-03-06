@@ -73,6 +73,8 @@ class MergeEngine:
         # Optimization: Only initiate search FROM the most recent decisions (last 50)
         recent_candidates = sorted(enriched_metas, key=lambda x: x.get('timestamp', ''), reverse=True)[:50]
         
+        logger.info(f"Consolidation: Scanning {len(recent_candidates)} recent candidates for semantic duplicates.")
+        
         for m in recent_candidates:
             fid = m['fid']
             if fid in pending_targets:
@@ -90,6 +92,9 @@ class MergeEngine:
                 # Search against ALL active decisions
                 results = self.memory.search_decisions(search_query, limit=10, mode="strict")
                 
+                if not results:
+                    continue
+
                 # Normalize scores
                 max_score = max((r['score'] for r in results), default=1.0)
                 
@@ -106,6 +111,7 @@ class MergeEngine:
                     
                     # Only consider if it's also in our enriched_metas set (double check)
                     if normalized_score >= threshold:
+                        logger.info(f"  Match: {fid} <-> {res_fid} | Sim: {normalized_score:.4f}")
                         duplicates.append(res)
                         total_norm_score += normalized_score
                 
@@ -122,6 +128,8 @@ class MergeEngine:
                     # Sort IDs to ensure stable grouping
                     target_ids = sorted(list(set(target_ids)))
                     
+                    logger.info(f"  Consolidation: Grouping {len(target_ids)} files into {target_mode} (Avg Sim: {avg_confidence:.4f})")
+                    
                     # Check if this EXACT group is already being merged
                     group_key = ",".join(target_ids)
                     if any(group_key in p for p in proposals): continue
@@ -133,6 +141,7 @@ class MergeEngine:
                         target=target_mode
                     )
                     if proposal_id:
+                        logger.info(f"  Created {target_mode} proposal: {proposal_id}")
                         proposals.append(proposal_id)
                         pending_targets.update(target_ids)
                         

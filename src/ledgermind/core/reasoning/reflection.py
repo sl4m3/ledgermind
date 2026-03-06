@@ -75,6 +75,9 @@ class ReflectionEngine:
             distiller = DistillationEngine(self.episodic, window_size=self.policy.distillation_window_size)
             procedural_proposals = distiller.distill_trajectories(after_id=after_id, limit=limit)
 
+            if procedural_proposals:
+                logger.info(f"Distilled {len(procedural_proposals)} procedural trajectories from logs.")
+
             target_to_procedural = {}
             for prop in procedural_proposals:
                 if prop.target in self.BLACKLISTED_TARGETS or prop.target.lower().startswith("general"):
@@ -101,6 +104,9 @@ class ReflectionEngine:
                 max_id = max(e['id'] for e in recent_events)
                 evidence_clusters = self._cluster_evidence(recent_events)
                 
+                if evidence_clusters:
+                    logger.info(f"Reflection: Found {len(evidence_clusters)} activity clusters across targets.")
+                
                 # 4. Update existing streams or discover new patterns
                 for target, stats in evidence_clusters.items():
                     if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general"):
@@ -110,13 +116,11 @@ class ReflectionEngine:
                     procedural_list = target_to_procedural.get(target, [])
                     
                     if relevant_streams:
-                        # Direct Update Model: We do not create separate "Refinement" proposals.
-                        # Instead, we mutate existing hypotheses directly to trigger re-enrichment,
-                        # or we delegate to a pending merge proposal if the memory is fragmented.
-                        
+                        # Direct Update Model
                         if len(relevant_streams) == 1:
                             # Scenario B: Exactly 1 active hypothesis. Mutate it directly.
                             fid, data = relevant_streams[0]
+                            logger.info(f"  Reflection: Attaching {len(stats['all_ids'])} new events to existing stream {fid} ({target}).")
                             self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode, update_only=False)
                             processed_fids.add(fid)
                             result_ids.append(fid)
@@ -150,6 +154,7 @@ class ReflectionEngine:
                                     
                                     new_ids = [eid for eid in stats['all_ids'] if eid not in p_ctx.get('evidence_event_ids', [])]
                                     if new_ids:
+                                        logger.info(f"  Reflection: Attaching {len(new_ids)} new events to pending merge {merge_fid}.")
                                         evidence_list = p_ctx.get('evidence_event_ids', [])
                                         evidence_list.extend(new_ids)
                                         # Also reset enrichment status to pending to catch new events
@@ -175,6 +180,7 @@ class ReflectionEngine:
                                     result_ids.append(fid)
                     else:
                         if stats['weight'] >= 1.0 or stats['commits'] >= 1:
+                            logger.info(f"  Reflection: Discovered NEW behavioral pattern for target '{target}'. Creating stream.")
                             new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode)
                             if new_fid: result_ids.append(new_fid)
 
