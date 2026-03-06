@@ -380,17 +380,18 @@ class Memory:
                     # 1. Update back-links and deactivate old versions BEFORE saving new one
                     if intent and intent.resolution_type == "supersede":
                         for old_id in intent.target_decision_ids:
-                            # Verify it exists and is active before deactivating
+                            # Verify it exists and is valid for deactivation
+                            # We allow active, pending_merge, and accepted statuses to be superseded.
                             old_meta = self.semantic.meta.get_by_fid(old_id)
-                            if old_meta and old_meta.get('status') == 'active':
-                                logger.debug(f"Deactivating old decision {old_id}...")
+                            if old_meta and old_meta.get('status') in ('active', 'pending_merge', 'accepted'):
+                                logger.debug(f"Deactivating old record {old_id} (Status: {old_meta.get('status')})...")
                                 self.semantic.update_decision(
                                     old_id, 
                                     {"status": "superseded"},
                                     commit_msg=f"Deactivating for transition"
                                 )
                             else:
-                                logger.info(f"Target {old_id} already superseded or missing during transition.")
+                                logger.info(f"Target {old_id} already superseded or ineligible for transition.")
 
                     # 2.7: Late-bind Conflict Detection (Inside Lock)
                     # We pass the list of files being superseded to avoid false-positive race conditions
