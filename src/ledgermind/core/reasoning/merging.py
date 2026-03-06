@@ -165,36 +165,48 @@ class MergeEngine:
                 f"Consolidation is necessary to maintain a Single Source of Truth."
             )
         
-        ctx_data = {
-            "title": title,
-            "target": target,
-            "status": "draft",
-            "rationale": rationale,
-            "confidence": round(confidence, 4),
-            "suggested_supersedes": target_ids,
-            "enrichment_status": "pending",
-            "strengths": ["Reduces redundancy", "Improves retrieval precision"],
-            "suggested_consequences": ["Original decisions will be superseded and archived"]
-        }
+        from ledgermind.core.core.schemas import MemoryEvent, TrustBoundary
+        from datetime import datetime
 
         try:
             # COORDINATED LOCKING:
             # We switch all target files to 'pending_merge' atomically 
             # to prevent other merge cycles from picking them up.
             with self.memory.semantic.transaction():
-                # 1. Create the proposal file
-                decision = self.memory.record_decision(
-                    title=title,
-                    target=target,
-                    rationale=rationale,
-                    context=ctx_data
+                # 1. Manually construct the proposal event
+                # Valid fields for MemoryEvent are: kind, content, source, trust_boundary, timestamp, context
+                proposal_event = MemoryEvent(
+                    kind="proposal",
+                    content=title,
+                    source="system", # Must be 'system', 'agent' or 'human'
+                    trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
+                    timestamp=datetime.now(),
+                    context={
+                        "title": title,
+                        "target": target,
+                        "status": "draft",
+                        "rationale": rationale,
+                        "confidence": round(confidence, 4),
+                        "suggested_supersedes": target_ids,
+                        "enrichment_status": "pending",
+                        "strengths": ["Reduces redundancy", "Improves retrieval precision"],
+                        "suggested_consequences": ["Original decisions will be superseded and archived"]
+                    }
                 )
-
-                # 2. Lock the source files
+                
+                # 2. Process event via high-level API (handles saving + episodic logging)
+                # Note: process_event returns a result object containing the metadata
+                result = self.memory.process_event(proposal_event)
+                fid = result.metadata.get("file_id")
+                
+                if not fid:
+                    raise Exception("Failed to process and save proposal event")
+                
+                # 3. Lock the source files
                 for s_fid in target_ids:
-                    self.memory.semantic.update_decision(s_fid, {"status": "pending_merge"}, f"Locked for merge in {decision.metadata.get('file_id')}")
-
-            return decision.metadata.get("file_id")
+                    self.memory.semantic.update_decision(s_fid, {"status": "pending_merge"}, f"Locked for merge in {fid}")
+                
+            return fid
         except Exception as e:
             logger.error(f"Failed to create merge proposal: {e}")
             return None
