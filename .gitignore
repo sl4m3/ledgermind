@@ -28,3 +28,4 @@ benchmarks/results/
 .ledgermind/
 node_modules/
 **/node_modules/
+venv/
