@@ -320,76 +320,76 @@ class LLMEnricher:
                                 memory.semantic.update_decision(fid, {"enrichment_status": "failed"}, "Enrichment: Could not read source files")
                             continue
 
-                        # 3. Perform LLM synthesis
-                        logger.info(f"Synthesizing {len(items_data)} entries into one canonical decision...")
-                        merged_data = self.synthesize_knowledge_merge(items_data, hint_target)
-                        
                         # COORDINATED ATOMIC FINALIZATION
                         new_decision_fid = None
+                        # Initialize for recovery block availability
+                        final_superseded_ids = list(resolved_ids)
+                        
                         try:
-                            # 4. Check for existing active decisions on this target
+                            # 4. Check for existing active decisions on this target (I4 resolution)
                             current_conflict = memory.semantic.meta.has_active_conflict(
                                 None, 
                                 merged_data['target'],
                                 getattr(proposal, 'namespace', 'default')
                             )
                             
-                            # RESOLUTION: If conflict exists, include it in the merge to resolve I4
-                            if current_conflict and current_conflict not in superseded_ids:
-                                logger.info(f"Target '{merged_data['target']}' has existing decision {current_conflict}. Including it in the merge to resolve I4 conflict.")
-                                superseded_ids.append(current_conflict)
-
-                            with memory.semantic.transaction():
-                                # 1. Mark all superseded elements (original + newly found conflict)
-                                for s_fid in superseded_ids:
-                                    memory.semantic.update_decision(s_fid, {"status": "superseded"}, f"Superseded by merge from {fid}")
-
-                                # 2. Create NEW decision event
-                                from ledgermind.core.core.schemas import MemoryEvent, TrustBoundary
-                                from datetime import datetime
-
-                                new_decision = MemoryEvent(
-                                    kind="decision",
-                                    content=merged_data['title'],
+                            # PATH B: CONFLICT DETECTED -> Create Pseudo-Decision (Validation)
+                            if current_conflict and current_conflict not in final_superseded_ids:
+                                logger.info(f"Target '{merged_data['target']}' already has active decision {current_conflict}. Transitioning to final validation.")
+                                
+                                # Create a new validation proposal that will compare our NEW synthesis with the OLD active decision.
+                                from ledgermind.core.core.schemas import TrustBoundary
+                                validation_res = memory.process_event(
                                     source="system",
-                                    trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
-                                    timestamp=datetime.now(),
-                                    target=merged_data['target'],
-                                    status="active",
-                                    supersedes=superseded_ids,
+                                    kind="proposal",
+                                    content=f"Validation: {merged_data['title']}",
                                     context={
                                         "title": merged_data['title'],
-                                        "target": merged_data['target'],
-                                        "status": "active",
+                                        "target": "knowledge_validation",
+                                        "status": "draft",
                                         "rationale": merged_data['rationale'],
                                         "compressive_rationale": merged_data.get('compressive'),
-                                        "namespace": getattr(proposal, 'namespace', 'default'),
-                                        "keywords": [], # Will be updated by saver
-                                        "confidence": getattr(proposal, 'confidence', 1.0),
-                                        "enrichment_status": "completed",
-                                        "phase": getattr(proposal, 'phase', 'pattern'),
-                                        "vitality": getattr(proposal, 'vitality', 'active'),
-                                        "supersedes": superseded_ids
+                                        "confidence": 0.85,
+                                        "suggested_supersedes": [current_conflict], 
+                                        "enrichment_status": "pending"
                                     }
                                 )
+                                new_val_fid = validation_res.metadata.get("file_id")
+                                
+                                if new_val_fid:
+                                    logger.info(f"Created pseudo-decision validation: {new_val_fid}. Archiving original items.")
+                                    # Archive the original small items that were merged into this synthesis
+                                    with memory.semantic.transaction():
+                                        for s_fid in final_superseded_ids:
+                                            memory.semantic.update_decision(s_fid, {"status": "superseded", "superseded_by": new_val_fid}, f"Consolidated into {new_val_fid}")
+                                        # Mark the current merge proposal as processed
+                                        memory.semantic.update_decision(fid, {"enrichment_status": "processed"}, f"Transitioned to validation {new_val_fid}")
+                                
+                                results.append({"fid": new_val_fid or fid, "status": "processed", "events": len(items_data)})
+                                continue
 
-                                # Save new decision
-                                new_decision_fid = memory.semantic.save(new_decision, namespace=getattr(proposal, 'namespace', 'default'))
-                                logger.info(f"Created new decision: {new_decision_fid}")
-
-                                # 3. Update superseded_by links
-                                for s_fid in superseded_ids:
-                                    memory.semantic.update_decision(s_fid, {"superseded_by": new_decision_fid}, f"Link to merged result {new_decision_fid}")
-
-                                # 4. Mark proposal as processed
-                                memory.semantic.update_decision(fid, {"enrichment_status": "processed"}, f"Merge completed into {new_decision_fid}")
+                            # PATH A: NO CONFLICT -> Finalize as a regular Decision
+                            res = memory.supersede_decision(
+                                title=merged_data['title'],
+                                target=merged_data['target'],
+                                rationale=merged_data['rationale'],
+                                old_decision_ids=final_superseded_ids,
+                                consequences=getattr(proposal, 'suggested_consequences', []),
+                                namespace=getattr(proposal, 'namespace', 'default')
+                            )
+                            
+                            new_decision_fid = res.metadata.get("file_id")
+                            if new_decision_fid:
+                                logger.info(f"Created new consolidated decision: {new_decision_fid}")
+                                # Mark trigger proposal as processed
+                                with memory.semantic.transaction():
+                                    memory.semantic.update_decision(fid, {"enrichment_status": "processed"}, f"Merge completed into {new_decision_fid}")
 
                             results.append({"fid": new_decision_fid or fid, "status": "processed", "events": len(items_data)})
                             continue
                         except Exception as te:
                             logger.error(f"Atomic merge failed: {te}. Reverting source files to active status.")
                             # RECOVERY: Revert source files to active if the merge failed
-                            # We use high-level memory.update_decision for full consistency
                             for s_fid in final_superseded_ids:
                                 try:
                                     memory.update_decision(s_fid, {"status": "active"}, "Merge failed: Restored to active status.")
