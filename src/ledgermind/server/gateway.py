@@ -67,8 +67,12 @@ async def search(req: SearchRequest, mem: Memory = Depends(get_memory)):
 @app.post("/record", dependencies=[Depends(get_api_key)])
 async def record(req: RecordRequest, mem: Memory = Depends(get_memory)):
     try:
-        res = mem.record_decision(
-            title=req.title, target=req.target, 
+        # CRITICAL: Use run_in_threadpool to avoid blocking the asyncio event loop 
+        # when the background worker holds a global FileSystemLock.
+        res = await run_in_threadpool(
+            mem.record_decision,
+            title=req.title, 
+            target=req.target, 
             rationale=f"[via REST] {req.rationale}", 
             consequences=req.consequences
         )
