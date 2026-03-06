@@ -372,12 +372,28 @@ class LLMEnricher:
                                     logger.info(f"Target '{final_target}' has existing active decision {c_fid}. Including it in the merge to resolve I4 conflict.")
                                     final_superseded_ids.append(c_fid)
 
+                            # FINAL SAFETY FILTER: Remove files that are already superseded by concurrent merges
+                            valid_supersedes = []
+                            for s_fid in final_superseded_ids:
+                                m = memory.semantic.meta.get_by_fid(s_fid)
+                                # Only keep files that are still active, pending_merge, accepted or draft
+                                if m and m.get('status') in ('active', 'pending_merge', 'accepted', 'draft'):
+                                    valid_supersedes.append(s_fid)
+                                else:
+                                    logger.info(f"Skipping {s_fid} in final merge list: it is already {m.get('status') if m else 'missing'}.")
+
+                            if not valid_supersedes:
+                                logger.warning(f"All source files for merge {fid} are already superseded. Marking as processed.")
+                                with memory.semantic.transaction():
+                                    memory.semantic.update_decision(fid, {"enrichment_status": "processed"}, "Merge: All sources already processed elsewhere.")
+                                continue
+
                             # 5. FINALIZE as a regular Decision
                             res = memory.supersede_decision(
                                 title=merged_data['title'],
                                 target=merged_data['target'],
                                 rationale=merged_data['rationale'],
-                                old_decision_ids=final_superseded_ids,
+                                old_decision_ids=valid_supersedes,
                                 consequences=getattr(proposal, 'suggested_consequences', []),
                                 namespace=getattr(proposal, 'namespace', 'default')
                             )
@@ -392,20 +408,7 @@ class LLMEnricher:
                             results.append({"fid": new_decision_fid or fid, "status": "processed", "events": len(items_data)})
                             continue
                         except Exception as te:
-                            logger.error(f"Atomic merge failed: {te}. Reverting source files to active status.")
-                            with memory.semantic.transaction():
-                                for s_fid in final_superseded_ids:
-                                    try:
-                                        memory.semantic.update_decision(s_fid, {"status": "active"}, "Merge failed: Restored to active status.")
-                                    except Exception: pass
-                            continue
-                            # RECOVERY: Revert source files to active if the merge failed
-                            with memory.semantic.transaction():
-                                for s_fid in final_superseded_ids:
-                                    try:
-                                        memory.semantic.update_decision(s_fid, {"status": "active"}, "Merge failed: Restored to active status.")
-                                    except Exception as re:
-                                        logger.error(f"Critical: Failed to revert source file {s_fid}: {re}")
+                            logger.error(f"Atomic merge failed: {te}. Transaction rolled back by core.")
                             continue
 
                     processed_in_this_run = 0
