@@ -1316,17 +1316,18 @@ class Memory:
         if not self.vector: return
         
         try:
-            # 1. Get all active & enriched FIDs from Meta
+            # 1. Get all active & draft FIDs from Meta
+            # We must index drafts too, so MergeEngine can find duplicates among new proposals
             all_metas = self.semantic.meta.list_all()
-            active_metas = [m for m in all_metas if m.get('status') == 'active']
+            target_metas = [m for m in all_metas if m.get('status') in ('active', 'draft')]
             
-            if not active_metas: return
+            if not target_metas: return
             
             # 2. Get all IDs currently in Vector Store
             indexed_ids = set(self.vector.get_all_ids())
             
             # 3. Find delta
-            missing = [m for m in active_metas if m['fid'] not in indexed_ids]
+            missing = [m for m in target_metas if m['fid'] not in indexed_ids]
             
             if not missing:
                 return
