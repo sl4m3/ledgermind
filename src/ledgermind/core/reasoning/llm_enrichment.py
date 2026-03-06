@@ -345,7 +345,6 @@ class LLMEnricher:
                         try:
                             # 4. EXHAUSTIVE CONFLICT DETECTION
                             # Combine exact target match with semantic search to find ALL competitors.
-                            # This is necessary because ResolutionEngine enforces strict target uniqueness.
                             final_target = merged_data['target']
                             final_title = merged_data['title']
                             
@@ -356,13 +355,10 @@ class LLMEnricher:
                             )
                             
                             # B. Semantic conflicts (vector search)
-                            # We use mode="maintenance" to see both active and draft competitors
                             try:
                                 search_query = f"{final_title} {final_target}"
                                 semantic_results = memory.search_decisions(search_query, limit=10, mode="maintenance")
                                 for res in semantic_results:
-                                    # Confidence threshold 0.95 is very high, only for true duplicates
-                                    # We include all possible active-like statuses to resolve conflicts comprehensively
                                     if res['score'] > 0.95 and res['status'] in ('active', 'draft', 'pending_merge', 'accepted'):
                                         if res['id'] not in all_conflicts:
                                             logger.info(f"Detected semantic conflict: {res['id']} ({res['status']}) matches new merge result. Adding to supersedes.")
@@ -376,8 +372,7 @@ class LLMEnricher:
                                     logger.info(f"Target '{final_target}' has existing active decision {c_fid}. Including it in the merge to resolve I4 conflict.")
                                     final_superseded_ids.append(c_fid)
 
-                        # FINALIZE as a regular Decision
-                        try:
+                            # 5. FINALIZE as a regular Decision
                             res = memory.supersede_decision(
                                 title=merged_data['title'],
                                 target=merged_data['target'],
@@ -398,6 +393,12 @@ class LLMEnricher:
                             continue
                         except Exception as te:
                             logger.error(f"Atomic merge failed: {te}. Reverting source files to active status.")
+                            with memory.semantic.transaction():
+                                for s_fid in final_superseded_ids:
+                                    try:
+                                        memory.semantic.update_decision(s_fid, {"status": "active"}, "Merge failed: Restored to active status.")
+                                    except Exception: pass
+                            continue
                             # RECOVERY: Revert source files to active if the merge failed
                             with memory.semantic.transaction():
                                 for s_fid in final_superseded_ids:
