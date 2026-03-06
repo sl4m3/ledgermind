@@ -29,15 +29,18 @@ class MergeEngine:
 
     def scan_for_duplicates(self, threshold: float = 0.75) -> List[str]:
         """
-        Scans enriched decisions and creates proposals for merging or disambiguation.
+        Scans enriched decisions and proposals to create consolidation or disambiguation tasks.
         Handles both semantic similarity and structural I4 violations.
         """
-        # 1. Get all active and enriched decisions
+        # 1. Get all active or draft documents that are enriched
+        # We include drafts to consolidate knowledge early before it becomes a 'decision'
         all_metas = self.memory.semantic.meta.list_all()
         enriched_metas = [
             m for m in all_metas 
-            if m.get('status') == 'active' and m.get('enrichment_status') == 'completed'
+            if m.get('status') in ('active', 'draft') and m.get('enrichment_status') == 'completed'
         ]
+
+        logger.info(f"MergeEngine: Found {len(enriched_metas)} enriched candidates for duplication scanning.")
 
         if not enriched_metas:
             return []
