@@ -162,7 +162,9 @@ jobs:
             body += '### Pip-audit (Dependencies)\\n';
             body += `- ${(parseJsonSafe('pip-audit-report.json').dependencies || []).filter(d => d.vulnerabilities?.length)?.length || 0} vulnerable packages\\n`;
 
-            core.summary.addRaw(body).write();
+            core.summary.addHeading('🔒 Security Scan Results');
+            core.summary.addRaw(body);
+            core.summary.write();
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   lint:
