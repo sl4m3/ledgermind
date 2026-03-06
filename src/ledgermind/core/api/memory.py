@@ -393,7 +393,9 @@ class Memory:
                                 logger.info(f"Target {old_id} already superseded or missing during transition.")
 
                     # 2.7: Late-bind Conflict Detection (Inside Lock)
-                    if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=effective_namespace):
+                    # We pass the list of files being superseded to avoid false-positive race conditions
+                    to_supersede_ids = intent.target_decision_ids if (intent and intent.resolution_type == "supersede") else None
+                    if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=effective_namespace, supersedes=to_supersede_ids):
                         logger.warning(f"Race condition prevented: {conflict_msg}")
                         raise ConflictError(f"Conflict detected during transaction: {conflict_msg}")
 
