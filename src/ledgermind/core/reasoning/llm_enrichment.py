@@ -694,22 +694,63 @@ class LLMEnricher:
                             if is_dup is False:
                                 if refined and isinstance(refined, dict):
                                     logger.info(f"LLM proposed DISAMBIGUATION for {len(refined)} files.")
-                                    for r_fid, new_target in refined.items():
-                                        try:
-                                            with memory.semantic.transaction():
-                                                memory.semantic.update_decision(r_fid, {"target": new_target}, f"Disambiguation: Refined target to '{new_target}'")
-                                            logger.info(f"Successfully refined target for {r_fid} -> {new_target}")
-                                        except Exception as re:
-                                            logger.error(f"Failed to refine target for {r_fid}: {re}")
                                     
-                                    # Mark this proposal as "processed" since the conflict is resolved by renaming
+                                    # SAFETY: Resolve LLM keys back to real FIDs (Handle hallucinations)
+                                    # We look for the IDs provided in the original suggested_supersedes list
+                                    source_fids = getattr(proposal, 'suggested_supersedes', []) or []
+                                    resolved_refined = {}
+                                    
+                                    for r_key, new_t in refined.items():
+                                        # Path A: It's already a correct FID
+                                        if r_key in source_fids:
+                                            resolved_refined[r_key] = new_t
+                                        # Path B: Check if it's a real file on disk (just in case)
+                                        elif os.path.exists(os.path.join(memory.semantic.repo_path, r_key)):
+                                            resolved_refined[r_key] = new_t
+                                        # Path C: LLM hallucinated a placeholder like 'file_1.md' or 'source_decision.md'
+                                        # If we only have ONE source file, we map it automatically
+                                        elif len(source_fids) == 1 and ("source" in r_key.lower() or "file" in r_key.lower()):
+                                            logger.info(f"Mapping LLM placeholder key '{r_key}' to actual FID '{source_fids[0]}'")
+                                            resolved_refined[source_fids[0]] = new_t
+                                        else:
+                                            logger.warning(f"LLM provided refined target for unknown file key '{r_key}'. Ignoring.")
+
+                                    # Apply the resolved renames via LEGAL SUPERSEDE (Preserving I1 Immutability)
+                                    for r_fid, new_target in resolved_refined.items():
+                                        try:
+                                            # CLEANUP: Strip .md extension and ensure concise format
+                                            if new_target.endswith(".md"): new_target = new_target[:-3]
+                                            new_target = new_target.strip().replace(" ", "_")[:50]
+                                            
+                                            # 1. Fetch current data to preserve content
+                                            curr_m = memory.semantic.meta.get_by_fid(r_fid)
+                                            if not curr_m: continue
+                                            
+                                            # 2. Use High-Level API to create a new version with the new target
+                                            # This legal path creates a new file and archives the old one.
+                                            logger.info(f"Legally refining target for {r_fid}: '{curr_m.get('target')}' -> '{new_target}'")
+                                            res = memory.supersede_decision(
+                                                title=curr_m.get('title', 'Refined Decision'),
+                                                target=new_target,
+                                                rationale=curr_m.get('content', '') or "Refined via disambiguation.",
+                                                old_decision_ids=[r_fid],
+                                                namespace=curr_m.get('namespace', 'default')
+                                            )
+                                            
+                                            if res.metadata.get("file_id"):
+                                                logger.info(f"Successfully refined target for {r_fid}. New file: {res.metadata.get('file_id')}")
+                                        except Exception as re:
+                                            logger.error(f"Failed to legally refine target for {r_fid}: {re}")
+                                    
+                                    # Mark this proposal as "processed"
                                     proposal._disambiguated = True
                                     parsed_successfully = True
-                                    return proposal # Conflict resolved
+                                    return proposal 
                                 else:
-                                    logger.info(f"LLM determined entries are NOT duplicates but no refined targets provided. Aborting merge.")
+                                    logger.info(f"LLM determined entries are NOT duplicates but no refined targets provided. Rejecting merge.")
                                     proposal.rationale = f"REJECTED: {data.get('reasoning', 'Not a duplicate')}"
-                                    proposal._enrichment_failed = True 
+                                    # Mark as rejected to avoid misleading CLI error warnings
+                                    proposal._enrichment_rejected = True 
                                     return proposal
                             else:
                                 logger.info(f"LLM confirmed entries ARE duplicates. Transitioning to merge.")
@@ -717,7 +758,9 @@ class LLMEnricher:
                                 proposal.target = "knowledge_merge"
                                 # If LLM provided a unified target, use it
                                 if data.get("target"):
-                                    proposal._unified_target = data["target"]
+                                    ut = data["target"]
+                                    if ut.endswith(".md"): ut = ut[:-3]
+                                    proposal._unified_target = ut[:50]
 
                         parsed_successfully = True
                 except (json.JSONDecodeError, AttributeError, ValueError) as e:
@@ -944,6 +987,7 @@ class LLMEnricher:
             "- If they represent the SAME architectural decision or behavioral pattern, synthesize them into one perfect entry. Set 'is_duplicate': true.\n"
             "- If they are DISTINCT (Ambiguation), clearly explain the difference. Set 'is_duplicate': false.\n"
             "- DISAMBIGUATION: If 'is_duplicate' is false, you MUST propose new unique and more specific target names for each file to resolve the naming conflict.\n"
+            "- TARGET RULES: Targets must be concise, hierarchical paths (e.g. 'core/storage'). MAX 50 chars. NO .md extensions.\n"
             f"- LANGUAGE: {lang_instruction}\n\n"
             "### RESPONSE FORMAT\n"
             "Respond with ONLY a JSON object with these keys:\n"
@@ -951,7 +995,7 @@ class LLMEnricher:
             '  "is_duplicate": true/false,\n'
             '  "title": "Unified title (if duplicate) or Distinction summary (if distinct)",\n'
             '  "rationale": "# Validation Analysis\\n\\n[Detailed explanation of why they are the same or different]",\n'
-            '  "refined_targets": {"file_id_1.md": "new/specific/target/1", "file_id_2.md": "new/specific/target/2"},\n'
+            '  "refined_targets": {"USE_ACTUAL_FID_FROM_LOGS": "concise/hierarchical/target"},\n'
             '  "compressive": "3 sentences summarizing the validation result"\n'
             "}\n"
             "No additional text before or after the JSON."
@@ -969,12 +1013,14 @@ class LLMEnricher:
             "- Eliminate all redundant and overlapping information.\n"
             "- Resolve any minor contradictions by favoring the most recent or evidence-backed data.\n"
             "- Maintain all critical technical details, constraints, and rationales.\n"
+            "- TARGET RULES: Targets must be concise hierarchical paths. MAX 50 chars. NO .md extensions.\n"
             "- Organize the resulting knowledge logically and professionally.\n"
             f"- LANGUAGE: {lang_instruction}\n\n"
             "### RESPONSE FORMAT\n"
             "Respond with ONLY a JSON object with these keys:\n"
             "{\n"
             '  "title": "One definitive title for this consolidated knowledge",\n'
+            '  "target": "concise/hierarchical/target",\n'
             '  "rationale": "# Consolidated Knowledge: ' + title + '\\n\\n## 1. Summary of Consolidation\\n[Why these were merged and what the result is]\\n\\n## 2. Definitive Rationale\\n[The unified, high-quality technical rationale]\\n\\n## 3. Impact & Context\\n[Strategic context and dependencies]",\n'
             '  "compressive": "3 sentences summarizing the unified state"\n'
             "}\n"
