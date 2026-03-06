@@ -199,16 +199,22 @@ class SemanticMetaStore:
                 enrichment_status=excluded.enrichment_status
         """, (fid, target, title, status, kind, ts_str, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage, link_count, enrichment_status))
 
-    def has_active_conflict(self, fid: str, target: str, namespace: str) -> Optional[str]:
+    def has_active_conflict(self, fid: Optional[str], target: str, namespace: str = "default") -> Optional[str]:
         """
         Check if there's already an active decision for this target.
         Returns the conflicting fid or None if no conflict.
-        Used for explicit conflict detection before creating new active decisions.
         """
         existing = self.get_active_fid(target, namespace)
-        if existing and existing != fid:
+        if existing and (fid is None or existing != fid):
             return existing
         return None
+
+    def list_all_active_by_target(self, target: str, namespace: str = "default") -> List[str]:
+        """Returns a list of ALL active decision FIDs for a given target."""
+        self._conn.row_factory = sqlite3.Row
+        query = "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status = 'active' AND kind = 'decision'"
+        rows = self._conn.execute(query, [target, namespace]).fetchall()
+        return [row[0] for row in rows]
 
 
     def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
