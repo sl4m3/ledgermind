@@ -482,8 +482,19 @@ class Memory:
                 else:
                     logger.debug(f"Vector indexing deferred for {new_fid} (no pre-computed vector).")
 
-                # Immortal Link (Skip for background sources to keep episodic memory clean)
-                if source in {"user", "agent"}:
+                # Immortal Link: ONLY record external interactions to episodic memory.
+                # Technical knowledge management (merges, enrichments) must NOT go into episodic.db
+                # to prevent infinite reflection loops. Git Audit handles internal history.
+                INTERNAL_SOURCES = {"system", "reflection_engine", "bridge"}
+                is_internal = source in INTERNAL_SOURCES
+                
+                # Also ignore agent actions if they are pure semantic maintenance (merges)
+                is_merge_result = kind == KIND_DECISION and (
+                    (isinstance(context, dict) and context.get('target') == "knowledge_merge") or
+                    (intent and intent.resolution_type == "supersede")
+                )
+
+                if source in {"user", "agent"} and not (source == "agent" and is_merge_result) and not is_internal:
                     ev_id = self.episodic.append(event, linked_id=new_fid).value
                     decision.metadata["event_id"] = ev_id
 
