@@ -188,8 +188,13 @@ class LLMEnricher:
                         continue
 
                     # Handle 'active' status for proposals
-                    if 'decision_id' not in proposal_data and proposal_data.get('status') == 'active':
+                    # CRITICAL: Self-healing logic. Proposals must never be 'active'.
+                    if proposal_data.get('status') == 'active':
+                        logger.warning(f"Illegal 'active' status detected for proposal {fid}. Forcing back to 'draft'.")
                         proposal_data['status'] = 'draft'
+                        # Immediately sync to DB to prevent I4 conflicts during this batch
+                        with memory.semantic.transaction():
+                            memory.semantic.meta.update_decision(fid, {"status": "draft"})
 
                     # Determine object type
                     if 'decision_id' in proposal_data:

@@ -337,13 +337,14 @@ class Memory:
             context = stream
 
         # Build and Validate event
-        event = MemoryEvent(
-            source=source,
-            kind=kind,
-            content=content,
-            context=context or {},
-            timestamp=final_timestamp
-        )
+        # CRITICAL: Force 'draft' status for all proposals to prevent I4 integrity violations
+        if kind == KIND_PROPOSAL:
+            if isinstance(context, dict):
+                context["status"] = "draft"
+            elif hasattr(context, "status"):
+                context.status = "draft"
+
+        event = MemoryEvent(source=source, kind=kind, content=content, context=context or {}, timestamp=final_timestamp)
         
         # 2.5: Prevent duplicate processing (Deep check including context, ignoring links)
         if self.episodic.find_duplicate(event, ignore_links=True).value:
