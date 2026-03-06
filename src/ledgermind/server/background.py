@@ -242,7 +242,7 @@ class BackgroundWorker:
                     try:
                         logger.info("Starting maintenance cycle in main thread...")
                         self.memory.check_environment()
-                        self.memory.run_maintenance()
+                        self.memory.run_maintenance(stop_event=self._stop_event)
                         last_maintenance = time.time()
                     except Exception as me:
                         logger.error(f"Maintenance failed: {me}")
