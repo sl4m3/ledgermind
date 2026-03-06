@@ -322,6 +322,9 @@ class ReflectionEngine:
         stream = self.lifecycle.calculate_temporal_signals(stream, reinforcement_dates, now)
         stream = self.lifecycle.promote_stream(stream)
         
+        # CRITICAL: Always ensure newly discovered patterns are 'draft' proposals, not 'active' decisions
+        stream.status = "draft"
+        
         decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=stream.title, context=stream)
         return decision.metadata.get("file_id") if decision.should_persist else ""
 
