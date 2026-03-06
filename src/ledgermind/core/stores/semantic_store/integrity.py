@@ -110,17 +110,18 @@ class IntegrityChecker:
         active_targets: Dict[tuple, str] = {}
         
         for fid, data in decisions.items():
-            if not data or "context" not in data:
+            if not data:
                 continue
                 
-            kind = data.get("kind", "decision") # Default to decision for legacy
-            ctx = data["context"]
-            target = ctx.get("target")
-            status = ctx.get("status")
+            # PRIORITIZE Top-level fields (modern schema) over context fields (legacy schema)
+            ctx = data.get("context", {})
+            kind = data.get("kind") or ctx.get("kind", "decision")
+            target = data.get("target") or ctx.get("target")
+            status = data.get("status") or ctx.get("status")
             
             # Determine namespace from directory structure if not explicitly in context
             rel_dir = os.path.dirname(fid)
-            namespace = ctx.get("namespace") or (rel_dir if rel_dir else "default")
+            namespace = data.get("namespace") or ctx.get("namespace") or (rel_dir if rel_dir else "default")
 
             # I4: Single active decision per target
             # ONLY for decisions, proposals are excluded from reality checks
@@ -138,7 +139,7 @@ class IntegrityChecker:
                 active_targets[key] = (fid, target)
 
             # I3: Bidirectional Supersede
-            superseded_by = ctx.get("superseded_by")
+            superseded_by = data.get("superseded_by") or ctx.get("superseded_by")
             if superseded_by:
                 if superseded_by not in decisions:
                     raise IntegrityViolation(
@@ -148,8 +149,11 @@ class IntegrityChecker:
                     )
                 
                 # Check remote backlink
-                remote_ctx = decisions[superseded_by].get("context", {})
-                if fid not in remote_ctx.get("supersedes", []):
+                remote_data = decisions[superseded_by]
+                remote_ctx = remote_data.get("context", {})
+                remote_supersedes = remote_data.get("supersedes") or remote_ctx.get("supersedes", [])
+                
+                if fid not in remote_supersedes:
                     raise IntegrityViolation(
                         f"I3 Violation: Broken backlink. {superseded_by} does not acknowledge via 'supersedes'.",
                         fid=fid,
@@ -157,7 +161,8 @@ class IntegrityChecker:
                     )
                     
             # Check if all 'supersedes' point to existing files
-            for old_fid in ctx.get("supersedes", []):
+            current_supersedes = data.get("supersedes") or ctx.get("supersedes", [])
+            for old_fid in current_supersedes:
                 if old_fid not in decisions:
                     raise IntegrityViolation(
                         f"Reference Violation: Claims to supersede non-existent file.",
