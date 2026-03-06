@@ -67,42 +67,56 @@ class LLMEnricher:
             "Ensure technical terms remain in English. Output must be in the same language as the input rationales."
         )
 
-        try:
-            response_text = None
-            if self.mode == "optimal":
-                response_text = self._call_model(instructions + "\n\n" + combined_text, use_local=True)
-            elif self.mode == "rich":
-                response_text = self._call_cli_model(instructions, data=combined_text)
-                if not response_text:
-                    response_text = self._call_model(instructions + "\n\n" + combined_text, use_local=False)
+        # ATTEMPT CYCLE (Up to 3 retries for empty or invalid synthesis)
+        for attempt in range(1, 4):
+            try:
+                response_text = None
+                if self.mode == "optimal":
+                    response_text = self._call_model(instructions + "\n\n" + combined_text, use_local=True)
+                elif self.mode == "rich":
+                    response_text = self._call_cli_model(instructions, data=combined_text)
+                    if not response_text:
+                        response_text = self._call_model(instructions + "\n\n" + combined_text, use_local=False)
 
-            if response_text:
-                import re
-                import json
-                # Try to extract JSON
-                json_text = response_text
-                if "```json" in response_text:
-                    match = re.search(r"```json\s*(.*?)\s*```", response_text, re.DOTALL)
-                    if match: json_text = match.group(1)
-                elif "{" in response_text and "}" in response_text:
-                    start = response_text.find("{")
-                    end = response_text.rfind("}") + 1
-                    json_text = response_text[start:end]
-                
-                data = json.loads(json_text)
-                return {
-                    "title": data.get("title") or items_data[0]['title'],
-                    "target": data.get("target") or hint_target,
-                    "rationale": data.get("rationale") or "",
-                    "compressive": data.get("compressive") or ""
-                }
-        except Exception as e:
-            logger.warning(f"Knowledge synthesis failed: {e}")
+                if response_text:
+                    import re
+                    import json
+                    # Try to extract JSON
+                    json_text = response_text
+                    if "```json" in response_text:
+                        match = re.search(r"```json\s*(.*?)\s*```", response_text, re.DOTALL)
+                        if match: json_text = match.group(1)
+                    elif "{" in response_text and "}" in response_text:
+                        start = response_text.find("{")
+                        end = response_text.rfind("}") + 1
+                        json_text = response_text[start:end]
+                    
+                    data = json.loads(json_text)
+                    final_rationale = data.get("rationale") or ""
+                    
+                    # VALIDATION: Ensure rationale meets Pydantic min_length (15)
+                    if len(final_rationale) >= 15:
+                        return {
+                            "title": data.get("title") or items_data[0]['title'],
+                            "target": data.get("target") or hint_target,
+                            "rationale": final_rationale,
+                            "compressive": data.get("compressive") or ""
+                        }
+                    else:
+                        logger.warning(f"Synthesis attempt {attempt}/3: LLM returned empty or too short rationale. Retrying...")
+            except Exception as e:
+                logger.warning(f"Synthesis attempt {attempt}/3 failed: {e}")
+
+        # Final fallback: Concatenate sources
+        logger.error(f"All synthesis attempts failed for {hint_target}. Falling back to source concatenation.")
+        fallback_rationale = "\n\n".join([i['rationale'] for i in items_data])
+        if len(fallback_rationale) < 15:
+            fallback_rationale = f"Consolidated knowledge merge for {hint_target}. " + fallback_rationale
 
         return {
             "title": items_data[0]['title'] if items_data else "Merged Decision",
             "target": hint_target,
-            "rationale": "\n\n".join([i['rationale'] for i in items_data]),
+            "rationale": fallback_rationale,
             "compressive": ""
         }
 
