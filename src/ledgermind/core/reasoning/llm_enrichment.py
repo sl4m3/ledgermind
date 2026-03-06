@@ -260,18 +260,22 @@ class LLMEnricher:
                             results.append({"fid": fid, "status": "completed", "events": 0})
                         continue
 
-                    processed_in_this_run = 0
                     # CRITICAL: For knowledge_merge, skip enrichment loop entirely
                     # The proposal remains unchanged, we just create the merged decision
                     if is_merge:
                         logger.info(f"Skipping standard enrichment loop for knowledge_merge proposal, proceeding to atomic synthesis...")
                         superseded_ids = getattr(proposal, 'suggested_supersedes', []) or []
                         
-                        # 1. Get full metadata and sort by timestamp to find the most recent hint
+                        # 1. Resolve source files to their latest versions (Truth Resolution)
                         items_meta = []
+                        resolved_ids = set()
+                        
                         for s_fid in superseded_ids:
-                            m = memory.semantic.meta.get_by_fid(s_fid)
-                            if m: items_meta.append(m)
+                            # Use core truth resolution to follow superseded_by chain
+                            m_latest = memory.semantic.meta.resolve_to_truth(s_fid)
+                            if m_latest and m_latest['fid'] not in resolved_ids:
+                                items_meta.append(m_latest)
+                                resolved_ids.add(m_latest['fid'])
                         
                         if not items_meta:
                             logger.warning(f"No items found for merge proposal {fid}")
@@ -279,16 +283,17 @@ class LLMEnricher:
                                 memory.semantic.update_decision(fid, {"enrichment_status": "failed"}, "Enrichment: No items found")
                             continue
 
-                        # Sort by timestamp DESC to find the latest
+                        # Sort by timestamp DESC to find the latest hint
                         items_meta.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
                         hint_target = items_meta[0].get('target') if items_meta else 'unknown'
 
                         # 2. Read full files from disk (no truncation)
                         items_data = []
+                        from ledgermind.core.stores.semantic_store.loader import MemoryLoader
                         for m in items_meta:
                             s_fid = m['fid']
-                            file_path_src = __import__('os').path.abspath(__import__('os').path.join(memory.semantic.repo_path, s_fid))
-                            if __import__('os').path.exists(file_path_src):
+                            file_path_src = os.path.abspath(os.path.join(memory.semantic.repo_path, s_fid))
+                            if os.path.exists(file_path_src):
                                 try:
                                     with open(file_path_src, 'r', encoding='utf-8') as f_src:
                                         s_data, _ = MemoryLoader.parse(f_src.read())
@@ -320,9 +325,12 @@ class LLMEnricher:
                                 memory.semantic.update_decision(fid, {"enrichment_status": "failed"}, "Enrichment: Could not read source files")
                             continue
 
+                        # 3. Perform LLM synthesis
+                        logger.info(f"Synthesizing {len(items_data)} entries into one canonical decision...")
+                        merged_data = self.synthesize_knowledge_merge(items_data, hint_target)
+
                         # COORDINATED ATOMIC FINALIZATION
                         new_decision_fid = None
-                        # Initialize for recovery block availability
                         final_superseded_ids = list(resolved_ids)
                         
                         try:
@@ -338,7 +346,6 @@ class LLMEnricher:
                                 logger.info(f"Target '{merged_data['target']}' already has active decision {current_conflict}. Transitioning to final validation.")
                                 
                                 # Create a new validation proposal that will compare our NEW synthesis with the OLD active decision.
-                                from ledgermind.core.core.schemas import TrustBoundary
                                 validation_res = memory.process_event(
                                     source="system",
                                     kind="proposal",
@@ -390,11 +397,12 @@ class LLMEnricher:
                         except Exception as te:
                             logger.error(f"Atomic merge failed: {te}. Reverting source files to active status.")
                             # RECOVERY: Revert source files to active if the merge failed
-                            for s_fid in final_superseded_ids:
-                                try:
-                                    memory.update_decision(s_fid, {"status": "active"}, "Merge failed: Restored to active status.")
-                                except Exception as re:
-                                    logger.error(f"Critical: Failed to revert source file {s_fid}: {re}")
+                            with memory.semantic.transaction():
+                                for s_fid in final_superseded_ids:
+                                    try:
+                                        memory.semantic.update_decision(s_fid, {"status": "active"}, "Merge failed: Restored to active status.")
+                                    except Exception as re:
+                                        logger.error(f"Critical: Failed to revert source file {s_fid}: {re}")
                             continue
 
                     processed_in_this_run = 0
@@ -783,19 +791,19 @@ class LLMEnricher:
         title = ""
         rationale = ""
         
-        # Try direct attributes
-        title = getattr(proposal, 'title', '')
-        rationale = getattr(proposal, 'rationale', '') or getattr(proposal, 'content', '')
+        # Try direct attributes (ensure strings, coalesce None)
+        title = getattr(proposal, 'title', '') or ''
+        rationale = getattr(proposal, 'rationale', '') or getattr(proposal, 'content', '') or ''
         
         # Try context dictionary (common for loaded MemoryDecisions)
         if not title or not rationale:
             ctx = getattr(proposal, 'context', {})
             if isinstance(ctx, dict):
-                title = title or ctx.get('title', '')
-                rationale = rationale or ctx.get('rationale', '') or ctx.get('content', '')
+                title = title or ctx.get('title', '') or ''
+                rationale = rationale or ctx.get('rationale', '') or ctx.get('content', '') or ''
 
         content = f"{title} {rationale}"
-        if not content.strip():
+        if not content.strip() or content.strip().lower() == "none none":
             logger.debug(f"Language check: empty content for {getattr(proposal, 'fid', 'unknown')}, skipping.")
             return True
             
@@ -813,8 +821,8 @@ class LLMEnricher:
 
         if preferred_lang in unicode_ranges:
             pattern = unicode_ranges[preferred_lang]
-            # Find all target characters vs total alphabetical characters
-            all_letters = re.findall(r'[\w]', content)
+            # Find all target characters vs pure alphabetical characters (exclude digits/underscores)
+            all_letters = re.findall(r'[^\W\d_]', content)
             if not all_letters: return True
             
             target_chars = re.findall(pattern, content)
