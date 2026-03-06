@@ -403,29 +403,28 @@ class LLMEnricher:
                                 continue
 
                             # 5. FINALIZE as a regular Decision
-                            try:
-                                # ATOMICITY IMPROVEMENT: Include the trigger proposal itself in the supersedes list.
-                                # This ensures the proposal is archived in the exact same transaction as the merge result.
-                                final_to_supersede = list(valid_supersedes)
-                                if fid not in final_to_supersede:
-                                    final_to_supersede.append(fid)
+                            # ATOMICITY IMPROVEMENT: Include the trigger proposal itself in the supersedes list.
+                            # This ensures the proposal is archived in the exact same transaction as the merge result.
+                            final_to_supersede = list(valid_supersedes)
+                            if fid not in final_to_supersede:
+                                final_to_supersede.append(fid)
 
-                                res = memory.supersede_decision(
-                                    title=merged_data['title'],
-                                    target=merged_data['target'],
-                                    rationale=merged_data['rationale'],
-                                    old_decision_ids=final_to_supersede,
-                                    consequences=getattr(proposal, 'suggested_consequences', []),
-                                    namespace=getattr(proposal, 'namespace', 'default')
-                                )
-                                
-                                new_decision_fid = res.metadata.get("file_id")
-                                if new_decision_fid:
-                                    logger.info(f"Created new consolidated decision: {new_decision_fid}")
-                                    # Since 'fid' is now officially superseded in the transaction above, 
-                                    # we don't strictly need this second update, but we keep it for enrichment metadata.
-                                    with memory.semantic.transaction():
-                                        memory.semantic.update_decision(fid, {"enrichment_status": "processed"}, f"Merge completed into {new_decision_fid}")
+                            res = memory.supersede_decision(
+                                title=merged_data['title'],
+                                target=merged_data['target'],
+                                rationale=merged_data['rationale'],
+                                old_decision_ids=final_to_supersede,
+                                consequences=getattr(proposal, 'suggested_consequences', []),
+                                namespace=getattr(proposal, 'namespace', 'default')
+                            )
+                            
+                            new_decision_fid = res.metadata.get("file_id")
+                            if new_decision_fid:
+                                logger.info(f"Created new consolidated decision: {new_decision_fid}")
+                                # Since 'fid' is now officially superseded in the transaction above, 
+                                # we don't strictly need this second update, but we keep it for enrichment metadata.
+                                with memory.semantic.transaction():
+                                    memory.semantic.update_decision(fid, {"enrichment_status": "processed"}, f"Merge completed into {new_decision_fid}")
 
                             results.append({"fid": new_decision_fid or fid, "status": "processed", "events": len(items_data)})
                             continue
