@@ -210,12 +210,16 @@ class LLMEnricher:
                     is_validation = target_val == "knowledge_validation"
                     
                     if is_validation:
+                        logger.info(f"  Enrichment: Running VALIDATION for '{proposal.title}'")
                         instructions = self._build_validation_prompt(proposal.title, lang=self.preferred_language)
                     elif is_merge:
+                        logger.info(f"  Enrichment: Running MERGE for '{proposal.title}'")
                         instructions = self._build_merge_prompt(proposal.title, lang=self.preferred_language)
                     elif is_behavioral:
+                        logger.info(f"  Enrichment: Analyzing BEHAVIORAL PATTERN for '{proposal.target}'")
                         instructions = self._build_behavioral_prompt(proposal.target, existing_rationale=proposal.rationale, lang=self.preferred_language)
                     else:
+                        logger.info(f"  Enrichment: Creating PROCEDURAL GUIDE for '{proposal.target}'")
                         instructions = self._build_procedural_prompt(proposal.target, existing_rationale=proposal.rationale, lang=self.preferred_language)
 
                     # --- ITERATIVE CHUNKING LOGIC ---
