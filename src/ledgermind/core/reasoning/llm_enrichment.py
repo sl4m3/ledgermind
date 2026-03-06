@@ -130,8 +130,8 @@ class LLMEnricher:
             try:
                 import sqlite3
                 conn = sqlite3.connect(db_path, timeout=30.0)
-                # Increased limit to 50 to process more proposals at once
-                query = "SELECT fid FROM semantic_meta WHERE (enrichment_status = 'pending' OR status = 'draft') AND kind = 'proposal' LIMIT 50"
+                # Select only proposals that are BOTH draft AND pending enrichment
+                query = "SELECT fid FROM semantic_meta WHERE enrichment_status = 'pending' AND status = 'draft' AND kind = 'proposal' LIMIT 50"
                 rows = conn.execute(query).fetchall()
                 pending_fids = [row[0] for row in rows]
                 conn.close()
