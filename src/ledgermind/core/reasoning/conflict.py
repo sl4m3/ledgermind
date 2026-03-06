@@ -25,9 +25,10 @@ class ConflictEngine:
         elif isinstance(event.context, dict):
             target = event.context.get("target")
             
-        if target and "/" in target:
-            # Normalize to first level only
-            return target.split("/")[0]
+        if target:
+            # We now support granular knowledge. No more forced prefix-based conflicts.
+            # A conflict only exists for the EXACT SAME target path.
+            return target
         return target
 
     def _get_namespace(self, event: MemoryEvent) -> str:
@@ -45,7 +46,7 @@ class ConflictEngine:
         """
         Identify files in the semantic store that conflict with the given event.
         
-        A conflict occurs if an existing active decision has the same base target (1st level).
+        A conflict occurs if an existing active decision has the exact same target.
         """
         if event.kind != KIND_DECISION:
             return []
