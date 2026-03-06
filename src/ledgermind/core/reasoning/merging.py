@@ -92,8 +92,9 @@ class MergeEngine:
                 search_query = f"{title} {content_desc} {keywords}".strip()
                 if not search_query: continue
                 
-                # Search against ALL active decisions
-                results = self.memory.search_decisions(search_query, limit=10, mode="strict")
+                # Search against candidates using maintenance mode
+                # This allows seeing draft proposals for early consolidation.
+                results = self.memory.search_decisions(search_query, limit=10, mode="maintenance")
                 
                 if not results:
                     continue

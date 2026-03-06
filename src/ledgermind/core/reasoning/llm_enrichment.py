@@ -356,17 +356,16 @@ class LLMEnricher:
                             )
                             
                             # B. Semantic conflicts (vector search)
-                            # We search for very high similarity (> 0.95) to find documents that are 
-                            # semantically the same but might have slightly different target paths.
+                            # We use mode="maintenance" to see both active and draft competitors
                             try:
                                 search_query = f"{final_title} {final_target}"
-                                # We use mode="strict" to avoid including technical/intermediate statuses
-                                semantic_results = memory.search_decisions(search_query, limit=10, mode="strict")
+                                semantic_results = memory.search_decisions(search_query, limit=10, mode="maintenance")
                                 for res in semantic_results:
                                     # Confidence threshold 0.95 is very high, only for true duplicates
-                                    if res['score'] > 0.95 and res['status'] == 'active':
+                                    # We include 'draft' status here to resolve conflicts with new proposals
+                                    if res['score'] > 0.95 and res['status'] in ('active', 'draft'):
                                         if res['id'] not in all_conflicts:
-                                            logger.info(f"Detected semantic conflict: {res['id']} matches new merge result. Adding to supersedes.")
+                                            logger.info(f"Detected semantic conflict: {res['id']} ({res['status']}) matches new merge result. Adding to supersedes.")
                                             all_conflicts.append(res['id'])
                             except Exception as se:
                                 logger.debug(f"Semantic conflict search failed: {se}")
