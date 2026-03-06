@@ -509,11 +509,22 @@ class SemanticStore:
             new_content = MemoryLoader.stringify(new_data, body)
             with open(file_path, "w", encoding="utf-8") as f: f.write(new_content)
             
+            # CRITICAL: Manually update IntegrityChecker cache to prevent race conditions
+            # with filesystem mtime resolution. This ensures the validator sees the 
+            # updated status even if mtime hasn't ticked yet.
+            try:
+                stat = os.stat(file_path)
+                IntegrityChecker._file_data_cache[file_path] = (stat.st_mtime_ns, new_data)
+                # Invalidate state cache to force re-scan of the repository structure
+                IntegrityChecker._state_cache.pop(self.repo_path, None)
+            except OSError:
+                pass
+
             ctx = new_data.get("context", {})
             ts = new_data.get("timestamp")
             if isinstance(ts, str): ts = datetime.fromisoformat(ts)
             
-            final_target_upd = ctx.get("target") or old_data.get("context", {}).get("target") or "unknown"
+            final_target_upd = new_data.get("target") or ctx.get("target") or old_data.get("context", {}).get("target") or "unknown"
             final_ns_upd = ctx.get("namespace") or old_data.get("context", {}).get("namespace") or "default"
             
             # Use existing timestamp from meta if file doesn't have one and we are not forcing it
@@ -534,7 +545,7 @@ class SemanticStore:
                     timestamp=ts or datetime.now(),
                     content=new_data.get("content", ""),
                     context=ctx,
-                    status=ctx.get("status")
+                    status=new_data.get("status") or ctx.get("status")
                 )
             except Exception as e:
                 if not self._in_transaction:
