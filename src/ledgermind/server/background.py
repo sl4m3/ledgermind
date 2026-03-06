@@ -11,21 +11,14 @@ from typing import Optional, Dict, List, Any
 from datetime import datetime
 
 # Add the 'src' directory to sys.path to ensure imports work regardless of CWD
-# This makes the script location-independent
 script_dir = os.path.dirname(os.path.abspath(__file__))
-# Correct root discovery: background.py is in src/ledgermind/server/
-project_root = os.path.abspath(os.path.join(script_dir, "../../../"))
 src_root = os.path.abspath(os.path.join(script_dir, "../../"))
-
 if src_root not in sys.path:
     sys.path.insert(0, src_root)
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
 
 try:
     from ledgermind.core.api.memory import Memory
 except ImportError:
-    # Fallback for weird path cases
     sys.path.insert(0, os.getcwd() + "/src")
     from ledgermind.core.api.memory import Memory
 
@@ -35,27 +28,25 @@ class BackgroundWorker:
     """
     Active Runtime Loop ("The Heartbeat") for LedgerMind.
     Designed to run as a standalone, detached process.
+    Supports graceful shutdown and lock file monitoring.
     """
     def __init__(self, memory: Memory, interval_seconds: int = 300, log_path: Optional[str] = None):
         self.memory = memory
-        # Ensure storage path is absolute for reliability
         self.memory.storage_path = os.path.abspath(self.memory.storage_path)
 
         self.interval = interval_seconds
         self.enrichment_interval = 60
 
-        # Setup logging only if a path is provided, otherwise assume external setup
         if log_path:
             self._setup_logging(os.path.abspath(log_path))
 
         self.running = False
         self._stop_event = threading.Event()
-        self.maintenance_thread: Optional[threading.Thread] = None
         self.enrichment_thread: Optional[threading.Thread] = None
+        self.watchdog_thread: Optional[threading.Thread] = None
 
         self.last_run: Dict[str, datetime] = {}
         self.status = "stopped"
-        self.errors: List[str] = []
         self._active_subprocesses: List[Any] = []
         self._proc_lock = threading.Lock()
         self._worker_lock_fd = None
@@ -64,15 +55,11 @@ class BackgroundWorker:
         atexit.register(self._cleanup_on_exit)
 
     def _setup_logging(self, log_path: str):
-        """Initializes standalone logging for the worker process."""
         log_dir = os.path.dirname(log_path)
         if log_dir: os.makedirs(log_dir, exist_ok=True)
-
-        # Clear existing handlers to avoid duplicates
         root_logger = logging.getLogger()
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
-
         fh = logging.FileHandler(log_path, mode='w')
         fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         root_logger.addHandler(fh)
@@ -80,42 +67,35 @@ class BackgroundWorker:
         logger.info(f"Worker logging initialized at {log_path}")
 
     def _setup_signal_handlers(self):
-        """Setup signal handlers for graceful shutdown."""
+        """Setup signal handlers for immediate forced shutdown."""
         if threading.current_thread() is not threading.main_thread():
             return
 
         def signal_handler(signum, frame):
-            logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+            logger.info(f"Received signal {signum}, initiating immediate forced shutdown...")
             self._signal_received = True
-            self._stop_event.set()
+            self.running = False
+            self.stop()
+            # Hard exit to break any blocking native calls in main thread
+            os._exit(0)
 
         signal.signal(signal.SIGTERM, signal_handler)
         signal.signal(signal.SIGINT, signal_handler)
         
-        # PERSISTENCE: Ignore SIGHUP to stay alive after TTY disconnect
         if hasattr(signal, 'SIGHUP'):
             signal.signal(signal.SIGHUP, signal.SIG_IGN)
-        
-        # Ignore SIGPIPE to avoid crashing if stderr is closed prematurely (Issue #42)
         if hasattr(signal, 'SIGPIPE'):
             signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 
     def _cleanup_on_exit(self):
-        """Cleanup called by atexit."""
         if self.running:
-            logger.warning("Worker still running at exit, forcing cleanup...")
-            self._cleanup_orphans()
+            self.stop()
 
     def start(self):
-        """Starts the background worker with single-instance enforcement."""
-        if self.running:
-            logger.warning("Worker is already running")
-            return
+        if self.running: return
         self._cleanup_orphans()
-
         if not self._acquire_worker_lock():
-            # If we can't get the lock, another worker is already active
-            logger.info("Exiting: another Background Worker is already running for this storage path.")
+            logger.info("Exiting: another Background Worker is already running.")
             sys.exit(0)
 
         logger.info(f"Worker lock acquired (PID: {os.getpid()}, storage: {self.memory.storage_path})")
@@ -123,59 +103,50 @@ class BackgroundWorker:
         self._stop_event.clear()
         self.status = "running"
 
-        # Only Enrichment runs in a separate thread (it's I/O bound and doesn't use Llama stack)
+        # 1. Start enrichment thread
         self.enrichment_thread = threading.Thread(target=self._enrichment_loop, name="EnrichWorker", daemon=True)
         self.enrichment_thread.start()
+        
+        # 2. Start watchdog thread (10s interval)
+        self.watchdog_thread = threading.Thread(target=self._lock_watchdog, name="WorkerWatchdog", daemon=True)
+        self.watchdog_thread.start()
+        
+        logger.info("Background Worker started (Maintenance: MainThread, Enrichment: Parallel, Watchdog: 10s).")
 
-        logger.info("Background Worker started (Maintenance: MainThread, Enrichment: Parallel).")
+    def _lock_watchdog(self):
+        """Monitor worker.pid file. If missing, force immediate exit."""
+        lock_path = os.path.join(self.memory.storage_path, "worker.pid")
+        while self.running:
+            if not os.path.exists(lock_path):
+                logger.warning("Worker lock file (worker.pid) disappeared. Forcing immediate shutdown.")
+                self.stop()
+                os._exit(0)
+            
+            # Sleep 10s but check running flag every 1s
+            for _ in range(10):
+                if not self.running: return
+                time.sleep(1.0)
 
-    def _cleanup_orphans(self):
-        """Cleans up orphan gemini processes belonging to this worker instance."""
-        try:
-            # Kill gemini processes with empty extensions (used by enricher)
-            subprocess.run(
-                "pkill -f 'gemini --extensions \"\" -m'",
-                shell=True,
-                stderr=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL
-            )
-        except Exception:
-            pass
-
-    def stop(self, timeout: float = 10.0):
-        """Gracefully shuts down the worker and all subprocesses."""
-        if not self.running:
-            return
+    def stop(self, timeout: float = 5.0):
+        """Gracefully but rapidly shuts down the worker and kills all subprocesses."""
         self.running = False
         self._stop_event.set()
+        self.status = "stopping"
 
-        # 1. Terminate all registered enricher subprocesses
+        # 1. Kill all registered gemini subprocesses immediately
         with self._proc_lock:
-            logger.info(f"Terminating {len(self._active_subprocesses)} active subprocesses...")
-            for proc in self._active_subprocesses:
-                try:
-                    if proc.poll() is None:
-                        proc.terminate()
-                        try:
-                            proc.wait(timeout=1.0)
-                        except Exception:
-                            proc.kill()
-                except Exception as e:
-                    logger.warning(f"Failed to terminate subprocess: {e}")
-            self._active_subprocesses.clear()
+            if self._active_subprocesses:
+                logger.info(f"Killing {len(self._active_subprocesses)} active subprocesses...")
+                for proc in self._active_subprocesses:
+                    try:
+                        if proc.poll() is None:
+                            proc.kill() # Direct kill for speed
+                    except Exception: pass
+                self._active_subprocesses.clear()
 
-        # 2. Wait for enrichment thread to finish
-        if self.enrichment_thread:
-            self.enrichment_thread.join(timeout=timeout)
-            if self.enrichment_thread.is_alive():
-                logger.warning("Enrichment thread did not stop gracefully")
-
-        self.status = "stopped"
+        # 2. Release lock and remove worker.pid
         self._release_worker_lock()
-
-        # 3. Final cleanup of orphan gemini processes (safety net)
-        self._cleanup_orphans()
-
+        self.status = "stopped"
         logger.info("Background Worker stopped.")
 
     def register_process(self, proc: Any):
@@ -186,92 +157,34 @@ class BackgroundWorker:
             if proc in self._active_subprocesses: self._active_subprocesses.remove(proc)
 
     def _acquire_worker_lock(self) -> bool:
-        """Acquires exclusive lock to ensure only one worker runs per storage path.
-        Returns True if lock acquired, False if another worker is already running."""
         import fcntl
-
-        # PID file is always in the storage path
         pid_file = os.path.join(self.memory.storage_path, "worker.pid")
-
-        # First, check if a stale lock file exists from a dead process
         if os.path.exists(pid_file):
             try:
                 with open(pid_file, 'r') as f:
                     content = f.read().strip()
-                    if content:
-                        existing_pid = int(content)
-                        # Check if process is still running
-                        if not self._is_process_running(existing_pid):
-                            logger.warning(f"Removing stale lock file from dead process (PID: {existing_pid})")
-                            os.remove(pid_file)
-            except (ValueError, IOError):
-                # Corrupted lock file, remove it
-                if os.path.exists(pid_file):
-                    logger.warning("Removing corrupted lock file")
-                    os.remove(pid_file)
+                    if content and not self._is_process_running(int(content)):
+                        os.remove(pid_file)
+            except Exception: pass
 
         try:
-            # Fix: Open in 'a+' mode to avoid truncation before lock
             self._worker_lock_fd = open(pid_file, 'a+')
             fcntl.flock(self._worker_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            
-            # Now that we have the lock, truncate and write our PID
             self._worker_lock_fd.seek(0)
             self._worker_lock_fd.truncate()
             self._worker_lock_fd.write(str(os.getpid()))
             self._worker_lock_fd.flush()
             return True
-        except (IOError, OSError):
-            if self._worker_lock_fd:
-                try:
-                    self._worker_lock_fd.close()
-                except Exception: pass
-                self._worker_lock_fd = None
-            
-            # Try to read PID for better error message
-            existing_pid = ""
-            try:
-                if os.path.exists(pid_file):
-                    with open(pid_file, 'r') as f:
-                        existing_pid = f.read().strip()
-            except Exception:
-                pass
-            
-            if existing_pid:
-                logger.error(f"Another worker is already running (PID: {existing_pid}). Storage path: {self.memory.storage_path}")
-            else:
-                logger.error(f"Another worker is already running. Storage path: {self.memory.storage_path}")
+        except Exception:
+            if self._worker_lock_fd: self._worker_lock_fd.close()
             return False
 
     @staticmethod
     def _is_process_running(pid: int) -> bool:
-        """
-        Check if a process with given PID is still running and not a zombie.
-        On Unix, we check /proc/PID/status for 'State: Z (zombie)'.
-        """
         try:
-            # 1. Basic signal check
             os.kill(pid, 0)
-            
-            # 2. Deep check for Zombie state (Unix only)
-            status_path = f"/proc/{pid}/status"
-            if os.path.exists(status_path):
-                try:
-                    with open(status_path, 'r') as f:
-                        for line in f:
-                            if line.startswith("State:"):
-                                if "Z (zombie)" in line:
-                                    logger.warning(f"Detected zombie process (PID: {pid}). Treating as dead.")
-                                    return False
-                                break
-                except Exception: 
-                    # If we can't read /proc (unlikely on Termux), 
-                    # fallback to True since kill(0) succeeded
-                    pass
-                
             return True
-        except OSError:
-            return False
+        except OSError: return False
 
     def _release_worker_lock(self):
         import fcntl
@@ -285,119 +198,94 @@ class BackgroundWorker:
             finally: self._worker_lock_fd = None
 
     def _enrichment_loop(self):
-        self._stop_event.wait(15.0)
+        self._stop_event.wait(10.0)
         while self.running:
             try:
                 start_time = time.time()
-                # SQLite is thread-safe with check_same_thread=False
-                arbitration_mode = self.memory.semantic.meta.get_config("arbitration_mode", "lite")
-                
-                if arbitration_mode != "lite":
+                mode = self.memory.semantic.meta.get_config("arbitration_mode", "lite")
+                if mode != "lite":
                     from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
-                    enricher = LLMEnricher(mode=arbitration_mode, worker=self)
+                    enricher = LLMEnricher(mode=mode, worker=self)
                     try:
-                        logger.info(f"Starting Enrichment Cycle ({arbitration_mode})...")
                         enricher.process_batch(self.memory)
-                        self.last_run["enrichment"] = datetime.now()
-                    finally:
-                        enricher.close()
+                    finally: enricher.close()
                 
+                # Responsive sleep
                 elapsed = time.time() - start_time
-                if self._stop_event.wait(max(5.0, self.enrichment_interval - elapsed)): break
+                wait_time = max(5.0, self.enrichment_interval - elapsed)
+                for _ in range(int(wait_time * 2)):
+                    if not self.running: break
+                    time.sleep(0.5)
             except Exception as e:
-                logger.error(f"Enrichment Loop crashed: {e}")
-                if self._stop_event.wait(120.0): break
-
-    def _run_health_check(self):
-        try:
-            self.memory.check_environment()
-            # Stale lock cleaning logic is now handled by OS-level fcntl
-            self.last_run["health"] = datetime.now()
-        except Exception as e: logger.error(f"Health check failed: {e}")
-
-    def _run_git_sync(self):
-        try:
-            if self.memory._git_available:
-                self.memory.sync_git(repo_path=".", limit=5)
-                self.last_run["git_sync"] = datetime.now()
-        except Exception as e: logger.warning(f"Git sync failed: {e}")
-
-    def _run_maintenance(self):
-        try:
-            self.memory.run_maintenance()
-            self.last_run["maintenance"] = datetime.now()
-        except Exception as e: logger.error(f"Maintenance failed: {e}")
+                logger.error(f"Enrichment Loop error: {e}")
+                if self._stop_event.wait(30.0): break
 
     def run_forever(self):
-        """Main worker loop with session registration and maintenance."""
+        """Main worker loop with lock monitoring and maintenance."""
         try:
             self.start()
-            
             session_dir = os.path.join(self.memory.storage_path, "sessions")
+            lock_path = os.path.join(self.memory.storage_path, "worker.pid")
             os.makedirs(session_dir, exist_ok=True)
             
-            logger.info(f"Worker active. Monitoring sessions and performing maintenance in main thread.")
+            last_maintenance = 0
             
             while self.running:
-                # 1. MAINTENANCE CYCLE (Directly in main thread for stack safety)
-                # This includes GGUF indexing, reflection, and merging
-                try:
-                    logger.info("Starting maintenance cycle in main thread...")
-                    start_time = time.time()
-                    
-                    # Complete maintenance suite
-                    self._run_health_check()
-                    self._run_git_sync()
-                    res = self.memory.run_maintenance()
-                    
-                    elapsed = time.time() - start_time
-                    logger.info(f"Maintenance finished in {elapsed:.2f}s. Results: {res}")
-                    self.last_run["maintenance"] = datetime.now()
-                except Exception as me:
-                    logger.error(f"Maintenance cycle failed: {me}")
+                # 0. CRITICAL: Lock file health check (Manual removal detection)
+                if not os.path.exists(lock_path):
+                    logger.warning("Worker lock file (worker.pid) deleted manually. Shutting down.")
+                    break
 
-                # 2. SESSION MONITORING & SLEEP
-                # We check sessions periodically between maintenance runs
-                for _ in range(int(self.interval / 10)):
-                    if not self.running: break
-                    
-                    active_sessions = 0
+                now = time.time()
+                # 1. MAINTENANCE CYCLE
+                if now - last_maintenance >= self.interval:
                     try:
-                        for filename in os.listdir(session_dir):
-                            if not filename.endswith(".lock"): continue
-                            pid_str = filename.split(".")[0]
-                            if pid_str.isdigit() and self._is_process_running(int(pid_str)):
-                                active_sessions += 1
-                    except Exception: active_sessions = 1
-                    
-                    if active_sessions == 0:
-                        logger.info("No active sessions detected. Shutting down worker.")
-                        self.running = False
-                        break
+                        logger.info("Starting maintenance cycle in main thread...")
+                        self.memory.check_environment()
+                        self.memory.run_maintenance()
+                        last_maintenance = time.time()
+                    except Exception as me:
+                        logger.error(f"Maintenance failed: {me}")
 
-                    if self._stop_event.wait(10.0) or self._signal_received:
+                # 2. SESSION MONITORING & RESPONSIVE SLEEP
+                # Check sessions and flags every 5 seconds
+                for _ in range(20): # ~100 seconds total max sleep between checks
+                    if not self.running or not os.path.exists(lock_path): break
+                    
+                    # Check active client sessions
+                    active = 0
+                    try:
+                        for f in os.listdir(session_dir):
+                            if f.endswith(".lock") and self._is_process_running(int(f.split(".")[0])):
+                                active += 1
+                    except Exception: active = 1
+                    
+                    if active == 0:
+                        logger.info("No active sessions. Shutting down.")
                         self.running = False
                         break
+                    
+                    if self._stop_event.wait(5.0): break
                         
         except Exception as fatal_e:
-            logger.critical(f"FATAL: Worker crashed in main loop: {fatal_e}", exc_info=True)
+            logger.critical(f"FATAL: Worker loop crashed: {fatal_e}", exc_info=True)
         finally:
             self.stop()
 
+    def _cleanup_orphans(self):
+        try:
+            subprocess.run("pkill -f 'gemini --extensions \"\" -m'", shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        except Exception: pass
+
 if __name__ == "__main__":
     from ledgermind.core.core.schemas import TrustBoundary
-
     parser = argparse.ArgumentParser(description="LedgerMind Standalone Worker")
     parser.add_argument("--storage", required=True, help="Absolute path to storage")
     parser.add_argument("--log", help="Absolute path to log file")
     args = parser.parse_args()
 
-    # Create memory instance with absolute path
     storage_abs = os.path.abspath(args.storage)
     memory = Memory(storage_path=storage_abs, trust_boundary=TrustBoundary.AGENT_WITH_INTENT)
-    
-    # Initialize worker with absolute log path
     log_abs = os.path.abspath(args.log) if args.log else None
     worker = BackgroundWorker(memory, log_path=log_abs)
-    
     worker.run_forever()

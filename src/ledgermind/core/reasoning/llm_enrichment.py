@@ -389,12 +389,12 @@ class LLMEnricher:
                         except Exception as te:
                             logger.error(f"Atomic merge failed: {te}. Reverting source files to active status.")
                             # RECOVERY: Revert source files to active if the merge failed
-                            try:
-                                with memory.semantic.transaction():
-                                    for s_fid in superseded_ids:
-                                        memory.semantic.update_decision(s_fid, {"status": "active"}, "Merge failed: Restored to active status.")
-                            except Exception as re:
-                                logger.error(f"Critical: Failed to revert source files for {fid}: {re}")
+                            # We use high-level memory.update_decision for full consistency
+                            for s_fid in final_superseded_ids:
+                                try:
+                                    memory.update_decision(s_fid, {"status": "active"}, "Merge failed: Restored to active status.")
+                                except Exception as re:
+                                    logger.error(f"Critical: Failed to revert source file {s_fid}: {re}")
                             continue
 
                     processed_in_this_run = 0
@@ -773,13 +773,30 @@ class LLMEnricher:
     def _validate_language(self, proposal: Any) -> bool:
         """
         Global language safety detector using Unicode block analysis and keyword markers.
+        Robust against various object structures (MemoryDecision, DecisionStream, Dict).
         """
         preferred_lang = getattr(self, 'preferred_language', 'auto').lower()
         if preferred_lang in ("auto", "none", None):
             return True
 
-        content = f"{getattr(proposal, 'title', '')} {getattr(proposal, 'rationale', '')}"
+        # Extract content safely
+        title = ""
+        rationale = ""
+        
+        # Try direct attributes
+        title = getattr(proposal, 'title', '')
+        rationale = getattr(proposal, 'rationale', '') or getattr(proposal, 'content', '')
+        
+        # Try context dictionary (common for loaded MemoryDecisions)
+        if not title or not rationale:
+            ctx = getattr(proposal, 'context', {})
+            if isinstance(ctx, dict):
+                title = title or ctx.get('title', '')
+                rationale = rationale or ctx.get('rationale', '') or ctx.get('content', '')
+
+        content = f"{title} {rationale}"
         if not content.strip():
+            logger.debug(f"Language check: empty content for {getattr(proposal, 'fid', 'unknown')}, skipping.")
             return True
             
         import re
@@ -803,18 +820,17 @@ class LLMEnricher:
             target_chars = re.findall(pattern, content)
             density = len(target_chars) / len(all_letters)
             
-            # Lower threshold for complex scripts like Chinese/Hindi (10%)
             if density < 0.10:
-                logger.warning(f"Language check failed: {preferred_lang.capitalize()} expected, but script density is {density:.1%}")
+                logger.warning(f"Language check failed for {getattr(proposal, 'fid', 'unknown')}: {preferred_lang.capitalize()} expected, but script density is {density:.1%}")
                 return False
             return True
 
         # 2. Latin-based scripts (Keyword marker check)
         markers = {
-            "spanish": {" el ", " la ", " que ", " en ", " y ", " es ", " con ", " para "},
-            "english": {" the ", " and ", " with ", " from ", " this ", " that ", " for "},
-            "german": {" der ", " die ", " das ", " und ", " mit ", " von ", " ist "},
-            "french": {" le ", " la ", " les ", " et ", " avec ", " dans ", " pour "},
+            "spanish": {" el ", " la ", " los ", " que ", " en ", " y ", " es ", " con ", " para "},
+            "english": {" the ", " and ", " with ", " from ", " this ", " that ", " for ", " was "},
+            "german": {" der ", " die ", " das ", " und ", " mit ", " von ", " für ", " ist "},
+            "french": {" le ", " la ", " les ", " et ", " avec ", " dans ", " pour ", " est "},
             "italian": {" il ", " lo ", " la ", " che ", " in ", " di ", " per "}
         }
 
@@ -824,7 +840,7 @@ class LLMEnricher:
             found_count = sum(1 for m in target_markers if m in content_lower)
             
             if len(content) > 150 and found_count < 2:
-                logger.warning(f"Language check failed: {preferred_lang.capitalize()} expected, but no language markers found.")
+                logger.warning(f"Language check failed for {getattr(proposal, 'fid', 'unknown')}: {preferred_lang.capitalize()} expected, but no markers found.")
                 return False
             return True
 
