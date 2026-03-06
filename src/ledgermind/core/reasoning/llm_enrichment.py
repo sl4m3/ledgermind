@@ -376,24 +376,13 @@ class LLMEnricher:
                                     logger.info(f"Target '{final_target}' has existing active decision {c_fid}. Including it in the merge to resolve I4 conflict.")
                                     final_superseded_ids.append(c_fid)
 
-                            # FINALIZE as a regular Decision
-                            # We split files into 'to_supersede' (active) and 'to_archive' (drafts)
-                            # because ResolutionEngine only allows superseding active records.
-                            to_supersede = []
-                            to_archive_manually = []
-                            
-                            for s_fid in final_superseded_ids:
-                                m = memory.semantic.meta.get_by_fid(s_fid)
-                                if m and m.get('status') in ('active', 'pending_merge', 'accepted'):
-                                    to_supersede.append(s_fid)
-                                else:
-                                    to_archive_manually.append(s_fid)
-
+                        # FINALIZE as a regular Decision
+                        try:
                             res = memory.supersede_decision(
                                 title=merged_data['title'],
                                 target=merged_data['target'],
                                 rationale=merged_data['rationale'],
-                                old_decision_ids=to_supersede,
+                                old_decision_ids=final_superseded_ids,
                                 consequences=getattr(proposal, 'suggested_consequences', []),
                                 namespace=getattr(proposal, 'namespace', 'default')
                             )
@@ -401,11 +390,9 @@ class LLMEnricher:
                             new_decision_fid = res.metadata.get("file_id")
                             if new_decision_fid:
                                 logger.info(f"Created new consolidated decision: {new_decision_fid}")
-                                # Mark trigger proposal AND non-active sources as processed
+                                # Mark trigger proposal as processed
                                 with memory.semantic.transaction():
                                     memory.semantic.update_decision(fid, {"enrichment_status": "processed"}, f"Merge completed into {new_decision_fid}")
-                                    for a_fid in to_archive_manually:
-                                        memory.semantic.update_decision(a_fid, {"status": "superseded", "superseded_by": new_decision_fid}, f"Absorbed into merge {new_decision_fid}")
 
                             results.append({"fid": new_decision_fid or fid, "status": "processed", "events": len(items_data)})
                             continue

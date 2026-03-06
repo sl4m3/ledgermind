@@ -381,9 +381,9 @@ class Memory:
                     if intent and intent.resolution_type == "supersede":
                         for old_id in intent.target_decision_ids:
                             # Verify it exists and is valid for deactivation
-                            # We allow active, pending_merge, and accepted statuses to be superseded.
+                            # We allow active, pending_merge, accepted, and draft records to be superseded.
                             old_meta = self.semantic.meta.get_by_fid(old_id)
-                            if old_meta and old_meta.get('status') in ('active', 'pending_merge', 'accepted'):
+                            if old_meta and old_meta.get('status') in ('active', 'pending_merge', 'accepted', 'draft'):
                                 logger.debug(f"Deactivating old record {old_id} (Status: {old_meta.get('status')})...")
                                 self.semantic.update_decision(
                                     old_id, 
@@ -840,8 +840,8 @@ class Memory:
             if not meta:
                 raise ConflictError(f"Cannot supersede {oid}: it does not exist in the semantic store.")
             
-            # We allow active, pending_merge (locked by worker), and accepted records to be superseded.
-            if meta.get('status') not in ('active', 'pending_merge', 'accepted'):
+            # We allow active, pending_merge, accepted, and draft records to be superseded.
+            if meta.get('status') not in ('active', 'pending_merge', 'accepted', 'draft'):
                 raise ConflictError(f"Cannot supersede {oid}: it is no longer active (current status: {meta.get('status')}).")
 
         intent = ResolutionIntent(
