@@ -834,13 +834,14 @@ class Memory:
         """
         effective_namespace = namespace or self.namespace
         
-        # Verify all target IDs exist and are active BEFORE starting the process
+        # Verify all target IDs exist and are valid for replacement BEFORE starting the process
         for oid in old_decision_ids:
             meta = self.semantic.meta.get_by_fid(oid)
             if not meta:
                 raise ConflictError(f"Cannot supersede {oid}: it does not exist in the semantic store.")
             
-            if meta.get('status') != 'active':
+            # We allow active, pending_merge (locked by worker), and accepted records to be superseded.
+            if meta.get('status') not in ('active', 'pending_merge', 'accepted'):
                 raise ConflictError(f"Cannot supersede {oid}: it is no longer active (current status: {meta.get('status')}).")
 
         intent = ResolutionIntent(
