@@ -339,17 +339,38 @@ class LLMEnricher:
                         final_superseded_ids = list(resolved_ids)
                         
                         try:
-                            # 4. Check for existing active decisions on this target (I4 resolution)
-                            # We must find ALL active decisions for this target to satisfy ResolutionEngine
+                            # 4. EXHAUSTIVE CONFLICT DETECTION
+                            # Combine exact target match with semantic search to find ALL competitors.
+                            # This is necessary because ResolutionEngine enforces strict target uniqueness.
+                            final_target = merged_data['target']
+                            final_title = merged_data['title']
+                            
+                            # A. String-based conflicts (exact match)
                             all_conflicts = memory.semantic.meta.list_all_active_by_target(
-                                merged_data['target'],
+                                final_target,
                                 getattr(proposal, 'namespace', 'default')
                             )
                             
+                            # B. Semantic conflicts (vector search)
+                            # We search for very high similarity (> 0.95) to find documents that are 
+                            # semantically the same but might have slightly different target paths.
+                            try:
+                                search_query = f"{final_title} {final_target}"
+                                # We use mode="strict" to avoid including technical/intermediate statuses
+                                semantic_results = memory.search_decisions(search_query, limit=10, mode="strict")
+                                for res in semantic_results:
+                                    # Confidence threshold 0.95 is very high, only for true duplicates
+                                    if res['score'] > 0.95 and res['status'] == 'active':
+                                        if res['id'] not in all_conflicts:
+                                            logger.info(f"Detected semantic conflict: {res['id']} matches new merge result. Adding to supersedes.")
+                                            all_conflicts.append(res['id'])
+                            except Exception as se:
+                                logger.debug(f"Semantic conflict search failed: {se}")
+
                             # RESOLUTION: Include all found conflicts in the merge
                             for c_fid in all_conflicts:
                                 if c_fid not in final_superseded_ids:
-                                    logger.info(f"Target '{merged_data['target']}' has existing active decision {c_fid}. Including it in the merge to resolve I4 conflict.")
+                                    logger.info(f"Target '{final_target}' has existing active decision {c_fid}. Including it in the merge to resolve I4 conflict.")
                                     final_superseded_ids.append(c_fid)
 
                             # FINALIZE as a regular Decision
