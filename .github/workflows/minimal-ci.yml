@@ -72,19 +72,19 @@ jobs:
       - name: Run Bandit (SAST)
         id: bandit
         run: |
-          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ -f json -o bandit-report.json || { [[ -f bandit-report.json && -s bandit-report.json ]] || echo "{}" > bandit-report.json; }
         continue-on-error: true
 
       - name: Run Safety (Dependency Check)
         id: safety
         run: |
-          safety check --json --db > safety-report.json || true
+          safety check --json > safety-report.json || echo "{}" > safety-report.json
         continue-on-error: true
 
       - name: Run Pip-audit
         id: pip-audit
         run: |
-          pip-audit --desc --format json > pip-audit-report.json || true
+          pip-audit --desc --format json > pip-audit-report.json || { [[ -f pip-audit-report.json && -s pip-audit-report.json ]] || echo "{}" > pip-audit-report.json; }
         continue-on-error: true
 
       - name: Parse security reports
