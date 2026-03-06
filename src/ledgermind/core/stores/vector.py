@@ -122,7 +122,7 @@ class GGUFEmbeddingAdapter:
             logger.error(f"Failed to detect GGUF dimension: {e}")
             self.dimension = 1024
 
-    def encode(self, sentences: Any, **kwargs) -> np.ndarray:
+    def encode(self, sentences: Any, stop_event: Optional[threading.Event] = None, **kwargs) -> np.ndarray:
         import contextlib
         import io
         
@@ -137,6 +137,11 @@ class GGUFEmbeddingAdapter:
         embeddings = []
         # Optimization: Process the entire batch
         for text in input_list:
+            # 0. INTERRUPT CHECK
+            if stop_event and stop_event.is_set():
+                logger.info("Encoding: Interrupted by stop event.")
+                break
+
             # 1. Quick cache check
             if text in self._cache:
                 embeddings.append(self._cache[text])
@@ -166,7 +171,10 @@ class GGUFEmbeddingAdapter:
                     logger.error(f"GGUF Encoding failed: {e}")
                     embeddings.append([0.0] * self.dimension)
         
-        # Final result assembly
+        # Assemble results (might be a partial batch if interrupted)
+        if not embeddings:
+            return np.array([]).astype('float32')
+
         arr = np.array(embeddings).astype('float32')
         # Ensure 2D shape (n_sentences, dimension)
         if arr.ndim == 1:
@@ -536,7 +544,7 @@ class VectorStore:
 
         logger.info("Vector store compaction complete")
 
-    def add_documents(self, documents: List[Dict[str, Any]], embeddings: Optional[List[np.ndarray]] = None):
+    def add_documents(self, documents: List[Dict[str, Any]], embeddings: Optional[List[np.ndarray]] = None, stop_event: Optional[threading.Event] = None):
         if not documents: return
         self._ensure_loaded()
         
@@ -549,15 +557,22 @@ class VectorStore:
                 # Multi-process encoding for lists of sentences
                 new_embeddings = self.model.encode(texts, pool=pool, batch_size=32)
             else:
-                # Single-process encoding
-                new_embeddings = self.model.encode(texts)
+                # Single-process encoding (supports stop_event via GGUFEmbeddingAdapter)
+                if hasattr(self.model, 'encode'):
+                    # Check if the model is our adapter or a standard transformer
+                    import inspect
+                    sig = inspect.signature(self.model.encode)
+                    if 'stop_event' in sig.parameters:
+                        new_embeddings = self.model.encode(texts, stop_event=stop_event)
+                    else:
+                        new_embeddings = self.model.encode(texts)
+                else:
+                    return
             new_embeddings = np.array(new_embeddings).astype('float32')
         else:
             return
             
-        # Ensure 2D array for consistent norm calculations (fix for axis 1 error)
-        if new_embeddings.ndim == 1:
-            new_embeddings = new_embeddings.reshape(1, -1)
+        if new_embeddings.size == 0: return # Interrupted early
 
         ids = [doc["id"] for doc in documents]
 
