@@ -130,15 +130,16 @@ class MergeEngine:
                     if res_fid == fid or res_fid in pending_targets:
                         continue
 
-                    # Calculate similarity relative to the 'perfect' self-match
-                    normalized_score = res['score'] / self_score if self_score > 0 else 0
+                    # Calculate similarity relative to the 'perfect' self-match.
+                    # We cap it at 1.0 because a duplicate cannot be 'more than 100%' identical,
+                    # even if its search rank is slightly higher due to RRF non-linearity.
+                    normalized_score = min(1.0, res['score'] / self_score) if self_score > 0 else 0
 
                     # Only consider if the match is objectively near-perfect
                     if normalized_score >= threshold:
-                        logger.info(f"  Match: {fid} <-> {res_fid} | Sim: {normalized_score:.4f} (Rel to self: {self_score:.4f})")
+                        logger.info(f"  Match: {fid} <-> {res_fid} | Sim: {normalized_score:.4f} (Raw: {res['score']:.4f}, Self: {self_score:.4f})")
                         duplicates.append(res)
-                        total_norm_score += normalized_score
-                
+                        total_norm_score += normalized_score                
                 if duplicates:
                     # We found potential matches. 
                     # Group them: Current file + all found duplicates

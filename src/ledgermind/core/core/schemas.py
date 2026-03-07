@@ -69,7 +69,7 @@ class ProposalContent(BaseModel):
     rationale: RationaleStr
     compressive_rationale: Optional[str] = None
     namespace: str = "default"
-    confidence: float = Field(ge=0.0, le=1.0)
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     
     # Unified Lifecycle Fields
     phase: DecisionPhase = DecisionPhase.PATTERN
