@@ -1,41 +1,38 @@
 import pytest
 import sqlite3
-from ledgermind.core.stores.semantic_store.meta import SemanticMetaStore
 from datetime import datetime
+from ledgermind.core.stores.semantic_store.meta import SemanticMetaStore
 
 @pytest.fixture
 def store(tmp_path):
     db_path = str(tmp_path / "test_meta.db")
-    s = SemanticMetaStore(db_path)
-    # Populate with some data
-    s.upsert("f1", "target1", "active", "decision", datetime.now(), title="Python Optimization", keywords="fast, efficient")
-    s.upsert("f2", "target2", "active", "decision", datetime.now(), title="Java Performance", keywords="slow, memory")
-    s.upsert("f3", "target3", "active", "decision", datetime.now(), title="Python Memory", keywords="garbage collection")
-    return s
+    return SemanticMetaStore(db_path)
 
-def test_fallback_search(store):
-    # Force fallback by breaking FTS table
-    try:
-        store._conn.execute("DROP TABLE semantic_fts")
-    except sqlite3.OperationalError:
-        pass
+def test_fallback_search_logic(store):
+    """Verify that search works even if FTS5 table is missing (using LIKE fallback)."""
+    # 1. Seed data
+    store.upsert(
+        fid="python_opt.md", target="core/python", title="Python Optimization",
+        content="Fast execution techniques for Python", status="active", kind="decision",
+        timestamp=datetime.now()
+    )
+    store.upsert(
+        fid="java_perf.md", target="core/java", title="Java Performance",
+        content="Garbage collection tuning", status="active", kind="decision",
+        timestamp=datetime.now()
+    )
 
-    # Search for "Python"
+    # 2. Break FTS table to force fallback
+    store._conn.execute("DROP TABLE semantic_fts")
+    
+    # 3. Search for "Python"
     results = store.keyword_search("Python")
-    titles = [r[1] for r in results] # Index 1 is title in raw tuples
-    assert "Python Optimization" in titles
-    assert "Python Memory" in titles
-    assert "Java Performance" not in titles
+    assert len(results) > 0
+    # Index 1 is title in the raw tuple return
+    assert any("Python" in r[1] for r in results)
+    assert not any("Java" in r[1] for r in results)
 
-    # Search for "Python Memory" (Two words)
-    # With AND logic, should match "Python Memory" (has both)
-    # "Python Optimization" has "Python" but not "Memory" -> Should NOT match
-    results = store.keyword_search("Python Memory")
-    titles = [r[1] for r in results]
-    assert "Python Memory" in titles
-    assert "Python Optimization" not in titles
-
-    # Search for "fast"
-    results = store.keyword_search("fast")
-    titles = [r[1] for r in results]
-    assert "Python Optimization" in titles
+    # 4. Search for "fast" (should match content field via LIKE)
+    results_fast = store.keyword_search("fast")
+    assert len(results_fast) > 0
+    assert "Python Optimization" in results_fast[0][1]

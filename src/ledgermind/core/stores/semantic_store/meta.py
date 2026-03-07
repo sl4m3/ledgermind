@@ -3,6 +3,7 @@ import sqlite3
 import logging
 import time
 import json
+import uuid
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from contextlib import contextmanager
@@ -12,9 +13,8 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=128)
 def _clean_query(query: str) -> str:
-    """Pre-cleans query for FTS5 with caching."""
-    # Clean query of FTS5 special characters to avoid syntax errors or weird matching
-    # Keep alphanumerics (including Unicode) and spaces.
+    """Pre-cleans query for FTS5 with caching. Preserves alpha-numerics across languages."""
+    # Keep letters, numbers and spaces. Replace everything else with space.
     clean = re.sub(r'[^\w\s]', ' ', query)
     return " ".join(clean.split())
 
@@ -32,13 +32,9 @@ class SemanticMetaStore:
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
         self._conn.execute("PRAGMA busy_timeout=60000")
-        self._conn.execute("PRAGMA cache_size=-64000") # 64MB cache
+        self._conn.execute("PRAGMA cache_size=-64000")
         self._conn.execute("PRAGMA temp_store=MEMORY")
-        # Ensure FTS5 is available or fallback
-        try:
-            self._conn.execute("SELECT 1")
-        except sqlite3.OperationalError: pass
-
+        
         self.begin_transaction()
         try:
             self._conn.execute("""
@@ -55,11 +51,21 @@ class SemanticMetaStore:
                     hit_count INTEGER DEFAULT 0,
                     last_hit_at DATETIME,
                     confidence REAL DEFAULT 1.0,
-                    namespace TEXT DEFAULT 'default'
+                    namespace TEXT DEFAULT 'default',
+                    keywords TEXT DEFAULT '',
+                    phase TEXT DEFAULT 'pattern',
+                    vitality TEXT DEFAULT 'active',
+                    reinforcement_density REAL DEFAULT 0.0,
+                    stability_score REAL DEFAULT 0.0,
+                    coverage REAL DEFAULT 0.0,
+                    link_count INTEGER DEFAULT 0,
+                    compressive_rationale TEXT,
+                    enrichment_status TEXT DEFAULT 'pending',
+                    context_json TEXT DEFAULT '{}'
                 )
             """)
-            
-            # Migration: Add missing columns
+
+            # Migration: Add missing columns automatically
             cols = {
                 "title": "TEXT DEFAULT ''",
                 "namespace": "TEXT DEFAULT 'default'",
@@ -74,6 +80,8 @@ class SemanticMetaStore:
                 "stability_score": "REAL DEFAULT 0.0",
                 "coverage": "REAL DEFAULT 0.0",
                 "link_count": "INTEGER DEFAULT 0",
+                "compressive_rationale": "TEXT",
+                "content_hash": "TEXT",
                 "enrichment_status": "TEXT DEFAULT 'pending'",
                 "context_json": "TEXT DEFAULT '{}'"
             }
@@ -82,437 +90,252 @@ class SemanticMetaStore:
                     self._conn.execute(f"ALTER TABLE semantic_meta ADD COLUMN {col} {definition}")
                 except sqlite3.OperationalError: pass
 
-            # I4 Violation Prevention: Only one 'active' decision per target per namespace
+            # Ensure FTS5 is available
+            try:
+                cursor = self._conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_fts'")
+                if not cursor.fetchone():
+                    logger.info("Creating FTS5 index table...")
+                    self._conn.execute("""
+                        CREATE VIRTUAL TABLE semantic_fts USING fts5(
+                            fid UNINDEXED,
+                            title,
+                            target,
+                            content,
+                            keywords,
+                            tokenize='unicode61 remove_diacritics 1'
+                        )
+                    """)
+            except sqlite3.OperationalError as e:
+                logger.warning(f"FTS5 not available: {e}")
+
+            # I4 Violation Prevention
             try:
                 self._conn.execute("""
                     CREATE UNIQUE INDEX IF NOT EXISTS idx_active_target_ns
                     ON semantic_meta(target, namespace) WHERE status = 'active' AND kind = 'decision'
                 """)
-            except sqlite3.OperationalError:
-                pass
+            except sqlite3.OperationalError: pass
 
             self._conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON semantic_meta(status)")
             self._conn.execute("CREATE INDEX IF NOT EXISTS idx_target ON semantic_meta(target)")
-            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_namespace ON semantic_meta(namespace)")
-            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_phase ON semantic_meta(phase)")
-            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_vitality ON semantic_meta(vitality)")
-            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_enrichment ON semantic_meta(enrichment_status)")
-
-            # FTS5 Full Text Search
-            try:
-                # Check if FTS table exists
-                cursor = self._conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_fts'")
-                exists = cursor.fetchone()
-                
-                if not exists:
-                    logger.info("Creating FTS5 index table...")
-                    # Create FTS5 table linked to semantic_meta
-                    self._conn.execute("""
-                        CREATE VIRTUAL TABLE semantic_fts USING fts5(
-                            fid, title, target, content, keywords,
-                            content='semantic_meta', 
-                            content_rowid='rowid'
-                        )
-                    """)
-                    
-                    # Triggers are required for External Content Tables to keep index in sync
-                    self._conn.execute("""
-                        CREATE TRIGGER semantic_ai AFTER INSERT ON semantic_meta BEGIN
-                            INSERT INTO semantic_fts(rowid, fid, title, target, content, keywords) VALUES (new.rowid, new.fid, new.title, new.target, new.content, new.keywords);
-                        END;
-                    """)
-                    self._conn.execute("""
-                        CREATE TRIGGER semantic_ad AFTER DELETE ON semantic_meta BEGIN
-                            INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content, keywords) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content, old.keywords);
-                        END;
-                    """)
-                    self._conn.execute("""
-                        CREATE TRIGGER semantic_au AFTER UPDATE ON semantic_meta BEGIN
-                            INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content, keywords) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content, old.keywords);
-                            INSERT INTO semantic_fts(rowid, fid, title, target, content, keywords) VALUES (new.rowid, new.fid, new.title, new.target, new.content, new.keywords);
-                        END;
-                    """)
-                    
-                    # Initial rebuild
-                    self._conn.execute("INSERT INTO semantic_fts(semantic_fts) VALUES('rebuild')")
-                else:
-                    # Ensure triggers exist (migration for old versions)
-                    self._conn.execute("CREATE TRIGGER IF NOT EXISTS semantic_ai AFTER INSERT ON semantic_meta BEGIN INSERT INTO semantic_fts(rowid, fid, title, target, content, keywords) VALUES (new.rowid, new.fid, new.title, new.target, new.content, new.keywords); END;")
-                    self._conn.execute("CREATE TRIGGER IF NOT EXISTS semantic_ad AFTER DELETE ON semantic_meta BEGIN INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content, keywords) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content, old.keywords); END;")
-                    self._conn.execute("CREATE TRIGGER IF NOT EXISTS semantic_au AFTER UPDATE ON semantic_meta BEGIN INSERT INTO semantic_fts(semantic_fts, rowid, fid, title, target, content, keywords) VALUES('delete', old.rowid, old.fid, old.title, old.target, old.content, old.keywords); INSERT INTO semantic_fts(rowid, fid, title, target, content, keywords) VALUES (new.rowid, new.fid, new.title, new.target, new.content, new.keywords); END;")
-
-            except sqlite3.OperationalError as e:
-                logger.warning(f"FTS5 setup failed: {e}. Keyword search will be limited.")
-
-            # Create sys_config table here to avoid implicit commits in get_config/set_config
-            self._conn.execute("CREATE TABLE IF NOT EXISTS sys_config (key TEXT PRIMARY KEY, value TEXT)")
             
             self.commit_transaction()
-        except Exception:
+        except Exception as e:
             self.rollback_transaction()
+            logger.error(f"Failed to initialize metadata store: {e}")
+            raise
+
+    def begin_transaction(self):
+        self._conn.execute("BEGIN TRANSACTION")
+
+    def commit_transaction(self):
+        self._conn.execute("COMMIT")
+
+    def rollback_transaction(self):
+        try:
+            self._conn.execute("ROLLBACK")
+        except sqlite3.OperationalError: pass
+
+    @contextmanager
+    def batch_update(self):
+        """Context manager for batching multiple upserts. Supports re-entrancy."""
+        in_tx = self._conn.in_transaction
+        if not in_tx: self.begin_transaction()
+        try:
+            yield
+            if not in_tx: self.commit_transaction()
+        except Exception:
+            if not in_tx: self.rollback_transaction()
             raise
 
     def _execute_with_retry(self, sql: str, params: tuple = ()):
-        """Executes a query with built-in retry logic for 'database is locked' errors."""
         max_retries = 5
-        retry_delay = 0.5
         for i in range(max_retries):
             try:
                 return self._conn.execute(sql, params)
             except sqlite3.OperationalError as e:
                 if "database is locked" in str(e) and i < max_retries - 1:
-                    logger.warning(f"Database locked, retrying {i+1}/{max_retries}...")
-                    time.sleep(retry_delay * (i + 1))
+                    time.sleep(0.5 * (i + 1))
                     continue
                 raise
 
     def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime,
                title: str = "", superseded_by: Optional[str] = None, namespace: str = "default",
-               content: str = "", keywords: str = "", confidence: float = 1.0, context_json: str = "{}",
-               phase: str = "pattern", vitality: str = "active", reinforcement_density: float = 0.0,
-               stability_score: float = 0.0, coverage: float = 0.0, link_count: int = 0,
-               enrichment_status: str = "pending"):
-        """Atomic upsert of decision metadata with content caching."""
-        # --- I1 INVARIANT CHECK ---
-        # Prevent changing core identity fields (target, kind) for existing records.
-        existing = self.get_by_fid(fid)
-        if existing:
-            if existing.get('target') != target:
-                from .transitions import TransitionError
-                raise TransitionError(f"I1 Violation: Cannot change target of existing record {fid} from '{existing.get('target')}' to '{target}'")
-            if existing.get('kind') != kind:
-                from .transitions import TransitionError
-                raise TransitionError(f"I1 Violation: Cannot change kind of existing record {fid} from '{existing.get('kind')}' to '{kind}'")
-
-        # Ensure timestamp is in ISO format string
+               content: str = "", keywords: str = "", confidence: float = 1.0, 
+               content_hash: Optional[str] = None, last_hit_at: Optional[datetime] = None,
+               compressive_rationale: Optional[str] = None,
+               context_json: str = "{}", phase: str = "pattern", vitality: str = "active", 
+               reinforcement_density: float = 0.0, stability_score: float = 0.0, 
+               coverage: float = 0.0, link_count: int = 0, enrichment_status: str = "pending"):
+        
         ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
-
-        # I4 constraint is enforced by UNIQUE INDEX on (target, namespace) for active decisions
-        # Caller is responsible for explicitly handling conflicts
+        lh_str = last_hit_at.isoformat() if last_hit_at and hasattr(last_hit_at, 'isoformat') else None
 
         self._execute_with_retry("""
-            INSERT INTO semantic_meta (fid, target, title, status, kind, timestamp, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage, link_count, enrichment_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO semantic_meta (
+                fid, target, title, status, kind, timestamp, superseded_by, namespace, 
+                content, keywords, confidence, content_hash, last_hit_at, 
+                compressive_rationale, context_json, phase, vitality, 
+                reinforcement_density, stability_score, coverage, link_count, enrichment_status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(fid) DO UPDATE SET
-                title=excluded.title,
-                status=excluded.status,
-                superseded_by=excluded.superseded_by,
-                namespace=excluded.namespace,
-                content=excluded.content,
-                keywords=excluded.keywords,
-                confidence=excluded.confidence,
-                context_json=excluded.context_json,
-                phase=excluded.phase,
-                vitality=excluded.vitality,
-                reinforcement_density=excluded.reinforcement_density,
-                stability_score=excluded.stability_score,
-                coverage=excluded.coverage,
-                link_count=excluded.link_count,
-                enrichment_status=excluded.enrichment_status
-        """, (fid, target, title, status, kind, ts_str, superseded_by, namespace, content, keywords, confidence, context_json, phase, vitality, reinforcement_density, stability_score, coverage, link_count, enrichment_status))
+                target=excluded.target, title=excluded.title, status=excluded.status,
+                kind=excluded.kind, timestamp=excluded.timestamp, superseded_by=excluded.superseded_by,
+                namespace=excluded.namespace, content=excluded.content, keywords=excluded.keywords,
+                confidence=excluded.confidence, content_hash=excluded.content_hash,
+                last_hit_at=excluded.last_hit_at, compressive_rationale=excluded.compressive_rationale,
+                context_json=excluded.context_json, phase=excluded.phase, vitality=excluded.vitality,
+                reinforcement_density=excluded.reinforcement_density, stability_score=excluded.stability_score,
+                coverage=excluded.coverage, link_count=excluded.link_count, enrichment_status=excluded.enrichment_status
+        """, (fid, target, title, status, kind, ts_str, superseded_by, namespace, 
+              content, keywords, confidence, content_hash, lh_str, 
+              compressive_rationale, context_json, phase, vitality, 
+              reinforcement_density, stability_score, coverage, link_count, enrichment_status))
 
-    def has_active_conflict(self, fid: Optional[str], target: str, namespace: str = "default") -> Optional[str]:
-        """
-        Check if there's already an active decision for this target.
-        Returns the conflicting fid or None if no conflict.
-        """
-        existing = self.get_active_fid(target, namespace)
-        if existing and (fid is None or existing != fid):
-            return existing
-        return None
-
-    def list_all_active_by_target(self, target: str, namespace: str = "default") -> List[str]:
-        """Returns a list of ALL active decision FIDs for a given target."""
-        self._conn.row_factory = sqlite3.Row
-        query = "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status = 'active' AND kind = 'decision'"
-        rows = self._conn.execute(query, [target, namespace]).fetchall()
-        return [row[0] for row in rows]
-
+        try:
+            self._execute_with_retry("DELETE FROM semantic_fts WHERE fid = ?", (fid,))
+            self._execute_with_retry(
+                "INSERT INTO semantic_fts (fid, title, target, content, keywords) VALUES (?, ?, ?, ?, ?)",
+                (fid, title, target, content, keywords)
+            )
+        except sqlite3.OperationalError: pass
 
     def get_by_fid(self, fid: str, unpack_context: bool = False) -> Optional[Dict[str, Any]]:
-        """
-        Retrieves full metadata for a specific file ID.
-
-        Args:
-            fid: File ID to retrieve
-            unpack_context: If True (default), unpacks context_json and merges with top-level fields
-                          for easier access. Set to False for raw database output.
-        """
         self._conn.row_factory = sqlite3.Row
-        cursor = self._conn.cursor()
-        row = cursor.execute("SELECT * FROM semantic_meta WHERE fid = ?", (fid,)).fetchone()
-        if not row:
-            return None
-
-        result = dict(row)
-
-        if unpack_context and result.get('context_json'):
+        row = self._conn.execute("SELECT * FROM semantic_meta WHERE fid = ?", (fid,)).fetchone()
+        if not row: return None
+        res = dict(row)
+        if unpack_context and res.get('context_json'):
             try:
-                context = json.loads(result['context_json'])
-                # Merge context fields with top-level for easier access
-                # Context fields don't override explicit top-level fields
-                for key, value in context.items():
-                    if key not in result or result[key] is None or result[key] == '':
-                        result[key] = value
-            except (json.JSONDecodeError, TypeError):
-                pass  # Keep original context_json if parsing fails
-
-        return result
+                ctx = json.loads(res['context_json'])
+                res.update(ctx)
+            except: pass
+        return res
 
     def get_batch_by_fids(self, fids: List[str]) -> List[Dict[str, Any]]:
-        """Retrieves metadata for multiple file IDs efficiently."""
         if not fids: return []
         self._conn.row_factory = sqlite3.Row
-        placeholders = ','.join('?' for _ in fids)
-        cursor = self._conn.cursor()
-        cursor.execute(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", fids) # nosec B608
-        return [dict(row) for row in cursor.fetchall()]
-
-    def get_active_fid(self, target: str, namespace: str = "default") -> Optional[str]:
-        cursor = self._conn.cursor()
-        row = cursor.execute(
-            "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status = 'active' AND kind = 'decision'", 
-            (target, namespace)
-        ).fetchone()
-        return row[0] if row else None
-
-    def get_active_fids_by_base_target(self, base_target: str, namespace: str = "default") -> List[str]:
-        """
-        Finds all active decisions where the target starts with the base_target prefix.
-        E.g., if base_target is 'ledgermind', it matches 'ledgermind', 'ledgermind/server', etc.
-        """
-        cursor = self._conn.cursor()
-        # Search for exact match or hierarchical match (target starts with base_target + '/')
-        # Use simple LIKE pattern for performance
-        pattern = f"{base_target}%"
-        rows = cursor.execute(
-            "SELECT fid, target FROM semantic_meta WHERE target LIKE ? AND namespace = ? AND status = 'active' AND kind = 'decision'", 
-            (pattern, namespace)
-        ).fetchall()
-        
-        # Double check to ensure we only match 'base_target' or 'base_target/*' (not 'base_target_something')
-        results = []
-        for fid, target in rows:
-            if target == base_target or target.startswith(f"{base_target}/"):
-                results.append(fid)
-        return results
-
-    def keyword_search(self, query: str, limit: int = 10, namespace: str = "default", status: Optional[str] = None) -> List[tuple]:
-        """Search using FTS5 (BM25) with absolute maximum performance (raw tuples)."""
-        # Tuples are faster than Rows or Dicts for ultra-high throughput
-        original_factory = self._conn.row_factory
-        self._conn.row_factory = None
-        
-        try:
-            if not query.strip(): return []
-            
-            clean_query = _clean_query(query)
-            if not clean_query: return []
-
-            # Determine query pattern
-            words = clean_query.split()
-            fts_query = clean_query + "*" if len(words) == 1 else clean_query
-            
-            # Status filter logic
-            status_clause = "AND status = ?" if status else ""
-            params = [fts_query, namespace]
-            if status: params.append(status)
-            params.append(limit)
-
-            sql = f"""
-                SELECT m.fid, m.title, m.target, m.status, m.kind, m.timestamp, m.namespace, m.phase, m.vitality, m.link_count,
-                       (CASE m.phase WHEN 'canonical' THEN 1.5 WHEN 'emergent' THEN 1.2 ELSE 1.0 END * 
-                        CASE m.vitality WHEN 'active' THEN 1.0 WHEN 'decaying' THEN 0.5 ELSE 0.2 END) as calculated_score
-                FROM semantic_meta m
-                JOIN semantic_fts f ON m.fid = f.fid
-                WHERE f.semantic_fts MATCH ? AND m.namespace = ? {status_clause}
-                ORDER BY f.rank
-                LIMIT ?
-            """  # nosec B608
-            
-            rows = self._conn.execute(sql, params).fetchall()
-            
-            if not rows and len(words) > 1:
-                 fts_query_or = " OR ".join(words)
-                 params[0] = fts_query_or
-                 rows = self._conn.execute(sql, params).fetchall()
-            
-            self._conn.row_factory = original_factory
-            return rows
-            
-        except Exception:
-            self._conn.row_factory = original_factory
-            pattern = f"%{query.lower()}%"
-            status_clause = "AND status = ?" if status else ""
-            sql = f"SELECT fid, title, target, status, kind, timestamp, namespace, phase, vitality, link_count, (CASE phase WHEN 'canonical' THEN 1.5 WHEN 'emergent' THEN 1.2 ELSE 1.0 END * CASE vitality WHEN 'active' THEN 1.0 WHEN 'decaying' THEN 0.5 ELSE 0.2 END) as calculated_score FROM semantic_meta WHERE (target LIKE ? OR title LIKE ? OR keywords LIKE ? OR content LIKE ?) AND namespace = ? {status_clause} LIMIT ?"  # nosec B608
-            params = [pattern, pattern, pattern, pattern, namespace]
-            if status: params.append(status)
-            params.append(limit)
-            return self._conn.execute(sql, params).fetchall()
-
-    def resolve_to_truth(self, fid: str) -> Optional[Dict[str, Any]]:
-        """
-        Recursively resolves the chain of superseded decisions to find the final active decision
-        or the last existing link in the chain, using a single recursive CTE.
-        """
-        self._conn.row_factory = sqlite3.Row
-        cursor = self._conn.cursor()
-
-        # Recursive CTE to follow superseded_by links
-        # Logic:
-        # 1. Start with 'fid'.
-        # 2. Recursively join if current is NOT active AND has a successor.
-        # 3. Stop if depth limit (20) reached or chain ends.
-
-        sql = """
-            WITH RECURSIVE chain(fid, status, superseded_by, depth) AS (
-                SELECT fid, status, superseded_by, 0
-                FROM semantic_meta
-                WHERE fid = ?
-
-                UNION ALL
-
-                SELECT m.fid, m.status, m.superseded_by, c.depth + 1
-                FROM semantic_meta m
-                JOIN chain c ON m.fid = c.superseded_by
-                WHERE c.depth < 20
-                  AND c.status != 'active'
-                  AND c.superseded_by IS NOT NULL
-            )
-            SELECT m.*, c.depth
-            FROM semantic_meta m
-            JOIN chain c ON m.fid = c.fid
-            ORDER BY c.depth DESC
-            LIMIT 1;
-        """
-
-        try:
-            cursor.execute(sql, (fid,))
-            row = cursor.fetchone()
-
-            if not row:
-                return None
-
-            res = dict(row)
-            depth = res.pop('depth', 0)
-
-            status = res.get("status")
-            successor = res.get("superseded_by")
-
-            # Replicate the logic of the iterative loop regarding depth limit
-            if depth >= 20:
-                logger.warning(f"Recursive truth resolution depth limit (20) reached for {fid}. Possible circularity or long evolution chain.")
-                return None
-
-            # Replicate broken link behavior:
-            # If we stopped, but the record is not active and claims to have a successor,
-            # it means the successor was not found (broken link).
-            if status != "active" and successor:
-                logger.warning(f"Broken chain at {fid}: successor {successor} not found. Returning last valid link.")
-                return res
-
-            return res
-
-        except sqlite3.OperationalError as e:
-            logger.error(f"Resolution failed: {e}")
-            # Fallback to get_by_fid if CTE fails (e.g. very old SQLite version)
-            return self.get_by_fid(fid)
-
+        placeholders = ', '.join(['?'] * len(fids))
+        rows = self._conn.execute(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", fids).fetchall()
+        return [dict(r) for r in rows]
 
     def list_all(self) -> List[Dict[str, Any]]:
         self._conn.row_factory = sqlite3.Row
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT * FROM semantic_meta ORDER BY timestamp DESC")
-        return [dict(row) for row in cursor.fetchall()]
-
-    def list_draft_proposals(self) -> List[Dict[str, Any]]:
-        """Efficiently retrieves all draft proposals from the database."""
-        self._conn.row_factory = sqlite3.Row
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "SELECT * FROM semantic_meta WHERE kind = 'proposal' AND status = 'draft'"
-        )
-        return [dict(row) for row in cursor.fetchall()]
-
-    def list_active_targets(self) -> set:
-        """Efficiently retrieves all targets of active decisions."""
-        cursor = self._conn.cursor()
-        cursor.execute(
-            "SELECT DISTINCT target FROM semantic_meta WHERE kind = 'decision' AND status = 'active'"
-        )
-        return {row[0] for row in cursor.fetchall()}
-
-    def increment_hit(self, fid: str):
-        try:
-            self._conn.execute("""
-                UPDATE semantic_meta 
-                SET hit_count = hit_count + 1, 
-                    last_hit_at = ? 
-                WHERE fid = ?
-            """, (datetime.now().isoformat(), fid))
-        except sqlite3.OperationalError as e:
-            if "locked" in str(e):
-                logger.debug(f"Telemetry update skipped (DB locked): {fid}")
-            else:
-                raise
+        rows = self._conn.execute("SELECT * FROM semantic_meta").fetchall()
+        return [dict(r) for r in rows]
 
     def delete(self, fid: str):
-        self._conn.execute("DELETE FROM semantic_meta WHERE fid = ?", (fid,))
-
-    def clear(self):
-        self._conn.execute("DELETE FROM semantic_meta")
-
-    def get_config(self, key: str, default: Any = None) -> Any:
-        """Retrieves a configuration value from sys_config."""
-        cursor = self._conn.cursor()
-        try:
-            row = cursor.execute("SELECT value FROM sys_config WHERE key = ?", (key,)).fetchone()
-            return row[0] if row else default
-        except sqlite3.OperationalError:
-            return default
-
-    def set_config(self, key: str, value: Any):
-        """Stores a configuration value in sys_config."""
-        self._conn.execute("INSERT OR REPLACE INTO sys_config (key, value) VALUES (?, ?)", (key, str(value)))
-
-    def get_version(self) -> str:
-        """Retrieves the current schema version."""
-        return self.get_config('version', '1.0.0')
-
-    def set_version(self, version: str):
-        """Updates the schema version."""
-        self.set_config('version', version)
+        self._execute_with_retry("DELETE FROM semantic_meta WHERE fid = ?", (fid,))
+        try: self._execute_with_retry("DELETE FROM semantic_fts WHERE fid = ?", (fid,))
+        except sqlite3.OperationalError: pass
 
     def close(self):
-        """Closes the persistent database connection."""
-        self._conn.close()
+        if self._conn:
+            self._conn.close()
+            self._conn = None
 
-    def begin_transaction(self):
-        """Manually starts a transaction."""
-        if not self._conn.in_transaction:
-            self._conn.execute("BEGIN IMMEDIATE")
+    def get_version(self) -> str:
+        return self.get_config("schema_version", "0.0.0")
 
-    def commit_transaction(self):
-        """Manually commits a transaction."""
-        if self._conn.in_transaction:
-            self._conn.execute("COMMIT")
+    def set_version(self, version: str):
+        self.set_config("schema_version", version)
 
-    def rollback_transaction(self):
-        """Manually rolls back a transaction."""
-        if self._conn.in_transaction:
-            self._conn.execute("ROLLBACK")
+    def set_config(self, key: str, value: str):
+        self._conn.execute("CREATE TABLE IF NOT EXISTS sys_config (key TEXT PRIMARY KEY, value TEXT)")
+        self._conn.execute("INSERT OR REPLACE INTO sys_config (key, value) VALUES (?, ?)", (key, value))
 
-    @contextmanager
-    def batch_update(self):
-        """Context manager for batched operations."""
-        was_in_transaction = self._conn.in_transaction
-        if not was_in_transaction:
-            self.begin_transaction()
+    def get_config(self, key: str, default: Any = None) -> Optional[str]:
         try:
-            yield
-            if not was_in_transaction and self._conn.in_transaction:
-                self.commit_transaction()
-        except:
-            if not was_in_transaction and self._conn.in_transaction:
-                self.rollback_transaction()
-            raise
+            row = self._conn.execute("SELECT value FROM sys_config WHERE key = ?", (key,)).fetchone()
+            return row[0] if row else default
+        except: return default
+
+    def increment_hit(self, fid: str):
+        now = datetime.now().isoformat()
+        self._execute_with_retry("UPDATE semantic_meta SET hit_count = hit_count + 1, last_hit_at = ? WHERE fid = ?", (now, fid))
+
+    def keyword_search(self, query: str, limit: int = 10, namespace: str = "default", status: Optional[str] = None) -> List[tuple]:
+        original_factory = self._conn.row_factory
+        self._conn.row_factory = None
+        try:
+            if not query.strip(): return []
+            clean = _clean_query(query)
+            if not clean: return []
+            
+            status_clause = "AND m.status = ?" if status else ""
+            params = []
+            
+            try:
+                # 1. Primary path: FTS5
+                fts_query = clean + "*" if " " not in clean else clean
+                params = [fts_query, namespace]
+                if status: params.append(status)
+                params.append(limit)
+
+                sql = f"""
+                    SELECT m.fid, m.title, m.target, m.status, m.kind, m.timestamp, m.namespace, m.phase, m.vitality, m.link_count,
+                           (CASE m.phase WHEN 'canonical' THEN 1.5 WHEN 'emergent' THEN 1.2 ELSE 1.0 END * 
+                            CASE m.vitality WHEN 'active' THEN 1.0 WHEN 'decaying' THEN 0.5 ELSE 0.2 END) as calculated_score
+                    FROM semantic_meta m
+                    JOIN semantic_fts f ON m.fid = f.fid
+                    WHERE f.semantic_fts MATCH ? AND m.namespace = ? {status_clause}
+                    ORDER BY f.rank LIMIT ?
+                """
+                return self._conn.execute(sql, params).fetchall()
+            except sqlite3.OperationalError as e:
+                if "no such table: semantic_fts" in str(e) or "fts5" in str(e).lower():
+                    # 2. Fallback path: standard SQL LIKE
+                    logger.debug("FTS5 unavailable, falling back to LIKE search.")
+                    # Use simpler matching for fallback
+                    like_term = f"%{clean.lower()}%"
+                    params = [like_term, like_term, like_term, namespace]
+                    if status: params.append(status)
+                    params.append(limit)
+                    
+                    sql = f"""
+                        SELECT fid, title, target, status, kind, timestamp, namespace, phase, vitality, link_count,
+                               (CASE phase WHEN 'canonical' THEN 1.5 WHEN 'emergent' THEN 1.2 ELSE 1.0 END * 
+                                CASE vitality WHEN 'active' THEN 1.0 WHEN 'decaying' THEN 0.5 ELSE 0.2 END) as calculated_score,
+                                hit_count, content_hash, enrichment_status, compressive_rationale, context_json
+                        FROM semantic_meta
+                        WHERE (LOWER(target) LIKE ? OR LOWER(title) LIKE ? OR LOWER(content) LIKE ?) AND namespace = ? {status_clause}
+                        LIMIT ?
+                    """
+                    return self._conn.execute(sql, params).fetchall()
+                raise
+        finally: self._conn.row_factory = original_factory
+
+    def resolve_to_truth(self, fid: str) -> Optional[Dict[str, Any]]:
+        current_fid, visited, depth = fid, {fid}, 0
+        last_valid_meta = None
+        
+        while depth < 20:
+            meta = self.get_by_fid(current_fid)
+            if not meta: 
+                # Broken link: return the last valid record found
+                return last_valid_meta
+            
+            last_valid_meta = meta
+            if meta.get('status') != 'superseded' or not meta.get('superseded_by'): 
+                return meta
+                
+            next_fid = meta['superseded_by']
+            # Cycle detected
+            if not next_fid or next_fid in visited: 
+                return None
+                
+            visited.add(next_fid); current_fid = next_fid; depth += 1
+            
+        # Depth limit exceeded
+        return None
+
+    def get_active_fid(self, target: str, namespace: str = "default") -> Optional[str]:
+        query = "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status = 'active' AND kind = 'decision' LIMIT 1"
+        row = self._conn.execute(query, [target, namespace]).fetchone()
+        return row[0] if row else None
+
+    def get_active_fids_by_base_target(self, base_target: str, namespace: str = "default") -> List[str]:
+        pattern = f"{base_target}/%"
+        query = "SELECT fid FROM semantic_meta WHERE (target = ? OR target LIKE ?) AND namespace = ? AND status = 'active' AND kind = 'decision'"
+        rows = self._conn.execute(query, [base_target, pattern, namespace]).fetchall()
+        return [row[0] for row in rows]

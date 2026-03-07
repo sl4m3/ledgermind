@@ -77,10 +77,13 @@ class IntegrationBridge:
                         "path": os.path.join(self.memory_path, "semantic", fid),
                         "content": item.get('content'),
                         "rationale": item.get('rationale'),
-                        "compressive_rationale": ctx.get('compressive_rationale'),
+                        "compressive_rationale": item.get('compressive_rationale'),
+                        "strengths": item.get('strengths', []),
+                        "objections": item.get('objections', []),
+                        "counter_patterns": item.get('counter_patterns', []),
                         "consequences": item.get('consequences'),
                         "expected_outcome": item.get('expected_outcome'),
-                        "procedural": ctx.get('procedural') # Temporarily keep for get_context_for_prompt formatting
+                        "procedural": ctx.get('procedural')
                     })
             return memories
         except Exception as e:
@@ -109,12 +112,16 @@ class IntegrationBridge:
         for m in memories:
             m["instruction"] = f"Key fields are injected. Use 'cat {m['path']}' if you need full history."
             
-            # --- OPTIMIZATION: Token Saving ---
-            # If compressive rationale exists, use it and remove the full one from injection
+            # --- OPTIMIZATION: Tiered Context Injection ---
+            # Use TL;DR (compressive) if available, and provide structured arguments
             if m.get("compressive_rationale"):
-                m["rationale"] = m["compressive_rationale"]
+                m["summary"] = m["compressive_rationale"]
+                # Keep full rationale optional or removed to save space
                 del m["compressive_rationale"]
-
+            
+            # Extract Epistemic fields from original metadata via search results
+            # (already included in memories list by _find_relevant_memories)
+            
             # Format procedural steps for better readability if present
             if m.get("procedural") and isinstance(m["procedural"], dict):
                 steps = m["procedural"].get("steps", [])

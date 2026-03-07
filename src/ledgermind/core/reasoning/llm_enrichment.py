@@ -546,13 +546,13 @@ class LLMEnricher:
                         updates = {
                             "title": getattr(proposal, 'title', 'Untitled'),
                             "target": getattr(proposal, 'target', 'unknown'),
-                            "content": getattr(proposal, 'title', 'Untitled'),
                             "rationale": getattr(proposal, 'rationale', ''),
                             "keywords": getattr(proposal, 'keywords', []),
                             "compressive_rationale": getattr(proposal, 'compressive_rationale', None),
                             "enrichment_status": status,
                             "evidence_event_ids": all_ids,
-                            "total_evidence_count": proposal.total_evidence_count
+                            "total_evidence_count": proposal.total_evidence_count,
+                            # Important: the 'title' here will be merged into 'context' by SemanticStore.update_decision
                         }
 
                         # Special case: If validation transitioned to merge, KEEP status as pending
@@ -707,15 +707,33 @@ class LLMEnricher:
                     
                     data = json.loads(json_text)
                     if isinstance(data, dict):
-                        # 1. Extract title (support both 'title' and 'goal' for robustness)
+                        # 1. Prepare updates dictionary
+                        model_updates = {}
+                        
+                        # Extract title
                         val_title = data.get("title") or data.get("goal")
-                        if val_title: proposal.title = val_title
+                        if val_title: 
+                            model_updates["title"] = val_title
 
-                        # 2. Extract rationale and compressive
-                        if "rationale" in data: proposal.rationale = data["rationale"]
-                        if "compressive" in data: proposal.compressive_rationale = data["compressive"]
+                        # Extract rationale and compressive
+                        if "rationale" in data: model_updates["rationale"] = data["rationale"]
+                        if "compressive" in data: model_updates["compressive_rationale"] = data["compressive"]
+                        
+                        # Extract Epistemic fields
+                        if "strengths" in data: model_updates["strengths"] = data["strengths"]
+                        if "objections" in data: model_updates["objections"] = data["objections"]
+                        if "counter_patterns" in data: model_updates["counter_patterns"] = data["counter_patterns"]
 
-                        # 3. SPECIAL: Handling Validation Decision (Disambiguation vs Merge)
+                        # Apply updates using Pydantic's recommended model_copy
+                        if hasattr(proposal, "model_copy"):
+                            proposal = proposal.model_copy(update=model_updates)
+                        else:
+                            # Fallback for dicts or non-pydantic types
+                            for key, val in model_updates.items():
+                                try: setattr(proposal, key, val)
+                                except: pass
+
+                        # 4. SPECIAL: Handling Validation Decision (Disambiguation vs Merge)
                         if is_validation:
                             is_dup = data.get("is_duplicate", True)
                             refined = data.get("refined_targets")
@@ -804,11 +822,19 @@ class LLMEnricher:
                     compressive_match = re.search(r'"compressive":\s*"(.*?)"', response_text, re.DOTALL)
                     
                     if title_match and rationale_match:
-                        # Clean escaped quotes/newlines for simple storage
-                        proposal.title = title_match.group(1).replace('\\"', '"').replace('\\n', '\n')
-                        proposal.rationale = rationale_match.group(1).replace('\\"', '"').replace('\\n', '\n')
+                        regex_updates = {
+                            "title": title_match.group(1).replace('\\"', '"').replace('\\n', '\n'),
+                            "rationale": rationale_match.group(1).replace('\\"', '"').replace('\\n', '\n')
+                        }
                         if compressive_match:
-                            proposal.compressive_rationale = compressive_match.group(1).replace('\\"', '"').replace('\\n', '\n')
+                            regex_updates["compressive_rationale"] = compressive_match.group(1).replace('\\"', '"').replace('\\n', '\n')
+                        
+                        # Apply regex updates robustly
+                        if hasattr(proposal, "model_copy"):
+                            proposal = proposal.model_copy(update=regex_updates)
+                        else:
+                            for k, v in regex_updates.items(): setattr(proposal, k, v)
+                        
                         parsed_successfully = True
 
                 # 3. SUCCESS: Update keywords and add technical notes
@@ -971,7 +997,10 @@ class LLMEnricher:
             "{\n"
             '  "title": "One-sentence summary of the unified intent",\n'
             '  "rationale": "# Behavioral Analysis: ' + target + '\\n\\n## 1. Primary Goal / Intent\\n[Detailed description]\\n\\n## 2. Key Patterns Observed\\n- **Pattern 1**: [Description] + [Evidence]\\n\\n## 3. Architectural Implications\\n[Strategic impact]",\n'
-            '  "compressive": "3 sentences summarizing the final state"\n'
+            '  "compressive": "Exactly 3 sentences summarizing the final state",\n'
+            '  "strengths": ["Benefit 1", "Benefit 2"],\n'
+            '  "objections": ["Risk 1", "Limitation 1"],\n'
+            '  "counter_patterns": ["Scenario where this fails 1"]\n'
             "}\n"
             "No additional text before or after the JSON."
         )
@@ -1002,7 +1031,7 @@ class LLMEnricher:
             f"{context_part}"
             "### RESPONSE FORMAT\n"
             "Respond with ONLY a JSON object with these keys:\n"
-            '{\n  "title": "One-sentence summary of the overall objective",\n  "rationale": "# Procedural Guide: ' + target + '\\n\\n## 1. Overall Objective\\n[One-sentence summary]\\n\\n## 2. Step-by-Step Procedure\\n1. [Step Description]\\n   - **What**: ...\\n   - **Why**: ...\\n\\n## 3. Key Insights & Recommendations\\n[Architectural observations]",\n  "compressive": "3 sentences summarizing the procedure"\n}\n'
+            '{\n  "title": "One-sentence summary of the overall objective",\n  "rationale": "# Procedural Guide: ' + target + '\\n\\n## 1. Overall Objective\\n[One-sentence summary]\\n\\n## 2. Step-by-Step Procedure\\n1. [Step Description]\\n   - **What**: ...\\n   - **Why**: ...\\n\\n## 3. Key Insights & Recommendations\\n[Architectural observations]",\n  "compressive": "Exactly 3 sentences summarizing the procedure",\n  "strengths": ["Efficiency gain 1", "Safety 1"],\n  "objections": ["Complexity 1", "Prerequisite 1"],\n  "counter_patterns": ["Scenario where this procedure should not be used"]\n}\n'
             "No additional text before or after the JSON."
         )
 
@@ -1028,7 +1057,9 @@ class LLMEnricher:
             '  "title": "Unified title (if duplicate) or Distinction summary (if distinct)",\n'
             '  "rationale": "# Validation Analysis\\n\\n[Detailed explanation of why they are the same or different]",\n'
             '  "refined_targets": {"USE_ACTUAL_FID_FROM_LOGS": "concise/hierarchical/target"},\n'
-            '  "compressive": "3 sentences summarizing the validation result"\n'
+            '  "compressive": "Exactly 3 sentences summarizing the validation result",\n'
+            '  "strengths": ["Validation strength 1"],\n'
+            '  "objections": ["Validation objection 1"]\n'
             "}\n"
             "No additional text before or after the JSON."
         )
@@ -1054,7 +1085,9 @@ class LLMEnricher:
             '  "title": "One definitive title for this consolidated knowledge",\n'
             '  "target": "concise/hierarchical/target",\n'
             '  "rationale": "# Consolidated Knowledge: ' + title + '\\n\\n## 1. Summary of Consolidation\\n[Why these were merged and what the result is]\\n\\n## 2. Definitive Rationale\\n[The unified, high-quality technical rationale]\\n\\n## 3. Impact & Context\\n[Strategic context and dependencies]",\n'
-            '  "compressive": "3 sentences summarizing the unified state"\n'
+            '  "compressive": "Exactly 3 sentences summarizing the unified state",\n'
+            '  "strengths": ["Consolidation benefit 1"],\n'
+            '  "objections": ["Remaining risk 1"]\n'
             "}\n"
             "No additional text before or after the JSON."
         )

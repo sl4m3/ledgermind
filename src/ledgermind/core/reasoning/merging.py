@@ -32,20 +32,21 @@ class MergeEngine:
                 except: continue
         return targets
 
-    def _calculate_jaccard(self, text1: str, text2: str) -> float:
-        """Calculates token-based Jaccard similarity excluding semantic noise."""
+    def _calculate_jaccard(self, text1: str, text2: str, target1: str = "", target2: str = "", kw1: str = "", kw2: str = "") -> float:
+        """Calculates token-based Jaccard similarity between two documents using title, target, and keywords."""
         if not text1 or not text2: return 0.0
         
-        # STOP-WORDS: Words that are part of templates and create false similarity
-        STOP_WORDS = {'new', 'behavioral', 'pattern', 'in', 'procedural', 'guidelines', 'ledgermind', 'refinement'}
-        
-        def get_tokens(t):
-            # Remove common punctuation and split
-            raw_tokens = t.lower().replace('/', ' ').replace(':', ' ').replace('_', ' ').split()
-            return {tk for tk in raw_tokens if tk not in STOP_WORDS and len(tk) > 1}
+        def get_tokens(t, target, kw):
+            # Combine all semantic signals into a single fingerprint
+            combined = f"{t} {target or ''} {kw or ''}"
+            # Tokenization: lower, split by separators
+            raw_tokens = combined.lower().replace('/', ' ').replace(':', ' ').replace('_', ' ').replace('-', ' ').replace(',', ' ').split()
+            # Filter only empty or whitespace tokens. 
+            # We keep single characters because in tech paths they might be versions or IDs (e.g. /v1/, /a/)
+            return {tk for tk in raw_tokens if tk.strip()}
 
-        s1 = get_tokens(text1)
-        s2 = get_tokens(text2)
+        s1 = get_tokens(text1, target1, kw1)
+        s2 = get_tokens(text2, target2, kw2)
         
         if not s1 or not s2: return 0.0
         return len(s1.intersection(s2)) / len(s1.union(s2))
@@ -139,23 +140,27 @@ class MergeEngine:
                         if source_root != res_root: continue
 
                     # 3. Textual Verification (Jaccard) with Noise Filtering
-                    # We check BOTH title and a snippet of content
                     res_title = res.get('title') or ""
                     res_content = res.get('content') or ""
+                    res_keywords = res.get('keywords') or ""
                     
-                    j_title = self._calculate_jaccard(title, res_title)
+                    j_title = self._calculate_jaccard(title, res_title, source_target, res_target, keywords, res_keywords)
                     j_content = self._calculate_jaccard(content_desc[:200], res_content[:200])
                     
                     # Effective Jaccard is the max of title or content overlap
                     jaccard_sim = max(j_title, j_content)
                     
-                    # GUARD: If titles/content are different after noise removal, reject.
-                    # 0.25 is a reasonable threshold for 'something in common' after stop-word removal.
-                    if jaccard_sim < 0.25:
-                        continue
-
-                    # Final Sim: Weighted towards RRF but heavily verified by Jaccard
-                    final_sim = (rrf_sim * 0.6) + (jaccard_sim * 0.4)
+                    # ADAPTIVE WEIGHTING:
+                    # If titles are extremely short (e.g. "T1", "T2"), Jaccard is unreliable.
+                    # We increase RRF weight in such cases.
+                    title_tokens = len(title.split())
+                    if title_tokens < 3:
+                        final_sim = (rrf_sim * 0.9) + (jaccard_sim * 0.1)
+                    else:
+                        # GUARD: If RRF claims perfect match (1.0) but titles are drastically different, reject
+                        if rrf_sim > 0.9 and jaccard_sim < 0.2:
+                            continue
+                        final_sim = (rrf_sim * 0.6) + (jaccard_sim * 0.4)
 
                     if final_sim >= threshold:
                         logger.info(f"  Match: {fid} <-> {res_fid} | Final Sim: {final_sim:.4f} (RRF: {rrf_sim:.2f}, Jac: {jaccard_sim:.2f})")

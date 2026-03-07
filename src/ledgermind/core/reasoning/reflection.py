@@ -189,7 +189,8 @@ class ReflectionEngine:
                 if fid not in processed_fids:
                     stream = DecisionStream(**data['context'])
                     old_vit = stream.vitality
-                    stream = self.lifecycle.update_vitality(stream, now)
+                    # calculate_temporal_signals now handles all lifecycle updates including decay
+                    stream = self.lifecycle.calculate_temporal_signals(stream, [], now)
                     
                     if stream.vitality != old_vit or abs(stream.confidence - data['context'].get('confidence', 0)) > 0.01:
                         self.processor.update_decision(fid, stream.model_dump(), commit_msg="Lifecycle: Vitality decay update.", skip_episodic=True)
@@ -243,18 +244,19 @@ class ReflectionEngine:
                         reinforcement_dates.append(dt)
                     except (ValueError, TypeError):
                         pass
-        
         # calculate_temporal_signals now treats reinforcement_dates as a DELTA to be merged
         stream = self.lifecycle.calculate_temporal_signals(stream, reinforcement_dates, now)
-        
+
         # Issue #14: Reactivate dormant stream if new events arrived in this cluster
         if stats.get('all_ids'):
-            if stream.vitality == DecisionVitality.DORMANT:
+            if stream.vitality == DecisionVitality.DORMANT or str(stream.vitality) == "dormant":
                 logger.info(f"Reactivating dormant stream: {stream.target}")
-                stream.vitality = DecisionVitality.ACTIVE
-                
-        stream = self.lifecycle.update_vitality(stream, now)
-        stream = self.lifecycle.promote_stream(stream)
+                if hasattr(stream, "model_copy"):
+                    stream = stream.model_copy(update={"vitality": DecisionVitality.ACTIVE})
+                else:
+                    stream.vitality = DecisionVitality.ACTIVE
+
+        # 3. Decision Promotion (Lifecycle Evolution)
         
         # Normative upgrade: Proposal -> Decision based on balanced model (PR #45)
         current_kind = data.get('kind', KIND_PROPOSAL)

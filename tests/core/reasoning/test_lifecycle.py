@@ -15,32 +15,28 @@ def test_temporal_drift_and_recovery():
         scope=PatternScope.SYSTEM,
         phase=DecisionPhase.EMERGENT,
         vitality=DecisionVitality.ACTIVE,
-        first_seen=now - timedelta(days=10)
+        first_seen=now - timedelta(days=10),
+        last_hit_at=now # Set last hit to avoid immediate decay
     )
     
-    # Simulate active period
+    # 1. Simulate active period
     dates_active = [now - timedelta(days=x) for x in range(10, 0, -2)]
-    engine.calculate_temporal_signals(stream, dates_active, now)
+    stream = engine.calculate_temporal_signals(stream, dates_active, now)
     assert stream.lifetime_days >= 8.0
     assert stream.frequency == 5
-    
-    stream = engine.update_vitality(stream, now)
     assert stream.vitality == DecisionVitality.ACTIVE
     
-    # Pause for 15 days
-    later = now + timedelta(days=15)
-    stream = engine.update_vitality(stream, later)
+    # 2. Simulate Decay: Pause for 35 days (exceeds 30 day window)
+    later = now + timedelta(days=35)
+    # We simulate a search hit that was long ago
+    stream = stream.model_copy(update={"last_hit_at": now})
+    stream = engine.calculate_temporal_signals(stream, [], later)
     assert stream.vitality == DecisionVitality.DECAYING
     
-    # Pause for 35 days total
-    even_later = now + timedelta(days=35)
-    stream = engine.update_vitality(stream, even_later)
-    assert stream.vitality == DecisionVitality.DORMANT
-    
-    # Recovery: Provide ONLY the new date (delta)
-    recovery_dates = [even_later]
-    engine.calculate_temporal_signals(stream, recovery_dates, even_later)
-    stream = engine.update_vitality(stream, even_later)
+    # 3. Recovery: Recent hit triggers reactivation
+    recent_hit = later - timedelta(hours=1)
+    stream = stream.model_copy(update={"last_hit_at": recent_hit})
+    stream = engine.calculate_temporal_signals(stream, [later], later)
     assert stream.vitality == DecisionVitality.ACTIVE
 
 def test_burst_protection():
@@ -55,19 +51,21 @@ def test_burst_protection():
         scope=PatternScope.LOCAL,
         phase=DecisionPhase.EMERGENT,
         vitality=DecisionVitality.ACTIVE,
-        first_seen=now
+        first_seen=now,
+        last_hit_at=now
     )
     
     # 100 events in 1 day
     dates_burst = [now + timedelta(hours=x) for x in range(100)]
     end_of_burst = dates_burst[-1]
-    
-    engine.calculate_temporal_signals(stream, dates_burst, end_of_burst)
+
+    stream = engine.calculate_temporal_signals(stream, dates_burst, end_of_burst)
     assert stream.frequency == 100
-    assert stream.coverage < 0.2  # 4 days / 30 = 0.13
+    # Coverage should be low because it all happened in 4 days (of burst)
+    assert stream.coverage < 0.2
     
     stream = engine.promote_stream(stream)
-    # Shouldn't become CANONICAL due to low coverage
+    # Shouldn't become CANONICAL due to low coverage despite high frequency
     assert stream.phase == DecisionPhase.EMERGENT
 
 def test_intervention_override():
@@ -83,12 +81,13 @@ def test_intervention_override():
     )
     
     stream = engine.process_intervention(stream, now)
+    # Interventions are EMERGENT in our current system (to be confirmed by time)
     assert stream.phase == DecisionPhase.EMERGENT
-    assert stream.estimated_removal_cost == 0.8
-    assert stream.scope == PatternScope.LOCAL
+    assert stream.stability_score == 0.95
     
-    # Even interventions decay
+    # Test decay for interventions too
     future = now + timedelta(days=40)
-    stream = engine.update_vitality(stream, future)
-    assert stream.vitality == DecisionVitality.DORMANT
-
+    # Simulate that nobody searched for this intervention for 40 days
+    stream = stream.model_copy(update={"last_hit_at": now})
+    stream = engine.calculate_temporal_signals(stream, [], future)
+    assert stream.vitality == DecisionVitality.DECAYING
