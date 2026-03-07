@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772898615313,
+  "lastUpdate": 1772898814251,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -135,6 +135,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010552515143467298",
             "extra": "mean: 1.103373199998714 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "220d9465364594fb5f099176e45cd3ac21acb034",
+          "message": "refactor: enforce sequential test execution in main CI pipeline\n\n- Added -n0 flag to pytest in main.yml to ensure stable and predictable test runs.\n- Completes the synchronization of CI workflows for sequential execution.",
+          "timestamp": "2026-03-07T18:51:19+03:00",
+          "tree_id": "5f4070c145519e86cb0fd1e9bf1dae4ab09ec58d",
+          "url": "https://github.com/sl4m3/ledgermind/commit/220d9465364594fb5f099176e45cd3ac21acb034"
+        },
+        "date": 1772898813957,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 85.25950033397658,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006989331683017114",
+            "extra": "mean: 11.728898199999094 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 20665.42674322977,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008267236448286998",
+            "extra": "mean: 48.38999999492444 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 907.5803653275761,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011427246279548734",
+            "extra": "mean: 1.1018308000075194 msec\nrounds: 5"
           }
         ]
       }
