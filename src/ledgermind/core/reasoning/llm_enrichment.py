@@ -21,6 +21,7 @@ class LLMEnricher:
         self.client_name = client_name.lower()
         self.model_name = model_name
         self.worker = worker
+        self.preferred_language = "auto"
         self._client: Optional[httpx.Client] = None
 
     @property
@@ -578,7 +579,13 @@ class LLMEnricher:
                 except Exception as e:
                     logger.error(f"Failed to enrich proposal {fid}: {e}")
             
-            return results
+            # Return stats dictionary for better integration and testing
+            return {
+                "total": len(pending_fids),
+                "enriched": len([r for r in results if r["status"] == "completed"]),
+                "errors": len(pending_fids) - len(results),
+                "details": results
+            }
         finally:
             # Final cleanup of any stray files in tmp directory
             self.cleanup_temp_files(memory)
@@ -591,8 +598,15 @@ class LLMEnricher:
         import os
         import shutil
         import glob
+        import tempfile
 
-        tmp_dir = os.path.join(memory.storage_path, "tmp") if (memory and hasattr(memory, 'storage_path')) else "/tmp"
+        # Architectural approach: Use local project tmp if possible, 
+        # otherwise fallback to secure system-managed temp directory.
+        if memory and hasattr(memory, 'storage_path'):
+            tmp_dir = os.path.join(memory.storage_path, "tmp")
+        else:
+            tmp_dir = tempfile.gettempdir()
+            
         if not os.path.exists(tmp_dir):
             return
 
@@ -800,6 +814,9 @@ class LLMEnricher:
                 # 3. SUCCESS: Update keywords and add technical notes
                 if parsed_successfully:
                     self._update_keywords(proposal)
+                    # Force completed status so tests/callers know it worked
+                    proposal.enrichment_status = "completed"
+                    
                     if hasattr(proposal, 'compressive_rationale') and proposal.compressive_rationale:
                         if is_merge or is_validation:
                             superseded = getattr(proposal, 'suggested_supersedes', [])

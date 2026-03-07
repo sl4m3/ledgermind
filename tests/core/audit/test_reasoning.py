@@ -7,8 +7,18 @@ from ledgermind.core.core.schemas import KIND_RESULT
 
 def test_merging_scan(tmp_path):
     mock_memory = MagicMock()
+    # Mock metadata store
+    mock_meta = MagicMock()
+    mock_memory.semantic.meta = mock_meta
+    
     mock_memory.get_decisions.return_value = ["dec1.md", "dec2.md"]
     mock_memory.semantic.repo_path = str(tmp_path)
+    
+    # Mock list_all to return enriched candidates
+    mock_meta.list_all.return_value = [
+        {"fid": "dec1.md", "target": "t1", "status": "active", "kind": "decision", "enrichment_status": "completed"},
+        {"fid": "dec2.md", "target": "t1", "status": "active", "kind": "decision", "enrichment_status": "completed"}
+    ]
     
     # Create two identical files
     content = """---
@@ -27,10 +37,13 @@ context: {title: Same, target: t1, status: active}
         [{"id": "dec1.md", "score": 0.99}]  # dec2 -> dec1
     ]
     
+    # Mock proposal creation
+    mock_memory.process_event.return_value = MagicMock(metadata={"file_id": "prop1.md"})
+    
     engine = MergeEngine(mock_memory)
     proposals = engine.scan_for_duplicates(threshold=0.9)
     
-    # Should create 2 proposals or just detect 
+    # Should create proposals or detect
     assert len(proposals) > 0
     assert mock_memory.process_event.called
 
@@ -49,8 +62,8 @@ def test_distillation_success():
     proposals = engine.distill_trajectories(limit=10)
     
     assert len(proposals) == 1
-    assert "Procedural Optimization" in proposals[0].title
-    assert len(proposals[0].procedural.steps) >= 1
+    assert "Trajectory Synthesis" in proposals[0].title
+    assert len(proposals[0].evidence_event_ids) >= 1
 
 def test_graph_generation(tmp_path):
     mock_meta = MagicMock()

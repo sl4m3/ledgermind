@@ -44,8 +44,8 @@ def test_cli_init_and_check(tmp_path):
     # Test init
     with patch('ledgermind.server.cli.questionary.text') as mock_text, \
          patch('ledgermind.server.cli.questionary.select') as mock_select:
-        # Mock answers: Project Path, Memory Path
-        mock_text.return_value.ask.side_effect = [str(tmp_path), memory_path]
+        # Mock answers: Project Path, Memory Path, Language
+        mock_text.return_value.ask.side_effect = [str(tmp_path), memory_path, "russian"]
         # Mock answers: Embedder, Client, Mode
         mock_select.return_value.ask.side_effect = ["jina-v5-4bit", "none", "lite"]
         result = run_cli(["init", "--path", memory_path])

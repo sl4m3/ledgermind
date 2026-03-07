@@ -276,6 +276,9 @@ class Memory:
         if results["errors"] and self.trust_boundary == TrustBoundary.AGENT_WITH_INTENT:
              for error in results["errors"]:
                  logger.error(f"Environment check failed: {error}")
+        
+        # Aggregate health status
+        results["healthy"] = len(results["errors"]) == 0
                  
         return results
 
@@ -742,11 +745,6 @@ class Memory:
         self.targets.register(target, description=title)
 
         active_conflicts = self.semantic.list_active_conflicts(target, namespace=effective_namespace)
-        
-        # EXCLUSION: If we are in a supersede flow, don't conflict with files we are replacing
-        if intent and intent.resolution_type == "supersede":
-            to_supersede = set(intent.target_decision_ids)
-            active_conflicts = [c for c in active_conflicts if c not in to_supersede]
 
         new_vec_cached = None
         
@@ -970,23 +968,17 @@ class Memory:
                 except Exception: pass
                 evidence_ids = list(grounding_ids)
                 
-                if supersedes:
-                    decision = self.supersede_decision(
-                        title=title,
-                        target=target,
-                        rationale=final_rationale,
-                        old_decision_ids=supersedes,
-                        consequences=ctx.get("suggested_consequences", []),
-                        evidence_ids=evidence_ids
-                    )
-                else:
-                    decision = self.record_decision(
-                        title=title,
-                        target=target,
-                        rationale=final_rationale,
-                        consequences=ctx.get("suggested_consequences", []),
-                        evidence_ids=evidence_ids
-                    )
+                # Conversion ALWAYS supersedes the proposal itself
+                final_supersedes = list(set([proposal_id] + (supersedes or [])))
+                
+                decision = self.supersede_decision(
+                    title=title,
+                    target=target,
+                    rationale=final_rationale,
+                    old_decision_ids=final_supersedes,
+                    consequences=ctx.get("suggested_consequences", []),
+                    evidence_ids=evidence_ids
+                )
                 
                 if decision.should_persist:
                     new_id = decision.metadata.get("file_id")

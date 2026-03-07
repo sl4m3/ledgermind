@@ -150,19 +150,19 @@ def test_accept_proposal_rollback_preserves_draft_status(temp_memory_path):
     ))
     
     # 2. Force failure during conversion
-    original_record = memory.record_decision
-    def failing_record(*args, **kwargs):
+    original_supersede = memory.supersede_decision
+    def failing_supersede(*args, **kwargs):
         raise RuntimeError("Simulated failure during proposal acceptance")
-    
-    memory.record_decision = failing_record
-    
+
+    memory.supersede_decision = failing_supersede
+
     try:
         with pytest.raises(RuntimeError, match="Simulated failure"):
             memory.accept_proposal(proposal_id)
-            
+
         # 3. Verify status is still 'draft' even after rollback
         memory.semantic.sync_meta_index(force=True)
         meta = memory.semantic.meta.get_by_fid(proposal_id)
         assert meta['status'] == 'draft'
     finally:
-        memory.record_decision = original_record
+        memory.supersede_decision = original_supersede

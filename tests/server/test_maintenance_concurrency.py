@@ -1,24 +1,28 @@
 import pytest
 import threading
+import unittest
 from unittest.mock import MagicMock, patch
 from ledgermind.server.server import MCPServer
 from ledgermind.core.api.memory import Memory
 from ledgermind.server.background import BackgroundWorker
 
-def test_maintenance_thread_singleton():
-    """Verify that BackgroundWorker initializes correctly and only once per server."""
+def test_maintenance_thread_singleton(tmp_path):
+    """Verify that BackgroundWorker process initializes correctly per server."""
+    storage = str(tmp_path / "test_storage")
     mock_memory = MagicMock(spec=Memory)
+    mock_memory.storage_path = storage
     
-    # Use patch.object to avoid import path resolution issues
-    with patch.object(BackgroundWorker, "start") as mock_start:
-        server1 = MCPServer(memory=mock_memory)
-        # Check if worker was created
-        assert hasattr(server1, 'worker')
-        assert mock_start.call_count == 1
+    # Patch Popen and open (for error log)
+    with patch('subprocess.Popen') as mock_popen, \
+         patch('builtins.open', unittest.mock.mock_open()):
         
-        # Second instance
-        server2 = MCPServer(memory=mock_memory)
-        assert mock_start.call_count == 2 # Each server has its own worker instance
+        mock_popen.return_value.pid = 1234
+        server1 = MCPServer(memory=mock_memory, storage_path=storage)
+        
+        # Check if worker process was initialized
+        assert hasattr(server1, '_worker_process')
+        assert server1._worker_process.pid == 1234
+        assert mock_popen.called
 
 def test_maintenance_loop_skips_if_locked():
     """Verify that maintenance tasks respect file locks."""

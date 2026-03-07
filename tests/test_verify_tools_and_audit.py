@@ -30,6 +30,13 @@ class TestTools(unittest.TestCase):
         for handler in logging.getLogger("agent_memory_audit").handlers[:]:
             handler.close()
             logging.getLogger("agent_memory_audit").removeHandler(handler)
+            
+        # Release objects to unlock SQLite databases
+        self.server = None
+        self.memory = None
+        import gc
+        gc.collect() # Force garbage collection of closed DB connections
+            
         if os.path.exists(self.test_dir):
             shutil.rmtree(self.test_dir)
 

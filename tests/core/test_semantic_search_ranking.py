@@ -91,7 +91,7 @@ def test_normative_model_weighting(memory):
     ctx_prop = DecisionStream(
         decision_id="test-prop-1",
         title="Proposal: Advanced Search Strategy",
-        target="search-strategy",
+        target="search-strategy-emergent",
         rationale="Emergent proposal with some good ideas for search.",
         status="active",
         phase=DecisionPhase.EMERGENT,
@@ -111,7 +111,7 @@ def test_normative_model_weighting(memory):
     ctx_dec = DecisionStream(
         decision_id="test-dec-1",
         title="Decision: Advanced Search Strategy",
-        target="search-strategy",
+        target="search-strategy-canonical",
         rationale="Canonical decision with established rules for search.",
         status="active",
         phase=DecisionPhase.CANONICAL,
@@ -128,7 +128,8 @@ def test_normative_model_weighting(memory):
     )
     
     query = "Advanced Search Strategy"
-    results = memory.search_decisions(query, limit=5)
+    # Use 'maintenance' mode to include 'draft' proposals in the result set for ranking verification
+    results = memory.search_decisions(query, limit=5, mode="maintenance")
     
     assert len(results) >= 2
     

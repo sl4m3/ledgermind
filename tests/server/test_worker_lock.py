@@ -18,9 +18,9 @@ def test_worker_locking(tmp_path):
     assert os.path.exists(os.path.join(storage, "worker.pid"))
     
     print("Starting worker 2 (should be busy)...")
-    worker2.start()
-    assert worker2.status == "busy"
-    assert worker2.maintenance_thread is None
+    import pytest
+    with pytest.raises(SystemExit):
+        worker2.start()
     
     print("Stopping worker 1...")
     worker1.stop()
