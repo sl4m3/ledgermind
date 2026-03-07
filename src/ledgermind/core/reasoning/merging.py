@@ -113,7 +113,7 @@ class MergeEngine:
                 self_score = 0
                 for r in results:
                     if r['id'] == fid:
-                        self_score = r['score']
+                        self_score = r.get('similarity_score', r['score'])
                         break
                 
                 if self_score < 0.05: continue
@@ -126,7 +126,9 @@ class MergeEngine:
                     if res_fid == fid or res_fid in pending_targets: continue
 
                     # 1. RRF Similarity (Discovery)
-                    rrf_sim = min(1.0, res['score'] / self_score) if self_score > 0 else 0
+                    # Use similarity_score (pure RRF) instead of boosted ranking score
+                    current_score = res.get('similarity_score', res['score'])
+                    rrf_sim = min(1.0, current_score / self_score) if self_score > 0 else 0
                     if rrf_sim < threshold: continue
 
                     # 2. Architectural Guard: Cross-root merging is forbidden

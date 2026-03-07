@@ -1229,6 +1229,9 @@ class Memory:
             cand["rationale"] = ctx.get("rationale")
             cand["consequences"] = ctx.get("consequences")
             cand["expected_outcome"] = ctx.get("expected_outcome")
+            
+            # Explicitly expose pure textual similarity for MergeEngine
+            cand["similarity_score"] = min(1.0, cand.get("base_score", 0.0))
                 
             final_results.append(cand)
             seen_ids.add(cand['id'])
