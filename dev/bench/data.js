@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772898326136,
+  "lastUpdate": 1772898615313,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -90,6 +90,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00011051086441196987",
             "extra": "mean: 1.1003512000002047 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "023c7731acfa0216c2ef0f84ce018735dd08b6b1",
+          "message": "fix: resolve audit tool test failure and CI cleanup issues\n\n- Updated MockRequest in test_audit_logs_tool to include 'offset' and 'namespace' attributes required by the modern search API.\n- Hardened tearDown cleanup with explicit logger shutdown and a retry loop for directory removal to prevent OSError on GitHub CI.",
+          "timestamp": "2026-03-07T18:47:46+03:00",
+          "tree_id": "071c2e5d096bb54db2d0333d404ca40e89c543c5",
+          "url": "https://github.com/sl4m3/ledgermind/commit/023c7731acfa0216c2ef0f84ce018735dd08b6b1"
+        },
+        "date": 1772898614311,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 86.46201764195104,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00024588502532180183",
+            "extra": "mean: 11.565772200009405 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 20187.33850120375,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007689941187573155",
+            "extra": "mean: 49.53600000021652 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 906.3116631808399,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010552515143467298",
+            "extra": "mean: 1.103373199998714 msec\nrounds: 5"
           }
         ]
       }
