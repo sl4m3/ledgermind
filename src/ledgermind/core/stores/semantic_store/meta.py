@@ -2,6 +2,7 @@ import re
 import sqlite3
 import logging
 import time
+import json
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 from contextlib import contextmanager
@@ -172,6 +173,17 @@ class SemanticMetaStore:
                stability_score: float = 0.0, coverage: float = 0.0, link_count: int = 0,
                enrichment_status: str = "pending"):
         """Atomic upsert of decision metadata with content caching."""
+        # --- I1 INVARIANT CHECK ---
+        # Prevent changing core identity fields (target, kind) for existing records.
+        existing = self.get_by_fid(fid)
+        if existing:
+            if existing.get('target') != target:
+                from .transitions import TransitionError
+                raise TransitionError(f"I1 Violation: Cannot change target of existing record {fid} from '{existing.get('target')}' to '{target}'")
+            if existing.get('kind') != kind:
+                from .transitions import TransitionError
+                raise TransitionError(f"I1 Violation: Cannot change kind of existing record {fid} from '{existing.get('kind')}' to '{kind}'")
+
         # Ensure timestamp is in ISO format string
         ts_str = timestamp.isoformat() if hasattr(timestamp, 'isoformat') else str(timestamp)
 
@@ -217,12 +229,35 @@ class SemanticMetaStore:
         return [row[0] for row in rows]
 
 
-    def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
-        """Retrieves full metadata for a specific file ID."""
+    def get_by_fid(self, fid: str, unpack_context: bool = False) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves full metadata for a specific file ID.
+
+        Args:
+            fid: File ID to retrieve
+            unpack_context: If True (default), unpacks context_json and merges with top-level fields
+                          for easier access. Set to False for raw database output.
+        """
         self._conn.row_factory = sqlite3.Row
         cursor = self._conn.cursor()
         row = cursor.execute("SELECT * FROM semantic_meta WHERE fid = ?", (fid,)).fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+
+        result = dict(row)
+
+        if unpack_context and result.get('context_json'):
+            try:
+                context = json.loads(result['context_json'])
+                # Merge context fields with top-level for easier access
+                # Context fields don't override explicit top-level fields
+                for key, value in context.items():
+                    if key not in result or result[key] is None or result[key] == '':
+                        result[key] = value
+            except (json.JSONDecodeError, TypeError):
+                pass  # Keep original context_json if parsing fails
+
+        return result
 
     def get_batch_by_fids(self, fids: List[str]) -> List[Dict[str, Any]]:
         """Retrieves metadata for multiple file IDs efficiently."""

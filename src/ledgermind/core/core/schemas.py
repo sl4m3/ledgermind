@@ -276,9 +276,9 @@ class MemoryDecision(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 class ResolutionIntent(BaseModel):
-    resolution_type: Literal["supersede", "deprecate", "abort"]
-    rationale: Annotated[str, StringConstraints(min_length=15, strip_whitespace=True)]
-    target_decision_ids: List[str]
+    resolution_type: Literal["supersede", "deprecate", "abort", "record"]
+    rationale: Annotated[str, StringConstraints(min_length=10, strip_whitespace=True)]
+    target_decision_ids: List[str] = Field(default_factory=list)
 
 class LedgermindConfig(BaseModel):
     storage_path: str = Field(default="../.ledgermind")

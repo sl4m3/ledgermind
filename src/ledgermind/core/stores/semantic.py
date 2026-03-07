@@ -356,7 +356,7 @@ class SemanticStore:
 
     def _upsert_metadata(self, fid: str, target: str, namespace: str, kind: str,
                          timestamp: datetime, content: str, context: Dict[str, Any],
-                         status: str):
+                         status: str, superseded_by: Optional[str] = None):
         """
         Shared logic for upserting metadata to the store.
         """
@@ -368,6 +368,10 @@ class SemanticStore:
         if isinstance(keywords, list):
             keywords = ", ".join(keywords)
 
+        # Get superseded_by from context if not provided explicitly
+        if superseded_by is None:
+            superseded_by = context.get('superseded_by')
+
         try:
             self.meta.upsert(
                 fid=fid,
@@ -376,7 +380,7 @@ class SemanticStore:
                 status=status,
                 kind=kind,
                 timestamp=timestamp,
-                superseded_by=context.get('superseded_by'),
+                superseded_by=superseded_by,
                 namespace=namespace,
                 content=cached_content[:8000],
                 keywords=keywords,
@@ -549,13 +553,16 @@ class SemanticStore:
                     timestamp=ts or datetime.now(),
                     content=new_data.get("content", ""),
                     context=ctx,
-                    status=new_data.get("status") or ctx.get("status")
+                    status=new_data.get("status") or ctx.get("status"),
+                    superseded_by=new_data.get("superseded_by")
                 )
             except Exception as e:
                 if not self._in_transaction:
                     with open(file_path, "w", encoding="utf-8") as f: f.write(content)
-                
-                if isinstance(e, ConflictError): raise
+
+                from .semantic_store.transitions import TransitionError
+                from ledgermind.core.stores.semantic_store.integrity import IntegrityViolation
+                if isinstance(e, (ConflictError, TransitionError, IntegrityViolation)): raise
                 raise RuntimeError(f"Metadata Update Failed: {e}")
 
 

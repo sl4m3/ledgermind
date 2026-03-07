@@ -46,7 +46,7 @@ def test_supersede_nonexistent(memory_fixture):
     mem = memory_fixture
 
     # Update: Now raises ConflictError Suggesting rebase
-    with pytest.raises((ConflictError, ValueError), match="no longer active"):
+    with pytest.raises((ConflictError, ValueError), match="does not exist"):
         mem.supersede_decision("New", "target", "valid_rationale_for_supersede", ["fake-id"])
 def test_supersede_active_mismatch(memory_fixture):
     """
