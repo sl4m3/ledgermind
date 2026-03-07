@@ -32,7 +32,7 @@ def test_reflection_proactive_success():
         
         args, kwargs = mock_processor.process_event.call_args
         assert kwargs["kind"] == "proposal"
-        assert "Behavioral pattern" in kwargs["content"]
+        assert "behavioral pattern" in kwargs["content"].lower()
         assert kwargs["context"].target == "auth_flow"
 
 def test_reflection_lower_error_threshold():
@@ -63,7 +63,7 @@ def test_reflection_lower_error_threshold():
         assert mock_processor.process_event.call_count >= 1
         
         processed_contents = [call.kwargs["content"] for call in mock_processor.process_event.call_args_list]
-        assert any("Behavioral pattern" in c for c in processed_contents)
+        assert any("behavioral pattern" in c.lower() for c in processed_contents)
 
 def test_reflection_skips_active_targets():
     """Verify that it updates existing stream instead of creating a new one."""
@@ -73,18 +73,18 @@ def test_reflection_skips_active_targets():
     
     now = datetime.now()
     mock_episodic.query.return_value = [
-        {"id": i, "kind": "result", "content": "Success", "timestamp": now.isoformat(), "context": {"target": "existing_target"}}
+        {"id": i, "kind": "result", "content": "Success", "timestamp": now.isoformat(), "context": {"status": "active", "target": "existing_target"}}
         for i in range(6)
     ]
     
-    # Mock an existing stream for 'existing_target'
     mock_semantic.meta.list_all.return_value = [
         {
             "fid": "stream_1",
             "kind": "decision",
-                            "context_json": '{"decision_id": "stream_1", "title": "pattern", "rationale": "pattern of behavior", "phase": "emergent", "target": "existing_target", "vitality": "active", "evidence_event_ids": []}'        }
-    ]
-    
+            "status": "active",
+            "context_json": '{"decision_id": "stream_1", "title": "pattern", "rationale": "pattern of behavior", "phase": "emergent", "status": "active", "target": "existing_target", "vitality": "active", "evidence_event_ids": []}'
+        }
+    ]    
     with patch("ledgermind.core.reasoning.reflection.DistillationEngine") as mock_dist_class:
         engine = ReflectionEngine(mock_episodic, mock_semantic, processor=mock_processor)
         results, _ = engine.run_cycle()

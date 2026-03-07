@@ -454,8 +454,16 @@ class ReflectionEngine:
         # Fetch proposals, decisions and interventions which might be encoded as streams
         metas = self.semantic.meta.list_all()
         # Filter by kind and validate structure (Issue #7)
+        # CRITICAL: We only reflect on LIVE knowledge (active, draft, pending_merge).
+        # We MUST ignore archived knowledge (superseded, deprecated, accepted, rejected)
+        # to prevent IntegrityErrors when multiple versions exist for the same target.
+        LIVE_STATUSES = ('active', 'draft', 'pending_merge')
+        
         for m in metas:
             if m.get('kind') not in (KIND_PROPOSAL, KIND_DECISION, KIND_INTERVENTION):
+                continue
+            
+            if m.get('status') not in LIVE_STATUSES:
                 continue
                 
             fid = m['fid']
