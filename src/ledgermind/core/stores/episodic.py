@@ -92,6 +92,9 @@ class EpisodicStore:
                 # Performance: Add index for duplicate detection
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_events_duplicate ON events (source, kind, content, timestamp)")
 
+                # ⚡ Bolt: Add index on linked_id to prevent O(N) full table scans during batch fetch queries
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_events_linked_id ON events (linked_id)")
+
     def _serialize_context(self, context_data: Any) -> str:
         if not context_data:
             return "{}"
