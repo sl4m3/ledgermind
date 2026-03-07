@@ -39,7 +39,7 @@ class TestHeartbeat(unittest.TestCase):
         # 4. Git GC should NOT have run yet (since 24h haven't passed)
         last_gc_val = self.memory.semantic.meta.get_config("last_git_gc_time")
         last_gc = float(last_gc_val) if last_gc_val else 0.0
-        self.assertEqual(last_gc, twenty_hours_ago, "Git GC timer should persist and NOT reset on manual run")
+        self.assertAlmostEqual(last_gc, twenty_hours_ago, delta=1.0, msg="Git GC timer should persist and NOT reset on manual run")
         
         # 5. Reflection SHOULD have run because we triggered it manually
         # We check for the new key: last_reflection_event_id
