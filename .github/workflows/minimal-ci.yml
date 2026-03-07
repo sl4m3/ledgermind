@@ -155,20 +155,17 @@ jobs:
             const safety = safeParse('safety-report.json');
             const pipAudit = safeParse('pip-audit-report.json');
 
-            let body = '## 🔒 Security Scan Results\n\n';
-            body += '### Bandit (SAST)\n';
+            let body = '### Bandit (SAST)\n';
             body += `- ${(bandit.metrics && bandit.metrics['SEVERITY.HIGH']) || 0} HIGH severity issues\n\n`;
             body += '### Safety (Dependencies)\n';
             body += `- ${(safety.vulnerabilities && safety.vulnerabilities.length) || 0} known vulnerabilities\n\n`;
             body += '### Pip-audit (Dependencies)\n';
             body += `- ${(pipAudit.dependencies && pipAudit.dependencies.filter(d => d.vulnerabilities && d.vulnerabilities.length).length) || 0} vulnerable packages\n`;
 
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue_number,
-              body: body
-            });
+            await core.summary
+              .addHeading('🔒 Security Scan Results', 2)
+              .addRaw(body)
+              .write();
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   lint:
