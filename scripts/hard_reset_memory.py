@@ -63,7 +63,10 @@ print("4. Running Full Reflection (Catching up)...", flush=True)
 proposal_ids = memory.run_reflection()
 print(f"   - Reflection complete. Created {len(proposal_ids)} total proposals.", flush=True)
 
-# Step 5 (Enrichment) REMOVED as requested.
+# 5. Vector Indexing
+print("5. Calculating vectors for new proposals...", flush=True)
+reindexed_count = memory.reindex_missing()
+print(f"   - Indexing complete. Indexed {reindexed_count} documents in vector store.", flush=True)
 
 memory.close()
 print("\n>>> Hard reset and re-analysis complete! (Episodic memory preserved)", flush=True)

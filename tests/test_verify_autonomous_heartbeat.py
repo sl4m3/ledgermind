@@ -31,13 +31,11 @@ class TestHeartbeat(unittest.TestCase):
         
         # 2. Start server without auto-starting background thread
         server = MCPServer(self.memory, storage_path=self.test_dir, start_worker=False)
-        
-        # 3. Manually trigger internal worker tasks sequentially
+
+        # 3. Manually trigger maintenance tasks sequentially
         print("Manually triggering startup/maintenance tasks...")
-        server.worker._run_health_check()
-        server.worker._run_git_sync()
-        server.worker._run_maintenance()
-        
+        self.memory.check_environment()
+        self.memory.run_maintenance()        
         # 4. Git GC should NOT have run yet (since 24h haven't passed)
         last_gc_val = self.memory.semantic.meta.get_config("last_git_gc_time")
         last_gc = float(last_gc_val) if last_gc_val else 0.0
