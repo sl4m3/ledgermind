@@ -102,29 +102,40 @@ class MergeEngine:
                 if not search_query: continue
                 
                 # Search against candidates using maintenance mode
-                # This allows seeing draft proposals for early consolidation.
+                # Search against candidates using maintenance mode
                 results = self.memory.search_decisions(search_query, limit=10, mode="maintenance")
-                
+
                 if not results:
                     continue
 
-                # Normalize scores
-                max_score = max((r['score'] for r in results), default=1.0)
-                
+                # BEST LOGIC: Self-Match Normalization
+                # Identify the 'perfection baseline' - how well the source doc matches its own query.
+                self_score = 0
+                for r in results:
+                    if r['id'] == fid:
+                        self_score = r['score']
+                        break
+
+                # Quality Gate: If the source doc doesn't even rank well for its own query,
+                # the query is too vague or the index is stale. Skip.
+                if self_score < 0.1:
+                    continue
+
                 duplicates = []
                 total_norm_score = 0
-                
+
                 for res in results:
                     res_fid = res['id']
                     # Skip self and already pending targets
                     if res_fid == fid or res_fid in pending_targets:
                         continue
-                        
-                    normalized_score = res['score'] / max_score if max_score > 0 else 0
-                    
-                    # Only consider if it's also in our enriched_metas set (double check)
+
+                    # Calculate similarity relative to the 'perfect' self-match
+                    normalized_score = res['score'] / self_score if self_score > 0 else 0
+
+                    # Only consider if the match is objectively near-perfect
                     if normalized_score >= threshold:
-                        logger.info(f"  Match: {fid} <-> {res_fid} | Sim: {normalized_score:.4f}")
+                        logger.info(f"  Match: {fid} <-> {res_fid} | Sim: {normalized_score:.4f} (Rel to self: {self_score:.4f})")
                         duplicates.append(res)
                         total_norm_score += normalized_score
                 
