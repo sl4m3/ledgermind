@@ -320,14 +320,13 @@ class SemanticMetaStore:
             params.append(limit)
 
             sql = f"""
-                SELECT fid, title, target, status, kind, timestamp, namespace, phase, vitality, link_count,
-                       (CASE phase WHEN 'canonical' THEN 1.5 WHEN 'emergent' THEN 1.2 ELSE 1.0 END * 
-                        CASE vitality WHEN 'active' THEN 1.0 WHEN 'decaying' THEN 0.5 ELSE 0.2 END) as calculated_score
-                FROM semantic_meta 
-                WHERE rowid IN (
-                    SELECT rowid FROM semantic_fts 
-                    WHERE semantic_fts MATCH ?
-                ) AND namespace = ? {status_clause}
+                SELECT m.fid, m.title, m.target, m.status, m.kind, m.timestamp, m.namespace, m.phase, m.vitality, m.link_count,
+                       (CASE m.phase WHEN 'canonical' THEN 1.5 WHEN 'emergent' THEN 1.2 ELSE 1.0 END * 
+                        CASE m.vitality WHEN 'active' THEN 1.0 WHEN 'decaying' THEN 0.5 ELSE 0.2 END) as calculated_score
+                FROM semantic_meta m
+                JOIN semantic_fts f ON m.fid = f.fid
+                WHERE f.semantic_fts MATCH ? AND m.namespace = ? {status_clause}
+                ORDER BY f.rank
                 LIMIT ?
             """  # nosec B608
             
