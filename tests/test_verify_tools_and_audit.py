@@ -27,27 +27,38 @@ class TestTools(unittest.TestCase):
     def tearDown(self):
         self.patcher.stop()
         # Shutdown any logging handlers to free files
-        for handler in logging.getLogger("agent_memory_audit").handlers[:]:
-            handler.close()
-            logging.getLogger("agent_memory_audit").removeHandler(handler)
+        for logger_name in ["agent_memory_audit", "ledgermind.server.audit"]:
+            l = logging.getLogger(logger_name)
+            for handler in l.handlers[:]:
+                handler.close()
+                l.removeHandler(handler)
             
         # Release objects to unlock SQLite databases
         self.server = None
         self.memory = None
         import gc
-        gc.collect() # Force garbage collection of closed DB connections
+        gc.collect() # Force garbage collection
             
         if os.path.exists(self.test_dir):
-            shutil.rmtree(self.test_dir)
+            import time
+            # Retry loop for robust directory removal on Windows/Busy CI
+            for _ in range(5):
+                try:
+                    shutil.rmtree(self.test_dir)
+                    break
+                except OSError:
+                    time.sleep(0.5)
 
     def test_audit_logs_tool(self):
         print("Testing Audit Logs Tool...")
         # 1. Trigger some activity
         class MockRequest:
-            def __init__(self, query, limit, mode):
+            def __init__(self, query, limit, mode, offset=0):
                 self.query = query
                 self.limit = limit
                 self.mode = mode
+                self.offset = offset
+                self.namespace = "default"
             def model_dump(self):
                 return {"query": self.query, "limit": self.limit, "mode": self.mode}
 
