@@ -56,7 +56,8 @@ memory.semantic.meta.set_config("last_reflection_event_id", "0")
 memory.semantic.meta.set_config("arbitration_mode", "rich")
 memory.semantic.meta.set_config("client", "gemini")
 memory.semantic.meta.set_config("enrichment_model", "gemini-2.5-flash-lite")
-print("   - Success: System ready for full re-analysis.", flush=True)
+memory.semantic.meta.set_config("preferred_language", "russian")
+print("   - Success: System ready for full re-analysis (Language: russian).", flush=True)
 
 # 4. Incremental Reflection
 print("4. Running Full Reflection (Catching up)...", flush=True)
