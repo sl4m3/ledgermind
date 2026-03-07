@@ -340,6 +340,11 @@ class Memory:
             context = stream
 
         # Build and Validate event
+        # CRITICAL: Ensure decision_id exists in context for validation and traceability
+        if isinstance(context, dict):
+            if "decision_id" not in context:
+                context["decision_id"] = str(uuid.uuid4())
+
         # CRITICAL: Force 'draft' status for all proposals to prevent I4 integrity violations
         if kind == KIND_PROPOSAL:
             if isinstance(context, dict):
@@ -1229,6 +1234,12 @@ class Memory:
             cand["rationale"] = ctx.get("rationale")
             cand["consequences"] = ctx.get("consequences")
             cand["expected_outcome"] = ctx.get("expected_outcome")
+            
+            # Extract Epistemic fields for tiered injection
+            cand["compressive_rationale"] = ctx.get("compressive_rationale")
+            cand["strengths"] = ctx.get("strengths", [])
+            cand["objections"] = ctx.get("objections", [])
+            cand["counter_patterns"] = ctx.get("counter_patterns", [])
             
             # Explicitly expose pure textual similarity for MergeEngine
             cand["similarity_score"] = min(1.0, cand.get("base_score", 0.0))

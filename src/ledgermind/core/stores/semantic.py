@@ -206,60 +206,66 @@ class SemanticStore:
             mtime = os.path.getmtime(full_path)
 
             existing = self.meta.get_by_fid(fid)
-            if existing and not force:
-                existing_ts = existing.get('timestamp')
-                if isinstance(existing_ts, str):
-                    try:
-                        existing_ts = datetime.fromisoformat(existing_ts)
-                    except ValueError: pass
-
-                if existing_ts and abs(existing_ts.timestamp() - mtime) < 1.0:
-                    return
 
             with open(full_path, 'r', encoding='utf-8') as stream:
                 raw_content = stream.read()
-                data, body = MemoryLoader.parse(raw_content)
-                if data:
-                    ts = data.get("timestamp")
-                    if isinstance(ts, str):
-                        ts = datetime.fromisoformat(ts)
 
-                    final_ts = ts or datetime.fromtimestamp(mtime)
+            # --- STRATEGIC CHANGE: Content Hash is Primary, MTime is Secondary ---
+            import hashlib
+            h = hashlib.sha256()
+            h.update(raw_content.encode('utf-8'))
+            current_hash = h.hexdigest()
 
-                    sync_ctx = data.get("context", {})
-                    sync_target = sync_ctx.get("target") or "unknown"
-                    sync_ns = sync_ctx.get("namespace") or "default"
-                    sync_keywords = sync_ctx.get("keywords", [])
-                    if isinstance(sync_keywords, list):
-                        sync_keywords = ", ".join(sync_keywords)
+            # If hash matches, we can safely skip even if mtime changed (or didn't)
+            if existing and not force:
+                if existing.get('content_hash') == current_hash:
+                    return
 
-                    # Get link stats from episodic store
-                    link_c, link_s = 0, 0.0
-                    try:
-                        link_c, link_s = self.episodic.count_links_for_semantic(fid)
-                    except Exception: pass
+            # Proceed to parse if hash changed or forced
+            data, body = MemoryLoader.parse(raw_content)
+            if data:
+                ts = data.get("timestamp")
+                if isinstance(ts, str):
+                    ts = datetime.fromisoformat(ts)
 
-                    self.meta.upsert(
-                        fid=fid,
-                        target=sync_target,
-                        title=sync_ctx.get("title", "") if sync_ctx else "",
-                        status=sync_ctx.get("status", "unknown") if sync_ctx else "unknown",
-                        kind=data.get("kind", "unknown"),
-                        timestamp=final_ts,
-                        superseded_by=sync_ctx.get("superseded_by") if sync_ctx else None,
-                        namespace=sync_ns,
-                        content=data.get("content", "")[:8000],
-                        keywords=sync_keywords,
-                        confidence=sync_ctx.get("confidence", 1.0) if sync_ctx else 1.0,
-                        context_json=json.dumps(sync_ctx or {}),
-                        phase=sync_ctx.get("phase", existing.get('phase', 'pattern') if existing else 'pattern'),
-                        vitality=sync_ctx.get("vitality", existing.get('vitality', 'active') if existing else 'active'),
-                        reinforcement_density=sync_ctx.get("reinforcement_density", 0.0),
-                        stability_score=sync_ctx.get("stability_score", 0.0),
-                        coverage=sync_ctx.get("coverage", 0.0),
-                        link_count=link_c,
-                        enrichment_status=sync_ctx.get("enrichment_status", "pending")
-                    )
+                final_ts = ts or datetime.fromtimestamp(mtime)
+
+                sync_ctx = data.get("context", {})
+                sync_target = sync_ctx.get("target") or "unknown"
+                sync_ns = sync_ctx.get("namespace") or "default"
+                sync_keywords = sync_ctx.get("keywords", [])
+                if isinstance(sync_keywords, list):
+                    sync_keywords = ", ".join(sync_keywords)
+
+                # Get link stats from episodic store
+                link_c, link_s = 0, 0.0
+                try:
+                    link_c, link_s = self.episodic.count_links_for_semantic(fid)
+                except Exception: pass
+
+                self.meta.upsert(
+                    fid=fid,
+                    target=sync_target,
+                    title=sync_ctx.get("title", "") if sync_ctx else "",
+                    status=sync_ctx.get("status", "unknown") if sync_ctx else "unknown",
+                    kind=data.get("kind", "unknown"),
+                    timestamp=final_ts,
+                    superseded_by=sync_ctx.get("superseded_by") if sync_ctx else None,
+                    namespace=sync_ns,
+                    content=data.get("content", "")[:8000],
+                    keywords=sync_keywords,
+                    confidence=sync_ctx.get("confidence", 1.0) if sync_ctx else 1.0,
+                    content_hash=current_hash,
+                    compressive_rationale=sync_ctx.get("compressive_rationale"),
+                    context_json=json.dumps(sync_ctx or {}),
+                    phase=sync_ctx.get("phase", existing.get('phase', 'pattern') if existing else 'pattern'),
+                    vitality=sync_ctx.get("vitality", existing.get('vitality', 'active') if existing else 'active'),
+                    reinforcement_density=sync_ctx.get("reinforcement_density", 0.0),
+                    stability_score=sync_ctx.get("stability_score", 0.0),
+                    coverage=sync_ctx.get("coverage", 0.0),
+                    link_count=link_c,
+                    enrichment_status=sync_ctx.get("enrichment_status", "pending")
+                )
         except Exception as e:
             logger.error(f"Failed to index {fid}: {e}")
 
@@ -278,21 +284,18 @@ class SemanticStore:
             # 2. Get current records in MetaStore
             meta_files = self._get_meta_files()
 
-            # 3. Handle Mismatches and Updates
-            if disk_files != meta_files or force:
-                if disk_files != meta_files:
-                    logger.info(f"Syncing semantic meta index ({len(disk_files)} on disk, {len(meta_files)} in meta)...")
+            # 3. Synchronize orphans (removed from disk but in meta)
+            orphans = meta_files - disk_files
+            if orphans:
+                logger.info(f"Removing {len(orphans)} orphan records from meta index.")
+                self._remove_orphans(orphans)
 
-                # Remove orphans from meta
-                self._remove_orphans(meta_files - disk_files)
-
-                # Add/Update missing or changed files
-                # Use batch_update if not already in a transaction
-                cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
-
-                with cm:
-                    for f in disk_files:
-                        self._update_meta_for_file(f, force=force)
+            # 4. Add/Update files
+            # We always loop over disk files and rely on _update_meta_for_file's hash check for speed
+            cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
+            with cm:
+                for f in disk_files:
+                    self._update_meta_for_file(f, force=force)
         finally:
             if should_lock: self._fs_lock.release()
 
@@ -356,7 +359,9 @@ class SemanticStore:
 
     def _upsert_metadata(self, fid: str, target: str, namespace: str, kind: str,
                          timestamp: datetime, content: str, context: Dict[str, Any],
-                         status: str, superseded_by: Optional[str] = None):
+                         status: str, title: Optional[str] = None, 
+                         content_hash: Optional[str] = None,
+                         superseded_by: Optional[str] = None):
         """
         Shared logic for upserting metadata to the store.
         """
@@ -368,6 +373,18 @@ class SemanticStore:
         if isinstance(keywords, list):
             keywords = ", ".join(keywords)
 
+        # TITLE SOURCE: Always trust context.title as the primary name
+        # but allow manual override if passed
+        final_title = title or context.get('title', 'Untitled Decision')
+
+        # Use passed hash OR calculate if missing (legacy/direct calls)
+        final_hash = content_hash
+        if not final_hash:
+            import hashlib
+            h = hashlib.sha256()
+            h.update(cached_content.encode('utf-8')) # Fallback to partial hash for stability
+            final_hash = h.hexdigest()
+
         # Get superseded_by from context if not provided explicitly
         if superseded_by is None:
             superseded_by = context.get('superseded_by')
@@ -376,7 +393,7 @@ class SemanticStore:
             self.meta.upsert(
                 fid=fid,
                 target=target,
-                title=context.get('title', ''),
+                title=final_title,
                 status=status,
                 kind=kind,
                 timestamp=timestamp,
@@ -385,6 +402,9 @@ class SemanticStore:
                 content=cached_content[:8000],
                 keywords=keywords,
                 confidence=context.get('confidence', 1.0),
+                content_hash=final_hash,
+                last_hit_at=context.get('last_hit_at'),
+                compressive_rationale=context.get('compressive_rationale'),
                 context_json=json.dumps(context),
                 phase=context.get('phase', 'pattern'),
                 vitality=context.get('vitality', 'active'),
@@ -423,11 +443,20 @@ class SemanticStore:
 
             if effective_namespace: os.makedirs(os.path.join(self.repo_path, effective_namespace), exist_ok=True)
 
+            # CLEAN DATA: Use model_dump to get only schema-defined fields.
+            # MemoryEvent does not have top-level title/target, so they won't be dumped.
             data = event.model_dump(mode='json')
             body = f"# {event.content}\n\nRecorded from source: {event.source}\n"
-            content = MemoryLoader.stringify(data, body)            
+            full_file_content = MemoryLoader.stringify(data, body)
+            
+            # CRITICAL: Calculate hash from the ACTUAL final file content
+            import hashlib
+            h = hashlib.sha256()
+            h.update(full_file_content.encode('utf-8'))
+            content_hash = h.hexdigest()
+
             with open(full_path, "w", encoding="utf-8") as f: 
-                f.write(content)
+                f.write(full_file_content)
             
             try:
                 # Use data['context'] which is guaranteed to be a dict
@@ -445,7 +474,8 @@ class SemanticStore:
                     timestamp=event.timestamp,
                     content=event.content,
                     context=ctx_dict,
-                    status=ctx_dict.get('status', 'active')
+                    status=ctx_dict.get('status', 'active'),
+                    content_hash=content_hash # Pass correctly calculated hash
                 )
             except Exception as e:
                 # If we are in a transaction, TransactionManager will handle rollback.
@@ -459,7 +489,7 @@ class SemanticStore:
             if not self._in_transaction:
                 try:
                     # Integrity validation is deferred to maintenance for performance
-                    self.audit.add_artifact(relative_path, content, f"Add {event.kind}: {event.content[:50]}")
+                    self.audit.add_artifact(relative_path, full_file_content, f"Add {event.kind}: {event.content[:50]}")
                 except Exception as e:
                     if os.path.exists(full_path): os.remove(full_path)
                     self.meta.delete(relative_path)
@@ -495,38 +525,42 @@ class SemanticStore:
             import copy
             new_data = copy.deepcopy(old_data)
             
-            # 1. Update Core Fields (Top-level in YAML)
-            CORE_FIELDS = ["title", "content", "target", "status", "kind", "supersedes", "superseded_by"]
+            # 1. Update Lifecycle Fields (Status, Supersedes)
+            # title/target are managed inside context only
+            CORE_FIELDS = ["status", "kind", "supersedes", "superseded_by"]
             for field in CORE_FIELDS:
                 if field in updates:
                     new_data[field] = updates[field]
             
+            # Remove legacy top-level fields if they exist
+            new_data.pop("title", None)
+            new_data.pop("target", None)
+
             # 2. Update Context Fields
             if "context" not in new_data: new_data["context"] = {}
             
-            # Merge updates into context but remove core fields that are already at top level
-            ctx_updates = updates.copy()
-            for field in CORE_FIELDS:
-                if field in ctx_updates:
-                    del ctx_updates[field]
-            
-            new_data["context"].update(ctx_updates)
+            # Merge all updates into context
+            new_data["context"].update(updates)
             
             TransitionValidator.validate_update(old_data, new_data)
             
             new_content = MemoryLoader.stringify(new_data, body)
+            
+            # CRITICAL: Calculate hash from the final file content
+            import hashlib
+            h = hashlib.sha256()
+            h.update(new_content.encode('utf-8'))
+            content_hash = h.hexdigest()
+
             with open(file_path, "w", encoding="utf-8") as f: f.write(new_content)
             
             # CRITICAL: Manually update IntegrityChecker cache to prevent race conditions
-            # with filesystem mtime resolution. This ensures the validator sees the 
-            # updated status even if mtime hasn't ticked yet.
             try:
                 stat = os.stat(file_path)
                 IntegrityChecker._file_data_cache[file_path] = (stat.st_mtime_ns, new_data)
-                # Invalidate state cache to force re-scan of the repository structure
+                # Invalidate state cache to force re-scan
                 IntegrityChecker._state_cache.pop(self.repo_path, None)
-            except OSError:
-                pass
+            except OSError: pass
 
             ctx = new_data.get("context", {})
             ts = new_data.get("timestamp")
@@ -554,6 +588,8 @@ class SemanticStore:
                     content=new_data.get("content", ""),
                     context=ctx,
                     status=new_data.get("status") or ctx.get("status"),
+                    title=new_data.get("title"),
+                    content_hash=content_hash, # Pass correctly calculated hash
                     superseded_by=new_data.get("superseded_by")
                 )
             except Exception as e:
