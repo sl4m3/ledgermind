@@ -78,7 +78,8 @@ jobs:
       - name: Run Safety (Dependency Check)
         id: safety
         run: |
-          safety check --json --db > safety-report.json || true
+          safety check --json > raw-safety-report.json || true
+          sed -n '/^{/,/^}/p' raw-safety-report.json > safety-report.json
         continue-on-error: true
 
       - name: Run Pip-audit
@@ -138,17 +139,29 @@ jobs:
           script: |
             const fs = require('fs');
             const issue_number = context.issue.number;
-            const bandit = fs.readFileSync('bandit-report.json');
-            const safety = fs.readFileSync('safety-report.json');
-            const pipAudit = fs.readFileSync('pip-audit-report.json');
 
-            let body = '## 🔒 Security Scan Results\\n\\n';
-            body += '### Bandit (SAST)\\n';
-            body += `- ${JSON.parse(bandit).metrics['SEVERITY.HIGH'] || 0} HIGH severity issues\\n\\n`;
-            body += '### Safety (Dependencies)\\n';
-            body += `- ${JSON.parse(safety).vulnerabilities?.length || 0} known vulnerabilities\\n\\n`;
-            body += '### Pip-audit (Dependencies)\\n';
-            body += `- ${JSON.parse(pipAudit).dependencies?.filter(d => d.vulnerabilities?.length)?.length || 0} vulnerable packages\\n`;
+            const safeParse = (path) => {
+              try {
+                if (!fs.existsSync(path)) return {};
+                const content = fs.readFileSync(path, 'utf8').trim();
+                return content ? JSON.parse(content) : {};
+              } catch (e) {
+                console.error(`Error parsing ${path}:`, e);
+                return {};
+              }
+            };
+
+            const bandit = safeParse('bandit-report.json');
+            const safety = safeParse('safety-report.json');
+            const pipAudit = safeParse('pip-audit-report.json');
+
+            let body = '## 🔒 Security Scan Results\n\n';
+            body += '### Bandit (SAST)\n';
+            body += `- ${(bandit.metrics && bandit.metrics['SEVERITY.HIGH']) || 0} HIGH severity issues\n\n`;
+            body += '### Safety (Dependencies)\n';
+            body += `- ${(safety.vulnerabilities && safety.vulnerabilities.length) || 0} known vulnerabilities\n\n`;
+            body += '### Pip-audit (Dependencies)\n';
+            body += `- ${(pipAudit.dependencies && pipAudit.dependencies.filter(d => d.vulnerabilities && d.vulnerabilities.length).length) || 0} vulnerable packages\n`;
 
             github.rest.issues.createComment({
               owner: context.repo.owner,
