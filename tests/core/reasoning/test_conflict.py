@@ -12,8 +12,9 @@ def conflict_engine(mock_meta_store):
     return ConflictEngine(semantic_store_path="/tmp/semantic", meta_store=mock_meta_store)
 
 def test_check_for_conflicts_detected(conflict_engine, mock_meta_store):
-    """Test conflict detected when meta store returns an active file."""
-    mock_meta_store.get_active_fid.return_value = "decision_123.md"
+    """Test conflict detected when meta store returns active files."""
+    # The new engine expects a list of FIDs
+    mock_meta_store.get_active_fids_by_base_target.return_value = ["decision_123.md"]
 
     event = MemoryEvent(
         source="agent",
@@ -29,11 +30,11 @@ def test_check_for_conflicts_detected(conflict_engine, mock_meta_store):
     result = conflict_engine.check_for_conflicts(event)
 
     assert result == "Conflict detected with: decision_123.md"
-    mock_meta_store.get_active_fid.assert_called_with("target1", namespace="default")
+    mock_meta_store.get_active_fids_by_base_target.assert_called_with("target1", namespace="default")
 
 def test_check_for_conflicts_no_conflict(conflict_engine, mock_meta_store):
-    """Test no conflict when meta store returns None."""
-    mock_meta_store.get_active_fid.return_value = None
+    """Test no conflict when meta store returns empty list."""
+    mock_meta_store.get_active_fids_by_base_target.return_value = []
 
     event = MemoryEvent(
         source="agent",
@@ -49,7 +50,7 @@ def test_check_for_conflicts_no_conflict(conflict_engine, mock_meta_store):
     result = conflict_engine.check_for_conflicts(event)
 
     assert result is None
-    mock_meta_store.get_active_fid.assert_called_with("target2", namespace="default")
+    mock_meta_store.get_active_fids_by_base_target.assert_called_with("target2", namespace="default")
 
 def test_check_for_conflicts_not_decision(conflict_engine, mock_meta_store):
     """Test no conflict check for non-decision events."""
@@ -69,11 +70,11 @@ def test_check_for_conflicts_not_decision(conflict_engine, mock_meta_store):
 
     assert result is None
     # Should not be called because kind is not KIND_DECISION
-    mock_meta_store.get_active_fid.assert_not_called()
+    mock_meta_store.get_active_fids_by_base_target.assert_not_called()
 
 def test_check_for_conflicts_with_namespace(conflict_engine, mock_meta_store):
     """Test conflict check with specific namespace passed as argument."""
-    mock_meta_store.get_active_fid.return_value = "decision_456.md"
+    mock_meta_store.get_active_fids_by_base_target.return_value = ["decision_456.md"]
 
     event = MemoryEvent(
         source="agent",
@@ -91,11 +92,11 @@ def test_check_for_conflicts_with_namespace(conflict_engine, mock_meta_store):
     result = conflict_engine.check_for_conflicts(event, namespace="prod")
 
     assert result == "Conflict detected with: decision_456.md"
-    mock_meta_store.get_active_fid.assert_called_with("target4", namespace="prod")
+    mock_meta_store.get_active_fids_by_base_target.assert_called_with("target4", namespace="prod")
 
 def test_check_for_conflicts_event_namespace(conflict_engine, mock_meta_store):
     """Test conflict check using event namespace when no argument is provided."""
-    mock_meta_store.get_active_fid.return_value = None
+    mock_meta_store.get_active_fids_by_base_target.return_value = []
 
     event = MemoryEvent(
         source="agent",
@@ -111,7 +112,7 @@ def test_check_for_conflicts_event_namespace(conflict_engine, mock_meta_store):
 
     conflict_engine.check_for_conflicts(event)
 
-    mock_meta_store.get_active_fid.assert_called_with("target5", namespace="custom_ns")
+    mock_meta_store.get_active_fids_by_base_target.assert_called_with("target5", namespace="custom_ns")
 
 def test_check_for_conflicts_no_meta_store():
     """Test RuntimeError when meta store is missing."""
