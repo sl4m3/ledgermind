@@ -38,7 +38,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest tests/ -xvs --tb=short --cov=src --cov-report=xml
+          pytest -n0 tests/ -xvs --tb=short --cov=src --cov-report=xml
         env:
           PYTHONPATH: src
 
