@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1772897755698,
+  "lastUpdate": 1772898326136,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -45,6 +45,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00011377279450127023",
             "extra": "mean: 1.1081219999880432 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "sl4m3",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "7585098fd5b66ee39ed9b36f9ad39ccc8c413886",
+          "message": "refactor: stabilize test execution infrastructure\n\n- Modified Makefile to run tests sequentially by default (-n0) to prevent OOM/resource crashes.\n- Added 'test-parallel' target to Makefile for optional concurrent execution.\n- Updated run_tests.sh to use -n0 for consistency with Makefile.\n- Fixed Makefile indentation (tabs instead of spaces).",
+          "timestamp": "2026-03-07T18:42:54+03:00",
+          "tree_id": "8e1bf40f19c5ca52b60225ee802b4eceafccec7b",
+          "url": "https://github.com/sl4m3/ledgermind/commit/7585098fd5b66ee39ed9b36f9ad39ccc8c413886"
+        },
+        "date": 1772898325657,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 86.06038023811762,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000296367435744709",
+            "extra": "mean: 11.619748800006846 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 20453.745898080655,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008243858515603854",
+            "extra": "mean: 48.890800002254764 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 908.8007537955282,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011051086441196987",
+            "extra": "mean: 1.1003512000002047 msec\nrounds: 5"
           }
         ]
       }
