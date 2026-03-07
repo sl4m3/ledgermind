@@ -4,8 +4,10 @@ install:
 	pip install -e .[all,dev]
 
 test:
-	pytest tests
+	pytest -n0 tests
 
+test-parallel:
+	pytest tests
 lint:
 	ruff check .
 
