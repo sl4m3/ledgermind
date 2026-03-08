@@ -46,14 +46,14 @@ class LedgerMindTools:
             self.server._check_capability("sync")
             count = self.server.memory.sync_git(repo_path=repo_path, limit=limit)
             self.server.audit_logger.log_access("agent", "sync_git_history", {"repo_path": repo_path, "limit": limit}, True)
-            TOOL_CALLS.labels(tool="sync_git_history", status="success").inc()
+            TOOL_CALLS.labels("sync_git_history", "success").inc()
             return SyncGitResponse(status="success", indexed_commits=count).model_dump_json()
         except Exception as e:
             self.server.audit_logger.log_access("agent", "sync_git_history", {"repo_path": repo_path, "limit": limit}, False, error=str(e))
-            TOOL_CALLS.labels(tool="sync_git_history", status="error").inc()
+            TOOL_CALLS.labels("sync_git_history", "error").inc()
             return json.dumps({"status": "error", "message": str(e)})
         finally:
-            TOOL_LATENCY.labels(tool="sync_git_history").observe(time.time() - start_time)
+            TOOL_LATENCY.labels("sync_git_history").observe(time.time() - start_time)
 
     def forget_memory(self, decision_id: str) -> str:
         """Hard-deletes a memory from filesystem and metadata (GDPR purge)."""
@@ -62,14 +62,14 @@ class LedgerMindTools:
             self.server._check_capability("purge")
             self.server.memory.forget(decision_id)
             self.server.audit_logger.log_access("admin", "forget_memory", {"id": decision_id}, True)
-            TOOL_CALLS.labels(tool="forget_memory", status="success").inc()
+            TOOL_CALLS.labels("forget_memory", "success").inc()
             return json.dumps({"status": "success", "message": f"Forgotten {decision_id}"})
         except Exception as e:
             self.server.audit_logger.log_access("admin", "forget_memory", {"id": decision_id}, False, error=str(e))
-            TOOL_CALLS.labels(tool="forget_memory", status="error").inc()
+            TOOL_CALLS.labels("forget_memory", "error").inc()
             return json.dumps({"status": "error", "message": str(e)})
         finally:
-            TOOL_LATENCY.labels(tool="forget_memory").observe(time.time() - start_time)
+            TOOL_LATENCY.labels("forget_memory").observe(time.time() - start_time)
 
     def visualize_graph(self, target: Optional[str] = None) -> str:
         """Generates a Mermaid diagram of the knowledge evolution graph. Optional 'target' to filter."""
@@ -78,14 +78,14 @@ class LedgerMindTools:
             self.server._check_capability("read")
             mermaid_code = self.server.memory.generate_knowledge_graph(target=target)
             self.server.audit_logger.log_access("agent", "visualize_graph", {"target": target}, True)
-            TOOL_CALLS.labels(tool="visualize_graph", status="success").inc()
+            TOOL_CALLS.labels("visualize_graph", "success").inc()
             return json.dumps({"status": "success", "mermaid": mermaid_code})
         except Exception as e:
             self.server.audit_logger.log_access("agent", "visualize_graph", {"target": target}, False, error=str(e))
-            TOOL_CALLS.labels(tool="visualize_graph", status="error").inc()
+            TOOL_CALLS.labels("visualize_graph", "error").inc()
             return json.dumps({"status": "error", "message": str(e)})
         finally:
-            TOOL_LATENCY.labels(tool="visualize_graph").observe(time.time() - start_time)
+            TOOL_LATENCY.labels("visualize_graph").observe(time.time() - start_time)
 
     def get_memory_stats(self) -> str:
         """Returns memory usage statistics."""
@@ -94,14 +94,14 @@ class LedgerMindTools:
             self.server._check_capability("read")
             stats = self.server.memory.get_stats()
             self.server.audit_logger.log_access("agent", "get_memory_stats", {}, True)
-            TOOL_CALLS.labels(tool="get_memory_stats", status="success").inc()
+            TOOL_CALLS.labels("get_memory_stats", "success").inc()
             return json.dumps({"status": "success", "stats": stats})
         except Exception as e:
             self.server.audit_logger.log_access("agent", "get_memory_stats", {}, False, error=str(e))
-            TOOL_CALLS.labels(tool="get_memory_stats", status="error").inc()
+            TOOL_CALLS.labels("get_memory_stats", "error").inc()
             return json.dumps({"status": "error", "message": str(e)})
         finally:
-            TOOL_LATENCY.labels(tool="get_memory_stats").observe(time.time() - start_time)
+            TOOL_LATENCY.labels("get_memory_stats").observe(time.time() - start_time)
 
     def bootstrap_project_context(self, path: str = ".") -> str:
         """
@@ -118,14 +118,14 @@ class LedgerMindTools:
             scanner = ProjectScanner(path)
             result = scanner.scan()
             self.server.audit_logger.log_access("agent", "bootstrap_project_context", {"path": path}, True)
-            TOOL_CALLS.labels(tool="bootstrap_project_context", status="success").inc()
+            TOOL_CALLS.labels("bootstrap_project_context", "success").inc()
             return result
         except Exception as e:
             self.server.audit_logger.log_access("agent", "bootstrap_project_context", {"path": path}, False, error=str(e))
-            TOOL_CALLS.labels(tool="bootstrap_project_context", status="error").inc()
+            TOOL_CALLS.labels("bootstrap_project_context", "error").inc()
             return json.dumps({"status": "error", "message": str(e)})
         finally:
-            TOOL_LATENCY.labels(tool="bootstrap_project_context").observe(time.time() - start_time)
+            TOOL_LATENCY.labels("bootstrap_project_context").observe(time.time() - start_time)
 
     def get_environment_health(self) -> str:
         """Returns diagnostic information about the system environment (disk, git, python)."""
@@ -133,13 +133,13 @@ class LedgerMindTools:
         try:
             self.server._check_capability("read")
             health = self.server.env_context.get_context()
-            TOOL_CALLS.labels(tool="get_environment_health", status="success").inc()
+            TOOL_CALLS.labels("get_environment_health", "success").inc()
             return json.dumps({"status": "success", "health": health})
         except Exception as e:
-            TOOL_CALLS.labels(tool="get_environment_health", status="error").inc()
+            TOOL_CALLS.labels("get_environment_health", "error").inc()
             return json.dumps({"status": "error", "message": str(e)})
         finally:
-            TOOL_LATENCY.labels(tool="get_environment_health").observe(time.time() - start_time)
+            TOOL_LATENCY.labels("get_environment_health").observe(time.time() - start_time)
 
     def get_audit_logs(self, limit: int = 20) -> str:
         """Returns the last N lines of the MCP audit log."""
@@ -151,7 +151,7 @@ class LedgerMindTools:
         except Exception as e:
             return json.dumps({"status": "error", "message": str(e)})
         finally:
-            TOOL_LATENCY.labels(tool="get_audit_logs").observe(time.time() - start_time)
+            TOOL_LATENCY.labels("get_audit_logs").observe(time.time() - start_time)
 
     def export_memory_bundle(self, output_filename: str = "memory_export.tar.gz") -> str:
         """Creates a full backup of the memory storage in a .tar.gz file."""
@@ -166,7 +166,7 @@ class LedgerMindTools:
         except Exception as e:
             return json.dumps({"status": "error", "message": str(e)})
         finally:
-            TOOL_LATENCY.labels(tool="export_memory_bundle").observe(time.time() - start_time)
+            TOOL_LATENCY.labels("export_memory_bundle").observe(time.time() - start_time)
 
     def get_api_specification(self) -> str:
         """Returns the formal JSON specification (OpenRPC-like) of the Ledgermind API."""
@@ -193,7 +193,7 @@ class LedgerMindTools:
         except Exception as e:
             return json.dumps({"status": "error", "message": str(e)})
         finally:
-            TOOL_LATENCY.labels(tool="link_interaction_to_decision").observe(time.time() - start_time)
+            TOOL_LATENCY.labels("link_interaction_to_decision").observe(time.time() - start_time)
 
     def repair_language(self) -> str:
         """Scans enriched decisions and resets status for records that don't match the preferred language."""
@@ -236,4 +236,4 @@ class LedgerMindTools:
             logger.error(f"Repair language failed: {e}", exc_info=True)
             return json.dumps({"status": "error", "message": str(e)})
         finally:
-            TOOL_LATENCY.labels(tool="repair_language").observe(time.time() - start_time)
+            TOOL_LATENCY.labels("repair_language").observe(time.time() - start_time)

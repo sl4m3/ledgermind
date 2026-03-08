@@ -59,7 +59,7 @@ def measure_and_log(tool_name: str, role: str = "agent", include_commit_hash: bo
                     commit_hash = self._get_commit_hash()
 
                 self.audit_logger.log_access(role, tool_name, req_dump, True, commit_hash=commit_hash)
-                TOOL_CALLS.labels(tool=tool_name, status="success").inc()
+                TOOL_CALLS.labels(tool_name, "success").inc()
 
                 return result
 
@@ -68,7 +68,7 @@ def measure_and_log(tool_name: str, role: str = "agent", include_commit_hash: bo
                 req_data = request.model_dump() if hasattr(request, "model_dump") else str(request)
                 req_dump = redact_payload(req_data)
                 self.audit_logger.log_access(role, tool_name, req_dump, False, error=str(e))
-                TOOL_CALLS.labels(tool=tool_name, status="error").inc()
+                TOOL_CALLS.labels(tool_name, "error").inc()
 
                 # Determine return type to construct error response
                 sig = inspect.signature(func)
@@ -84,7 +84,7 @@ def measure_and_log(tool_name: str, role: str = "agent", include_commit_hash: bo
                 # Fallback
                 return BaseResponse(status="error", message=str(e))
             finally:
-                TOOL_LATENCY.labels(tool=tool_name).observe(time.time() - start_time)
+                TOOL_LATENCY.labels(tool_name).observe(time.time() - start_time)
         return wrapper
     return decorator
 
