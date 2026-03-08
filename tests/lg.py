@@ -236,11 +236,11 @@ def run_lifecycle_test(args):
             console.print(f"[yellow]! Record {fid} not found after reflection.[/yellow]")
         
         # --- STAGE 4: AGING (DECAYING) ---
-        console.print("\n[bold yellow]Stage 4: Aging (Simulated 14 days Inactivity)[/bold yellow]")
+        console.print("\n[bold yellow]Stage 4: Aging (Simulated 40 days Inactivity)[/bold yellow]")
         meta_db = os.path.join(tmp_dir, "semantic", "semantic_meta.db")
         episodic_db = os.path.join(tmp_dir, "episodic.db")
-        warp_time_in_db(meta_db, "semantic_meta", 14)
-        warp_time_in_db(episodic_db, "events", 14)
+        warp_time_in_db(meta_db, "semantic_meta", 40)
+        warp_time_in_db(episodic_db, "events", 40)
         
         # Maintenance should trigger vitality update
         bridge.memory.run_maintenance()

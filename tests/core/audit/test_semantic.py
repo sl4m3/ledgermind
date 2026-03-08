@@ -28,16 +28,16 @@ def test_S3_dangling_supersede(temp_storage):
     """S3: Fail-fast on dangling reference."""
     sem_path = os.path.join(temp_storage, "semantic")
     os.makedirs(sem_path, exist_ok=True)
-    
+
     d1 = {
         "kind": "decision", "source": "agent", "content": "Decision Content", "timestamp": datetime.now().isoformat(),
         "context": {
-            "title": "D1", "target": "TargetArea", "status": "superseded", 
+            "title": "D1", "target": "TargetArea", "status": "superseded",
             "rationale": "Rationale for dangling test", "superseded_by": "non_existent.md"
         }
     }
     with open(os.path.join(sem_path, "1.md"), "w") as f: f.write(MemoryLoader.stringify(d1))
-    
+
     with pytest.raises(IntegrityViolation) as excinfo:
         Memory(storage_path=temp_storage)
     assert "Dangling reference" in str(excinfo.value)

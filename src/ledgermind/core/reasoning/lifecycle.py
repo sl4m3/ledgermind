@@ -170,14 +170,14 @@ class LifecycleEngine:
         if stream.phase == DecisionPhase.PATTERN:
             if stream.frequency >= 5 and stream.coverage >= 0.2:
                 logger.info(f"Promoting stream {stream.decision_id} to EMERGENT")
-                if PHASE_TRANSITIONS: PHASE_TRANSITIONS.labels(from_p="pattern", to_p="emergent").inc()
+                if PHASE_TRANSITIONS: PHASE_TRANSITIONS.labels("pattern", "emergent").inc()
                 return stream.model_copy(update={"phase": DecisionPhase.EMERGENT})
 
         # 2. Emergent -> Canonical
         if stream.phase == DecisionPhase.EMERGENT:
             if stream.frequency >= 15 and stream.stability_score >= 0.7 and stream.coverage >= 0.3:
                 logger.info(f"Promoting stream {stream.decision_id} to CANONICAL")
-                if PHASE_TRANSITIONS: PHASE_TRANSITIONS.labels(from_p="emergent", to_p="canonical").inc()
+                if PHASE_TRANSITIONS: PHASE_TRANSITIONS.labels("emergent", "canonical").inc()
                 return stream.model_copy(update={"phase": DecisionPhase.CANONICAL})
 
         return stream
@@ -191,8 +191,9 @@ class LifecycleEngine:
             "phase": DecisionPhase.EMERGENT,
             "vitality": DecisionVitality.ACTIVE,
             "stability_score": 0.95,
+            "estimated_removal_cost": 1.0,
             "last_seen": to_naive_utc(now),
             "frequency": stream.frequency + 1
         }
-        if STREAM_PROMOTIONS: STREAM_PROMOTIONS.labels(type="intervention").inc()
+        if STREAM_PROMOTIONS: STREAM_PROMOTIONS.labels("intervention").inc()
         return stream.model_copy(update=updates)

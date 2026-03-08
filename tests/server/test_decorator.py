@@ -50,8 +50,8 @@ class TestDecorator:
             assert resp.decision_id == "dec_123"
 
             # Check Metrics
-            mock_calls.labels.assert_called_with(tool="record_decision", status="success")
-            mock_latency.labels.assert_called_with(tool="record_decision")
+            mock_calls.labels.assert_called_with("record_decision", "success")
+            mock_latency.labels.assert_called_with("record_decision")
 
             # Check Audit Log
             server.audit_logger.log_access.assert_called_with(
@@ -74,8 +74,8 @@ class TestDecorator:
             assert "Memory Error" in resp.message
 
             # Check Metrics
-            mock_calls.labels.assert_called_with(tool="record_decision", status="error")
-            mock_latency.labels.assert_called_with(tool="record_decision")
+            mock_calls.labels.assert_called_with("record_decision", "error")
+            mock_latency.labels.assert_called_with("record_decision")
 
             # Check Audit Log
             server.audit_logger.log_access.assert_called_with(

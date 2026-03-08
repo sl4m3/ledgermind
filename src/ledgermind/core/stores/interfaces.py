@@ -68,15 +68,51 @@ class AuditProvider(ABC):
 
 class MetadataStore(ABC):
     @abstractmethod
-    def upsert(self, fid: str, target: str, status: str, kind: str, timestamp: datetime, superseded_by: Optional[str] = None):
+    def get_version(self) -> str:
         pass
 
     @abstractmethod
-    def get_active_fid(self, target: str) -> Optional[str]:
+    def set_version(self, version: str):
         pass
 
     @abstractmethod
-    def list_all(self) -> List[Dict[str, Any]]:
+    def upsert(self, fid: str, target: str, title: str = "Untitled", status: str = "active", kind: str = "decision", 
+               timestamp: Any = None, content: str = "", context_json: str = "{}", 
+               namespace: str = "default", phase: str = "pattern", 
+               vitality: str = "active", enrichment_status: str = "pending",
+               **kwargs):
+        pass
+
+    @abstractmethod
+    def batch_update(self, updates: Optional[List[Tuple[str, Dict[str, Any]]]] = None):
+        pass
+
+    @abstractmethod
+    def update_status(self, fid: str, status: str):
+        pass
+
+    @abstractmethod
+    def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
+        pass
+
+    @abstractmethod
+    def get_active_fid(self, target: str, namespace: str = "default") -> Optional[str]:
+        pass
+
+    @abstractmethod
+    def get_active_fids_by_base_target(self, base_target: str, namespace: str = "default") -> List[str]:
+        pass
+
+    @abstractmethod
+    def resolve_to_truth(self, doc_id: str, cache: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        pass
+
+    @abstractmethod
+    def list_all(self, namespace: Optional[str] = None) -> List[Dict[str, Any]]:
+        pass
+
+    @abstractmethod
+    def keyword_search(self, query: str, limit: int = 10, namespace: str = "default", status: Optional[str] = None) -> List[Dict[str, Any]]:
         pass
 
     @abstractmethod
@@ -97,5 +133,9 @@ class MetadataStore(ABC):
 
     @abstractmethod
     def set_config(self, key: str, value: Any):
+        pass
+
+    @abstractmethod
+    def close(self):
         pass
 

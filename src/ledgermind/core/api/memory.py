@@ -665,18 +665,32 @@ class Memory:
                         break
 
                     if should_forget:
-                        logger.info(f"Semantic Decay: Forgetting {fid} (confidence dropped to {new_conf})")
-                        self.forget(fid)
-                        forgotten_count += 1
+                        meta = self.semantic.meta.get_by_fid(fid)
+                        kind = meta.get('kind') if meta else None
+                        
+                        # PRESERVE REFERENTIAL INTEGRITY:
+                        # Core memories must not be hard-deleted if confidence drops, 
+                        # as other memories (proposals, events) link to them via back-references.
+                        if kind in ('decision', 'constraint', 'intervention', 'proposal'):
+                             logger.info(f"Semantic Decay: Marking {fid} as dormant/deprecated instead of forgetting (confidence={new_conf})")
+                             self.semantic.update_decision(fid, {"confidence": 0.0, "status": "deprecated", "vitality": "dormant"}, 
+                                                         commit_msg=f"Decay: Knowledge reached zero confidence, marked as dormant.")
+                        else:
+                             logger.info(f"Semantic Decay: Forgetting {fid} (confidence dropped to {new_conf})")
+                             self.forget(fid)
+                             forgotten_count += 1
                     else:
                         updates = {"confidence": new_conf}
-                        
-                        # Logic for deprecating stale decisions
                         meta = self.semantic.meta.get_by_fid(fid)
-                        if meta and meta.get('kind') in ('decision', 'constraint') and meta.get('status') == 'active':
-                            if new_conf < 0.5:
+                        if meta:
+                            # 1. Automatic Deprecation
+                            if meta.get('status') == 'active' and new_conf < 0.5:
                                 logger.info(f"Semantic Decay: Deprecating {fid} (confidence dropped to {new_conf})")
                                 updates["status"] = "deprecated"
+                            
+                            # 2. Sync Vitality with decay (if confidence is significantly low)
+                            if meta.get('vitality') == 'active' and new_conf < 0.9:
+                                updates["vitality"] = "decaying"
                         
                         self.semantic.update_decision(fid, updates, 
                                                       commit_msg=f"Decay: Reduced confidence to {new_conf}")
@@ -1043,13 +1057,13 @@ class Memory:
             if kw_results:
                 # Absolute maximum throughput by minimizing dict keys and using direct index access
                 return [{
-                    "id": r[0],
-                    "title": r[1],
-                    "preview": r[1],
-                    "target": r[2],
-                    "status": r[3],
+                    "id": r['fid'],
+                    "title": r['title'],
+                    "preview": r['title'],
+                    "target": r['target'],
+                    "status": r['status'],
                     "score": 1.0,
-                    "kind": r[4]
+                    "kind": r['kind']
                 } for r in kw_results]
 
         if namespace:
@@ -1065,7 +1079,7 @@ class Memory:
         kw_results = self.semantic.meta.keyword_search(query, limit=search_limit, namespace=effective_namespace)
         
         # Batch Fetch Metadata for all results at once to avoid N+1 in score loops
-        all_initial_fids = list(set([item['id'] for item in vec_results] + [r[0] for r in kw_results]))
+        all_initial_fids = list(set([item['id'] for item in vec_results] + [r['fid'] for r in kw_results]))
         meta_cache = {m['fid']: m for m in self.semantic.meta.get_batch_by_fids(all_initial_fids)}
 
         scores = {}
@@ -1085,7 +1099,7 @@ class Memory:
             scores[fid] = scores.get(fid, 0.0) + (weight / (k + rank + 1))
             
         for rank, r in enumerate(kw_results):
-            fid = r[0]
+            fid = r['fid']
             meta = meta_cache.get(fid)
             weight = 1.0
             if meta:

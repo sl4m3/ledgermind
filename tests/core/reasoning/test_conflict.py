@@ -115,7 +115,7 @@ def test_check_for_conflicts_event_namespace(conflict_engine, mock_meta_store):
     mock_meta_store.get_active_fids_by_base_target.assert_called_with("target5", namespace="custom_ns")
 
 def test_check_for_conflicts_no_meta_store():
-    """Test RuntimeError when meta store is missing."""
+    """Test no conflict check when meta store is missing."""
     engine = ConflictEngine(semantic_store_path="/tmp/semantic", meta_store=None)
 
     event = MemoryEvent(
@@ -129,5 +129,6 @@ def test_check_for_conflicts_no_meta_store():
         )
     )
 
-    with pytest.raises(RuntimeError, match="Metadata store required for performance"):
-        engine.check_for_conflicts(event)
+    # Without meta store, no conflicts can be detected
+    result = engine.check_for_conflicts(event)
+    assert result is None

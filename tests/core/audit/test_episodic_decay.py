@@ -5,9 +5,9 @@ from ledgermind.core.core.schemas import MemoryEvent
 
 def test_D3_semantic_immunity(memory, temp_storage):
     """D3: Events linked to semantic decisions are NEVER pruned/archived."""
-    # Add event
+    # 1. Add event
     eid = memory.episodic.append(MemoryEvent(source="agent", kind="result", content="Evidence")).value
-    # Link it
+    # 2. Link it
     memory.link_evidence(eid, "decision_1.md")
     
     # Make it ancient (before TTL)
