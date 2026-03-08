@@ -80,10 +80,8 @@ def main():
         from ledgermind.core.stores.semantic_store.loader import MemoryLoader
         
         # Get pending proposals from meta index
-        pending_metas = memory.semantic.meta.get_by_status("pending")
-        if not pending_metas:
-            # Fallback check for enrichment_status
-            pending_metas = [m for m in memory.semantic.meta.list_all() if m.get('enrichment_status') == 'pending']
+        all_metas = memory.semantic.meta.list_all()
+        pending_metas = [m for m in all_metas if m.get('status') == 'pending' or m.get('enrichment_status') == 'pending']
             
         proposals_to_process = []
         for m in pending_metas:
