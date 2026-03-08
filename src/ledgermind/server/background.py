@@ -274,7 +274,11 @@ class BackgroundWorker:
 
     def _cleanup_orphans(self):
         try:
-            subprocess.run("pkill -f 'gemini --extensions \"\" -m'", shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            subprocess.run(
+                ["pkill", "-f", "gemini --extensions \"\" -m"],
+                stderr=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL
+            )
         except Exception: pass
 
 if __name__ == "__main__":
