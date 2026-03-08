@@ -14,6 +14,8 @@ def export_schemas():
     spec = MCPApiSpecification.generate_full_spec()
     print(json.dumps(spec, indent=2))
 
+from ledgermind.core.utils.gemini_config import GeminiConfigManager
+
 def init_project(path: str):
     """Interactive initialization of Ledgermind."""
     from rich.console import Console
@@ -99,6 +101,33 @@ def init_project(path: str):
     ).ask()
     if language is None: return
     language = language.strip().lower()
+    
+    # 7. Gemini Specific Setup
+    gemini_binary = None
+    gemini_config_mode = "global"
+    
+    if client == "gemini":
+        console.print("\n[bold yellow]Step 7: Gemini Configuration[/bold yellow]")
+        gemini_binary = GeminiConfigManager.discover_binary()
+        if gemini_binary:
+            console.print(f"[green]✓ Found gemini binary at: {gemini_binary}[/green]")
+        else:
+            console.print("[yellow]! Gemini binary not found in standard paths. Falling back to 'gemini' in PATH.[/yellow]")
+            gemini_binary = "gemini"
+
+        gemini_config_mode = questionary.select(
+            "Select Gemini configuration mode:",
+            choices=[
+                questionary.Choice("global", title="Global (~/.gemini/settings.json) - simple setup"),
+                questionary.Choice("project", title="Project (.gemini/settings.json) - isolate this agent")
+            ],
+            default="global"
+        ).ask()
+        if gemini_config_mode is None: return
+        
+        config_path = GeminiConfigManager.get_config_path(mode=gemini_config_mode, project_path=project_path)
+        GeminiConfigManager.ensure_config_exists(config_path)
+        console.print(f"[green]✓ Gemini config ensured at: {config_path}[/green]")
     
     enrichment_model = None
     if mode == "rich" and client in ["gemini", "claude"]:
@@ -204,6 +233,11 @@ def init_project(path: str):
         memory.semantic.meta.set_config("preferred_language", language)
         if enrichment_model:
             memory.semantic.meta.set_config("enrichment_model", enrichment_model)
+        
+        if client == "gemini":
+            memory.semantic.meta.set_config("gemini_binary_path", gemini_binary)
+            memory.semantic.meta.set_config("gemini_config_mode", gemini_config_mode)
+            # Paths are derived automatically in V5.0 from the mode
 
         console.print(f"[green]✓ Created memory structure at {custom_path}[/green]")
         console.print(f"[green]✓ Configured vector model: {model_name}[/green]")
