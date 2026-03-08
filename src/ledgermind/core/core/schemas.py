@@ -63,6 +63,19 @@ class ProposalStatus(str, Enum):
     REJECTED = "rejected"
     FALSIFIED = "falsified"
 
+# --- V5.0 Unified Hypothesis Components ---
+
+class ProceduralStep(BaseModel):
+    """A single step in a distilled procedural guide."""
+    action: str
+    expected_outcome: Optional[str] = None
+    rationale: Optional[str] = None
+
+class ProceduralContent(BaseModel):
+    """A collection of steps forming a procedural instruction."""
+    steps: List[ProceduralStep] = Field(default_factory=list)
+    target_task: Optional[str] = None
+
 class BaseSemanticContent(BaseModel):
     model_config = ConfigDict(frozen=False, extra='allow')
     
@@ -83,6 +96,13 @@ class BaseSemanticContent(BaseModel):
     coverage: float = 0.0
     last_hit_at: Optional[datetime] = None
     
+    # Analytical & Procedural Fields (Unified V5.0)
+    strengths: List[str] = Field(default_factory=list)
+    objections: List[str] = Field(default_factory=list)
+    consequences: List[str] = Field(default_factory=list)
+    procedural: Optional[ProceduralContent] = None
+    total_evidence_count: int = 0
+    
     # Metadata & Links
     keywords: List[str] = Field(default_factory=list)
     evidence_event_ids: List[int] = Field(default_factory=list)
@@ -95,26 +115,14 @@ class BaseSemanticContent(BaseModel):
     
     schema_version: int = 1
 
-class ProposalContent(BaseSemanticContent):
-    decision_id: StrictStr = Field(default_factory=lambda: str(uuid.uuid4()))
-    status: ProposalStatus = ProposalStatus.DRAFT
-    
-    # Proposal-specific fields
-    strengths: List[str] = Field(default_factory=list)
-    objections: List[str] = Field(default_factory=list)
-    counter_patterns: List[str] = Field(default_factory=list)
-    alternative_ids: List[str] = Field(default_factory=list)
-    expected_outcome: Optional[str] = None
-    ready_for_review: bool = False
-
 class DecisionStream(BaseSemanticContent):
-    decision_id: StrictStr
+    decision_id: StrictStr = Field(default_factory=lambda: str(uuid.uuid4()))
     scope: PatternScope = PatternScope.LOCAL
     provenance: Literal["internal", "external"] = "internal"
     frequency: int = 0
     lifetime_days: float = 0.0
     reinforcement_density: float = 0.0
-    consequences: List[str] = Field(default_factory=list)
+    ready_for_review: bool = False
 
 class DecisionContent(BaseSemanticContent):
     # Backward compatibility for direct saves
@@ -127,6 +135,7 @@ class MemoryEvent(BaseModel):
     content: StrictStr
     context: Any = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=datetime.now)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
     @field_validator('content')
     @classmethod
@@ -139,16 +148,12 @@ class MemoryEvent(BaseModel):
     def validate_semantic_context(self) -> 'MemoryEvent':
         """Convert dict context to appropriate type based on kind."""
         if self.kind in SEMANTIC_KINDS and isinstance(self.context, dict):
-            if self.kind == KIND_PROPOSAL:
-                if "phase" in self.context or "decision_id" in self.context:
-                    self.context = DecisionStream(**self.context)
-                else:
-                    self.context = ProposalContent(**self.context)
-            else:
-                if "decision_id" in self.context or "phase" in self.context:
-                    self.context = DecisionStream(**self.context)
-                else:
-                    self.context = DecisionContent(**self.context)
+            try:
+                # V5.0 Unified Knowledge Model
+                self.context = DecisionStream(**self.context)
+            except Exception:
+                # Silently fallback to dict if data is incomplete/legacy
+                pass
         return self
 
 class MemoryDecision(BaseModel):
@@ -173,3 +178,32 @@ class LedgermindConfig(BaseModel):
     enable_git: bool = Field(default=True)
     relevance_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
     enrichment_model: Optional[str] = Field(default=None)
+
+# --- V5.0 Deep Integrity Trajectory Models ---
+
+class TrajectoryAtom(BaseModel):
+    """A single logical cycle of interaction (e.g., prompt -> calls -> result)."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    events: List[MemoryEvent] = Field(default_factory=list)
+    start_time: datetime
+    end_time: datetime
+    signature: str = "" # structural sequence e.g., "prompt->call:read_file->result"
+    deduced_target: Optional[str] = None
+    
+    @property
+    def event_ids(self) -> List[int]:
+        return [e.metadata.get('event_id') for e in self.events if getattr(e, 'metadata', {}).get('event_id')]
+
+class TrajectoryChain(BaseModel):
+    """A sequence of linked atoms forming a comprehensive workflow pattern."""
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    atoms: List[TrajectoryAtom] = Field(default_factory=list)
+    global_target: str = "unknown"
+    context_files: List[str] = Field(default_factory=list)
+    keywords: List[str] = Field(default_factory=list)
+    
+    @property
+    def all_event_ids(self) -> List[int]:
+        return [eid for atom in self.atoms for eid in atom.event_ids]

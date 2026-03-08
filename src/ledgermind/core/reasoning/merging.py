@@ -1,7 +1,7 @@
 import logging
 import json
 from typing import List, Optional, Set, Dict, Any, TYPE_CHECKING
-from ledgermind.core.core.schemas import ProposalContent, KIND_PROPOSAL
+from ledgermind.core.core.schemas import DecisionStream, KIND_PROPOSAL
 
 if TYPE_CHECKING:
     from ledgermind.core.api.memory import Memory
@@ -218,6 +218,14 @@ class MergeEngine:
         from ledgermind.core.core.schemas import MemoryEvent, TrustBoundary
         from datetime import datetime
 
+        # V5.9: Aggregate total evidence count from all source records
+        total_ev_count = 0
+        for tid in target_ids:
+            try:
+                meta = self.memory.semantic.meta.get_by_fid(tid)
+                if meta: total_ev_count += meta.get('total_evidence_count', 0)
+            except Exception: pass
+
         try:
             with self.memory.semantic.transaction():
                 result = self.memory.process_event(
@@ -232,6 +240,7 @@ class MergeEngine:
                         "confidence": round(min(1.0, confidence), 4),
                         "suggested_supersedes": target_ids,
                         "enrichment_status": "pending",
+                        "total_evidence_count": total_ev_count,
                         "suggested_consequences": ["Original decisions will be superseded and archived"]
                     }
                 )

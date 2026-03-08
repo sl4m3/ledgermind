@@ -34,8 +34,7 @@ def main():
     # 3. Инициализация обогатителя
     enricher = LLMEnricher(
         mode="rich", 
-        client_name="gemini", 
-        model_name="gemini-2.5-flash-lite"
+        preferred_language=preferred_lang
     )
 
     # 4. Жесткий Языковой аудит
@@ -77,10 +76,33 @@ def main():
     # 5. Запуск процесса обогащения через LLM
     print("4. Starting Enrichment Batch...", flush=True)
     try:
-        results = enricher.process_batch(memory)
-        if not results:
+        from ledgermind.core.core.schemas import DecisionStream
+        from ledgermind.core.stores.semantic_store.loader import MemoryLoader
+        
+        # Get pending proposals from meta index
+        pending_metas = memory.semantic.meta.get_by_status("pending")
+        if not pending_metas:
+            # Fallback check for enrichment_status
+            pending_metas = [m for m in memory.semantic.meta.list_all() if m.get('enrichment_status') == 'pending']
+            
+        proposals_to_process = []
+        for m in pending_metas:
+            fid = m['fid']
+            file_path = os.path.join(memory.semantic.repo_path, fid)
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data, _ = MemoryLoader.parse(f.read())
+                    obj = DecisionStream(**data.get('context', {}))
+                    obj.fid = fid # Critical for saving back
+                    proposals_to_process.append(obj)
+            except Exception as e:
+                print(f"   [WARN] Failed to load {fid} for enrichment: {e}")
+
+        if not proposals_to_process:
             print("   - Info: No pending work found.", flush=True)
         else:
+            print(f"   - Processing {len(proposals_to_process)} proposals...", flush=True)
+            results = enricher.process_batch(proposals_to_process, memory.episodic, memory=memory)
             print(f"   - Done: Successfully processed {len(results)} proposals.", flush=True)
             
     except Exception as e:
