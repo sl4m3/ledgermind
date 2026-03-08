@@ -57,7 +57,8 @@ class TargetRegistry:
         1. Checks exact match.
         2. Checks aliases.
         3. Checks case-insensitive match.
-        4. Returns original if no match found.
+        4. Checks hierarchical suffix match (e.g., 'api' -> 'core/api').
+        5. Returns original if no match found.
         """
         name = name.strip()
         if not name: return "unknown"
@@ -73,6 +74,13 @@ class TargetRegistry:
         for a, canonical in self.aliases.items():
             if a.lower() == lower_name: return canonical
             
+        # 3. Hierarchical suffix match (V5.0)
+        # If user asks for 'api' and we have 'core/api', return 'core/api'
+        if "/" not in name:
+            suffix = f"/{lower_name}"
+            for t in self.targets:
+                if t.lower().endswith(suffix): return t
+                
         return name
 
     def register(self, name: str, description: str = "", aliases: List[str] = None):

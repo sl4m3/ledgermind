@@ -6,7 +6,7 @@ import time
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime
 
-from ledgermind.core.core.schemas import ProposalContent, KIND_PROPOSAL
+from ledgermind.core.core.schemas import DecisionStream, KIND_PROPOSAL, ProceduralContent, ProceduralStep
 
 logger = logging.getLogger("ledgermind-core.enrichment")
 
@@ -63,16 +63,77 @@ class LLMEnricher:
 
                 data = self._parse_llm_json(response_text)
                 if data:
+                    # Parse procedural steps if provided
+                    procedural_data = None
+                    raw_procedural = data.get("procedural")
+                    if raw_procedural and isinstance(raw_procedural, list):
+                        steps = []
+                        for s in raw_procedural:
+                            if isinstance(s, dict) and "action" in s:
+                                steps.append(ProceduralStep(
+                                    action=s["action"],
+                                    expected_outcome=s.get("expected_outcome"),
+                                    rationale=s.get("rationale")
+                                ))
+                            elif isinstance(s, str):
+                                steps.append(ProceduralStep(action=s))
+                        
+                        if steps:
+                            procedural_data = ProceduralContent(steps=steps, target_task=target_val)
+
+                    # V5.9: Programmatically add 'cat' suffix to compressive rationale
+                    compressive = data.get("compressive") or data.get("compressive_rationale")
+                    if compressive:
+                        fid = getattr(proposal, 'fid', None)
+                        if fid and memory and hasattr(memory, 'semantic'):
+                            try:
+                                # Get absolute path to the file
+                                full_path = os.path.join(memory.semantic.repo_path, fid)
+                                # Calculate path relative to the current working directory (project root)
+                                rel_path = os.path.relpath(full_path, os.getcwd())
+                                
+                                suffix = f" To retrieve more detailed data, use cat {rel_path}."
+                                compressive = compressive.strip() + suffix
+                            except Exception:
+                                # Fallback to generic if path calculation fails
+                                pass
+
+                    # V6.2: Replace keywords entirely with high-quality semantic concepts from LLM
+                    raw_keywords = data.get("keywords", [])
+                    semantic_keywords = []
+                    for k in raw_keywords:
+                        if "(" in k and ")" in k:
+                            # Split "Concept (English)" into two separate keywords
+                            parts = re.split(r'[\(\)]', k)
+                            for p in parts:
+                                p_clean = p.strip()
+                                if p_clean: semantic_keywords.append(p_clean)
+                        else:
+                            semantic_keywords.append(k.strip())
+                    
+                    # Ensure unique values
+                    semantic_keywords = list(set(semantic_keywords))
+
+                    # V5.9: Evidence Crystallization
+                    # Preserve the count, but completely clear the raw list after enrichment
+                    current_eids = getattr(proposal, 'evidence_event_ids', [])
+                    total_count = len(current_eids)
+                    crystallized_eids = []
+
                     model_updates = {
                         "title": data.get("title") or data.get("goal") or getattr(proposal, 'title', ''),
                         "rationale": data.get("rationale") or getattr(proposal, 'rationale', ''),
-                        "compressive_rationale": data.get("compressive"),
+                        "compressive_rationale": compressive,
+                        "keywords": semantic_keywords,
                         "strengths": data.get("strengths", []),
                         "objections": data.get("objections", []),
-                        "counter_patterns": data.get("counter_patterns", []),
                         "consequences": data.get("consequences", []),
-                        "expected_outcome": data.get("expected_outcome"),
-                        "enrichment_status": "completed"
+                        "estimated_utility": float(data.get("estimated_utility", 0.5)),
+                        "estimated_removal_cost": float(data.get("estimated_removal_cost", 0.5)),
+                        "procedural": procedural_data,
+                        "enrichment_status": "completed",
+                        "total_evidence_count": total_count,
+                        "evidence_event_ids": crystallized_eids
                     }
                     
                     if hasattr(proposal, "model_copy"):
@@ -169,7 +230,18 @@ class LLMEnricher:
     def _build_unified_prompt(self, target: str, existing_rationale: str = "", lang: str = "auto") -> str:
         lang_instr = f"Respond strictly in {lang}." if lang != "auto" else "Respond in the original language."
         return (
+            "You are a Senior Principal Software Architect.\n"
             f"### TASK: Analyze activity for '{target}' and create a unified knowledge entry.\n"
             f"### CONTEXT: {existing_rationale}\n"
-            f"### RULES: {lang_instr} Return ONLY JSON with fields: title, rationale, compressive, strengths, objections, consequences."
+            f"### RULES: {lang_instr} Return ONLY JSON with fields:\n"
+            "1. title: Professional technical title.\n"
+            "2. rationale: Full, detailed architectural rationale focusing on 'what' and 'why'. Use Markdown.\n"
+            "3. compressive: Exactly 3 sentences summarizing the technical essence.\n"
+            "4. strengths: List of technical advantages.\n"
+            "5. objections: List of potential risks or drawbacks.\n"
+            "6. consequences: List of architectural impacts.\n"
+            "7. estimated_utility: Number (0.0-1.0) representing current usefulness for tasks.\n"
+            "8. estimated_removal_cost: Number (0.0-1.0) representing the risk of losing this knowledge.\n"
+            "9. keywords: A flat list of 8-12 semantic concepts. For each concept, include both the language-specific term and the English term as SEPARATE items (e.g., ['Инъекция зависимостей', 'Dependency Injection']).\n"
+            "10. procedural: List of {action, expected_outcome, rationale} steps representing the workflow."
         )

@@ -131,36 +131,52 @@ class LifecycleEngine:
 
     def estimate_removal_cost(self, stream: DecisionStream) -> float:
         """
-        Deterministic calculation of removal cost based on scope and evidence.
+        Calculates the risk/cost of removing this knowledge (0.0 - 1.0).
+        High for Canonical decisions and those with high stability.
         """
-        score = 0.0
-        if stream.scope == PatternScope.INFRA:
-            score += 50.0
-        elif stream.scope == PatternScope.SYSTEM:
-            score += 20.0
-        else:
-            score += 5.0
-            
-        score += stream.frequency * 2.0
-        score += stream.unique_contexts * 5.0
-        return score
+        # 1. Base cost by Phase
+        phase_map = {
+            DecisionPhase.PATTERN: 0.2,
+            DecisionPhase.EMERGENT: 0.6,
+            DecisionPhase.CANONICAL: 0.9
+        }
+        base_cost = phase_map.get(stream.phase, 0.1)
+
+        # 2. Stability and Frequency boost
+        stability_bonus = stream.stability_score * 0.1
+        frequency_bonus = min(0.1, (stream.frequency / 50.0))
+
+        # V5.9: Evidence Foundation boost (historical depth)
+        import math
+        evidence_bonus = min(0.2, math.log10(stream.total_evidence_count + 1) * 0.05)
+
+        return min(1.0, base_cost + stability_bonus + frequency_bonus + evidence_bonus)
 
     def estimate_utility(self, stream: DecisionStream) -> float:
         """
-        Calculates knowledge utility based on usage and stability.
+        Calculates dynamic knowledge utility (0.0 - 1.0).
+        Balance of stability, usage hits, and recency.
         """
-        base = stream.stability_score * 10.0
-        usage_bonus = stream.hit_count * 0.5
-        recency_penalty = 0.0
+        # 1. Base utility from stability
+        # V5.9: Evidence count provides a small 'floor' for utility of well-grounded knowledge
+        import math
+        evidence_floor = min(0.1, math.log10(stream.total_evidence_count + 1) * 0.02)
+        base = (stream.stability_score * 0.5) + evidence_floor
         
-        # Penalyze if not seen for window/2
-        if stream.last_seen:
+        # 2. Usage bonus (logarithmic to prevent overflow)
+        usage_bonus = min(0.4, math.log1p(stream.hit_count) / 10.0)
+        
+        # 3. Recency penalty (Time-based decay of utility)
+        recency_penalty = 0.0
+        if stream.last_hit_at:
             from datetime import datetime
-            days_ago = (datetime.now() - to_naive_utc(stream.last_seen)).total_seconds() / 86400.0
-            if days_ago > (self.observation_window_days / 2):
-                recency_penalty = (days_ago / self.observation_window_days) * 5.0
+            days_ago = (datetime.now() - to_naive_utc(stream.last_hit_at)).total_seconds() / 86400.0
+            # Penalty starts after 7 days of inactivity
+            if days_ago > 7.0:
+                recency_penalty = min(0.3, (days_ago - 7.0) / 30.0)
                 
-        return max(0.0, base + usage_bonus - recency_penalty)
+        return max(0.0, min(1.0, base + usage_bonus - recency_penalty))
+
 
     def promote_stream(self, stream: DecisionStream) -> DecisionStream:
         """

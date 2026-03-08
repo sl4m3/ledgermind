@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 from ledgermind.core.core.router import MemoryRouter
 from ledgermind.core.core.schemas import (
     MemoryEvent, MemoryDecision, ResolutionIntent, TrustBoundary, 
-    DecisionContent, DecisionStream, ProposalContent, DecisionPhase, DecisionVitality, ProposalStatus, SEMANTIC_KINDS, KIND_DECISION, KIND_PROPOSAL, KIND_INTERVENTION,
+    DecisionContent, DecisionStream, DecisionPhase, DecisionVitality, ProposalStatus, SEMANTIC_KINDS, KIND_DECISION, KIND_PROPOSAL, KIND_INTERVENTION,
     LedgermindConfig
 )
 from ledgermind.core.core.exceptions import InvariantViolation, ConflictError
@@ -412,7 +412,7 @@ class Memory:
                         raise ConflictError(f"Conflict detected during transaction: {conflict_msg}")
 
                     # 2. Prepare context for new decision
-                    if isinstance(event.context, (DecisionContent, DecisionStream, ProposalContent)):
+                    if isinstance(event.context, (DecisionContent, DecisionStream)):
                         if intent and intent.resolution_type == "supersede":
                             event.context.supersedes = intent.target_decision_ids
                         event.context.namespace = effective_namespace
@@ -1249,15 +1249,21 @@ class Memory:
             except Exception:
                 ctx = {}
             cand["rationale"] = ctx.get("rationale")
-            cand["consequences"] = ctx.get("consequences")
-            cand["expected_outcome"] = ctx.get("expected_outcome")
+            cand["consequences"] = ctx.get("consequences", [])
             
             # Extract Epistemic fields for tiered injection
             cand["compressive_rationale"] = ctx.get("compressive_rationale")
             cand["strengths"] = ctx.get("strengths", [])
             cand["objections"] = ctx.get("objections", [])
-            cand["counter_patterns"] = ctx.get("counter_patterns", [])
             
+            # V5.9: Reliability Boost based on total evidence count
+            evidence_count = ctx.get("total_evidence_count", 0)
+            if evidence_count > 0:
+                import math
+                # Logarithmic boost: e.g., 10 ev -> +0.05, 100 ev -> +0.1, 1000 ev -> +0.15
+                reliability_boost = min(0.2, math.log10(evidence_count + 1) * 0.05)
+                cand["base_score"] = cand.get("base_score", 0.0) + reliability_boost
+
             # Explicitly expose pure textual similarity for MergeEngine
             cand["similarity_score"] = min(1.0, cand.get("base_score", 0.0))
                 
