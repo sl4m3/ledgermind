@@ -1,6 +1,5 @@
 import os
 import re
-import yaml
 import json
 import logging
 import sqlite3
@@ -164,7 +163,7 @@ class SemanticStore:
         for orphaned_fid in orphans:
             self.meta.delete(orphaned_fid)
 
-    def _update_meta_for_file(self, fid: str, force: bool = False):
+    def _update_meta_for_file(self, fid: str, force: bool = False, link_counts: Optional[Dict[str, Tuple[int, float]]] = None):
         try:
             full_path = os.path.join(self.repo_path, fid)
             mtime = os.path.getmtime(full_path)
@@ -181,11 +180,14 @@ class SemanticStore:
                 if existing.get('content_hash') == current_hash:
                     return
 
-            data, body = MemoryLoader.parse(raw_content)
-            if data:
-                ts = data.get("timestamp")
-                if isinstance(ts, str): ts = datetime.fromisoformat(ts)
-                final_ts = ts or datetime.fromtimestamp(mtime)
+                    # Get link stats from episodic store
+                    link_c, link_s = 0, 0.0
+                    if link_counts is not None:
+                        link_c, link_s = link_counts.get(fid, (0, 0.0))
+                    else:
+                        try:
+                            link_c, link_s = self.episodic.count_links_for_semantic(fid)
+                        except Exception: pass
 
                 sync_ctx = data.get("context", {})
                 sync_target = sync_ctx.get("target") or "unknown"
@@ -249,13 +251,30 @@ class SemanticStore:
             if force: IntegrityChecker.validate(self.repo_path, force=True)
             disk_files = self._get_disk_files()
             meta_files = self._get_meta_files()
-            orphans = meta_files - disk_files
-            if orphans:
-                logger.info(f"Removing {len(orphans)} orphan records from meta index.")
-                self._remove_orphans(orphans)
-            cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
-            with cm:
-                for f in disk_files: self._update_meta_for_file(f, force=force)
+
+            # 3. Handle Mismatches and Updates
+            if disk_files != meta_files or force:
+                if disk_files != meta_files:
+                    logger.info(f"Syncing semantic meta index ({len(disk_files)} on disk, {len(meta_files)} in meta)...")
+
+                # Remove orphans from meta
+                self._remove_orphans(meta_files - disk_files)
+
+                # Add/Update missing or changed files
+                # Pre-fetch link counts for all disk_files to avoid N+1 queries
+                link_counts = None
+                if hasattr(self, 'episodic') and self.episodic is not None:
+                    try:
+                        link_counts = self.episodic.count_links_for_semantic_batch(list(disk_files))
+                    except Exception as e:
+                        logger.warning(f"Failed to batch fetch link counts: {e}")
+
+                # Use batch_update if not already in a transaction
+                cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
+
+                with cm:
+                    for f in disk_files:
+                        self._update_meta_for_file(f, force=force, link_counts=link_counts)
         finally:
             if should_lock: self._fs_lock.release()
 
