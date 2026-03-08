@@ -26,16 +26,18 @@ class TestTools(unittest.TestCase):
 
     def tearDown(self):
         self.patcher.stop()
+        
+        # Release objects to unlock SQLite databases
+        self.server = None
+        self.memory = None
+        
         # Shutdown any logging handlers to free files
         for logger_name in ["agent_memory_audit", "ledgermind.server.audit"]:
             l = logging.getLogger(logger_name)
             for handler in l.handlers[:]:
                 handler.close()
                 l.removeHandler(handler)
-            
-        # Release objects to unlock SQLite databases
-        self.server = None
-        self.memory = None
+        
         import gc
         gc.collect() # Force garbage collection
             
