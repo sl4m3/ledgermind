@@ -6,6 +6,12 @@ from ledgermind.server.contracts import BaseResponse
 
 class AuditLogger:
     def __init__(self, storage_path: str):
+        # Prevent creation of directories named after MagicMock objects
+        if not isinstance(storage_path, str) or "<MagicMock" in str(storage_path):
+            import logging as py_logging
+            py_logging.getLogger("ledgermind.server.audit").warning(f"Invalid storage_path for audit logging: {storage_path}. Falling back to 'logs/audit'")
+            storage_path = os.path.join("logs", "audit")
+            
         self.log_path = os.path.join(storage_path, "audit.log")
         self.storage_path = storage_path
         self._setup_logger()

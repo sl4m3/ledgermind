@@ -9,8 +9,10 @@ echo "========================================"
 echo "🚀 Running Ledgermind Test Suite"
 echo "========================================"
 
+# Pre-run Cleanup
+rm -rf MagicMock temp_test_tools temp_test_heartbeat memory_lifecycle_test .ledgermind_fallback
+
 # 1. Run all pytest-based tests
-# Passing all script arguments to pytest (e.g. -k test_name, -v, etc.)
 echo -e "\n[1/3] Running pytest..."
 pytest -n0 tests/ "$@"
 pytest tests/core/performance/bench_ops.py -n0
@@ -21,11 +23,13 @@ if command -v bandit &> /dev/null; then
     bandit -r src/ledgermind -ll
 else
     echo "⚠️  Warning: bandit is not installed. Skipping security scan."
-    echo "Install it using: pip install bandit"
 fi
 
 # 3. Run the specialized lg.py script
 echo -e "\n[3/3] Running specialized lg.py script..."
 python3 tests/lg.py
+
+# Final Cleanup
+rm -rf MagicMock temp_test_tools temp_test_heartbeat memory_lifecycle_test .ledgermind_fallback
 
 echo -e "\n✅ All tests completed successfully!"

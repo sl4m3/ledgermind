@@ -91,7 +91,10 @@ class Memory:
                 vector_workers=vector_workers if vector_workers is not None else 0
             )
 
-        self.storage_path = os.path.abspath(self.config.storage_path)
+        raw_path = self.config.storage_path
+        if not isinstance(raw_path, str) or "<MagicMock" in str(raw_path):
+             raw_path = os.path.join(os.getcwd(), ".ledgermind_fallback")
+        self.storage_path = os.path.abspath(raw_path)
         self.trust_boundary = self.config.trust_boundary
         self.namespace = self.config.namespace
         self.include_history = include_history
