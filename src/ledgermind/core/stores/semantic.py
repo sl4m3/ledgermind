@@ -411,6 +411,8 @@ class SemanticStore:
                 reinforcement_density=context.get('reinforcement_density', 0.0),
                 stability_score=context.get('stability_score', 0.0),
                 coverage=context.get('coverage', 0.0),
+                estimated_removal_cost=context.get('estimated_removal_cost', 0.0),
+                estimated_utility=context.get('estimated_utility', 0.0),
                 enrichment_status=context.get('enrichment_status', 'pending')
             )
         except sqlite3.IntegrityError as ie:

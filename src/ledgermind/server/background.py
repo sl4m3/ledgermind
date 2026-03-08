@@ -202,7 +202,7 @@ class BackgroundWorker:
         while self.running:
             try:
                 start_time = time.time()
-                mode = self.memory.semantic.meta.get_config("arbitration_mode", "lite")
+                mode = self.memory.semantic.meta.get_config("arbitration_mode", "optimal")
                 if mode != "lite":
                     from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
                     enricher = LLMEnricher(mode=mode, worker=self)

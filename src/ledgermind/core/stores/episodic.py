@@ -47,6 +47,10 @@ class EpisodicStore:
             conn = session.connection()
             conn.connection.row_factory = sqlite3.Row
             yield conn.connection
+            session.commit() # Finalize changes
+        except Exception:
+            session.rollback()
+            raise
         finally:
             session.close()
 

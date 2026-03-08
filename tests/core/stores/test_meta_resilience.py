@@ -37,4 +37,4 @@ def test_robust_like_fallback_case_insensitivity(store):
     results = store.keyword_search("optimization")
     
     assert len(results) > 0
-    assert "Database Optimization" in results[0][1]
+    assert "Database Optimization" in results[0]['title']

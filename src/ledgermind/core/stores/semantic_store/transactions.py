@@ -122,7 +122,7 @@ class TransactionManager:
         try:
             # 2. Start DB transaction
             if db_conn:
-                db_conn.execute(f"SAVEPOINT {savepoint_name}")
+                db_conn.execute("SAVEPOINT " + savepoint_name)
 
             # 3. Prepare backup
             if not os.path.exists(self.backup_dir):
@@ -135,14 +135,14 @@ class TransactionManager:
             
             # 5. Release DB savepoint
             if db_conn:
-                db_conn.execute(f"RELEASE {savepoint_name}")
+                db_conn.execute("RELEASE " + savepoint_name)
                 
         except Exception as e:
             logger.error(f"Transaction failed: {e}. Rolling back...")
             self._rollback()
             if db_conn:
                 try:
-                    db_conn.execute(f"ROLLBACK TO {savepoint_name}")
+                    db_conn.execute("ROLLBACK TO " + savepoint_name)
                 except Exception: pass
             raise
         finally:

@@ -1,8 +1,10 @@
 import logging
 import json
-from typing import List, Optional, Set, Dict, Any
-from ledgermind.core.api.memory import Memory
+from typing import List, Optional, Set, Dict, Any, TYPE_CHECKING
 from ledgermind.core.core.schemas import ProposalContent, KIND_PROPOSAL
+
+if TYPE_CHECKING:
+    from ledgermind.core.api.memory import Memory
 
 logger = logging.getLogger("ledgermind-core.merging")
 
@@ -11,7 +13,7 @@ class MergeEngine:
     Scans for semantically identical knowledge and proposes merges.
     Uses a multi-layered verification system with semantic noise reduction.
     """
-    def __init__(self, memory: Memory):
+    def __init__(self, memory: 'Memory'):
         self.memory = memory
 
     def _get_active_merge_targets(self) -> Set[str]:

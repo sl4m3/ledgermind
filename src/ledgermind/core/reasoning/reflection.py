@@ -10,7 +10,6 @@ from ledgermind.core.core.schemas import (
 )
 from ledgermind.core.stores.episodic import EpisodicStore
 from ledgermind.core.stores.semantic import SemanticStore
-from ledgermind.core.reasoning.distillation import DistillationEngine
 from ledgermind.core.reasoning.lifecycle import LifecycleEngine
 
 logger = logging.getLogger(__name__)
@@ -18,52 +17,66 @@ logger = logging.getLogger(__name__)
 class ReflectionPolicy:
     def __init__(self, 
                  error_threshold: int = 1,
-                 success_threshold: int = 2,
-                 min_confidence: float = 0.3,
-                 observation_window_hours: int = 168,
-                 decay_rate: float = 0.05,
-                 ready_threshold: float = 0.6,
-                 auto_accept_threshold: float = 0.9,
-                 distillation_window_size: int = 5):
+                 success_threshold: int = 5,
+                 distillation_window_size: int = 1000):
         self.error_threshold = error_threshold
         self.success_threshold = success_threshold
-        self.min_confidence = min_confidence
-        self.observation_window = timedelta(hours=observation_window_hours)
-        self.decay_rate = decay_rate
-        self.ready_threshold = ready_threshold
-        self.auto_accept_threshold = auto_accept_threshold
         self.distillation_window_size = distillation_window_size
 
 class ReflectionEngine:
     """
-    Reflection Engine v5.0: Behavior Observer and Lifecycle Manager.
+    Analyzes episodic memory to discover behavioral patterns and evolve knowledge.
     """
-    BLACKLISTED_TARGETS = {
-        "general", "general_development", "general_task", "unknown", "none", "null",
-        "reflection_engine"
-    }
-
-    def __init__(self, episodic_store: EpisodicStore, semantic_store: SemanticStore, 
-                 policy: Optional[ReflectionPolicy] = None,
-                 processor: Any = None):
-        self.episodic = episodic_store
-        self.semantic = semantic_store
-        self.policy = policy or ReflectionPolicy()
+    def __init__(self, episodic: EpisodicStore, semantic: SemanticStore, processor: Any = None):
+        self.episodic = episodic
+        self.semantic = semantic
         self.processor = processor
-        self.lifecycle = LifecycleEngine(observation_window_days=self.policy.observation_window.total_seconds()/86400.0)
-        if not self.processor:
-            logger.warning("ReflectionEngine initialized without a high-level processor.")
+        self.policy = ReflectionPolicy()
+        self.lifecycle = LifecycleEngine()
+        
+        self.BLACKLISTED_TARGETS = {"unknown", "general", "system"}
+
+    def _get_all_streams(self) -> Dict[str, Dict[str, Any]]:
+        """Fetch all active/draft semantic entries for cross-referencing."""
+        all_metas = self.semantic.meta.list_all()
+        return {m['fid']: m for m in all_metas if m.get('status') in ('active', 'draft')}
+
+    def _cluster_evidence(self, events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        """Groups events by target and calculates evidence weight."""
+        clusters = {}
+        for e in events:
+            # Skip non-semantic events
+            if e['kind'] not in ["decision", "result", "error", "config_change"]:
+                continue
+                
+            ctx = e.get('context') or {}
+            target = ctx.get('target')
+            
+            if not target:
+                continue
+                
+            if target not in clusters:
+                clusters[target] = {"weight": 0.0, "all_ids": [], "commits": 0, "errors": 0}
+            
+            clusters[target]["all_ids"].append(e['id'])
+            
+            # Weigh different kinds of evidence
+            if e['kind'] == "decision": clusters[target]["weight"] += 1.0
+            if e['kind'] == "error": clusters[target]["errors"] += 1
+            if e['kind'] == "result" and ctx.get('success'): clusters[target]["weight"] += 0.5
+            
+        return clusters
 
     def run_cycle(self, after_id: Optional[int] = None, limit: int = 2000) -> Tuple[List[str], Optional[int]]:
         logger.info(f"Starting lifecycle reflection cycle [after_id={after_id}, limit={limit}]...")
         if not self.processor:
             return [], after_id
-
+    
         result_ids = []
         max_id = after_id
         
         # Read config BEFORE entering the transaction
-        arbitration_mode = self.semantic.meta.get_config("arbitration_mode", "lite")
+        arbitration_mode = self.semantic.meta.get_config("arbitration_mode", "optimal")
 
         with self.semantic.transaction():
             # 1. Preparation
@@ -71,28 +84,7 @@ class ReflectionEngine:
             processed_fids = set()
             now = datetime.now()
 
-            # 2. Distillation (Procedural Patterns)
-            distiller = DistillationEngine(self.episodic, window_size=self.policy.distillation_window_size)
-            procedural_proposals = distiller.distill_trajectories(after_id=after_id, limit=limit)
-
-            if procedural_proposals:
-                logger.info(f"Distilled {len(procedural_proposals)} procedural trajectories from logs.")
-
-            target_to_procedural = {}
-            for prop in procedural_proposals:
-                if prop.target in self.BLACKLISTED_TARGETS or prop.target.lower().startswith("general"):
-                    continue
-                
-                # Keep only high-confidence trajectories in memory for linking
-                if prop.target not in target_to_procedural:
-                    target_to_procedural[prop.target] = []
-                target_to_procedural[prop.target].append(prop)
-                
-                # WE DO NOT call self.processor.process_event(prop) here anymore.
-                # This prevents creating dozens of small proposal files.
-                # They will be integrated into the main DecisionStream clusters below.
-
-            # 3. Evidence Aggregation
+            # 2. Evidence Aggregation
             recent_events = self.episodic.query(limit=limit, status='active', after_id=after_id, order='ASC')
             
             # Optimization: Load events into map for this batch
@@ -107,211 +99,75 @@ class ReflectionEngine:
                 if evidence_clusters:
                     logger.info(f"Reflection: Found {len(evidence_clusters)} activity clusters across targets.")
                 
-                # 4. Update existing streams or discover new patterns
+                # 3. Update existing streams or discover new patterns
                 for target, stats in evidence_clusters.items():
                     if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general"):
                         continue
                     
-                    relevant_streams = [(fid, data) for fid, data in all_streams.items() if data['context'].get('target') == target]
-                    procedural_list = target_to_procedural.get(target, [])
+                    relevant_streams = [(fid, data) for fid, data in all_streams.items() if data.get('target') == target]
                     
                     if relevant_streams:
                         # Direct Update Model
                         if len(relevant_streams) == 1:
-                            # Scenario B: Exactly 1 active hypothesis. Mutate it directly.
                             fid, data = relevant_streams[0]
-                            logger.info(f"  Reflection: Attaching {len(stats['all_ids'])} new events to existing stream {fid} ({target}).")
-                            self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode, update_only=False)
+                            self._process_stream(fid, data, stats, now, event_map=event_map, arbitration_mode=arbitration_mode, update_only=False)
                             processed_fids.add(fid)
                             result_ids.append(fid)
                         else:
-                            # Scenario C: > 1 active hypothesis (fragmentation).
-                            import json
-                            active_fids = {fid for fid, _ in relevant_streams}
-                            merge_fid = None
-                            
-                            try:
-                                draft_proposals = self.processor.semantic.meta.list_draft_proposals()
-                                for p in draft_proposals:
-                                    if p.get('target') == 'knowledge_merge':
-                                        ctx = json.loads(p.get('context_json', '{}'))
-                                        supersedes = set(ctx.get('suggested_supersedes', []))
-                                        if active_fids.intersection(supersedes):
-                                            merge_fid = p['fid']
-                                            break
-                            except Exception as e:
-                                logger.error(f"Failed to search for merge proposals: {e}")
-                                
-                            if merge_fid:
-                                # Scenario C1: Existing merge proposal found. Add events to it.
-                                try:
-                                    from ledgermind.core.stores.semantic_store.loader import MemoryLoader
-                                    file_path = __import__('os').path.join(self.processor.semantic.repo_path, merge_fid)
-                                    with open(file_path, 'r', encoding='utf-8') as f:
-                                        content = f.read()
-                                    p_data, _ = MemoryLoader.parse(content)
-                                    p_ctx = p_data.get('context', {})
-                                    
-                                    new_ids = [eid for eid in stats['all_ids'] if eid not in p_ctx.get('evidence_event_ids', [])]
-                                    if new_ids:
-                                        logger.info(f"  Reflection: Attaching {len(new_ids)} new events to pending merge {merge_fid}.")
-                                        evidence_list = p_ctx.get('evidence_event_ids', [])
-                                        evidence_list.extend(new_ids)
-                                        # Also reset enrichment status to pending to catch new events
-                                        self.processor.semantic.update_decision(merge_fid, {
-                                            "evidence_event_ids": evidence_list,
-                                            "enrichment_status": "pending"
-                                        }, commit_msg="Reflection: Attached new evidence to pending merge proposal.")
-                                        
-                                    result_ids.append(merge_fid)
-                                except Exception as e:
-                                    logger.error(f"Failed to update merge proposal {merge_fid}: {e}")
-                                
-                                # Still need to update vitality (decay) of the active streams without adding events
-                                for fid, data in relevant_streams:
-                                    self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode, update_only=True)
-                                    processed_fids.add(fid)
-                            else:
-                                # Scenario C2: No merge proposal exists. Mutate all active streams individually.
-                                # MergeEngine will find them in the next pass.
-                                for fid, data in relevant_streams:
-                                    self._process_stream(fid, data, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode, update_only=False)
-                                    processed_fids.add(fid)
-                                    result_ids.append(fid)
+                            # Handle multiple streams (Fragmentation)
+                            for fid, data in relevant_streams:
+                                self._process_stream(fid, data, stats, now, event_map=event_map, arbitration_mode=arbitration_mode, update_only=False)
+                                processed_fids.add(fid)
+                                result_ids.append(fid)
                     else:
-                        if stats['weight'] >= 1.0 or stats['commits'] >= 1:
-                            logger.info(f"  Reflection: Discovered NEW behavioral pattern for target '{target}'. Creating stream.")
-                            new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map, procedural_links=procedural_list, arbitration_mode=arbitration_mode)
+                        if stats['weight'] >= 1.0 or stats['errors'] >= self.policy.error_threshold:
+                            new_fid = self._create_pattern_stream(target, stats, now, event_map=event_map, arbitration_mode=arbitration_mode)
                             if new_fid: result_ids.append(new_fid)
 
-            # 5. Apply Vitality Decay for unprocessed streams
+            # 4. Apply Vitality Decay for unprocessed streams
             for fid, data in all_streams.items():
                 if fid not in processed_fids:
-                    stream = DecisionStream(**data['context'])
-                    old_vit = stream.vitality
-                    # calculate_temporal_signals now handles all lifecycle updates including decay
-                    stream = self.lifecycle.calculate_temporal_signals(stream, [], now)
-                    
-                    if stream.vitality != old_vit or abs(stream.confidence - data['context'].get('confidence', 0)) > 0.01:
-                        self.processor.update_decision(fid, stream.model_dump(), commit_msg="Lifecycle: Vitality decay update.", skip_episodic=True)
-                        result_ids.append(fid)
+                    # Logic now part of calculate_temporal_signals
+                    try:
+                        ctx_raw = data.get('context_json')
+                        if ctx_raw:
+                            ctx_dict = json.loads(ctx_raw)
+                            # Ensure last_hit_at from DB overrides or merges correctly
+                            ctx_dict['last_hit_at'] = data.get('last_hit_at') or ctx_dict.get('last_hit_at')
+                            stream = DecisionStream(**ctx_dict)
+                            updated = self.lifecycle.calculate_temporal_signals(stream, [], now)
+                            if updated.vitality != stream.vitality:
+                                self.processor.update_decision(fid, updated.model_dump(), commit_msg="Lifecycle: Vitality decay update.", skip_episodic=True)
+                                result_ids.append(fid)
+                    except Exception as e:
+                        logger.error(f"Failed to process decay for {fid}: {e}")
 
         return result_ids, max_id
 
     def _process_stream(self, fid: str, data: Dict[str, Any], stats: Dict[str, Any], now: datetime, 
                         event_map: Optional[Dict[int, Any]] = None, 
-                        procedural_links: Optional[List[ProposalContent]] = None,
-                        arbitration_mode: str = "lite",
+                        arbitration_mode: str = "optimal",
                         update_only: bool = False):
-        stream = DecisionStream(**data['context'])
-        
-        # Collect timestamps
-        if event_map is None:
-            events = self.episodic.query(limit=1000, status='active', order='ASC')
-            event_map = {e['id']: e for e in events}
-        
-        reinforcement_dates = []
-        
-        # Update evidence list (queue for LLM enrichment)
-        # ONLY if not in update_only mode (Challenger Model)
-        if not update_only:
-            new_ids = [eid for eid in stats['all_ids'] if eid not in stream.evidence_event_ids]
-            if new_ids:
-                stream.evidence_event_ids.extend(new_ids)
-                if arbitration_mode != "lite":
-                    stream.enrichment_status = "pending"
-        
-        # Link procedural instructions if provided (Only in full mode)
-        if not update_only and procedural_links:
-            for prop in procedural_links:
-                if prop.confidence >= 0.7:
-                    for kw in prop.keywords:
-                        if kw.startswith("fid:"):
-                            proc_fid = kw.split(":", 1)[1]
-                            if proc_fid not in stream.procedural_ids:
-                                stream.procedural_ids.append(proc_fid)
-        
-        # Define kinds that constitute a real 'use' or 'reinforcement' of knowledge (PR #30)
-        REINFORCEMENT_KINDS = {KIND_RESULT, KIND_ERROR, "call", "task", "prompt", "intervention"}
-
-        # Extract dates ONLY for the NEW delta from the current cluster
-        for eid in stats['all_ids']:
-            if eid in event_map:
-                ev = event_map[eid]
-                if ev['kind'] in REINFORCEMENT_KINDS:
-                    try:
-                        dt = datetime.fromisoformat(ev['timestamp'])
-                        reinforcement_dates.append(dt)
-                    except (ValueError, TypeError):
-                        pass
-        # calculate_temporal_signals now treats reinforcement_dates as a DELTA to be merged
-        stream = self.lifecycle.calculate_temporal_signals(stream, reinforcement_dates, now)
-
-        # Issue #14: Reactivate dormant stream if new events arrived in this cluster
-        if stats.get('all_ids'):
-            if stream.vitality == DecisionVitality.DORMANT or str(stream.vitality) == "dormant":
-                logger.info(f"Reactivating dormant stream: {stream.target}")
-                if hasattr(stream, "model_copy"):
-                    stream = stream.model_copy(update={"vitality": DecisionVitality.ACTIVE})
-                else:
-                    stream.vitality = DecisionVitality.ACTIVE
-
-        # 3. Decision Promotion (Lifecycle Evolution)
-        
-        # Normative upgrade: Proposal -> Decision based on balanced model (PR #45)
-        current_kind = data.get('kind', KIND_PROPOSAL)
-        new_kind = current_kind
-        
-        if current_kind == KIND_PROPOSAL:
-            new_kind = self.lifecycle.evaluate_normative_authority(stream)
-            if new_kind == KIND_DECISION:
-                logger.info(f"Normative Upgrade: {stream.target} is now a DECISION.")
-        
-        # Merge kind into update data
-        update_data = stream.model_dump()
-        update_data['kind'] = new_kind
-
-        self.processor.update_decision(fid, update_data, commit_msg=f"Lifecycle: Promoted/Updated stream to {stream.phase.value} ({new_kind})", skip_episodic=True)
-
-    def _create_pattern_stream(self, target: str, stats: Dict[str, Any], now: datetime, 
-                               event_map: Optional[Dict[int, Any]] = None,
-                               procedural_links: Optional[List[ProposalContent]] = None,
-                               arbitration_mode: str = "lite",
-                               supersedes_ids: Optional[List[str]] = None) -> str:
-        stream = DecisionStream(
-            decision_id=str(uuid.uuid4()),
-            target=target,
-            title=f"New behavioral pattern in {target}",
-            rationale=f"Observed emerging activity for {target}",
-            phase=DecisionPhase.PATTERN,
-            vitality=DecisionVitality.ACTIVE,
-            evidence_event_ids=stats['all_ids'],
-            first_seen=now,
-            last_seen=now,
-            frequency=0, # Will be updated by calculate_temporal_signals
-            supersedes=supersedes_ids or []
-        )
-        
-        if supersedes_ids:
-            stream.title = f"Refinement: Evolutionary update for {target}"
-            stream.rationale = f"Detected new patterns that challenge or refine existing knowledge for {target} ({', '.join(supersedes_ids)})."
-            stream.suggested_supersedes = supersedes_ids
-
-        if arbitration_mode != "lite":
-            stream.enrichment_status = "pending"
-
-        # Link procedural instructions if provided
-        if procedural_links:
-            for prop in procedural_links:
-                if prop.confidence >= 0.7:
-                    for kw in prop.keywords:
-                        if kw.startswith("fid:"):
-                            proc_fid = kw.split(":", 1)[1]
-                            if proc_fid not in stream.procedural_ids:
-                                stream.procedural_ids.append(proc_fid)
-        
-        reinforcement_dates = []
-        if event_map:
+        """Updates an existing decision stream with new evidence."""
+        try:
+            # Reconstruct model from stored context
+            ctx_raw = data.get('context_json')
+            if not ctx_raw: return
+            ctx_dict = json.loads(ctx_raw)
+            # Ensure last_hit_at from DB overrides or merges correctly
+            ctx_dict['last_hit_at'] = data.get('last_hit_at') or ctx_dict.get('last_hit_at')
+            stream = DecisionStream(**ctx_dict)
+            
+            # 1. Update evidence list
+            if not update_only:
+                new_ids = [eid for eid in stats['all_ids'] if eid not in stream.evidence_event_ids]
+                if new_ids:
+                    stream.evidence_event_ids.extend(new_ids)
+                    if arbitration_mode != "lite":
+                        stream.enrichment_status = "pending"
+            
+            # 2. Extract reinforcement dates
+            reinforcement_dates = []
             REINFORCEMENT_KINDS = {KIND_RESULT, KIND_ERROR, "call", "task", "prompt", "intervention"}
             for eid in stats['all_ids']:
                 if eid in event_map:
@@ -320,191 +176,66 @@ class ReflectionEngine:
                         try:
                             dt = datetime.fromisoformat(ev['timestamp'])
                             reinforcement_dates.append(dt)
-                        except (ValueError, TypeError):
-                            pass
-                            
-        if not reinforcement_dates:
-            reinforcement_dates = [now]
-        
-        # Calculate initial temporal signals (cumulative)
-        stream = self.lifecycle.calculate_temporal_signals(stream, reinforcement_dates, now)
-        stream = self.lifecycle.promote_stream(stream)
-        
-        # CRITICAL: Always ensure newly discovered patterns are 'draft' proposals, not 'active' decisions
-        stream.status = "draft"
-        
-        decision = self.processor.process_event(source="reflection_engine", kind=KIND_PROPOSAL, content=stream.title, context=stream)
-        return decision.metadata.get("file_id") if decision.should_persist else ""
+                        except (ValueError, TypeError): pass
+            
+            # 3. Update temporal signals
+            stream = self.lifecycle.calculate_temporal_signals(stream, reinforcement_dates, now)
+            
+            # Reactivate if dormant
+            if stats.get('all_ids') and stream.vitality != DecisionVitality.ACTIVE:
+                stream = stream.model_copy(update={"vitality": DecisionVitality.ACTIVE})
 
-    def _infer_sub_target(self, event: Dict[str, Any]) -> str:
-        """Infers logical sub-target/intent from event content/context (MemP v5.2)."""
-        content = event.get('content', '').lower()
-        kind = event.get('kind', '').lower()
-        source = event.get('source', '').lower()
-        
-        if kind == 'reflection_summary' or source == 'reflection_engine': return 'reflection'
-        if 'enrich' in content or 'enrich' in kind: return 'enrichment'
-        if 'distill' in content or 'distill' in kind: return 'distillation'
-        
-        keywords = {
-            'worker': ['worker', 'background', 'task_queue', 'celery', 'pkill'],
-            'mcp': ['mcp', 'tools', 'specification', 'contract'],
-            'lifecycle': ['lifecycle', 'vitality', 'decay', 'promote'],
-            'storage': ['sqlite', 'episodic', 'semantic', 'migration', 'db_path'],
-            'reasoning': ['reasoning', 'inference', 'llm', 'prompt', 'synthesis'],
-            'server': ['server', 'gateway', 'health', 'metrics', 'http']
-        }
-        for sub, kws in keywords.items():
-            if any(kw in content for kw in kws): return sub
+            # 4. Phase Promotion
+            old_phase = stream.phase
+            stream = self.lifecycle.promote_stream(stream)
+            
+            # 5. Save updates
+            update_data = stream.model_dump()
+            self.processor.update_decision(fid, update_data, commit_msg=f"Reflection: Updated stream {fid}", skip_episodic=True)
+            
+        except Exception as e:
+            logger.error(f"Failed to process stream {fid}: {e}")
+
+    def _create_pattern_stream(self, target: str, stats: Dict[str, Any], now: datetime, 
+                               event_map: Optional[Dict[int, Any]] = None,
+                               arbitration_mode: str = "optimal") -> Optional[str]:
+        """Creates a new pattern stream for a discovered target."""
+        try:
+            stream = DecisionStream(
+                decision_id=str(uuid.uuid4()),
+                target=target,
+                title=f"New behavioral pattern in {target}",
+                rationale=f"Observed emerging activity for {target}",
+                phase=DecisionPhase.PATTERN,
+                vitality=DecisionVitality.ACTIVE,
+                evidence_event_ids=stats['all_ids'],
+                first_seen=now,
+                last_seen=now,
+                frequency=0
+            )
+            
+            # Calculate initial signals
+            reinforcement_dates = []
+            REINFORCEMENT_KINDS = {KIND_RESULT, KIND_ERROR, "call", "task", "prompt", "intervention"}
+            for eid in stats['all_ids']:
+                if eid in event_map:
+                    ev = event_map[eid]
+                    if ev['kind'] in REINFORCEMENT_KINDS:
+                        try: reinforcement_dates.append(datetime.fromisoformat(ev['timestamp']))
+                        except: pass
+            
+            stream = self.lifecycle.calculate_temporal_signals(stream, reinforcement_dates, now)
+            
+            if arbitration_mode != "lite":
+                stream.enrichment_status = "pending"
                 
-        ctx = event.get('context', {})
-        changed_files = ctx.get('changed_files', [])
-        for f in changed_files:
-            f_lower = f.lower()
-            if 'reflection' in f_lower: return 'reflection'
-            if 'enrich' in f_lower: return 'enrichment'
-            if 'distill' in f_lower: return 'distillation'
-            if 'worker' in f_lower or 'background' in f_lower: return 'worker'
-            if 'server' in f_lower or 'gateway' in f_lower: return 'server'
-            if 'store' in f_lower: return 'storage'
-        return 'general'
-
-    def _cluster_evidence(self, events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-        clusters = {}
-        last_valid_target = None
-        
-        META_KINDS = {KIND_PROPOSAL, "context_snapshot", "context_injection"}
-        RU_SUCCESS_KEYWORDS = {"успешно", "прошли", "исправлено", "завершено", "ок", "выполнено", "готово", "работает", "прошел", "починил", "успех"}
-
-        for ev in events:
-            if ev.get('source') == 'reflection_engine': continue
-            if ev.get('kind') in META_KINDS: continue
-            
-            ctx = ev.get('context', {})
-            target = ctx.get('target')
-            content = ev.get('content', '').lower()
-            
-            # Target Inference Logic
-            if ev['kind'] == 'commit_change' and (not target or target in self.BLACKLISTED_TARGETS or len(target) < 3):
-                import re
-                match = re.search(r'\(([^)]+)\):', content)
-                if match: target = match.group(1)
-                else:
-                    changed_files = ctx.get('changed_files', [])
-                    if changed_files:
-                        paths = [f.split('/')[0] for f in changed_files if '/' in f]
-                        if not paths: paths = [f.split('.')[0] for f in changed_files]
-                        if paths:
-                            from collections import Counter
-                            target = Counter(paths).most_common(1)[0][0]
-
-            if not target and ev['kind'] in (KIND_RESULT, "call", "task", "commit_change"):
-                target = last_valid_target
-
-            target = target or "general"
-            if target not in self.BLACKLISTED_TARGETS and target.lower() != "general" and len(target) >= 3:
-                last_valid_target = target
-
-            if target in self.BLACKLISTED_TARGETS or target.lower().startswith("general") or len(target) < 3:
-                continue
-
-            # Sub-target/Intent Discovery
-            sub_target = self._infer_sub_target(ev)
-            composite_target = target if sub_target == 'general' else f"{target}/{sub_target}"
-
-            if composite_target not in clusters:
-                clusters[composite_target] = {
-                    'errors': 0.0, 
-                    'successes': 0.0, 
-                    'commits': 0, 
-                    'all_ids': [], 
-                    'weight': 0.0,
-                    'dates': []
-                }
-            
-            c = clusters[composite_target]
-            c['all_ids'].append(ev['id'])
-            
-            ts = ev.get('timestamp')
-            if isinstance(ts, str):
-                try: ts = datetime.fromisoformat(ts)
-                except Exception: ts = datetime.now()
-            if ts: c['dates'].append(ts)
-
-            if ev['kind'] == KIND_ERROR: 
-                c['errors'] += 1.0
-                c['weight'] += 0.5
-            elif ev['kind'] == KIND_RESULT:
-                score = ctx.get('success', 0.5)
-                is_ru_success = any(word in content for word in RU_SUCCESS_KEYWORDS)
-                if score is True or is_ru_success: score = 1.0
-                elif score is False: score = 0.0
-                
-                c['successes'] += float(score)
-                c['errors'] += (1.0 - float(score))
-                c['weight'] += 1.0 if score > 0.7 else 0.2
-            elif ev['kind'] == 'commit_change': 
-                c['commits'] += 1
-                c['weight'] += 2.0
-            elif ev['kind'] in ('call', 'task', 'prompt'):
-                c['weight'] += 0.3
-
-        return clusters
-
-    def _get_all_streams(self) -> Dict[str, Dict[str, Any]]:
-        streams = {}
-        # Fetch proposals, decisions and interventions which might be encoded as streams
-        metas = self.semantic.meta.list_all()
-        # Filter by kind and validate structure (Issue #7)
-        # CRITICAL: We only reflect on LIVE knowledge (active, draft, pending_merge).
-        # We MUST ignore archived knowledge (superseded, deprecated, accepted, rejected)
-        # to prevent IntegrityErrors when multiple versions exist for the same target.
-        LIVE_STATUSES = ('active', 'draft', 'pending_merge')
-        
-        for m in metas:
-            if m.get('kind') not in (KIND_PROPOSAL, KIND_DECISION, KIND_INTERVENTION):
-                continue
-            
-            if m.get('status') not in LIVE_STATUSES:
-                continue
-                
-            fid = m['fid']
-            try:
-                ctx = json.loads(m.get('context_json', '{}'))
-                # Robust check: must have either phase or decision_id
-                if "phase" in ctx or "decision_id" in ctx:
-                    # Ensure decision_id exists so ProposalContent can be cast to DecisionStream
-                    if "decision_id" not in ctx:
-                        ctx["decision_id"] = fid
-                        
-                    # Inject latest metrics from database into context
-                    ctx['hit_count'] = m.get('hit_count', 0)
-                    ctx['confidence'] = m.get('confidence', ctx.get('confidence', 1.0))
-                    ctx['phase'] = m.get('phase', ctx.get('phase', 'pattern'))
-                    ctx['vitality'] = m.get('vitality', ctx.get('vitality', 'active'))
-                    # Synchronize last_seen with database timestamp for accurate decay (PR #28)
-                    if m.get('timestamp'):
-                        ctx['last_seen'] = m.get('timestamp')
-
-                    # Validate via Pydantic to ensure it's a valid stream
-                    try:
-                        DecisionStream(**ctx)
-                        streams[fid] = {
-                            'kind': m.get('kind'),
-                            'content': m.get('content'),
-                            'timestamp': m.get('timestamp'),
-                            'context': ctx
-                        }
-                    except Exception:
-                        # Fallback for old records: if it has decision_id but fails validation, 
-                        # it might be a pre-v2.9 stream. We'll include it for the migrator.
-                        if "decision_id" in ctx:
-                             streams[fid] = {
-                                'kind': m.get('kind'),
-                                'content': m.get('content'),
-                                'timestamp': m.get('timestamp'),
-                                'context': ctx
-                            }
-            except (json.JSONDecodeError, TypeError): 
-                continue
-        return streams
+            decision = self.processor.process_event(
+                source="reflection_engine",
+                kind=KIND_PROPOSAL,
+                content=stream.title,
+                context=stream
+            )
+            return decision.metadata.get("file_id")
+        except Exception as e:
+            logger.error(f"Failed to create pattern stream for {target}: {e}")
+            return None
