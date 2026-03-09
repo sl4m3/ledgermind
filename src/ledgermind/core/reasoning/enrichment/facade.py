@@ -102,9 +102,13 @@ class LLMEnricher:
         for i, prop in enumerate(proposals, 1):
             fid = getattr(prop, 'fid', 'unknown')
             
-            # STAGE 2: Handle Validation Clusters
-            if "Validation Cluster" in getattr(prop, 'title', ''):
-                logger.info(f"\n>>> [VALIDATION {i}/{total}: {fid}]")
+            # STAGE 2: Handle Knowledge Clusters (Merge & Validation)
+            target = getattr(prop, 'target', '')
+            target_ids = getattr(prop, 'target_ids', [])
+            
+            # Using reliable 'target' field as primary indicator
+            if target in ('knowledge_merge', 'knowledge_validation') or target_ids:
+                logger.info(f"\n>>> [CLUSTER VALIDATION {i}/{total}: {fid}]")
                 self._handle_validation_cluster(prop, memory)
                 results.append(prop)
                 continue

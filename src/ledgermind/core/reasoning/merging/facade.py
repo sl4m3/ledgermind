@@ -120,7 +120,8 @@ class MergeEngineFacade:
                     
                     # Resolve found document to its truth
                     target_doc = self.memory._resolve_to_truth(doc_id, mode="balanced", cache=full_meta_map)
-                    if not target_doc or target_doc.get('status') != 'active':
+                    # ALLOW: 'active' AND 'draft' for merging (Stage 1 consolidation)
+                    if not target_doc or target_doc.get('status') not in ('active', 'draft'):
                         continue
                         
                     if target_doc.get('enrichment_status') != 'completed':
@@ -141,7 +142,8 @@ class MergeEngineFacade:
                     for d in to_merge: handled_fids.add(d['fid'])
                     
                     topic = f"Merge Cluster: {candidate.get('topic', candidate.get('title', 'Knowledge Group'))}"
-                    pid = self.create_merge_proposal([candidate] + to_merge, topic=topic)
+                    # Confidence for merges is high, use knowledge_merge target
+                    pid = self.create_merge_proposal([candidate] + to_merge, topic=topic, target="knowledge_merge")
                     if pid: proposals.append(pid)
                 
                 # Create ONE proposal for grey-zone validation
@@ -152,7 +154,7 @@ class MergeEngineFacade:
                     # potentially join stronger merge clusters later
                     
                     topic = f"Validation Cluster: Potential Duplicates"
-                    pid = self.create_merge_proposal([candidate] + to_validate, topic=topic)
+                    pid = self.create_merge_proposal([candidate] + to_validate, topic=topic, target="knowledge_validation")
                     if pid: proposals.append(pid)
 
             return Result(success=True, data=proposals)
@@ -160,7 +162,7 @@ class MergeEngineFacade:
             logger.error(f"Critical error during scan: {e}", exc_info=True)
             return Result(success=False, error=str(e))
 
-    def create_merge_proposal(self, group: List[Dict[str, Any]], topic: Optional[str] = None, confidence: Optional[float] = None) -> Optional[str]:
+    def create_merge_proposal(self, group: List[Dict[str, Any]], topic: Optional[str] = None, confidence: Optional[float] = None, target: str = "knowledge_merge") -> Optional[str]:
         """Creates a proposal using Builder."""
         error = self.validator.validate_group(group)
         if error:
@@ -169,6 +171,7 @@ class MergeEngineFacade:
         
         try:
             builder = ProposalBuilder(self.memory)
+            builder.set_target(target)
             
             if topic:
                 builder.set_topic(topic)

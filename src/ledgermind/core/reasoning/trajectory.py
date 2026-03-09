@@ -19,9 +19,8 @@ class TrajectoryBuilder:
     def __init__(self, target_registry: TargetRegistry):
         self.target_registry = target_registry
         
-        # Regex to find paths like src/something/file.py or /path/to/project/src/...
-        # Matches typical project paths, stopping at common boundaries
-        self.path_regex = re.compile(r'(?:src/|lib/|app/|tests?/)((?:\w+/){1,3})[\w.-]+')
+        # V7.0: Capture full hierarchical path including functional roots
+        self.path_regex = re.compile(r'\b((?:src/|lib/|app/|tests/|ledgermind/|core/|server/|vscode/)(?:\w+/)+)[\w.-]+')
 
     def build_chains(self, events_dicts: List[Dict[str, Any]]) -> List[TrajectoryChain]:
         """Converts raw event dictionaries from SQLite into TrajectoryChains."""
@@ -180,12 +179,18 @@ class TrajectoryBuilder:
             path_freq = {}
             for p in clean_paths:
                 normalized = p
-                prefixes_to_strip = ["src/", "ledgermind/", "lib/", "app/", "tests/"]
-                for prefix in prefixes_to_strip:
-                    if normalized.startswith(prefix):
-                        normalized = normalized[len(prefix):]
+                # I3: Iterative stripping of root noise only
+                roots_to_strip = ["src/", "ledgermind/", "ledgermind-knowledge/"]
+                while True:
+                    changed = False
+                    for root in roots_to_strip:
+                        if normalized.startswith(root):
+                            normalized = normalized[len(root):]
+                            changed = True
+                    if not changed:
                         break
                 
+                # Keep functional roots like tests/, core/, server/ as start of target
                 if "." in normalized:
                     normalized = normalized.rsplit(".", 1)[0]
                 

@@ -77,17 +77,63 @@ class VectorEmbeddingAlgorithm(DuplicateSearchAlgorithm):
         return set(str(k).lower().strip() for k in keywords if k)
 
     def _keyword_similarity(self, doc1: Dict[str, Any], doc2: Dict[str, Any]) -> float:
-        """Jaccard similarity for keywords with 'no-penalty' rule."""
-        kw1 = self._get_doc_keywords_set(doc1)
-        kw2 = self._get_doc_keywords_set(doc2)
+        """DEPRECATED: Use _keyword_semantic_similarity instead."""
+        return 0.0
 
-        # If both have no keywords, it's not a mismatch
-        if not kw1 and not kw2:
+    def _keyword_semantic_similarity(self, doc1: Dict[str, Any], doc2: Dict[str, Any], memory: Optional[MemoryProtocol] = None) -> float:
+        """Calculates semantic similarity between sets of keywords using embeddings."""
+        kw1_set = self._get_doc_keywords_set(doc1)
+        kw2_set = self._get_doc_keywords_set(doc2)
+
+        if not kw1_set and not kw2_set:
             return 1.0
+        if not kw1_set or not kw2_set:
+            return 0.5 # Neutral penalty for missing keywords in one doc
 
-        intersection = kw1.intersection(kw2)
-        union = kw1.union(kw2)
-        return len(intersection) / len(union) if union else 0.0
+        kw1 = sorted(list(kw1_set))
+        kw2 = sorted(list(kw2_set))
+        text1 = ", ".join(kw1)
+        text2 = ", ".join(kw2)
+        
+        id1 = f"kw_{doc1.get('fid', hash(text1))}"
+        id2 = f"kw_{doc2.get('fid', hash(text2))}"
+        
+        try:
+            emb1 = self._get_cached_embedding(id1, text1)
+            emb2 = self._get_cached_embedding(id2, text2)
+            # Normal cosine similarity between keyword bags
+            dot = np.dot(emb1, emb2)
+            norm = np.linalg.norm(emb1) * np.linalg.norm(emb2)
+            return float(dot / norm) if norm > 0 else 0.0
+        except Exception:
+            return 0.0
+
+    def _target_similarity(self, doc1: Dict[str, Any], doc2: Dict[str, Any]) -> float:
+        """Calculates Jaccard similarity between hierarchical target paths."""
+        t1_raw = doc1.get('target', 'unknown') or 'unknown'
+        t2_raw = doc2.get('target', 'unknown') or 'unknown'
+        
+        if t1_raw == t2_raw:
+            return 1.0
+            
+        s1 = set(part for part in str(t1_raw).split('/') if part)
+        s2 = set(part for part in str(t2_raw).split('/') if part)
+        
+        if not s1 or not s2:
+            return 0.0
+            
+        intersection = s1.intersection(s2)
+        union = s1.union(s2)
+        
+        jaccard = len(intersection) / len(union) if union else 0.0
+        
+        # Hard constraint: if root modules (first segment) differ, similarity is 0
+        root1 = str(t1_raw).split('/')[0] if s1 else None
+        root2 = str(t2_raw).split('/')[0] if s2 else None
+        if root1 and root2 and root1 != root2:
+            return 0.0
+            
+        return jaccard
 
     def _get_cached_embedding(self, doc_id: str, text: str) -> np.ndarray:
         """Retrieve or compute embedding with per-document and text-hash caching."""
@@ -134,7 +180,11 @@ class VectorEmbeddingAlgorithm(DuplicateSearchAlgorithm):
             return 0.0
 
     def calculate_similarity(self, doc1: Dict[str, Any], doc2: Dict[str, Any], memory: Optional[MemoryProtocol] = None) -> float:
-        """Combined score with adaptive weighting."""
+        """
+        Quadratic Scoring Model (V9.0).
+        Maximizes the gap by squaring the base semantic score.
+        Target similarity provides a small additive boost.
+        """
         id1 = doc1.get('fid', doc1.get('id'))
         id2 = doc2.get('fid', doc2.get('id'))
         
@@ -144,27 +194,27 @@ class VectorEmbeddingAlgorithm(DuplicateSearchAlgorithm):
             if cache_key in self._pairwise_cache:
                 return self._pairwise_cache[cache_key]
 
+        # 1. Component Calculation
         semantic_sim = self._semantic_similarity(doc1, doc2, memory)
-        keyword_sim = self._keyword_similarity(doc1, doc2)
+        target_sim = self._target_similarity(doc1, doc2)
+        kw_sim = self._keyword_semantic_similarity(doc1, doc2, memory)
 
-        # Adaptive keyword influence
-        effective_kw_weight = self.keyword_weight
-        if self.use_adaptive_weights:
-            if semantic_sim >= self.SEMANTIC_NEAR_IDENTICAL:
-                effective_kw_weight *= 0.1 # Ignore keywords for near-duplicates
-            elif semantic_sim >= self.SEMANTIC_HIGH_SIMILARITY:
-                effective_kw_weight *= 0.5 # Reduce keyword penalty
+        # 2. Base Semantic (80/20 mix)
+        base_semantic = (0.80 * semantic_sim) + (0.20 * kw_sim)
+        
+        # 3. Quadratic Expansion + Target Boost
+        # Squaring lowers mid-range values significantly, increasing the gap.
+        # Target match adds a flat 0.05 bonus.
+        combined = (base_semantic ** 2) + (0.05 * target_sim)
 
-        combined = (1.0 - effective_kw_weight) * semantic_sim + effective_kw_weight * keyword_sim
-
-        # Casi-identical boost
+        # 4. Near-Identity Protection (Strict)
         if semantic_sim >= self.SEMANTIC_CASI_IDENTICAL:
             combined = max(combined, semantic_sim * 0.99)
 
         if self._cache_enabled and cache_key:
             self._pairwise_cache[cache_key] = combined
 
-        logger.debug(f"Similarity: sem={semantic_sim:.4f}, kw={keyword_sim:.4f}, combined={combined:.4f} (kw_weight={effective_kw_weight:.3f})")
+        logger.debug(f"Quadratic Cluster: sem={semantic_sim:.4f}, kw={kw_sim:.4f}, target={target_sim:.4f} -> combined={combined:.4f}")
         return float(combined)
 
     def search(self, candidate: Dict[str, Any], memory: Any) -> List[Dict[str, Any]]:
