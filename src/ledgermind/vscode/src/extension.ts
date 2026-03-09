@@ -16,7 +16,11 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
 
+    let isBusy = false;
+
     const setBusy = (busy: boolean) => {
+        if (busy === isBusy) return;
+        isBusy = busy;
         if (busy) {
             statusBarItem.text = '$(sync~spin) LedgerMind';
             statusBarItem.tooltip = 'LedgerMind: Syncing Context...';
@@ -58,34 +62,38 @@ export function activate(context: vscode.ExtensionContext) {
     let terminalBuffer = '';
     let debounceTimer: NodeJS.Timeout | null = null;
 
-    context.subscriptions.push(
-        vscode.window.onDidWriteTerminalData((e) => {
-            terminalBuffer += e.data;
-            if (debounceTimer) clearTimeout(debounceTimer);
-            
-            debounceTimer = setTimeout(() => {
-                const projectPath = getProjectPath();
-                // Очистка данных от ANSI-кодов
-                const cleanData = terminalBuffer.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
+    if ('onDidWriteTerminalData' in (vscode.window as any)) {
+        context.subscriptions.push(
+            (vscode.window as any).onDidWriteTerminalData((e: any) => {
+                terminalBuffer += e.data;
+                if (debounceTimer) clearTimeout(debounceTimer);
                 
-                // Фильтруем только значимые командные строки (содержат $ или >)
-                const lines = cleanData.split(/[\r\n]+/).filter(l => l.trim());
-                const cmds = lines.filter(l => /\$|>/.test(l)).join('; ');
+                debounceTimer = setTimeout(() => {
+                    const projectPath = getProjectPath();
+                    // Очистка данных от ANSI-кодов
+                    const cleanData = terminalBuffer.replace(/\x1B\[[0-9;]*[JKmsu]/g, '');
 
-                if (cmds) {
-                    execFile('ledgermind-mcp', [
-                        'bridge-record',
-                        '--path', projectPath,
-                        '--prompt', 'Terminal Commands',
-                        '--response', cmds,
-                        '--success',
-                        '--cli', 'vscode-terminal'
-                    ]);
-                }
-                terminalBuffer = '';
-            }, 1500); // Debounce 1.5s
-        })
-    );
+                    // Фильтруем только значимые командные строки (содержат $ или >)
+                    const lines = cleanData.split(/[\r\n]+/).filter(l => l.trim());
+                    const cmds = lines.filter(l => /\$|>/.test(l)).join('; ');
+
+                    if (cmds) {
+                        execFile('ledgermind-mcp', [
+                            'bridge-record',
+                            '--path', projectPath,
+                            '--prompt', 'Terminal Commands',
+                            '--response', cmds,
+                            '--success',
+                            '--cli', 'vscode-terminal'
+                        ], (err) => {
+                            if (err) console.error('LedgerMind Terminal Record Error:', err);
+                        });
+                    }
+                    terminalBuffer = '';
+                }, 1500); // Debounce 1.5s
+            })
+        );
+    }
 
     // 3. AUTO-CONTEXT INJECTION (Shadow File Approach)
     // Мы создаем скрытый файл, который обновляется при каждом изменении фокуса или промпта.
@@ -103,6 +111,11 @@ export function activate(context: vscode.ExtensionContext) {
             '--prompt', query
         ], (err, stdout) => {
             setBusy(false);
+            if (err) {
+                console.error('LedgerMind Context Sync Error:', err);
+                // Background syncing can fail if the process is busy or CLI is unavailable.
+                // Do not spam the user with error messages.
+            }
             if (!err && stdout) {
                 const content = `<!-- LEDGERMIND AUTONOMOUS CONTEXT - DO NOT EDIT -->\n${stdout}`;
                 vscode.workspace.fs.writeFile(
@@ -125,7 +138,9 @@ export function activate(context: vscode.ExtensionContext) {
                 '--prompt', 'Edit file',
                 '--response', `Updated ${doc.fileName}`,
                 '--success'
-            ]);
+            ], (err) => {
+                if (err) console.error('LedgerMind File Edit Record Error:', err);
+            });
         }),
         vscode.window.onDidChangeActiveTextEditor(() => updateShadowContext())
     );
