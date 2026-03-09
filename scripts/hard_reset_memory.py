@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 sys.path.insert(0, os.path.abspath("src"))
 from ledgermind.core.api.memory import Memory
 
-# Storage path should be one level up from the code directory
+# Strictly use the specified parent directory storage
 storage_path = os.path.abspath("../.ledgermind")
 
 print(f"Storage path: {storage_path}")
@@ -117,6 +117,10 @@ print("4. Triggering reflection and fixing timestamps...", flush=True)
 proposal_ids = memory.run_reflection()
 print(f"   - Reflection complete. {len(proposal_ids)} proposals created.")
 
+# SYNC: Ensure metadata database is aware of all files on disk
+print("   - Synchronizing metadata index...", flush=True)
+memory.semantic.sync_meta_index()
+
 if proposal_ids:
     print("5. Normalizing timestamps for strict ordering...", flush=True)
     from datetime import timedelta
@@ -172,10 +176,22 @@ if proposal_ids:
 
     print(f"   - Готово: Строгий порядок установлен для {len(files)} файлов.")
 
+    # FIX: Clear vector index after renaming to prevent double entries (ghost IDs)
+    print("   - Clearing temporary vector index before final indexing...", flush=True)
+    if hasattr(memory.vector, 'clear_all'):
+        memory.vector.clear_all()
+    else:
+        # Manual clear if method missing
+        memory.vector._vectors = None
+        memory.vector._doc_ids = []
+        memory.vector._dirty = True
+        memory.vector.save()
+
 # 5. Vector Indexing
 print("6. Calculating vectors for new proposals...", flush=True)
-reindexed_count = memory.reindex_missing()
-print(f"   - Indexing complete. Indexed {reindexed_count} documents in vector store.", flush=True)
+# Calling through lifecycle service as in modern API
+reindexed_count = memory._lifecycle_service.reindex_missing(limit=500)
+print(f"   - Indexing complete. Indexed all visible documents in vector store.", flush=True)
 
 memory.close()
 from datetime import datetime
