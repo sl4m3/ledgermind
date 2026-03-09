@@ -21,7 +21,7 @@ class PromptBuilder:
             "6. consequences: List of architectural impacts.\n"
             "7. estimated_utility: Number (0.0-1.0) representing current usefulness.\n"
             "8. estimated_removal_cost: Number (0.0-1.0) representing the risk of losing this knowledge.\n"
-            f"9. keywords: A flat list of 16-24 items. For every semantic concept, you MUST include two separate strings: one in {lang} and one in English (e.g., ['Слоистая архитектура', 'Layered Architecture', 'Инъекция зависимостей', 'Dependency Injection']).\n"
+            f"9. keywords: A flat list of 4-6 items. For every semantic concept, you MUST include two separate strings: one in {lang} and one in English (e.g., ['Слоистая архитектура', 'Layered Architecture', 'Инъекция зависимостей', 'Dependency Injection']).\n"
             "10. procedural: List of {action, expected_outcome, rationale} steps representing the workflow."
         )
 
