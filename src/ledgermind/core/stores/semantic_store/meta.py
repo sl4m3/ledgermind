@@ -263,10 +263,17 @@ class SemanticMetaStore:
         """Retrieves metadata for multiple file IDs efficiently."""
         if not fids: return []
         self._conn.row_factory = sqlite3.Row
-        placeholders = ','.join('?' for _ in fids)
         cursor = self._conn.cursor()
-        cursor.execute(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", fids) # nosec B608
-        return [dict(row) for row in cursor.fetchall()]
+
+        results = []
+        chunk_size = 900
+        for i in range(0, len(fids), chunk_size):
+            chunk = fids[i:i + chunk_size]
+            placeholders = ','.join('?' for _ in chunk)
+            cursor.execute(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", chunk) # nosec B608
+            results.extend([dict(row) for row in cursor.fetchall()])
+
+        return results
 
     def get_active_fid(self, target: str, namespace: str = "default") -> Optional[str]:
         cursor = self._conn.cursor()
