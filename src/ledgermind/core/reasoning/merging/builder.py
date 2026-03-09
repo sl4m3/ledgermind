@@ -22,6 +22,7 @@ class ProposalBuilder:
         self._proposal = {
             "id": self._generate_unique_id(),
             "target_ids": [],
+            "target": "general",
             "topic": "Automatic Merge",
             "confidence": 0.0,
             "status": "pending"
@@ -48,6 +49,12 @@ class ProposalBuilder:
             logger.warning("Incorrect merge topic provided, using default value.")
         else:
             self._proposal["topic"] = topic
+        return self
+
+    def set_target(self, target: str) -> 'ProposalBuilder':
+        """Sets the proposal target (e.g., knowledge_merge)."""
+        if target and isinstance(target, str):
+            self._proposal["target"] = target
         return self
 
     def add_target(self, target_id: str) -> 'ProposalBuilder':
