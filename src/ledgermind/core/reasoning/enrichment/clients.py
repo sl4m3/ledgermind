@@ -1,0 +1,111 @@
+import os
+import time
+import logging
+import subprocess
+from typing import Optional, Any, Protocol
+from .config import EnrichmentConfig
+from .builder import PromptBuilder
+from ledgermind.core.utils.gemini_config import GeminiConfigManager
+
+logger = logging.getLogger("ledgermind-core.enrichment.clients")
+
+class LLMClient(Protocol):
+    """Protocol for LLM execution strategies."""
+    def call(self, instructions: str, data: str, fid: str = "unknown") -> Optional[str]:
+        ...
+
+class CloudLLMClient:
+    """Strategy for Gemini (Cloud) using CLI/SDK."""
+    def __init__(self, config: EnrichmentConfig, memory: Any = None):
+        self.config = config
+        self.memory = memory
+        self._bin = "gemini"
+        self._mode = "global"
+        
+        if memory and hasattr(memory, 'semantic') and hasattr(memory.semantic, 'meta'):
+            meta = memory.semantic.meta
+            self._bin = meta.get_config("gemini_binary_path") or self._bin
+            self._mode = meta.get_config("gemini_config_mode") or self._mode
+
+    def call(self, instructions: str, data: str, fid: str = "unknown") -> Optional[str]:
+        # Try CLI first
+        res = self._call_cli(instructions, data, fid)
+        if res: return res
+        
+        # Fallback to SDK
+        return self._call_sdk(instructions + "\n\n" + data)
+
+    def _call_cli(self, instructions: str, data: str, fid: str) -> Optional[str]:
+        try:
+            full_prompt = PromptBuilder.wrap_with_data(instructions, data, self.config)
+            
+            # Лаконичное подтверждение отправки
+            logger.info(f"Gemini CLI: Calling model {self.config.model_name} for {fid}...")
+            
+            config_path = GeminiConfigManager.get_config_path(mode=self._mode)
+            env = GeminiConfigManager.get_environment(config_path)
+            env["NODE_OPTIONS"] = "--max-old-space-size=2048"
+            
+            for attempt in range(1, self.config.retry_attempts + 1):
+                logger.info(f"Attempt {attempt}/{self.config.retry_attempts}: Gemini CLI call...")
+                try:
+                    proc = subprocess.Popen(
+                        [self._bin, "--extensions", "", "--allowed-mcp-server-names", "", 
+                         "-m", self.config.model_name, "Analyze logs and return JSON."],
+                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+                        text=True, env=env
+                    )
+                    stdout, stderr = proc.communicate(input=full_prompt, timeout=self.config.timeout)
+                    if proc.returncode == 0 and stdout:
+                        return stdout.strip()
+                    
+                    logger.error(f"CLI failed: {stderr[:500]}")
+                except Exception as e:
+                    logger.error(f"Internal CLI error: {e}")
+                
+                if attempt < self.config.retry_attempts:
+                    time.sleep(self.config.retry_delay)
+            return None
+        except Exception as e:
+            logger.error(f"CLI process error: {e}")
+            return None
+
+    def _call_sdk(self, prompt: str) -> Optional[str]:
+        try:
+            import google.generativeai as genai
+            key = os.environ.get("GEMINI_API_KEY")
+            if not key: return None
+            genai.configure(api_key=key)
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            resp = model.generate_content(prompt)
+            return resp.text if resp else None
+        except Exception: return None
+
+
+class LocalLLMClient:
+    """Strategy for llama-cpp (Local)."""
+    def __init__(self, config: EnrichmentConfig, memory: Any = None):
+        self.config = config
+        self.memory = memory
+        self._client = None
+
+    def call(self, instructions: str, data: str, fid: str = "unknown") -> Optional[str]:
+        try:
+            from llama_cpp import Llama
+            
+            if not self._client:
+                path = os.environ.get("LEDGERMIND_LOCAL_LLM_PATH")
+                if not path and self.memory and hasattr(self.memory, 'vector'):
+                    path = getattr(self.memory.vector, 'model_path', None)
+                
+                if not path or not os.path.exists(path):
+                    return None
+                self._client = Llama(model_path=path, n_ctx=2048, verbose=False)
+
+            logger.info(f"Local Enrichment: Processing {fid} via GGUF...")
+            prompt = f"System: Technical Expert\nUser: {instructions}\nData: {data}\nAssistant: "
+            output = self._client(prompt, max_tokens=1024, stop=["User:", "System:"], echo=False)
+            return output['choices'][0]['text']
+        except Exception as e:
+            logger.error(f"Local LLM failed: {e}")
+            return None
