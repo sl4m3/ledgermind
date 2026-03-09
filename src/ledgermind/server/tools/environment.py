@@ -68,7 +68,11 @@ class EnvironmentContext:
 
     def _get_git_status(self) -> str:
         try:
-            res = subprocess.run(["git", "status", "--short"], capture_output=True, text=True, timeout=5) # nosec B603 B607
+            import shutil
+            git_path = shutil.which("git")
+            if not git_path:
+                return "git not found"
+            res = subprocess.run([git_path, "status", "--short"], capture_output=True, text=True, timeout=5) # nosec B603
             return res.stdout.strip()
         except Exception:
             return "not a git repo or git not found"

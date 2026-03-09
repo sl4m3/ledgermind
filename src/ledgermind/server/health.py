@@ -158,9 +158,17 @@ def _check_git_repo(repo_path: str) -> Dict[str, Any]:
 
         # Try to get HEAD (quick health check)
         import subprocess
+        import shutil
         try:
+            git_path = shutil.which("git")
+            if not git_path:
+                return {
+                    "status": "error",
+                    "accessible": False,
+                    "error": "git executable not found"
+                }
             result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
+                [git_path, "rev-parse", "HEAD"],  # nosec B603
                 cwd=repo_path,
                 capture_output=True,
                 text=True,
