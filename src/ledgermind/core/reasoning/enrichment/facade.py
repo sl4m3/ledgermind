@@ -96,35 +96,100 @@ class LLMEnricher:
                     memory.semantic.update_decision(fid, {"enrichment_status": "pending"}, "Audit: Language mismatch.")
 
     def process_batch(self, proposals: List[Any], episodic_store: Any, memory: Any = None) -> List[Any]:
-        """Iteratively processes a list of proposals."""
+        """Iteratively processes a list of proposals, handling validation clusters separately."""
         results = []
         total = len(proposals)
         for i, prop in enumerate(proposals, 1):
             fid = getattr(prop, 'fid', 'unknown')
-            logger.info(f"\n>>> [PROPOSAL {i}/{total}: {fid}]")
             
+            # STAGE 2: Handle Validation Clusters
+            if "Validation Cluster" in getattr(prop, 'title', ''):
+                logger.info(f"\n>>> [VALIDATION {i}/{total}: {fid}]")
+                self._handle_validation_cluster(prop, memory)
+                results.append(prop)
+                continue
+
+            logger.info(f"\n>>> [PROPOSAL {i}/{total}: {fid}]")
             current_obj = prop
             iteration = 1
             while len(current_obj.evidence_event_ids) > 0:
+                # ... existing enrichment logic ...
                 config = EnrichmentConfig.from_memory(memory, self.mode, self.preferred_language)
-                logs, used_ids = LogProcessor.get_batch_logs(current_obj, episodic_store, config)
+                logs, used_ids, missing_ids = LogProcessor.get_batch_logs(current_obj, episodic_store, config)
                 
-                if not used_ids: break
+                if not used_ids and not missing_ids:
+                    break
 
                 enriched = self.enrich_proposal(current_obj, cluster_logs=logs, memory=memory, used_event_ids=used_ids)
-                
-                if len(enriched.evidence_event_ids) < len(current_obj.evidence_event_ids):
-                    if memory:
-                        with memory.semantic.transaction():
-                            memory.semantic.update_decision(
-                                fid, enriched.model_dump(mode="json", exclude_none=True), 
-                                commit_msg=f"Enrichment: Iter {iteration} for {fid}"
-                            )
-                    current_obj = enriched
-                    iteration += 1
-                else: break
+                # ... update and continue ...
+                if memory:
+                    with memory.semantic.transaction():
+                        memory.semantic.update_decision(fid, enriched.model_dump(mode="json"), commit_msg=f"Enrichment: Iter {iteration}")
+                current_obj = enriched
+                iteration += 1
             results.append(current_obj)
         return results
+
+    def _handle_validation_cluster(self, proposal: Any, memory: Any):
+        """Specially handles validation by asking LLM to confirm duplicates."""
+        target_ids = getattr(proposal, 'target_ids', [])
+        if len(target_ids) < 2: return
+
+        logger.info(f"Validating cluster of {len(target_ids)} documents...")
+        
+        # Load all documents in the cluster
+        docs = []
+        for tid in target_ids:
+            meta = memory.semantic.meta.get_by_fid(tid)
+            if meta: docs.append(meta)
+            
+        if len(docs) < 2: return
+
+        # Build validation prompt
+        docs_summary = "\n\n".join([f"DOC {j}:\nTitle: {d['title']}\nContent: {d['content'][:500]}" for j, d in enumerate(docs, 1)])
+        prompt = (
+            "Analyze the following documents and determine if they are semantically identical or near-duplicates.\n"
+            f"{docs_summary}\n\n"
+            "Respond ONLY with a JSON object: {\"is_duplicate\": true/false, \"reasoning\": \"short explanation\"}"
+        )
+        
+        config = EnrichmentConfig.from_memory(memory, mode="rich", preferred_language=self.preferred_language)
+        client = self._get_client(config, memory)
+        response = client.call("You are a Duplicate Detection Expert.", prompt)
+        
+        import json
+        try:
+            res_data = json.loads(re.search(r'\{.*\}', response, re.DOTALL).group(0))
+            if res_data.get("is_duplicate"):
+                logger.info(f"LLM Confirmed DUPLICATE for {proposal.fid}. Creating Merge Proposal.")
+                # Stage 2: Auto-convert to Merge Proposal
+                with memory.semantic.transaction():
+                    # 1. Fulfil current validation hypothesis
+                    memory.semantic.update_decision(proposal.fid, {"status": "fulfilled", "enrichment_status": "completed"}, "LLM Confirmed duplicates.")
+                    
+                    # 2. Create actual Merge Proposal
+                    from ledgermind.core.core.schemas import MemoryEvent, KIND_PROPOSAL
+                    from datetime import datetime
+                    merge_event = MemoryEvent(
+                        source="system",
+                        kind=KIND_PROPOSAL,
+                        content=f"Merge Confirmed: {docs[0]['title']}",
+                        timestamp=datetime.now(),
+                        context={
+                            "topic": f"Merge Cluster (LLM Confirmed)",
+                            "target_ids": target_ids,
+                            "confidence": 1.0,
+                            "status": "pending"
+                        }
+                    )
+                    memory.semantic.save(merge_event)
+            else:
+                logger.info(f"LLM Rejected duplicate for {proposal.fid}. Closing as false positive.")
+                with memory.semantic.transaction():
+                    memory.semantic.update_decision(proposal.fid, {"status": "falsified", "enrichment_status": "completed"}, "LLM: Documents are distinct.")
+        except Exception as e:
+            logger.error(f"Failed to parse LLM validation result: {e}")
+
 
     def enrich_proposal(self, proposal: Any, cluster_logs: Optional[str] = None, memory: Any = None, used_event_ids: Optional[List[int]] = None) -> Any:
         fid = getattr(proposal, 'fid', 'unknown')
@@ -185,12 +250,15 @@ class LLMEnricher:
         # How many did we actually remove this time?
         removed_count = len(current_eids) - len(remaining)
         
+        if removed_count == 0 and used_ids:
+            logger.warning(f"Events were provided but not removed from queue for {fid}. Check logic!")
+
         # Increment historical count
         total_count = getattr(proposal, 'total_evidence_count', 0) + removed_count
         
         # Completion status
         total_ev = total_count + len(remaining)
-        fill_pct = (total_count / total_ev * 100) if total_ev > 0 else 0.0
+        fill_pct = (total_count / total_ev * 100) if total_ev > 0 else 100.0
         status = "completed" if not remaining else "pending"
         
         logger.info(f"Success: {removed_count} events processed ({fill_pct:.1f}% knowledge distilled) for {fid}")

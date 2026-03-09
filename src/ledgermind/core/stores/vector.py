@@ -90,7 +90,8 @@ class GGUFEmbeddingAdapter:
             model_path=model_path, 
             embedding=True, 
             verbose=False, 
-            n_ctx=4096, 
+            n_ctx=8192, 
+            logits_all=True,
             n_gpu_layers=0,
             n_threads=2,
             n_batch=512,
@@ -131,8 +132,10 @@ class GGUFEmbeddingAdapter:
         
         # Task-specific prefix for Jina v5
         prefix = ""
-        if "jina-embeddings-v5" in self.model_path:
+        # Improved detection: check for both full name and common 'v5' suffix
+        if "jina-embeddings-v5" in self.model_path or "/v5-" in self.model_path or "v5-small" in self.model_path:
             prefix = "text-matching: "
+            logger.debug(f"GGUF: Using task-specific prefix '{prefix}' for v5 model")
 
         embeddings = []
         # Optimization: Process the entire batch
@@ -151,8 +154,14 @@ class GGUFEmbeddingAdapter:
             with self._lock:
                 try:
                     processed_text = f"{prefix}{text}" if prefix else text
+                    # Use embedding=True and check response structure
                     res = self.client.create_embedding(processed_text)
-                    emb = res['data'][0]['embedding']
+                    
+                    if 'data' in res and len(res['data']) > 0:
+                        emb = res['data'][0]['embedding']
+                    else:
+                        logger.error(f"Unexpected GGUF response format: {res}")
+                        emb = [0.0] * self.dimension
                     
                     # Ensure emb is a flat list of floats
                     if not isinstance(emb, list):
