@@ -40,12 +40,19 @@ class MemoryLoader:
     def stringify(data: Dict[str, Any], body: str = "") -> str:
         """
         Serializes metadata and body into a single Markdown string with frontmatter.
+        Uses literal block style for multiline strings.
         """
-        # Optimized: try to use CDumper for speed
-        try:
-            from yaml import CDumper as Dumper
-        except ImportError:
-            from yaml import SafeDumper as Dumper
+        # Custom representer for multiline strings
+        def str_presenter(dumper, data):
+            if '\n' in data:
+                return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+            return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+
+        # Use SafeDumper to avoid issues with custom tags
+        class FoldedDumper(yaml.SafeDumper):
+            pass
+        
+        FoldedDumper.add_representer(str, str_presenter)
             
-        yaml_str = yaml.dump(data, Dumper=Dumper, allow_unicode=True, sort_keys=False, default_flow_style=False).strip()
+        yaml_str = yaml.dump(data, Dumper=FoldedDumper, allow_unicode=True, sort_keys=False, default_flow_style=False).strip()
         return f"---\n{yaml_str}\n---\n\n{body}"

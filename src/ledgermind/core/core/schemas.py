@@ -101,6 +101,7 @@ class BaseSemanticContent(BaseModel):
     objections: List[str] = Field(default_factory=list)
     consequences: List[str] = Field(default_factory=list)
     procedural: Optional[ProceduralContent] = None
+    enrichment_status: str = Field(default="pending", description="Status of LLM enrichment: completed, pending, or failed")
     total_evidence_count: int = 0
     
     # Metadata & Links
@@ -122,7 +123,6 @@ class DecisionStream(BaseSemanticContent):
     frequency: int = 0
     lifetime_days: float = 0.0
     reinforcement_density: float = 0.0
-    ready_for_review: bool = False
 
 class DecisionContent(BaseSemanticContent):
     # Backward compatibility for direct saves
