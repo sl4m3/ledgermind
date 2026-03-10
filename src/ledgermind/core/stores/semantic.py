@@ -1,6 +1,5 @@
 import os
 import re
-import yaml
 import json
 import logging
 import sqlite3
@@ -200,7 +199,7 @@ class SemanticStore:
             logger.debug(f"Removing orphan from meta: {orphaned_fid}")
             self.meta.delete(orphaned_fid)
 
-    def _update_meta_for_file(self, fid: str, force: bool = False):
+    def _update_meta_for_file(self, fid: str, force: bool = False, link_stats: Optional[Tuple[int, float]] = None):
         try:
             full_path = os.path.join(self.repo_path, fid)
             mtime = os.path.getmtime(full_path)
@@ -235,9 +234,13 @@ class SemanticStore:
 
                     # Get link stats from episodic store
                     link_c, link_s = 0, 0.0
-                    try:
-                        link_c, link_s = self.episodic.count_links_for_semantic(fid)
-                    except Exception: pass
+                    if link_stats is not None:
+                        link_c, link_s = link_stats
+                    else:
+                        try:
+                            if hasattr(self, 'episodic') and self.episodic:
+                                link_c, link_s = self.episodic.count_links_for_semantic(fid)
+                        except Exception: pass
 
                     self.meta.upsert(
                         fid=fid,
@@ -287,12 +290,22 @@ class SemanticStore:
                 self._remove_orphans(meta_files - disk_files)
 
                 # Add/Update missing or changed files
+
+                # Pre-fetch link counts to avoid N+1 queries
+                files_to_update = list(disk_files)
+                batch_link_stats = {}
+                try:
+                    if hasattr(self, 'episodic') and self.episodic:
+                        batch_link_stats = self.episodic.count_links_for_semantic_batch(files_to_update)
+                except Exception as e:
+                    logger.debug(f"Failed to batch fetch link stats: {e}")
+
                 # Use batch_update if not already in a transaction
                 cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
 
                 with cm:
                     for f in disk_files:
-                        self._update_meta_for_file(f, force=force)
+                        self._update_meta_for_file(f, force=force, link_stats=batch_link_stats.get(f))
         finally:
             if should_lock: self._fs_lock.release()
 

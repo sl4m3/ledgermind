@@ -5,11 +5,11 @@ from typing import List, Optional, Dict, Any, Tuple
 from contextlib import contextmanager
 from ledgermind.core.core.schemas import MemoryEvent
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.pool import QueuePool, Pool
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 
-from ledgermind.core.utils.result import Result, ErrorCode, safe_execute, unwrap_result
+from ledgermind.core.utils.result import Result, safe_execute
 
 class EpisodicStore:
     def __init__(self, db_path: str, pool_size: int = 3):
@@ -248,14 +248,19 @@ class EpisodicStore:
         if not semantic_ids:
             return {}
 
-        placeholders = ','.join('?' for _ in semantic_ids)
+        results = {}
+        chunk_size = 900
         sql_template = "SELECT linked_id, COUNT(*), SUM(link_strength) FROM events WHERE linked_id IN ({}) GROUP BY linked_id"
         with self._get_conn() as conn:
-            cursor = conn.execute(
-                sql_template.format(placeholders),
-                semantic_ids
-            )
-            results = {row[0]: (row[1] or 0, row[2] or 0.0) for row in cursor.fetchall()}
+            for i in range(0, len(semantic_ids), chunk_size):
+                chunk = semantic_ids[i:i + chunk_size]
+                placeholders = ','.join('?' for _ in chunk)
+                cursor = conn.execute(
+                    sql_template.format(placeholders),
+                    chunk
+                )
+                for row in cursor.fetchall():
+                    results[row[0]] = (row[1] or 0, row[2] or 0.0)
 
             # Ensure all requested IDs are in the result
             for sid in semantic_ids:
