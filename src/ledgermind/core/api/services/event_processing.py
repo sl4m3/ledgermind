@@ -135,13 +135,19 @@ class EventProcessingService(MemoryService):
             decision.metadata["file_id"] = new_fid
             if event_emitter: event_emitter.emit("semantic_added", {"id": new_fid, "kind": event.kind, "namespace": namespace})
 
-            # Evidence Inheritance... (rest of method)
-            grounding_ids = set()
-            if isinstance(event.context, dict): grounding_ids.update(event.context.get('evidence_event_ids', []))
-            
-            # ...
-            
-        # ...
+            # Evidence & Inheritance
+            # 1. Link explicit evidence from context
+            ctx_dict = event.context if isinstance(event.context, dict) else {}
+            for eid in ctx_dict.get('evidence_event_ids', []):
+                self.episodic.link_to_semantic(eid, new_fid)
+
+            # 2. Inherit links from predecessors
+            if intent and intent.resolution_type == "supersede":
+                for old_id in intent.target_decision_ids:
+                    old_links = self.episodic.get_linked_event_ids(old_id)
+                    for eid in old_links:
+                        self.episodic.link_to_semantic(eid, new_fid)
+                logger.info(f"Inherited grounding from predecessors to {new_fid}")
         
         INTERNAL_SOURCES = {"system", "reflection_engine", "bridge"}
         is_merge = event.kind == KIND_DECISION and ((isinstance(event.context, dict) and event.context.get('target') == "knowledge_merge") or (intent and intent.resolution_type == "supersede"))

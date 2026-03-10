@@ -27,7 +27,7 @@ def test_robust_like_fallback_case_insensitivity(store):
     store.upsert(
         fid="case_test.md", target="core/test", title="Database Optimization",
         content="Technical details", status="active", kind="decision",
-        timestamp=datetime.now()
+        timestamp=datetime.now(), context_json="{}"
     )
     
     # 2. Force fallback by dropping FTS5

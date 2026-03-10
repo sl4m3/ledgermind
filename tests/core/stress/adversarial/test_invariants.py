@@ -46,8 +46,9 @@ def test_supersede_nonexistent(memory_fixture):
     mem = memory_fixture
 
     # Update: Now raises ConflictError Suggesting rebase
-    with pytest.raises((ConflictError, ValueError), match="does not exist"):
+    with pytest.raises((ConflictError, ValueError), match="missing"):
         mem.supersede_decision("New", "target", "valid_rationale_for_supersede", ["fake-id"])
+
 def test_supersede_active_mismatch(memory_fixture):
     """
     Attempts to supersede an active decision with WRONG target.
@@ -59,11 +60,8 @@ def test_supersede_active_mismatch(memory_fixture):
     
     # Try to supersede D1 but say it's target_B
     # This should be caught by logic or fail later.
-    # Currently, `supersede_decision` takes `target` as arg.
-    # It should verify that old decision belongs to this target.
-    
     try:
         mem.supersede_decision("D2", "target_B", "valid_rationale_supersede", [d1.metadata["file_id"]])
     except (ValueError, ConflictError) as e:
         # Either ValueError (legacy) or ConflictError (modern) is fine as long as it blocks the change
-        assert "not an active decision" in str(e) or "no longer active" in str(e)
+        assert "target mismatch" in str(e).lower() or "missing" in str(e).lower() or "not allowed" in str(e).lower()

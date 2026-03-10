@@ -36,46 +36,59 @@ class DecisionCommandService(MemoryService):
 
         active_conflicts = self.semantic.list_active_conflicts(target, namespace=effective_namespace)
         new_vec_cached = None
-        
-        if self.vector:
-            try:
+
+        # V7.5: Ensure conflict analysis works even without vector model
+        try:
+            import numpy as np
+            from difflib import SequenceMatcher
+            new_text = f"{title}\n{rationale}"
+
+            if self.vector:
                 from ledgermind.core.stores.vector import _is_transformers_available
                 can_compute = _is_transformers_available() or (hasattr(self.vector, "model") and self.vector.model is not None)
                 if can_compute:
-                    import numpy as np
-                    from difflib import SequenceMatcher
-                    new_text = f"{title}\n{rationale}"
                     new_vec = self.vector.model.encode([new_text])[0]
                     new_vec_cached = new_vec
                     new_norm = np.linalg.norm(new_vec)
-                    
-                    if active_conflicts:
-                        for old_fid in active_conflicts:
-                            old_meta = self.semantic.meta.get_by_fid(old_fid)
-                            old_vec = self.vector.get_vector(old_fid)
-                            if old_vec is None or not old_meta: continue
+
+            if active_conflicts:
+                for old_fid in active_conflicts:
+                    old_meta = self.semantic.meta.get_by_fid(old_fid)
+                    if not old_meta: continue
+
+                    sim = 0.0
+                    if new_vec_cached is not None:
+                        old_vec = self.vector.get_vector(old_fid)
+                        if old_vec is not None:
                             old_norm = np.linalg.norm(old_vec)
-                            sim = float(np.dot(new_vec, old_vec) / (new_norm * old_norm + 1e-9))
-                            
-                            old_title = old_meta.get('title', '')
-                            title_sim = SequenceMatcher(None, title.lower(), old_title.lower()).ratio()
-                            if title_sim > 0.90: sim = max(sim, 0.71)
-            
-                            if 0.50 <= sim < 0.70 and arbiter_callback:
-                                if arbiter_callback({"title": title, "rationale": rationale}, {"title": old_title, "rationale": old_meta.get('content', '')}) == "SUPERSEDE":
-                                    sim = 0.71
-            
-                            if sim > 0.70:
-                                return self.supersede_decision(
-                                    title=title, target=target, 
-                                    rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
-                                    old_decision_ids=[old_fid], consequences=consequences, evidence_ids=evidence_ids, 
-                                    namespace=effective_namespace, vector=new_vec, memory_facade=memory_facade
-                                )
-            except Exception as e:
-                if "not found" not in str(e).lower() and "missing" not in str(e).lower():
-                    logger.warning(f"Similarity check failed: {e}")
-            
+                            sim = float(np.dot(new_vec_cached, old_vec) / (new_norm * old_norm + 1e-9))
+
+                    # Text-based fallback if vector failed or unavailable
+                    old_title = old_meta.get('title', '')
+                    old_content = old_meta.get('content', '')
+                    title_sim = SequenceMatcher(None, title.lower(), old_title.lower()).ratio()
+                    content_sim = SequenceMatcher(None, new_text.lower(), old_content.lower()).ratio()
+
+                    # Elevate similarity if titles match
+                    if title_sim > 0.90: sim = max(sim, 0.71)
+                    # Support Arbiter in the Gray Zone
+                    if 0.50 <= max(sim, content_sim) < 0.70 and arbiter_callback:
+                        if arbiter_callback({"title": title, "rationale": rationale}, {"title": old_title, "rationale": old_content}) == "SUPERSEDE":
+                            sim = 0.71
+
+                    # Take best similarity
+                    sim = max(sim, content_sim)
+
+                    if sim > 0.70:
+                        return self.supersede_decision(
+                            title=title, target=target,
+                            rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
+                            old_decision_ids=[old_fid], consequences=consequences, evidence_ids=evidence_ids,
+                            namespace=effective_namespace, vector=new_vec_cached, memory_facade=memory_facade
+                        )
+        except Exception as e:
+            if "not found" not in str(e).lower() and "missing" not in str(e).lower():
+                logger.warning(f"Conflict resolution fallback failed: {e}", exc_info=True)
         if active_conflicts:
             msg = f"CONFLICT: Target '{target}' in namespace '{effective_namespace}' already has active decisions: {active_conflicts}."
             raise ConflictError(msg)
