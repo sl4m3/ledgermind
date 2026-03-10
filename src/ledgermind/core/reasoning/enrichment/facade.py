@@ -10,15 +10,16 @@ from .clients import CloudLLMClient, LocalLLMClient
 from .config import EnrichmentConfig
 from .parser import ResponseParser
 from .builder import PromptBuilder
+from .processor import LogProcessor
 
 logger = logging.getLogger("ledgermind.core.enrichment.facade")
 
 class LLMEnricher:
     """
     Facade for the LLM enrichment subsystem.
-    Handles prioritized knowledge processing with detailed feedback.
+    Handles prioritized knowledge processing: Merge -> Validation -> Distillation.
     """
-    def __init__(self, mode: str = "optimal", preferred_language: str = "russian"):
+    def __init__(self, mode: Optional[str] = None, preferred_language: Optional[str] = None):
         self.mode = mode
         self.preferred_language = preferred_language
         self._cloud_client = None
@@ -26,8 +27,18 @@ class LLMEnricher:
 
     def run_auto_enrichment(self, memory: Any, limit: Optional[int] = None):
         """Orchestrates prioritized auto-enrichment."""
+        # Dynamically determine config if not set
+        if memory and hasattr(memory, 'semantic') and hasattr(memory.semantic, 'meta'):
+            meta = memory.semantic.meta
+            if self.mode is None:
+                # Try enrichment_mode, then fallback to arbitration_mode
+                self.mode = meta.get_config("enrichment_mode") or meta.get_config("arbitration_mode") or "optimal"
+            if self.preferred_language is None:
+                self.preferred_language = meta.get_config("preferred_language") or "russian"
+
         logger.info(f"Auto-Enrichment Triggered: Language={self.preferred_language}, Mode={self.mode}")
         
+        # 1. Discover all records where enrichment is still needed
         all_metas = memory.semantic.meta.list_all()
         pending_metas = [m for m in all_metas if m.get('enrichment_status') == 'pending']
         
@@ -35,6 +46,7 @@ class LLMEnricher:
             logger.info("No records found with enrichment_status='pending'.")
             return
 
+        # 2. PRIORITY SORTING: Merge -> Validation -> Standard Enrichment
         def get_priority(m):
             target = m.get('target', 'general')
             if target == "knowledge_merge": return 0
@@ -43,14 +55,15 @@ class LLMEnricher:
 
         pending_metas.sort(key=get_priority)
         if limit: pending_metas = pending_metas[:limit]
-        
-        logger.info(f"Queue discovered: {len(pending_metas)} items to process.")
 
+        # 3. Process sequentially
         proposals_objs = []
         for m in pending_metas:
             try:
+                # Simple object wrapper to satisfy 'getattr' calls
                 class ProposalWrapper:
                     def __init__(self, data):
+                        self._data = data
                         for k, v in data.items(): setattr(self, k, v)
                         if 'context_json' in data and data['context_json']:
                             try:
@@ -58,6 +71,10 @@ class LLMEnricher:
                                 for k, v in ctx.items():
                                     if not hasattr(self, k): setattr(self, k, v)
                             except Exception: pass
+                    
+                    def model_dump(self, mode="json"):
+                        dump = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+                        return dump
                 
                 proposals_objs.append(ProposalWrapper(m))
             except Exception as e:
@@ -66,10 +83,13 @@ class LLMEnricher:
         self.process_batch(proposals_objs, memory.episodic, memory=memory)
 
     def process_batch(self, proposals: List[Any], episodic_store: Any, memory: Any = None) -> List[Any]:
+        """Iteratively processes a list of proposals, handling validation clusters separately."""
         results = []
         total = len(proposals)
         for i, prop in enumerate(proposals, 1):
             fid = getattr(prop, 'fid', 'unknown')
+            
+            # STAGE 1: Handle Knowledge Clusters (Merge & Validation)
             target = getattr(prop, 'target', '')
             target_ids = getattr(prop, 'target_ids', [])
             
@@ -87,25 +107,44 @@ class LLMEnricher:
 
             logger.info(f"\n>>> [STEP 3: STANDARD ENRICHMENT {i}/{total}] Processing {fid}")
             
+            # Normal enrichment flow
             current_obj = prop
             iteration = 1
+            config = EnrichmentConfig.from_memory(memory, mode=self.mode, preferred_language=self.preferred_language)
+            
             while True:
                 eids = getattr(current_obj, 'evidence_event_ids', [])
                 if not eids: break
-                events = episodic_store.get_events_by_ids(eids[:50])
-                if not events: break
                 
-                logs_text = "\n".join([f"[{e.timestamp}] {e.content}" for e in events])
-                used_ids = [e.id for e in events]
+                logs_text, used_ids, missing_ids = LogProcessor.get_batch_logs(current_obj, episodic_store, config)
+                
+                if not used_ids and not missing_ids: 
+                    break
+                
+                if not used_ids and missing_ids:
+                    # Only missing IDs found, clear them out and continue
+                    current_obj.evidence_event_ids = [eid for eid in eids if eid not in missing_ids]
+                    with memory.semantic.transaction():
+                        memory.semantic.update_decision(fid, {"evidence_event_ids": current_obj.evidence_event_ids}, commit_msg="Enrichment: removed missing ids")
+                    continue
 
                 logger.info(f"  - Calling LLM for distillation (Iter {iteration}, {len(used_ids)} events)...")
-                enriched = self.enrich_proposal(current_obj, cluster_logs=logs_text, memory=memory, used_event_ids=used_ids)
+                enriched = self.enrich_proposal(current_obj, cluster_logs=logs_text, memory=memory, used_event_ids=used_ids + missing_ids)
                 
-                if enriched:
-                    with memory.semantic.transaction():
-                        memory.semantic.update_decision(fid, enriched.model_dump(mode="json"), commit_msg=f"Enrichment: Iter {iteration}")
+                if not enriched: break
+                
+                # Check for progress
+                if len(getattr(enriched, 'evidence_event_ids', [])) >= len(eids):
+                    logger.warning(f"  - No progress in Iter {iteration}. Stopping enrichment for {fid}.")
+                    break
+
+                with memory.semantic.transaction():
+                    memory.semantic.update_decision(fid, enriched.model_dump(mode="json"), commit_msg=f"Enrichment: Iter {iteration}")
+                
                 current_obj = enriched
                 iteration += 1
+                if iteration > 10: break # Hard safety
+                
             results.append(current_obj)
         return results
 
@@ -154,6 +193,7 @@ class LLMEnricher:
                         self._inherit_cluster_evidence(memory, fid, u_fid, filter_fids=[u_fid])
                         handled_fids.add(u_fid)
 
+            # Safety rollbacks
             for tid in target_ids:
                 if tid not in handled_fids:
                     meta = memory.semantic.meta.get_by_fid(tid)
@@ -179,21 +219,12 @@ class LLMEnricher:
         
         docs_full = []
         for fid in fids:
-            # Use data from meta index - it's most reliable
             meta = memory.semantic.meta.get_by_fid(fid)
             if meta:
-                # Combine meta rationale and full content for maximum context
                 full_body = f"FID: {fid}\nTITLE: {meta.get('title')}\nRATIONALE: {meta.get('rationale', '')}\nCONTENT: {meta.get('content', '')}"
                 docs_full.append(full_body)
-            else:
-                logger.warning(f"  - No meta data found for {fid}. Skipping in synthesis.")
             
-        if len(docs_full) < 2:
-            logger.error(f"  - Consolidation aborted: Only {len(docs_full)} documents with valid meta found.")
-            return
-        
-        total_chars = sum(len(d) for d in docs_full)
-        logger.info(f"  - Sending {total_chars} chars of technical evidence to LLM (Architect Role)...")
+        if len(docs_full) < 2: return
         
         docs_summary = "\n\n--- DOCUMENT BOUNDARY ---\n\n".join(docs_full)
         config = EnrichmentConfig.from_memory(memory, mode="rich", preferred_language=self.preferred_language)
@@ -262,12 +293,16 @@ class LLMEnricher:
         try:
             event_ids = memory.episodic.get_linked_event_ids(source_fid)
             if not event_ids: return
-            events = memory.episodic.get_events_by_ids(event_ids)
+            events = memory.episodic.get_by_ids(event_ids)
             count = 0
             for ev in events:
-                intended = ev.metadata.get("intended_fid")
+                meta = ev.get('metadata')
+                if isinstance(meta, str):
+                    try: meta = json.loads(meta)
+                    except Exception: meta = {}
+                intended = (meta or {}).get("intended_fid")
                 if not intended or intended in filter_fids:
-                    memory.episodic.link_to_semantic(ev.id, dest_fid)
+                    memory.episodic.link_to_semantic(ev.get('id'), dest_fid)
                     count += 1
             if count > 0: logger.debug(f"  - Inherited {count} evidence events.")
         except Exception as e:
@@ -300,6 +335,7 @@ class LLMEnricher:
             steps = [ProceduralStep(action=s["action"], expected_outcome=s.get("expected_outcome"), rationale=s.get("rationale")) 
                     if isinstance(s, dict) else ProceduralStep(action=str(s)) for s in raw_p if s]
             if steps: procedural = ProceduralContent(steps=steps, target_task=getattr(proposal, 'target', ''))
+        
         compressive = data.get("compressive") or data.get("compressive_rationale")
         if compressive and memory and hasattr(memory, 'semantic'):
             try:
@@ -307,14 +343,39 @@ class LLMEnricher:
                 rel_path = os.path.relpath(full_path, os.getcwd())
                 compressive = f"{compressive.strip()} To retrieve more detailed data, use cat {rel_path}."
             except Exception: pass
+            
+        # 3. Evidence Crystallization
         current_eids = getattr(proposal, 'evidence_event_ids', [])
-        used_set = set(used_ids or [])
-        remaining = [eid for eid in current_eids if eid not in used_set]
+        # Ensure comparison is done with same types (integers)
+        processed_set = {int(eid) for eid in (used_ids or [])}
+        remaining = [eid for eid in current_eids if int(eid) not in processed_set]
         removed_count = len(current_eids) - len(remaining)
+        
+        if removed_count > 0:
+            logger.info(f"  - Successfully distilled {removed_count} events into the hypothesis.")
+        
         total_count = getattr(proposal, 'total_evidence_count', 0) + removed_count
-        fill_pct = (total_count / (total_count + len(remaining)) * 100) if (total_count + len(remaining)) > 0 else 100.0
         status = "completed" if not remaining else "pending"
-        updates = {"title": data.get("title") or data.get("goal") or getattr(proposal, 'title', ''), "rationale": data.get("rationale") or getattr(proposal, 'rationale', ''), "compressive_rationale": compressive, "keywords": ResponseParser.clean_keywords(data.get("keywords", [])), "strengths": data.get("strengths", []), "objections": data.get("objections", []), "consequences": data.get("consequences", []), "estimated_utility": float(data.get("estimated_utility", 0.5)), "estimated_removal_cost": float(data.get("estimated_removal_cost", 0.5)), "procedural": procedural, "enrichment_status": status, "total_evidence_count": total_count, "evidence_event_ids": remaining}
-        if hasattr(proposal, "model_copy"): return proposal.model_copy(update=updates)
-        for k, v in updates.items(): setattr(proposal, k, v)
+        
+        updates = {
+            "title": data.get("title") or data.get("goal") or getattr(proposal, 'title', ''),
+            "rationale": data.get("rationale") or getattr(proposal, 'rationale', ''),
+            "compressive_rationale": compressive,
+            "keywords": ResponseParser.clean_keywords(data.get("keywords", [])),
+            "strengths": data.get("strengths", []),
+            "objections": data.get("objections", []),
+            "consequences": data.get("consequences", []),
+            "estimated_utility": float(data.get("estimated_utility", 0.5)),
+            "estimated_removal_cost": float(data.get("estimated_removal_cost", 0.5)),
+            "procedural": procedural,
+            "enrichment_status": status,
+            "total_evidence_count": total_count,
+            "evidence_event_ids": remaining
+        }
+        
+        # Apply to both __dict__ and internal data for consistency
+        for k, v in updates.items(): 
+            setattr(proposal, k, v)
+            if hasattr(proposal, '_data') and k in proposal._data:
+                proposal._data[k] = v
         return proposal
