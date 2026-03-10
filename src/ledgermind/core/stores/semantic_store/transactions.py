@@ -122,7 +122,9 @@ class TransactionManager:
             # 2. Start EXCLUSIVE DB transaction
             if db_conn:
                 # IMMEDIATE ensures we have a write lock right now
-                db_conn.execute("BEGIN IMMEDIATE")
+                # Check in_transaction to avoid "cannot start a transaction within a transaction"
+                if not db_conn.in_transaction:
+                    db_conn.execute("BEGIN IMMEDIATE")
 
             # 3. Prepare backup directory
             if not os.path.exists(self.backup_dir):

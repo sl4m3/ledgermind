@@ -14,7 +14,7 @@ rm -rf MagicMock temp_test_tools temp_test_heartbeat memory_lifecycle_test .ledg
 
 # 1. Run all pytest-based tests
 echo -e "\n[1/3] Running pytest..."
-pytest -n0 tests/ "$@"
+pytest -n0 --maxfail=5 tests/ "$@"
 pytest tests/core/performance/bench_ops.py -n0
 
 # 2. Run Bandit security scan (Local SAST)

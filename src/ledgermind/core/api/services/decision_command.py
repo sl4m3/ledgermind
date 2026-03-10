@@ -112,6 +112,7 @@ class DecisionCommandService(MemoryService):
         intent = ResolutionIntent(resolution_type="supersede", rationale=rationale, target_decision_ids=old_decision_ids)
         ctx = DecisionStream(
             decision_id=str(uuid.uuid4()), title=title, target=target, rationale=rationale,
+            status="active",
             consequences=consequences or [], evidence_event_ids=evidence_ids or [], namespace=effective_namespace,
             phase=DecisionPhase.EMERGENT, vitality=DecisionVitality.ACTIVE, first_seen=datetime.now(), last_seen=datetime.now()
         )

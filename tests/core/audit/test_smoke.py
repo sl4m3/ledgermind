@@ -3,7 +3,7 @@ import os
 from ledgermind.core.api.memory import Memory
 from unittest.mock import patch
 
-@patch('ledgermind.core.reasoning.llm_enrichment.LLMEnricher.process_batch')
+@patch('ledgermind.core.reasoning.enrichment.facade.LLMEnricher.process_batch')
 def test_system_wide_smoke_check(mock_process, temp_storage):
     """
     Comprehensive smoke test covering:

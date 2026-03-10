@@ -3,8 +3,8 @@ import pytest
 from pydantic import ValidationError
 from ledgermind.core.core.schemas import (
     MemoryEvent,
-    DecisionContent,
-    ProposalContent,
+    BaseSemanticContent,
+    DecisionStream,
     KIND_DECISION,
     KIND_PROPOSAL
 )
@@ -58,7 +58,7 @@ def test_memory_event_context_validation_decision():
         content="Made a decision",
         context=decision_data
     )
-    assert isinstance(event.context, DecisionContent)
+    assert isinstance(event.context, DecisionStream)
     assert event.context.title == "Test Decision"
     assert event.context.target == "target-system"
 
@@ -77,7 +77,7 @@ def test_memory_event_context_validation_proposal():
         content="Proposed a hypothesis",
         context=proposal_data
     )
-    assert isinstance(event.context, ProposalContent)
+    assert isinstance(event.context, DecisionStream)
     assert event.context.title == "Test Proposal"
     assert event.context.confidence == 0.8
 
@@ -133,7 +133,7 @@ def test_memory_event_context_non_semantic():
 
 def test_decision_content_valid():
     """Test creating a valid DecisionContent."""
-    decision = DecisionContent(
+    decision = BaseSemanticContent(
         title="Valid Decision",
         target="valid-target",
         rationale="Valid rationale with enough length",
@@ -145,7 +145,7 @@ def test_decision_content_valid():
 def test_decision_content_empty_fields():
     """Test that empty strings for required fields in DecisionContent raise ValueError."""
     with pytest.raises(ValidationError) as excinfo:
-        DecisionContent(
+        BaseSemanticContent(
             title="",
             target="valid-target",
             rationale="Valid rationale"
@@ -154,7 +154,7 @@ def test_decision_content_empty_fields():
 
 def test_proposal_content_valid():
     """Test creating a valid ProposalContent."""
-    proposal = ProposalContent(
+    proposal = DecisionStream(
         title="Valid Proposal",
         target="valid-target",
         rationale="Valid rationale with enough length",
@@ -167,7 +167,7 @@ def test_proposal_content_valid():
 def test_proposal_content_invalid_confidence():
     """Test that invalid confidence values raise ValidationError."""
     with pytest.raises(ValidationError) as excinfo:
-        ProposalContent(
+        DecisionStream(
             title="Valid Proposal",
             target="valid-target",
             rationale="Valid rationale with enough length",
@@ -177,7 +177,7 @@ def test_proposal_content_invalid_confidence():
     assert "Input should be less than or equal to 1" in str(excinfo.value)
 
     with pytest.raises(ValidationError) as excinfo:
-        ProposalContent(
+        DecisionStream(
             title="Valid Proposal",
             target="valid-target",
             rationale="Valid rationale with enough length",
@@ -188,7 +188,7 @@ def test_proposal_content_invalid_confidence():
 def test_proposal_content_invalid_rationale_length():
     """Test that short rationale raises ValidationError."""
     with pytest.raises(ValidationError) as excinfo:
-        ProposalContent(
+        DecisionStream(
             title="Valid Proposal",
             target="valid-target",
             rationale="Short", # < 10 chars

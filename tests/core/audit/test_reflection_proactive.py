@@ -31,7 +31,8 @@ def test_reflection_proactive_success():
     
     args, kwargs = mock_processor.process_event.call_args
     assert kwargs["kind"] == "proposal"
-    assert "behavioral pattern" in kwargs["content"].lower()
+    # V7.0 uses format "Hypothesis for {target}"
+    assert "hypothesis for" in kwargs["content"].lower()
     assert kwargs["context"].target == "auth_flow"
 
 def test_reflection_lower_error_threshold():
@@ -61,7 +62,7 @@ def test_reflection_lower_error_threshold():
     assert mock_processor.process_event.call_count >= 1
     
     processed_contents = [call.kwargs["content"] for call in mock_processor.process_event.call_args_list]
-    assert any("behavioral pattern" in c.lower() for c in processed_contents)
+    assert any("hypothesis for" in c.lower() for c in processed_contents)
 
 def test_reflection_skips_active_targets():
     """Verify that it updates existing stream instead of creating a new one."""
@@ -71,7 +72,7 @@ def test_reflection_skips_active_targets():
     
     now = datetime.now()
     mock_episodic.query.return_value = [
-        {"id": i, "kind": "result", "content": "Success", "timestamp": now.isoformat(), "context": {"status": "active", "target": "existing_target"}}
+        {"id": i, "kind": "result", "content": "Success", "timestamp": now.isoformat(), "context": {"status": "active", "target": "existing_target", "success": True}}
         for i in range(6)
     ]
     

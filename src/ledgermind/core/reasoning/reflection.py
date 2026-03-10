@@ -140,8 +140,36 @@ class ReflectionEngine:
                                event_map: Optional[Dict[int, Any]] = None,
                                arbitration_mode: str = "optimal",
                                keywords: List[str] = None) -> Optional[str]:
-        """Creates a new pattern stream for a discovered target."""
+        """Creates a new pattern stream or updates an existing one for a discovered target."""
         try:
+            # V7.0: IDEMPOTENCY CHECK - avoid duplicates for the same target
+            metas = self.semantic.meta.list_all(target=target)
+            for m in metas:
+                if m.get('status') in ('active', 'draft') and not m.get('superseded_by'):
+                    fid = m.get('fid')
+                    logger.info(f"Reflection: Found existing active/draft {fid} for {target}. Updating evidence.")
+                    
+                    # Load existing context
+                    ctx_raw = m.get('context_json')
+                    if ctx_raw:
+                        try:
+                            ctx_dict = json.loads(ctx_raw)
+                            eids = set(ctx_dict.get('evidence_event_ids', []))
+                            new_eids = set(stats['all_ids'])
+                            
+                            if not new_eids.issubset(eids):
+                                eids.update(new_eids)
+                                ctx_dict['evidence_event_ids'] = list(eids)
+                                ctx_dict['last_seen'] = now.isoformat()
+                                # Trigger re-enrichment if new evidence arrived
+                                if arbitration_mode != "lite":
+                                    ctx_dict['enrichment_status'] = "pending"
+                                
+                                self.processor.update_decision(fid, ctx_dict, commit_msg=f"Reflection: Appended {len(new_eids - eids)} new evidence events.")
+                            return fid
+                        except Exception as e:
+                            logger.error(f"Failed to update existing stream {fid}: {e}")
+
             # V6.0: Calculate actual time range from evidence events
             event_times = []
             for eid in stats['all_ids']:

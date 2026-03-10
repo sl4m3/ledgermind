@@ -513,7 +513,7 @@ class SemanticStore:
                     timestamp=event.timestamp,
                     content=event.content,
                     context=ctx_dict,
-                    status=getattr(event.context, 'status', 'draft'), # Correctly extract from context object
+                    status=data.get('status') or getattr(event.context, 'status', 'draft'), # Prefer processed data status
                     content_hash=content_hash # Pass correctly calculated hash
                 )
             except Exception as e:
@@ -527,12 +527,13 @@ class SemanticStore:
 
             if not self._in_transaction:
                 try:
-                    # Integrity validation is deferred to maintenance for performance
+                    # V7.0: Validate integrity immediately after standalone save to protect I4 invariant
+                    IntegrityChecker.validate(self.repo_path, fid=relative_path, data=data)
                     self.audit.add_artifact(relative_path, full_file_content, f"Add {event.kind}: {event.content[:50]}")
                 except Exception as e:
                     if os.path.exists(full_path): os.remove(full_path)
                     self.meta.delete(relative_path)
-                    raise RuntimeError(f"Audit Log Failed: {e}")
+                    raise e
             else:
                 # In transaction: stage the file for the final atomic commit
                 if isinstance(self.audit, GitAuditProvider):

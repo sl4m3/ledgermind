@@ -3,7 +3,7 @@ import os
 import time
 from datetime import datetime, timedelta
 from ledgermind.core.api.memory import Memory
-from ledgermind.core.core.schemas import KIND_PROPOSAL, KIND_DECISION, ProposalStatus
+from ledgermind.core.core.schemas import KIND_PROPOSAL, KIND_DECISION, MemoryEvent
 
 def test_decay_draft_proposals(memory):
     """Point 5: Verify draft proposals decay faster."""
@@ -31,46 +31,46 @@ def test_decay_draft_proposals(memory):
     fid_active = res2.metadata["file_id"]
     
     # Manually backdate them in metadata for decay to trigger (needs > 7 days inactivity)
-    # We'll simulate 14 days inactivity. Use ISO strings that SQLite can sort.
     old_ts = (datetime.now() - timedelta(days=14)).isoformat()
     memory.semantic.meta._conn.execute(
         "UPDATE semantic_meta SET last_hit_at = ?, timestamp = ? WHERE fid IN (?, ?)",
         (old_ts, old_ts, fid_draft, fid_active)
     )
     
-    # Standard rate is 0.05. 
-    # Draft should decay by 0.05 * 2 * 2 (steps) = 0.2 -> 0.6
-    # Active Decision should decay by (0.05 / 3) * 2 = 0.033 -> 0.96...
-    
     memory.run_decay()
     
     meta_draft = memory.semantic.meta.get_by_fid(fid_draft)
     meta_active = memory.semantic.meta.get_by_fid(fid_active)
     
-    # Confidence is rounded to 2 decimal places in results, but run_decay updates DB
     assert meta_draft['confidence'] <= 0.61
     assert meta_active['confidence'] > 0.6
 
 def test_reflection_self_clustering_prevention(memory):
     """Point 6: Verify reflection doesn't cluster its own proposals."""
-    from ledgermind.core.core.schemas import MemoryEvent, ProposalContent
-    
-    ctx = ProposalContent(
-        target="self_test", 
-        title="Self Proposal", 
-        rationale="Rationale is long enough for validation",
-        confidence=0.5
-    )
-    # Use a valid source and add a mock ID
-    ev = MemoryEvent(
+    # 1. Add an event with source='reflection_engine'
+    # These events should be ignored by the reflection logic to avoid feedback loops
+    memory.episodic.append(MemoryEvent(
         source="reflection_engine",
         kind="proposal",
-        content="Self Proposal",
-        context=ctx
-    )
-    ev_dict = ev.model_dump(mode='json')
-    ev_dict['id'] = 999
+        content="Self-generated content",
+        context={"target": "self_test"}
+    ))
     
-    clusters = memory.reflection_engine._cluster_evidence([ev_dict])
-    assert "self_test" not in clusters
-
+    # 2. Add some other events to trigger a cycle
+    for _ in range(3):
+        memory.episodic.append(MemoryEvent(
+            source="agent",
+            kind="call",
+            content="Normal call",
+            context={"target": "other_target"}
+        ))
+    
+    # 3. Run reflection
+    results, _ = memory.reflection_engine.run_cycle()
+    
+    # 4. Verify that 'self_test' was NOT created as a proposal
+    # We check the results (file IDs of created proposals)
+    all_metas = memory.semantic.meta.list_all()
+    targets = [m.get('target') for m in all_metas]
+    
+    assert "self_test" not in targets, "Reflection should ignore its own generated events"

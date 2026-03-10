@@ -72,17 +72,15 @@ def test_S4_supersede_cycle(temp_storage):
     assert "Cycle detected" in str(excinfo.value)
 
 def test_T1_immutable_fields(memory):
-
     """T1: TransitionValidator blocks immutable field changes."""
-
     memory.record_decision(title="Orig", target="TargetArea", rationale="Original rationale string")
-
     files = memory.semantic.list_decisions()
-
     fid = files[0]
 
-    
+    # V7.0: Proposals are mutable. We must promote to ACTIVE DECISION to test immutability
+    from ledgermind.core.core.schemas import KIND_DECISION
+    memory.semantic.update_decision(fid, {"status": "active", "kind": KIND_DECISION}, "Accepting proposal")
 
+    from ledgermind.core.stores.semantic_store.transitions import TransitionError
     with pytest.raises(TransitionError):
-
         memory.semantic.update_decision(fid, {"target": "NEW_TARGET_AREA"}, "Illegal update rationale string")

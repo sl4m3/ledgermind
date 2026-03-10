@@ -40,11 +40,13 @@ class TransitionValidator:
             return common_start > 10
 
         for field in TransitionValidator.IMMUTABLE_FIELDS:
-            old_val = old_data.get(field)
-            new_val = new_data.get(field)
+            # V7.0: Robust field extraction (check root then context)
+            old_val = old_data.get(field) or old_ctx.get(field)
+            new_val = new_data.get(field) or new_ctx.get(field)
+            
             if old_val != new_val:
                 # 1. Proposals can evolve as more evidence arrives
-                if old_data.get("kind") == "proposal":
+                if old_data.get("kind") == "proposal" or old_ctx.get("kind") == "proposal":
                     continue
                 # 2. Minor typo correction in decisions
                 if field == "content" and is_minor_diff(old_val, new_val):
@@ -52,7 +54,7 @@ class TransitionValidator:
                 # 3. Allow LLM enrichment to set 'Goal' into content field
                 if field == "content" and (is_pending or is_draft):
                     continue
-                # 4. Allow filling missing top-level fields (migration)
+                # 4. Allow filling missing top-level fields (migration) - ONLY if really missing in BOTH
                 if old_val is None and new_val is not None:
                     continue
                 
