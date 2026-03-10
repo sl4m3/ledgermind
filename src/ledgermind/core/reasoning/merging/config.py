@@ -4,16 +4,17 @@ from typing import Dict, Any, Optional
 @dataclass
 class MergeConfig:
     """Configuration for MergeEngine."""
-    threshold: float = 0.75
+    threshold: float = 0.80
     max_candidates: int = 100
     max_workers: int = 4
     timeout: int = 30
 
     algorithms: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
-        "default": {"name": "vector_embedding"},
-        "rrf_jaccard": {"threshold": 0.75},
+        "default": {"name": "vector_embedding", "validation_threshold": 0.60},
+        "rrf_jaccard": {"threshold": 0.80},
         "vector_embedding": {
-            "threshold": 0.75,
+            "threshold": 0.80,
+            "validation_threshold": 0.60,
             "keyword_weight": 0.15,
             "use_vector_search": True,
             "vector_search_limit": 100,

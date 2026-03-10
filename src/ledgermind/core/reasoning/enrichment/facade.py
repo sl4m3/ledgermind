@@ -135,64 +135,134 @@ class LLMEnricher:
         return results
 
     def _handle_validation_cluster(self, proposal: Any, memory: Any):
-        """Specially handles validation by asking LLM to confirm duplicates."""
+        """Specially handles validation by asking LLM to group documents into sub-clusters of actual duplicates."""
         target_ids = getattr(proposal, 'target_ids', [])
         if len(target_ids) < 2: return
 
-        logger.info(f"Validating cluster of {len(target_ids)} documents...")
+        fid = getattr(proposal, 'fid', 'unknown')
+        logger.info(f"Analyzing multi-document cluster of {len(target_ids)} items for {fid}...")
         
         # Load all documents in the cluster
-        docs = []
+        docs_meta = []
         for tid in target_ids:
             meta = memory.semantic.meta.get_by_fid(tid)
-            if meta: docs.append(meta)
+            if meta: docs_meta.append(meta)
             
-        if len(docs) < 2: return
+        if len(docs_meta) < 2: return
 
-        # Build validation prompt
-        docs_summary = "\n\n".join([f"DOC {j}:\nTitle: {d['title']}\nContent: {d['content'][:500]}" for j, d in enumerate(docs, 1)])
-        prompt = (
-            "Analyze the following documents and determine if they are semantically identical or near-duplicates.\n"
-            f"{docs_summary}\n\n"
-            "Respond ONLY with a JSON object: {\"is_duplicate\": true/false, \"reasoning\": \"short explanation\"}"
-        )
+        # 1. Build Data Summary
+        docs_summary = "\n\n".join([
+            f"FID: {d['fid']}\nTitle: {d['title']}\nTarget: {d.get('target', 'unknown')}\nKeywords: {d.get('keywords', [])}\nContent: {d['content'][:800]}" 
+            for d in docs_meta
+        ])
         
+        # 2. Call LLM through Builder
         config = EnrichmentConfig.from_memory(memory, mode="rich", preferred_language=self.preferred_language)
+        instructions = PromptBuilder.build_clustering_prompt(config)
+        full_prompt = PromptBuilder.wrap_with_data(instructions, docs_summary, config)
+        
         client = self._get_client(config, memory)
-        response = client.call("You are a Duplicate Detection Expert.", prompt)
+        response = client.call("You are a Duplicate Detection Expert.", full_prompt, fid=fid)
         
         import json
         try:
+            # Robust JSON extraction
             res_data = json.loads(re.search(r'\{.*\}', response, re.DOTALL).group(0))
-            if res_data.get("is_duplicate"):
-                logger.info(f"LLM Confirmed DUPLICATE for {proposal.fid}. Creating Merge Proposal.")
-                # Stage 2: Auto-convert to Merge Proposal
-                with memory.semantic.transaction():
-                    # 1. Fulfil current validation hypothesis
-                    memory.semantic.update_decision(proposal.fid, {"status": "fulfilled", "enrichment_status": "completed"}, "LLM Confirmed duplicates.")
+            clusters = res_data.get("clusters", [])
+            
+            logger.info(f"LLM suggested {len(clusters)} sub-clusters for {fid}.")
+            
+            handled_fids = set()
+            
+            with memory.semantic.transaction():
+                for group in clusters:
+                    if not group or not isinstance(group, list): continue
                     
-                    # 2. Create actual Merge Proposal
-                    from ledgermind.core.core.schemas import MemoryEvent, KIND_PROPOSAL
-                    from datetime import datetime
-                    merge_event = MemoryEvent(
-                        source="system",
-                        kind=KIND_PROPOSAL,
-                        content=f"Merge Confirmed: {docs[0]['title']}",
-                        timestamp=datetime.now(),
-                        context={
-                            "topic": f"Merge Cluster (LLM Confirmed)",
-                            "target_ids": target_ids,
-                            "confidence": 1.0,
-                            "status": "pending"
-                        }
-                    )
-                    memory.semantic.save(merge_event)
-            else:
-                logger.info(f"LLM Rejected duplicate for {proposal.fid}. Closing as false positive.")
-                with memory.semantic.transaction():
-                    memory.semantic.update_decision(proposal.fid, {"status": "falsified", "enrichment_status": "completed"}, "LLM: Documents are distinct.")
+                    # A. ACTUAL MERGE (Group size > 1)
+                    if len(group) > 1:
+                        # Extract titles for the new merged knowledge
+                        first_doc = memory.semantic.meta.get_by_fid(group[0])
+                        title = first_doc['title'] if first_doc else "Merged Knowledge Cluster"
+                        
+                        from ledgermind.core.core.schemas import MemoryEvent, KIND_PROPOSAL
+                        from datetime import datetime
+                        merge_event = MemoryEvent(
+                            source="system",
+                            kind=KIND_PROPOSAL,
+                            content=f"Merge Confirmed: {title}",
+                            timestamp=datetime.now(),
+                            context={
+                                "topic": f"Merge Cluster (LLM Confirmed)",
+                                "target_ids": group,
+                                "supersedes": group, # Backlink compatibility
+                                "confidence": 1.0,
+                                "status": "pending",
+                                "target": "knowledge_merge"
+                            }
+                        )
+                        new_merge_fid = memory.semantic.save(merge_event)
+                        
+                        # REDISTRIBUTION: Inherit evidence from the validation cluster to this specific merge
+                        self._inherit_cluster_evidence(memory, fid, new_merge_fid)
+                        
+                        for g_fid in group: handled_fids.add(g_fid)
+                        logger.info(f"Created confirmed merge {new_merge_fid} for group: {group}")
+                    
+                    # B. UNIQUE ITEM (Group size == 1) - ROLLBACK
+                    else:
+                        u_fid = group[0]
+                        meta = memory.semantic.meta.get_by_fid(u_fid)
+                        if meta:
+                            prev_status = meta.get('metadata', {}).get('previous_status', 'draft')
+                            memory.semantic.update_decision(u_fid, {"status": prev_status, "superseded_by": None}, 
+                                                           f"Rollback: Document identified as unique by LLM.")
+                            
+                            # REDISTRIBUTION: Return evidence back to the unique doc from the validation cluster
+                            self._inherit_cluster_evidence(memory, fid, u_fid)
+                            
+                            handled_fids.add(u_fid)
+                            logger.info(f"Restored unique document {u_fid} to {prev_status}")
+
+    def _inherit_cluster_evidence(self, memory: Any, source_fid: str, dest_fid: str):
+        """Moves episodic evidence from one semantic record to another."""
+        try:
+            # Get all event IDs linked to the source (validation cluster)
+            event_ids = memory.episodic.get_linked_event_ids(source_fid)
+            if not event_ids: return
+            
+            # Transfer links in episodic store
+            for eid in event_ids:
+                memory.episodic.link_to_semantic(eid, dest_fid)
+            logger.debug(f"Inherited {len(event_ids)} evidence events from {source_fid} to {dest_fid}")
         except Exception as e:
-            logger.error(f"Failed to parse LLM validation result: {e}")
+            logger.warning(f"Failed to inherit evidence: {e}")
+
+                # C. SAFETY: Restore any documents that LLM might have missed in the JSON response
+                for tid in target_ids:
+                    if tid not in handled_fids:
+                        meta = memory.semantic.meta.get_by_fid(tid)
+                        if meta:
+                            prev_status = meta.get('metadata', {}).get('previous_status', 'draft')
+                            memory.semantic.update_decision(tid, {"status": prev_status, "superseded_by": None}, 
+                                                           "Rollback: Safety (Missed by LLM clustering).")
+                            logger.warning(f"Safety rollback for {tid} (missed by LLM response)")
+
+                # Mark the validation proposal itself as fulfilled
+                memory.semantic.update_decision(fid, {"status": "fulfilled", "enrichment_status": "completed"}, 
+                                               f"Clustering complete: {res_data.get('reasoning', 'No reasoning provided')}")
+
+        except Exception as e:
+            logger.error(f"Failed to process multi-document validation for {fid}: {e}")
+            # Global rollback for the whole cluster if something went wrong
+            with memory.semantic.transaction():
+                for tid in target_ids:
+                    meta = memory.semantic.meta.get_by_fid(tid)
+                    if meta:
+                        prev_status = meta.get('metadata', {}).get('previous_status', 'draft')
+                        memory.semantic.update_decision(tid, {"status": prev_status, "superseded_by": None}, 
+                                                       "Rollback: Validation system error.")
+                memory.semantic.update_decision(fid, {"status": "falsified", "enrichment_status": "completed"}, 
+                                               f"Clustering aborted due to error: {str(e)}")
 
 
     def enrich_proposal(self, proposal: Any, cluster_logs: Optional[str] = None, memory: Any = None, used_event_ids: Optional[List[int]] = None) -> Any:

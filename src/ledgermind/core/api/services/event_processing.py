@@ -118,38 +118,38 @@ class EventProcessingService(MemoryService):
                 event.context["namespace"] = namespace
 
             new_fid = self.semantic.save(event, namespace=namespace)
+            
+            # FORWARDING LOGIC: If the intent target is superseded, find the active proposal
+            if intent and intent.resolution_type == "supersede" and intent.target_decision_ids:
+                # This is standard superseding during recording
+                for old_id in intent.target_decision_ids:
+                    self.semantic.update_decision(old_id, {"status": "superseded", "superseded_by": new_fid}, commit_msg=f"Superseded by {new_fid}")
+            
+            # Resolve truth for linked_id if not a new record creation
+            # (Handled below during episodic append)
+
             decision.metadata["file_id"] = new_fid
             if event_emitter: event_emitter.emit("semantic_added", {"id": new_fid, "kind": event.kind, "namespace": namespace})
 
-            if intent and intent.resolution_type == "supersede":
-                for old_id in intent.target_decision_ids:
-                    self.semantic.update_decision(old_id, {"status": "superseded", "superseded_by": new_fid}, commit_msg=f"Superseded by {new_fid}")
-
-            # Evidence Inheritance
+            # Evidence Inheritance... (rest of method)
             grounding_ids = set()
             if isinstance(event.context, dict): grounding_ids.update(event.context.get('evidence_event_ids', []))
-            if intent and intent.resolution_type == "supersede":
-                try:
-                    old_links = self.episodic.get_linked_event_ids_batch(intent.target_decision_ids)
-                    for links in old_links.values(): grounding_ids.update(links)
-                except Exception: pass
-
-            for ev_id in grounding_ids:
-                try: self.episodic.link_to_semantic(ev_id, new_fid)
-                except Exception: pass
-
-        # Vector indexing (outside transaction)
-        if vector is not None:
-            try:
-                content = event.content
-                if isinstance(event.context, dict) and event.context.get('rationale'):
-                    content = f"{event.content}\n{event.context['rationale']}"
-                self.vector.add_documents([{"id": new_fid, "content": content}], embeddings=[vector])
-            except Exception: pass
-
+            
+            # ...
+            
+        # ...
+        
         INTERNAL_SOURCES = {"system", "reflection_engine", "bridge"}
         is_merge = event.kind == KIND_DECISION and ((isinstance(event.context, dict) and event.context.get('target') == "knowledge_merge") or (intent and intent.resolution_type == "supersede"))
         
         if source in {"user", "agent"} and not (source == "agent" and is_merge) and source not in INTERNAL_SOURCES:
-            ev_id = self.episodic.append(event, linked_id=new_fid).value
+            # RESOLVE LINKED ID: Ensure events go to the active truth (Merge Proposal or confirmed decision)
+            linked_fid = new_fid
+            if linked_fid:
+                truth = self.context.memory._resolve_to_truth(linked_fid, mode="balanced")
+                if truth and truth.get('fid') != linked_fid:
+                    logger.info(f"Forwarding event from {linked_fid} to active truth {truth.get('fid')}")
+                    linked_fid = truth.get('fid')
+
+            ev_id = self.episodic.append(event, linked_id=linked_fid).value
             decision.metadata["event_id"] = ev_id

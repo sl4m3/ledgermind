@@ -21,21 +21,16 @@ class MergeEngineFacade:
         
         # Dynamic algorithm loading through factory
         alg_config = self.config.get_algorithm_config("default")
-        alg_name = alg_config.get("name", "rrf_jaccard")
+        alg_name = alg_config.get("name", "vector_embedding")
         threshold = self.config.get_algorithm_config(alg_name).get("threshold", self.config.threshold)
         
-        self.algorithm = AlgorithmFactory.create(alg_name, threshold=0.65) # Lower threshold for grey zone
-        from .llm_validator import MergingLLMValidator
-        self.llm_validator = MergingLLMValidator(memory)
+        self.algorithm = AlgorithmFactory.create(alg_name, threshold=self.config.get_algorithm_config("default").get("validation_threshold", 0.60))
 
     def scan_for_duplicates(self, candidates: List[Dict[str, Any]], threshold: Optional[float] = None) -> Result:
         """
         High-performance clustered scan focusing on stable (completed) and active truths.
         Implements Stage 1 (Clustering) and Stage 3 (Pruning/Truth Resolution) of the plan.
         """
-        MERGE_THRESHOLD = 0.85
-        VALIDATION_THRESHOLD = 0.65
-        
         logger.info(f"Starting clustered scan. Initial candidates: {len(candidates)}")
         
         # 1. PRE-PROCESSING: Local metadata cache of 'True' and 'Completed' versions
@@ -93,13 +88,17 @@ class MergeEngineFacade:
         handled_fids = set()
         
         # Use thresholds from config if available, otherwise fall back to defaults
-        merge_threshold = threshold or self.config.threshold or 0.85
-        validation_threshold = self.config.get_algorithm_config("default").get("validation_threshold", 0.65)
+        merge_threshold = threshold or self.config.threshold or 0.80
+        validation_threshold = self.config.get_algorithm_config("default").get("validation_threshold", 0.60)
 
         try:
             for i, candidate in enumerate(resolved_candidates):
                 cand_id = candidate.get('fid')
-                if cand_id in handled_fids:
+                
+                # RE-VALIDATE: Check actual status from DB before processing
+                # (The candidate might have been 'superseded' by a previous iteration in this loop)
+                current_meta = self.memory.semantic.meta.get_by_fid(cand_id)
+                if not current_meta or current_meta.get('status') == 'superseded':
                     continue
                 
                 query_text = self.algorithm._get_doc_text(candidate)
@@ -115,52 +114,104 @@ class MergeEngineFacade:
 
                 for res in search_results:
                     doc_id = res.get('id')
-                    if doc_id == cand_id or doc_id in handled_fids: 
+                    if doc_id == cand_id: 
                         continue
                     
                     # Resolve found document to its truth
                     target_doc = self.memory._resolve_to_truth(doc_id, mode="balanced", cache=full_meta_map)
+                    
+                    # IMPORTANT: Check if target is still valid (not superseded in this cycle)
+                    # We fetch fresh meta from DB to be absolutely sure
+                    actual_target = self.memory.semantic.meta.get_by_fid(target_doc.get('fid'))
+                    if not actual_target or actual_target.get('status') == 'superseded':
+                        continue
+
                     # ALLOW: 'active' AND 'draft' for merging (Stage 1 consolidation)
-                    if not target_doc or target_doc.get('status') not in ('active', 'draft'):
+                    if actual_target.get('status') not in ('active', 'draft'):
                         continue
                         
-                    if target_doc.get('enrichment_status') != 'completed':
+                    if actual_target.get('enrichment_status') != 'completed':
                         continue
 
                     # 4. FAST COMPARISON (Will use pre-cached embeddings)
-                    sim_score = self.algorithm.calculate_similarity(candidate, target_doc, memory=self.memory)
+                    sim_score = self.algorithm.calculate_similarity(candidate, actual_target, memory=self.memory)
                     
                     if sim_score >= merge_threshold:
-                        to_merge.append(target_doc)
+                        to_merge.append(actual_target)
                     elif sim_score >= validation_threshold:
-                        to_validate.append(target_doc)
+                        to_validate.append(actual_target)
 
-                # STAGE 1: Aggregated Clustering
-                # Create ONE proposal for high-confidence merges
-                if to_merge:
-                    handled_fids.add(cand_id)
-                    for d in to_merge: handled_fids.add(d['fid'])
-                    
-                    topic = f"Merge Cluster: {candidate.get('topic', candidate.get('title', 'Knowledge Group'))}"
-                    # Confidence for merges is high, use knowledge_merge target
-                    pid = self.create_merge_proposal([candidate] + to_merge, topic=topic, target="knowledge_merge")
-                    if pid: proposals.append(pid)
+                # STAGE 1: Unified Clustering
+                # Collect ALL potential neighbors into a single cluster for analysis
+                all_neighbors = to_merge + to_validate
                 
-                # Create ONE proposal for grey-zone validation
-                # Note: We only create validation cluster if candidate wasn't already merged
-                elif to_validate:
-                    handled_fids.add(cand_id)
-                    # We don't mark validation targets as 'handled' to let them 
-                    # potentially join stronger merge clusters later
+                if all_neighbors:
+                    group = [candidate] + all_neighbors
                     
-                    topic = f"Validation Cluster: Potential Duplicates"
-                    pid = self.create_merge_proposal([candidate] + to_validate, topic=topic, target="knowledge_validation")
-                    if pid: proposals.append(pid)
+                    # If we have ANY uncertain matches (grey zone), the whole group needs LLM validation
+                    target = "knowledge_merge" if not to_validate else "knowledge_validation"
+                    
+                    if target == "knowledge_merge":
+                        topic = f"Merge Cluster: {candidate.get('topic', candidate.get('title', 'Knowledge Group'))}"
+                    else:
+                        topic = f"Validation Cluster: Multi-Document Analysis ({len(group)} items)"
+                    
+                    # ATOMIC TRANSACTION: Create proposal AND supersede targets together
+                    pid = self.execute_merge_transaction(group, topic=topic, target=target)
+                    if pid:
+                        proposals.append(pid)
 
             return Result(success=True, data=proposals)
         except Exception as e:
             logger.error(f"Critical error during scan: {e}", exc_info=True)
             return Result(success=False, error=str(e))
+
+    def execute_merge_transaction(self, group: List[Dict[str, Any]], topic: str, target: str) -> Optional[str]:
+        """Atomically creates a merge proposal and updates all target statuses."""
+        try:
+            with self.memory.semantic.transaction():
+                # 1. Build and Save Proposal
+                builder = ProposalBuilder(self.memory)
+                builder.set_target(target)
+                builder.set_topic(topic)
+                
+                # Average confidence
+                base_doc = group[0]
+                sim_scores = [self.algorithm.calculate_similarity(base_doc, doc) for doc in group[1:]]
+                avg_confidence = sum(sim_scores) / len(sim_scores) if sim_scores else 1.0
+                builder.set_confidence(avg_confidence)
+                
+                for doc in group:
+                    builder.add_target(doc.get('id', doc.get('fid', 'unknown_id')))
+                
+                proposal_data = builder.build()
+                proposal_fid = self.transaction_manager.create_proposal(proposal_data)
+                
+                if not proposal_fid:
+                    raise Exception("Failed to save merge proposal file.")
+
+                # 2. Update all targets to 'superseded' IMMEDIATELY in the same transaction
+                for doc in group:
+                    fid = doc.get('fid')
+                    if not fid: continue
+                    
+                    # Store original status for potential rollback
+                    old_status = doc.get('status', 'draft')
+                    updates = {
+                        "status": "superseded",
+                        "superseded_by": proposal_fid,
+                        "metadata": {**doc.get('metadata', {}), "previous_status": old_status}
+                    }
+                    # We use internal semantic store to avoid nested transaction triggers if possible,
+                    # but here update_decision is safe within the context manager.
+                    self.memory.semantic.update_decision(fid, updates, commit_msg=f"Superseded by {proposal_fid}")
+                    logger.info(f"Target {fid} is now superseded by {proposal_fid} (Previous: {old_status})")
+                
+                return proposal_fid
+                
+        except Exception as e:
+            logger.error(f"Failed atomic merge transaction: {e}")
+            return None
 
     def create_merge_proposal(self, group: List[Dict[str, Any]], topic: Optional[str] = None, confidence: Optional[float] = None, target: str = "knowledge_merge") -> Optional[str]:
         """Creates a proposal using Builder."""

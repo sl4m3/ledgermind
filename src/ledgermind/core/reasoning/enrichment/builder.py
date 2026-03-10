@@ -26,6 +26,21 @@ class PromptBuilder:
         )
 
     @staticmethod
+    def build_clustering_prompt(config: EnrichmentConfig) -> str:
+        lang = config.preferred_language
+        lang_instr = f"Respond strictly in {lang}." if lang != "auto" else ""
+        
+        return (
+            "You are a Knowledge Architect and Duplicate Detection Expert.\n"
+            "### TASK: Analyze the provided list of knowledge documents and group them into clusters of actual semantic duplicates.\n"
+            "### DEFINITION: A cluster should contain documents that describe the exact same event, decision, or hypothesis.\n"
+            f"### RULES: {lang_instr} Return ONLY a JSON object with fields:\n"
+            "1. clusters: A list of lists, where each sub-list contains document FIDs that are duplicates. If a document is unique, it MUST be in a sub-list by itself.\n"
+            "2. reasoning: A brief explanation of your clustering logic.\n"
+            "### EXAMPLE: {\"clusters\": [[\"fid_1\", \"fid_2\"], [\"fid_3\"]], \"reasoning\": \"1 and 2 are same, 3 is unique\"}"
+        )
+
+    @staticmethod
     def wrap_with_data(instructions: str, data: str, config: EnrichmentConfig) -> str:
         lang_enf = ""
         if config.preferred_language != "auto":
