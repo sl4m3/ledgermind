@@ -211,8 +211,8 @@ class SemanticMetaStore:
         # 1. Try FTS5 if available
         results = []
         try:
-            # Match phrase first, then individual words as prefixes if phrase fails
-            fts_query = f'"{sanitized}"' 
+            # Use query as is for standard FTS5 behavior (AND/OR logic)
+            fts_query = sanitized
             sql = """
                 SELECT m.* FROM semantic_meta m
                 JOIN semantic_fts f ON m.fid = f.fid

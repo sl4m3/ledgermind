@@ -27,7 +27,7 @@ def test_hierarchical_normalization(target_registry):
     assert target_registry.normalize("unknown_thing") == "unknown_thing"
 
 def test_atom_segmentation(builder):
-    """Test that events are sliced into atoms based on user prompts."""
+    """Test that events are sliced into atoms and chains (V5.4)."""
     events = [
         {"id": 1, "source": "user", "kind": "prompt", "content": "Hello", "timestamp": "2026-03-08T10:00:00Z"},
         {"id": 2, "source": "agent", "kind": "call", "content": "tool()", "timestamp": "2026-03-08T10:00:05Z"},
@@ -37,10 +37,10 @@ def test_atom_segmentation(builder):
     ]
     
     chains = builder.build_chains(events)
-    assert len(chains) == 1 # They are within 1 hour, so 1 chain
-    assert len(chains[0].atoms) == 2 # But 2 separate atoms (2 user prompts)
+    # V5.4: Each atom (user prompt sequence) is its own chain
+    assert len(chains) == 2 
     assert chains[0].atoms[0].events[0].content == "Hello"
-    assert chains[0].atoms[1].events[0].content == "Next"
+    assert chains[1].atoms[0].events[0].content == "Next"
 
 def test_target_deduction_from_paths(builder):
     """Test that target is correctly deduced from file paths in tool calls."""
@@ -84,6 +84,6 @@ def test_chain_linking_by_time(builder):
     ]
     
     chains = builder.build_chains(events)
-    assert len(chains) == 2 # > 1 hour gap
+    assert len(chains) == 2 
     assert chains[0].atoms[0].events[0].content == "Morning"
     assert chains[1].atoms[0].events[0].content == "Evening"
