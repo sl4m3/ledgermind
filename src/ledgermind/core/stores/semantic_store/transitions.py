@@ -22,7 +22,10 @@ class TransitionValidator:
         """
         old_ctx = old_data.get("context", {})
         new_ctx = new_data.get("context", {})
-        is_pending = old_ctx.get("enrichment_status") == "pending"
+        
+        # Check both root and context for pending/draft status
+        is_pending = old_data.get("enrichment_status") == "pending" or old_ctx.get("enrichment_status") == "pending"
+        is_draft = old_data.get("status") == "draft" or old_ctx.get("status") == "draft"
         
         # Minor edits (like typo correction) are allowed even in core fields
         def is_minor_diff(s1, s2):
@@ -47,7 +50,7 @@ class TransitionValidator:
                 if field == "content" and is_minor_diff(old_val, new_val):
                     continue
                 # 3. Allow LLM enrichment to set 'Goal' into content field
-                if field == "content" and is_pending:
+                if field == "content" and (is_pending or is_draft):
                     continue
                 # 4. Allow filling missing top-level fields (migration)
                 if old_val is None and new_val is not None:
@@ -60,12 +63,15 @@ class TransitionValidator:
                 # Proposals are hypotheses, allow updating rationale as more evidence arrives
                 if old_data.get("kind") == "proposal":
                     continue
-                # Allow LLM enrichment to update rationale and compressive_rationale even on decisions
-                if field in ("rationale", "compressive_rationale") and is_pending:
+                # Allow LLM enrichment to deeply populate all architectural fields while still in draft/pending
+                if is_pending or is_draft:
+                    continue
+                # Allow filling if it was completely empty
+                if not old_ctx.get(field):
                     continue
                 raise TransitionError(f"I1 Violation: Semantic context field '{field}' is immutable. Change rejected.")
                 
         # Also, check kind-specific constraints
         if old_data.get("kind") == "decision":
-            if old_ctx.get("status") == "superseded" and new_ctx.get("status") == "active":
+            if (old_data.get("status") == "superseded" or old_ctx.get("status") == "superseded") and new_data.get("status") == "active":
                 raise TransitionError("I1 Violation: Cannot revert status from 'superseded' back to 'active'.")

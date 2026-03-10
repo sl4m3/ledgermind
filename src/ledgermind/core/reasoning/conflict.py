@@ -57,8 +57,9 @@ class ConflictEngine:
 
         if self.meta:
             ns = namespace or self._get_namespace(event)
-            # Find all active decisions for the same target
-            fids = self.meta.get_active_fids_by_base_target(new_target, namespace=ns)
+            # Find all active decisions for the same target using standard list_all
+            metas = self.meta.list_all(target=new_target, namespace=ns)
+            fids = [m['fid'] for m in metas if m.get('status') == 'active']
             return fids
 
         return []
