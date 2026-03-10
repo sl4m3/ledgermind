@@ -48,11 +48,10 @@ class MemoryLoader:
                 return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
             return dumper.represent_scalar('tag:yaml.org,2002:str', data)
 
-        # Use SafeDumper to avoid issues with custom tags
-        class FoldedDumper(yaml.SafeDumper):
+        class SafeFoldedDumper(yaml.SafeDumper):
             pass
         
-        FoldedDumper.add_representer(str, str_presenter)
+        SafeFoldedDumper.add_representer(str, str_presenter)
             
-        yaml_str = yaml.dump(data, Dumper=FoldedDumper, allow_unicode=True, sort_keys=False, default_flow_style=False).strip()
+        yaml_str = yaml.dump(data, Dumper=SafeFoldedDumper, allow_unicode=True, sort_keys=False, default_flow_style=False, width=1000).strip()
         return f"---\n{yaml_str}\n---\n\n{body}"

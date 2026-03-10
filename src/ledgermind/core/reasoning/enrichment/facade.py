@@ -53,7 +53,9 @@ class LLMEnricher:
             if target == "knowledge_validation": return 1
             return 2
 
-        pending_metas.sort(key=get_priority)
+        # Sort by priority first, then by timestamp (ASC - oldest first)
+        pending_metas.sort(key=lambda m: (get_priority(m), m.get('timestamp', '')))
+        
         if limit: pending_metas = pending_metas[:limit]
 
         # 3. Process sequentially
@@ -64,15 +66,20 @@ class LLMEnricher:
                 class ProposalWrapper:
                     def __init__(self, data):
                         self._data = data
-                        for k, v in data.items(): setattr(self, k, v)
+                        # Blacklist technical fields from being part of the primary object attributes
+                        blacklist = {'context_json', 'content_hash', 'last_hit_at', 'hit_count'}
+                        for k, v in data.items(): 
+                            if k not in blacklist: setattr(self, k, v)
+                        
                         if 'context_json' in data and data['context_json']:
                             try:
                                 ctx = json.loads(data['context_json'])
                                 for k, v in ctx.items():
-                                    if not hasattr(self, k): setattr(self, k, v)
+                                    if not hasattr(self, k) and k not in blacklist: setattr(self, k, v)
                             except Exception: pass
                     
                     def model_dump(self, mode="json"):
+                        # Only include attributes that are not private and not in the protected list
                         dump = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
                         return dump
                 
@@ -329,19 +336,45 @@ class LLMEnricher:
 
     def _apply_mapping(self, proposal: Any, data: Dict[str, Any], used_ids: Optional[List[int]], memory: Any) -> Any:
         fid = getattr(proposal, 'fid', 'unknown')
+        
+        def _clean_text(text: Any) -> str:
+            if text is None: return ""
+            if isinstance(text, (list, tuple)):
+                text = " ".join([_clean_text(i) for i in text if i])
+            
+            text = str(text)
+            # Convert literal \n strings to actual newlines
+            text = text.replace('\\n', '\n')
+            # Normalize line endings and strip trailing whitespace
+            lines = [line.rstrip() for line in text.split('\n')]
+            return '\n'.join(lines).strip()
+
         procedural = None
         raw_p = data.get("procedural")
         if raw_p and isinstance(raw_p, list):
-            steps = [ProceduralStep(action=s["action"], expected_outcome=s.get("expected_outcome"), rationale=s.get("rationale")) 
-                    if isinstance(s, dict) else ProceduralStep(action=str(s)) for s in raw_p if s]
+            steps = []
+            for s in raw_p:
+                if not s: continue
+                if isinstance(s, dict):
+                    steps.append(ProceduralStep(
+                        action=_clean_text(s.get("action", "")), 
+                        expected_outcome=_clean_text(s.get("expected_outcome")), 
+                        rationale=_clean_text(s.get("rationale"))
+                    ))
+                else:
+                    steps.append(ProceduralStep(action=_clean_text(str(s))))
+            
             if steps: procedural = ProceduralContent(steps=steps, target_task=getattr(proposal, 'target', ''))
         
         compressive = data.get("compressive") or data.get("compressive_rationale")
+        compressive = _clean_text(compressive)
+        
         if compressive and memory and hasattr(memory, 'semantic'):
             try:
                 full_path = os.path.join(memory.semantic.repo_path, fid)
                 rel_path = os.path.relpath(full_path, os.getcwd())
-                compressive = f"{compressive.strip()} To retrieve more detailed data, use cat {rel_path}."
+                if "To retrieve more detailed data" not in compressive:
+                    compressive = f"{compressive.strip()} To retrieve more detailed data, use cat {rel_path}."
             except Exception: pass
             
         # 3. Evidence Crystallization
@@ -358,16 +391,16 @@ class LLMEnricher:
         status = "completed" if not remaining else "pending"
         
         updates = {
-            "title": data.get("title") or data.get("goal") or getattr(proposal, 'title', ''),
-            "rationale": data.get("rationale") or getattr(proposal, 'rationale', ''),
+            "title": _clean_text(data.get("title") or data.get("goal") or getattr(proposal, 'title', '')),
+            "rationale": _clean_text(data.get("rationale") or getattr(proposal, 'rationale', '')),
             "compressive_rationale": compressive,
             "keywords": ResponseParser.clean_keywords(data.get("keywords", [])),
-            "strengths": data.get("strengths", []),
-            "objections": data.get("objections", []),
-            "consequences": data.get("consequences", []),
+            "strengths": [_clean_text(s) for s in data.get("strengths", [])],
+            "objections": [_clean_text(s) for s in data.get("objections", [])],
+            "consequences": [_clean_text(s) for s in data.get("consequences", [])],
             "estimated_utility": float(data.get("estimated_utility", 0.5)),
             "estimated_removal_cost": float(data.get("estimated_removal_cost", 0.5)),
-            "procedural": procedural,
+            "procedural": procedural.model_dump(mode="json") if procedural else None,
             "enrichment_status": status,
             "total_evidence_count": total_count,
             "evidence_event_ids": remaining
