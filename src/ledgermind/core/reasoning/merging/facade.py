@@ -95,10 +95,9 @@ class MergeEngineFacade:
             for i, candidate in enumerate(resolved_candidates):
                 cand_id = candidate.get('fid')
                 
-                # RE-VALIDATE: Check actual status from DB before processing
-                # (The candidate might have been 'superseded' by a previous iteration in this loop)
+                # RE-VALIDATE: Check actual merge status from DB before processing
                 current_meta = self.memory.semantic.meta.get_by_fid(cand_id)
-                if not current_meta or current_meta.get('status') == 'superseded':
+                if not current_meta or current_meta.get('merge_status') == 'pending':
                     continue
                 
                 query_text = self.algorithm._get_doc_text(candidate)
@@ -117,16 +116,14 @@ class MergeEngineFacade:
                     if doc_id == cand_id: 
                         continue
                     
-                    # Resolve found document to its truth
                     target_doc = self.memory._resolve_to_truth(doc_id, mode="balanced", cache=full_meta_map)
                     
-                    # IMPORTANT: Check if target is still valid (not superseded in this cycle)
-                    # We fetch fresh meta from DB to be absolutely sure
+                    # IMPORTANT: Check if target is already being merged
                     actual_target = self.memory.semantic.meta.get_by_fid(target_doc.get('fid'))
-                    if not actual_target or actual_target.get('status') == 'superseded':
+                    if not actual_target or actual_target.get('merge_status') == 'pending':
                         continue
 
-                    # ALLOW: 'active' AND 'draft' for merging (Stage 1 consolidation)
+                    # ALLOW: 'active' AND 'draft' for merging
                     if actual_target.get('status') not in ('active', 'draft'):
                         continue
                         
@@ -160,6 +157,9 @@ class MergeEngineFacade:
                     pid = self.execute_merge_transaction(group, topic=topic, target=target)
                     if pid:
                         proposals.append(pid)
+                        # CRITICAL: Invalidate global meta cache so next iterations see 'pending' status
+                        if hasattr(self.memory.semantic.meta, 'clear_cache'):
+                            self.memory.semantic.meta.clear_cache()
 
             return Result(success=True, data=proposals)
         except Exception as e:
@@ -190,22 +190,18 @@ class MergeEngineFacade:
                 if not proposal_fid:
                     raise Exception("Failed to save merge proposal file.")
 
-                # 2. Update all targets to 'superseded' IMMEDIATELY in the same transaction
+                # 2. Mark all targets as 'pending merge' IMMEDIATELY in the same transaction
                 for doc in group:
                     fid = doc.get('fid')
                     if not fid: continue
                     
-                    # Store original status for potential rollback
-                    old_status = doc.get('status', 'draft')
+                    # We ONLY set merge_status. We DO NOT set superseded_by yet,
+                    # because this is just a proposal, not a confirmed truth.
                     updates = {
-                        "status": "superseded",
-                        "superseded_by": proposal_fid,
-                        "metadata": {**doc.get('metadata', {}), "previous_status": old_status}
+                        "merge_status": "pending"
                     }
-                    # We use internal semantic store to avoid nested transaction triggers if possible,
-                    # but here update_decision is safe within the context manager.
-                    self.memory.semantic.update_decision(fid, updates, commit_msg=f"Superseded by {proposal_fid}")
-                    logger.info(f"Target {fid} is now superseded by {proposal_fid} (Previous: {old_status})")
+                    self.memory.semantic.update_decision(fid, updates, commit_msg=f"Reserved for merge proposal {proposal_fid}")
+                    logger.info(f"Target {fid} is now RESERVED for merge {proposal_fid}")
                 
                 return proposal_fid
                 

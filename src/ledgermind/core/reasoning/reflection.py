@@ -57,80 +57,82 @@ class ReflectionEngine:
         result_ids = []
         max_id = after_id
         
-        # Read config BEFORE entering the transaction
+        # Read config BEFORE processing
         arbitration_mode = self.semantic.meta.get_config("arbitration_mode", "optimal")
 
-        with self.semantic.transaction():
-            # 1. Preparation
-            all_streams = self._get_all_streams()
-            now = datetime.now()
+        # NO GLOBAL TRANSACTION: Processing trajectories doesn't require a lock, 
+        # and semantic.save() will handle its own granular transactions.
+        
+        # 1. Preparation
+        all_streams = self._get_all_streams()
+        now = datetime.now()
 
-            # 2. Evidence Aggregation & Trajectory Building
-            recent_events = self.episodic.query(limit=limit, status='active', after_id=after_id, order='ASC')
+        # 2. Evidence Aggregation & Trajectory Building
+        recent_events = self.episodic.query(limit=limit, status='active', after_id=after_id, order='ASC')
+        
+        # Optimization: Load events into map for this batch
+        all_recent_events = self.episodic.query(limit=limit + 500, status='active', after_id=after_id, order='ASC')
+        event_map = {e['id']: e for e in all_recent_events}
+
+        if recent_events:
+            # CRITICAL: Always advance max_id if we have events
+            max_id = max(e['id'] for e in recent_events)
             
-            # Optimization: Load events into map for this batch
-            all_recent_events = self.episodic.query(limit=limit + 500, status='active', after_id=after_id, order='ASC')
-            event_map = {e['id']: e for e in all_recent_events}
-
-            if recent_events:
-                # CRITICAL: Always advance max_id if we have events
-                max_id = max(e['id'] for e in recent_events)
+            # V5.8: Build granular chains
+            chains = self.trajectory_builder.build_chains(recent_events)
+            if chains:
+                logger.info(f"Reflection: Analyzed {len(chains)} trajectories.")
+            
+            # 3. Process each chain as a potential pattern
+            for chain in chains:
+                target = chain.global_target
+                if not target or target == "unknown" or target in self.BLACKLISTED_TARGETS:
+                    continue
                 
-                # V5.8: Build granular chains
-                chains = self.trajectory_builder.build_chains(recent_events)
-                if chains:
-                    logger.info(f"Reflection: Analyzed {len(chains)} trajectories.")
+                # Calculate weight for this specific chain
+                weight = 0.0
+                errors = 0
+                for atom in chain.atoms:
+                    for e in atom.events:
+                        if e.kind == "decision": weight += 1.0
+                        if e.kind == "error": errors += 1
+                        if e.kind == "result" and isinstance(e.context, dict) and e.context.get('success'): 
+                            weight += 0.5
+                        if e.kind == "call": weight += 0.1
                 
-                # 3. Process each chain as a potential pattern
-                for chain in chains:
-                    target = chain.global_target
-                    if not target or target == "unknown" or target in self.BLACKLISTED_TARGETS:
-                        continue
-                    
-                    # Calculate weight for this specific chain
-                    weight = 0.0
-                    errors = 0
-                    for atom in chain.atoms:
-                        for e in atom.events:
-                            if e.kind == "decision": weight += 1.0
-                            if e.kind == "error": errors += 1
-                            if e.kind == "result" and isinstance(e.context, dict) and e.context.get('success'): 
-                                weight += 0.5
-                            if e.kind == "call": weight += 0.1
-                    
-                    # V6.5: Strict atomicity - always create a new proposal for a significant trajectory
-                    if weight >= 0.5 or errors >= self.policy.error_threshold:
-                        stats = {
-                            "weight": weight,
-                            "errors": errors,
-                            "all_ids": chain.all_event_ids
-                        }
-                        new_fid = self._create_pattern_stream(target, stats, now, 
-                                                              event_map=event_map, 
-                                                              arbitration_mode=arbitration_mode,
-                                                              keywords=getattr(chain, 'keywords', []))
-                        if new_fid: result_ids.append(new_fid)
+                # V6.5: Strict atomicity - always create a new proposal for a significant trajectory
+                if weight >= 0.5 or errors >= self.policy.error_threshold:
+                    stats = {
+                        "weight": weight,
+                        "errors": errors,
+                        "all_ids": chain.all_event_ids
+                    }
+                    new_fid = self._create_pattern_stream(target, stats, now, 
+                                                          event_map=event_map, 
+                                                          arbitration_mode=arbitration_mode,
+                                                          keywords=getattr(chain, 'keywords', []))
+                    if new_fid: result_ids.append(new_fid)
 
-            # 4. Apply Vitality Decay for existing streams
-            for fid, data in all_streams.items():
-                try:
-                    ctx_raw = data.get('context_json')
-                    if ctx_raw:
-                        ctx_dict = json.loads(ctx_raw)
-                        # Ensure last_hit_at from DB overrides or merges correctly
-                        ctx_dict['last_hit_at'] = data.get('last_hit_at') or ctx_dict.get('last_hit_at')
-                        stream = DecisionStream(**ctx_dict)
-                        updated = self.lifecycle.calculate_temporal_signals(stream, [], now)
-                        
-                        # V5.0: Update dynamic risk/utility metrics
-                        updated.estimated_utility = self.lifecycle.estimate_utility(updated)
-                        updated.estimated_removal_cost = self.lifecycle.estimate_removal_cost(updated)
-                        
-                        if updated.vitality != stream.vitality or updated.estimated_utility != stream.estimated_utility:
-                            self.processor.update_decision(fid, updated.model_dump(mode='json'), commit_msg="Lifecycle: Metrics and vitality update.", skip_episodic=True)
-                            result_ids.append(fid)
-                except Exception as e:
-                    logger.error(f"Failed to process decay for {fid}: {e}")
+        # 4. Apply Vitality Decay for existing streams
+        for fid, data in all_streams.items():
+            try:
+                ctx_raw = data.get('context_json')
+                if ctx_raw:
+                    ctx_dict = json.loads(ctx_raw)
+                    # Ensure last_hit_at from DB overrides or merges correctly
+                    ctx_dict['last_hit_at'] = data.get('last_hit_at') or ctx_dict.get('last_hit_at')
+                    stream = DecisionStream(**ctx_dict)
+                    updated = self.lifecycle.calculate_temporal_signals(stream, [], now)
+                    
+                    # V5.0: Update dynamic risk/utility metrics
+                    updated.estimated_utility = self.lifecycle.estimate_utility(updated)
+                    updated.estimated_removal_cost = self.lifecycle.estimate_removal_cost(updated)
+                    
+                    if updated.vitality != stream.vitality or updated.estimated_utility != stream.estimated_utility:
+                        self.processor.update_decision(fid, updated.model_dump(mode='json'), commit_msg="Lifecycle: Metrics and vitality update.", skip_episodic=True)
+                        result_ids.append(fid)
+            except Exception as e:
+                logger.error(f"Failed to process decay for {fid}: {e}")
 
         return result_ids, max_id
 
@@ -191,6 +193,7 @@ class ReflectionEngine:
                 stream.enrichment_status = "pending"
             
             # Persist via process_event (V5.0 standard)
+            # This call will automatically acquire the necessary locks and savepoints
             decision = self.processor.process_event(
                 source="reflection_engine",
                 kind=KIND_PROPOSAL,

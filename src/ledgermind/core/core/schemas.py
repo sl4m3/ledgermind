@@ -81,7 +81,7 @@ class BaseSemanticContent(BaseModel):
     
     title: StrictStr
     target: TargetStr
-    status: str = "active"
+    status: str = "draft"
     rationale: RationaleStr
     compressive_rationale: Optional[str] = None
     namespace: str = "default"

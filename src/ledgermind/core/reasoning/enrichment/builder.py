@@ -32,12 +32,54 @@ class PromptBuilder:
         
         return (
             "You are a Knowledge Architect and Duplicate Detection Expert.\n"
-            "### TASK: Analyze the provided list of knowledge documents and group them into clusters of actual semantic duplicates.\n"
-            "### DEFINITION: A cluster should contain documents that describe the exact same event, decision, or hypothesis.\n"
-            f"### RULES: {lang_instr} Return ONLY a JSON object with fields:\n"
-            "1. clusters: A list of lists, where each sub-list contains document FIDs that are duplicates. If a document is unique, it MUST be in a sub-list by itself.\n"
-            "2. reasoning: A brief explanation of your clustering logic.\n"
-            "### EXAMPLE: {\"clusters\": [[\"fid_1\", \"fid_2\"], [\"fid_3\"]], \"reasoning\": \"1 and 2 are same, 3 is unique\"}"
+            "### TASK: Analyze the provided list of documents and group them into clusters of actual semantic duplicates.\n"
+            "### CONSOLIDATION RULES:\n"
+            "1. Every single FID from the provided list MUST be included in the output JSON exactly once.\n"
+            "2. If documents are duplicates, group their FIDs together and provide synthesized 'unified_title', 'unified_target', and 'unified_rationale'.\n"
+            "3. If a document is unique, place it in a cluster by itself (list of 1 FID) and explain why it is unique.\n"
+            f"### OUTPUT RULES: {lang_instr} Return ONLY a JSON object with fields:\n"
+            "{\n"
+            "  \"clusters\": [\n"
+            "    {\n"
+            "      \"fids\": [\"id_1\", \"id_2\"],\n"
+            "      \"unified_title\": \"Combined Title\",\n"
+            "      \"unified_target\": \"core/reasoning/merging\",\n"
+            "      \"unified_rationale\": \"Synthesized Markdown content...\",\n"
+            "      \"keywords\": [\"key1\", \"key2\"]\n"
+            "    },\n"
+            "    {\n"
+            "      \"fids\": [\"id_3\"], // Unique document\n"
+            "      \"reasoning\": \"Explain why unique\"\n"
+            "    }\n"
+            "  ],\n"
+            "  \"global_reasoning\": \"Overview of the clustering process\"\n"
+            "}"
+        )
+
+    @staticmethod
+    def build_consolidation_prompt(config: EnrichmentConfig) -> str:
+        lang = config.preferred_language
+        lang_instr = f"Respond strictly in {lang}." if lang != "auto" else ""
+        
+        return (
+            "You are a Senior Knowledge Architect.\n"
+            "### TASK: Consolidate the following CONFIRMED duplicates into a single, high-quality knowledge record.\n"
+            "### RULES:\n"
+            "1. These documents describe the same event/decision. Merge them into one.\n"
+            "2. Provide a 'unified_title' that is technically precise.\n"
+            "3. Provide a 'unified_target' representing the best hierarchical path.\n"
+            "4. Provide a 'unified_rationale' in Markdown, preserving all critical details and evidence.\n"
+            f"### OUTPUT RULES: {lang_instr} Return ONLY a JSON object with fields:\n"
+            "{\n"
+            "  \"clusters\": [{\n"
+            "    \"fids\": [\"all_provided_fids_here\"],\n"
+            "    \"unified_title\": \"Unified Title\",\n"
+            "    \"unified_target\": \"path/to/target\",\n"
+            "    \"unified_rationale\": \"Full Markdown synthesis...\",\n"
+            "    \"keywords\": [\"key1\", \"key2\", ...]\n"
+            "  }],\n"
+            "  \"global_reasoning\": \"Summary of consolidation\"\n"
+            "}"
         )
 
     @staticmethod

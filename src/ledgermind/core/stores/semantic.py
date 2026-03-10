@@ -243,14 +243,21 @@ class SemanticStore:
                     link_c, link_s = self.episodic.count_links_for_semantic(fid)
                 except Exception: pass
 
+                # CORE FIELD SYNC: Prefer root YAML fields, fallback to context
+                final_status = data.get("status") or sync_ctx.get("status", "unknown")
+                final_kind = data.get("kind") or sync_ctx.get("kind", "unknown")
+                final_superseded = data.get("superseded_by") or sync_ctx.get("superseded_by")
+                final_merge_status = data.get("merge_status") or sync_ctx.get("merge_status", "idle")
+
                 self.meta.upsert(
                     fid=fid,
                     target=sync_target,
                     title=sync_ctx.get("title", "") if sync_ctx else "",
-                    status=sync_ctx.get("status", "unknown") if sync_ctx else "unknown",
-                    kind=data.get("kind", "unknown"),
+                    status=final_status,
+                    kind=final_kind,
                     timestamp=final_ts,
-                    superseded_by=sync_ctx.get("superseded_by") if sync_ctx else None,
+                    superseded_by=final_superseded,
+                    merge_status=final_merge_status,
                     namespace=sync_ns,
                     content=data.get("content", "")[:8000],
                     keywords=sync_keywords,
@@ -366,7 +373,8 @@ class SemanticStore:
                          timestamp: datetime, content: str, context: Dict[str, Any],
                          status: str, title: Optional[str] = None, 
                          content_hash: Optional[str] = None,
-                         superseded_by: Optional[str] = None):
+                         superseded_by: Optional[str] = None,
+                         merge_status: Optional[str] = "idle"):
         """
         Shared logic for upserting metadata to the store.
         """
@@ -393,6 +401,10 @@ class SemanticStore:
         # Get superseded_by from context if not provided explicitly
         if superseded_by is None:
             superseded_by = context.get('superseded_by')
+            
+        # Get merge_status from context if not provided
+        if merge_status == "idle" or merge_status is None:
+            merge_status = context.get('merge_status', 'idle')
 
         try:
             self.meta.upsert(
@@ -403,6 +415,7 @@ class SemanticStore:
                 kind=kind,
                 timestamp=timestamp,
                 superseded_by=superseded_by,
+                merge_status=merge_status, # New field
                 namespace=namespace,
                 content=cached_content[:8000],
                 keywords=keywords,
@@ -451,8 +464,14 @@ class SemanticStore:
             if effective_namespace: os.makedirs(os.path.join(self.repo_path, effective_namespace), exist_ok=True)
 
             # CLEAN DATA: Use model_dump to get only schema-defined fields.
-            # MemoryEvent does not have top-level title/target, so they won't be dumped.
             data = event.model_dump(mode='json')
+            
+            # CORE PROTECTION: Ensure context does not duplicate root-level lifecycle fields
+            CORE_FIELDS = ["status", "kind", "supersedes", "superseded_by", "merge_status", "timestamp", "fid", "source", "content"]
+            if "context" in data and isinstance(data["context"], dict):
+                for field in CORE_FIELDS:
+                    data["context"].pop(field, None)
+
             body = f"# {event.content}\n\nRecorded from source: {event.source}\n"
             full_file_content = MemoryLoader.stringify(data, body)
             
@@ -481,7 +500,7 @@ class SemanticStore:
                     timestamp=event.timestamp,
                     content=event.content,
                     context=ctx_dict,
-                    status=ctx_dict.get('status', 'active'),
+                    status=getattr(event.context, 'status', 'draft'), # Correctly extract from context object
                     content_hash=content_hash # Pass correctly calculated hash
                 )
             except Exception as e:
@@ -532,22 +551,27 @@ class SemanticStore:
             import copy
             new_data = copy.deepcopy(old_data)
             
-            # 1. Update Lifecycle Fields (Status, Supersedes)
-            # title/target are managed inside context only
-            CORE_FIELDS = ["status", "kind", "supersedes", "superseded_by"]
+            # 1. Update Lifecycle Fields (Root YAML)
+            CORE_FIELDS = ["status", "kind", "supersedes", "superseded_by", "merge_status"]
             for field in CORE_FIELDS:
                 if field in updates:
                     new_data[field] = updates[field]
             
-            # Remove legacy top-level fields if they exist
+            # Remove legacy/incorrect top-level fields
             new_data.pop("title", None)
             new_data.pop("target", None)
 
-            # 2. Update Context Fields
+            # 2. Update Context Fields (Business metadata)
             if "context" not in new_data: new_data["context"] = {}
             
-            # Merge all updates into context
-            new_data["context"].update(updates)
+            # CLEANUP: Prevent duplication by removing CORE_FIELDS from the update dictionary 
+            # before merging it into context.
+            clean_updates = {k: v for k, v in updates.items() if k not in CORE_FIELDS}
+            new_data["context"].update(clean_updates)
+            
+            # Also ensure context doesn't have any leftover core fields from previous versions
+            for field in CORE_FIELDS:
+                new_data["context"].pop(field, None)
             
             TransitionValidator.validate_update(old_data, new_data)
             
@@ -597,7 +621,8 @@ class SemanticStore:
                     status=new_data.get("status") or ctx.get("status"),
                     title=new_data.get("title"),
                     content_hash=content_hash, # Pass correctly calculated hash
-                    superseded_by=new_data.get("superseded_by")
+                    superseded_by=new_data.get("superseded_by"),
+                    merge_status=new_data.get("merge_status")
                 )
             except Exception as e:
                 if not self._in_transaction:

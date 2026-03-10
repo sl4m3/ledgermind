@@ -36,21 +36,39 @@ class TransactionManager:
     def create_proposal(self, data: Dict[str, Any]) -> str:
         """
         Creates a merge proposal and saves it in memory using MemoryEvent.
+        Supports the new non-duplicate structure from ProposalBuilder.
         """
         from ledgermind.core.core.schemas import MemoryEvent, KIND_PROPOSAL
         from datetime import datetime
         
-        proposal_id = data.get("id") or f"proposal_{uuid.uuid4().hex[:12]}"
+        # New structure check
+        is_new_struct = "context" in data and isinstance(data["context"], dict)
         
-        # Wrap proposal data into a MemoryEvent for SemanticStore.save
-        # The content should be the primary rationale or title
-        event = MemoryEvent(
-            source="system",
-            kind=KIND_PROPOSAL,
-            content=data.get("topic", "Merge Proposal"),
-            timestamp=datetime.now(),
-            context=data # The full proposal dict goes into context
-        )
+        if is_new_struct:
+            # CLEAN SAVE: Extract root fields
+            proposal_id = data.get("id")
+            actual_context = data["context"]
+            
+            event = MemoryEvent(
+                source="system",
+                kind=KIND_PROPOSAL,
+                content=actual_context.get("topic", "Merge Proposal"),
+                timestamp=datetime.now(),
+                context=actual_context # Only pure context
+            )
+            # Apply system fields to the event (schemas will handle the rest)
+            event.status = data.get("actual_status", "pending")
+            event.supersedes = data.get("supersedes", [])
+        else:
+            # Backward compatibility
+            proposal_id = data.get("id") or f"proposal_{uuid.uuid4().hex[:12]}"
+            event = MemoryEvent(
+                source="system",
+                kind=KIND_PROPOSAL,
+                content=data.get("topic", "Merge Proposal"),
+                timestamp=datetime.now(),
+                context=data 
+            )
         
         try:
             # SemanticStore.save returns the relative path (FID)

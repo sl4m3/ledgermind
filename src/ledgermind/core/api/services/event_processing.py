@@ -149,6 +149,8 @@ class EventProcessingService(MemoryService):
                 truth = self.context.memory._resolve_to_truth(linked_fid, mode="balanced")
                 if truth and truth.get('fid') != linked_fid:
                     logger.info(f"Forwarding event from {linked_fid} to active truth {truth.get('fid')}")
+                    # Track where it was supposed to go for later redistribution
+                    event.metadata["intended_fid"] = linked_fid
                     linked_fid = truth.get('fid')
 
             ev_id = self.episodic.append(event, linked_id=linked_fid).value
