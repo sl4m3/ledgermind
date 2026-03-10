@@ -467,10 +467,12 @@ class SemanticStore:
             data = event.model_dump(mode='json')
             
             # CORE PROTECTION: Ensure context does not duplicate root-level lifecycle fields
-            CORE_FIELDS = ["status", "kind", "supersedes", "superseded_by", "merge_status", "timestamp", "fid", "source", "content"]
+            CORE_FIELDS = ["status", "kind", "supersedes", "superseded_by", "merge_status", "enrichment_status", "timestamp", "fid", "source", "content"]
             if "context" in data and isinstance(data["context"], dict):
                 for field in CORE_FIELDS:
-                    data["context"].pop(field, None)
+                    # Move to root if exists in context
+                    if field in data["context"]:
+                        data[field] = data["context"].pop(field)
 
             body = f"# {event.content}\n\nRecorded from source: {event.source}\n"
             full_file_content = MemoryLoader.stringify(data, body)
@@ -552,7 +554,7 @@ class SemanticStore:
             new_data = copy.deepcopy(old_data)
             
             # 1. Update Lifecycle Fields (Root YAML)
-            CORE_FIELDS = ["status", "kind", "supersedes", "superseded_by", "merge_status"]
+            CORE_FIELDS = ["status", "kind", "supersedes", "superseded_by", "merge_status", "enrichment_status"]
             for field in CORE_FIELDS:
                 if field in updates:
                     new_data[field] = updates[field]
