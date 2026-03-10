@@ -22,6 +22,7 @@ class ProposalBuilder:
         self._proposal = {
             "id": self._generate_unique_id(),
             "target_ids": [],
+            "supersedes": [], # Added for IntegrityChecker compatibility
             "target": "general",
             "topic": "Automatic Merge",
             "confidence": 0.0,
@@ -58,9 +59,10 @@ class ProposalBuilder:
         return self
 
     def add_target(self, target_id: str) -> 'ProposalBuilder':
-        """Adds a target document ID to the merge list."""
+        """Adds a target document ID to the merge list and supersedes list."""
         if target_id and isinstance(target_id, str) and target_id not in self._proposal["target_ids"]:
             self._proposal["target_ids"].append(target_id)
+            self._proposal["supersedes"].append(target_id) # Ensure backlink integrity
         else:
             logger.debug(f"Target {target_id} ignored (empty, wrong type, or already added).")
         return self

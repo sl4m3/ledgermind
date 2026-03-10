@@ -335,18 +335,23 @@ class SemanticStore:
                 self.audit.commit_transaction("Atomic Transaction Commit")
         except Exception as e:
             logger.error(f"Transaction Failed: {e}. Rolling back...")
+            
+            # 1. Immediate FS Rollback
             if isinstance(self.audit, GitAuditProvider):
-                # Hard reset tracked files and CLEAN untracked files/directories
-                # This is critical to prevent 'ghost files' when a transaction fails 
-                # after creating a new file but before indexing.
                 self.audit.run(["reset", "--hard", "HEAD"])
                 self.audit.run(["clean", "-fd"])
             
-            # Reset transaction state BEFORE sync to ensure it can re-acquire locks if needed
+            # 2. CLEAR LOCKS BEFORE SYNC: This is critical for SQLite in Termux
+            # Resetting these flags allows sync_meta_index to open its own fresh connection/transaction
             self._in_transaction = False
             self._current_tx = None
             
-            self.sync_meta_index() 
+            # 3. Post-rollback index synchronization
+            try:
+                self.sync_meta_index() 
+            except Exception as se:
+                logger.error(f"Post-rollback synchronization failed: {se}")
+                
             raise
         finally:
             self._in_transaction = False
