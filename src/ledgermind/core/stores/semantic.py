@@ -248,6 +248,7 @@ class SemanticStore:
                 final_kind = data.get("kind") or sync_ctx.get("kind", "unknown")
                 final_superseded = data.get("superseded_by") or sync_ctx.get("superseded_by")
                 final_merge_status = data.get("merge_status") or sync_ctx.get("merge_status", "idle")
+                final_enrichment_status = data.get("enrichment_status") or sync_ctx.get("enrichment_status", "pending")
 
                 self.meta.upsert(
                     fid=fid,
@@ -271,7 +272,7 @@ class SemanticStore:
                     stability_score=sync_ctx.get("stability_score", 0.0),
                     coverage=sync_ctx.get("coverage", 0.0),
                     link_count=link_c,
-                    enrichment_status=sync_ctx.get("enrichment_status", "pending")
+                    enrichment_status=final_enrichment_status
                 )
         except Exception as e:
             logger.error(f"Failed to index {fid}: {e}")
@@ -338,22 +339,22 @@ class SemanticStore:
                 # Invariants check before commit
                 IntegrityChecker.validate(self.repo_path)
                 
-                # Commit to Audit Provider (Git) BEFORE releasing SQLite savepoint
+                # Commit to Audit Provider (Git)
+                # This should happen while the OS lock is still held by TransactionManager
                 self.audit.commit_transaction("Atomic Transaction Commit")
         except Exception as e:
             logger.error(f"Transaction Failed: {e}. Rolling back...")
             
-            # 1. Immediate FS Rollback
+            # 1. FS/Git Rollback
             if isinstance(self.audit, GitAuditProvider):
                 self.audit.run(["reset", "--hard", "HEAD"])
                 self.audit.run(["clean", "-fd"])
             
             # 2. CLEAR LOCKS BEFORE SYNC: This is critical for SQLite in Termux
-            # Resetting these flags allows sync_meta_index to open its own fresh connection/transaction
             self._in_transaction = False
             self._current_tx = None
             
-            # 3. Post-rollback index synchronization
+            # 3. Post-rollback index synchronization (if needed)
             try:
                 self.sync_meta_index() 
             except Exception as se:
@@ -634,7 +635,8 @@ class SemanticStore:
                     title=new_data.get("title"),
                     content_hash=content_hash, # Pass correctly calculated hash
                     superseded_by=new_data.get("superseded_by"),
-                    merge_status=new_data.get("merge_status")
+                    merge_status=new_data.get("merge_status"),
+                    enrichment_status=new_data.get("enrichment_status")
                 )
             except Exception as e:
                 if not self._in_transaction:

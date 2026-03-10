@@ -111,39 +111,42 @@ class TransactionManager:
     @contextmanager
     def begin(self):
         import uuid
-        tx_id = uuid.uuid4().hex[:8]
-        savepoint_name = f"lm_tx_{tx_id}"
+        self._staged_files = []
         
         # 1. Acquire OS Lock (Wait up to 60s)
+        # This prevents other processes from starting their own transactions
         self.lock.acquire(exclusive=True)
-        self._staged_files = []
         
         db_conn = getattr(self.meta_db, '_conn', None)
         try:
-            # 2. Start DB transaction
+            # 2. Start EXCLUSIVE DB transaction
             if db_conn:
-                db_conn.execute("SAVEPOINT " + savepoint_name)
+                # IMMEDIATE ensures we have a write lock right now
+                db_conn.execute("BEGIN IMMEDIATE")
 
-            # 3. Prepare backup
+            # 3. Prepare backup directory
             if not os.path.exists(self.backup_dir):
                 os.makedirs(self.backup_dir)
             
             yield self
             
-            # 4. Commit files
+            # 4. Verify all staged files exist before final commit
             self._commit()
             
-            # 5. Release DB savepoint
+            # 5. Final DB Commit
             if db_conn:
-                db_conn.execute("RELEASE " + savepoint_name)
+                db_conn.execute("COMMIT")
                 
         except Exception as e:
             logger.error(f"Transaction failed: {e}. Rolling back...")
-            self._rollback()
+            # 1. Rollback DB first
             if db_conn:
                 try:
-                    db_conn.execute("ROLLBACK TO " + savepoint_name)
+                    db_conn.execute("ROLLBACK")
                 except Exception: pass
+            
+            # 2. Rollback files on disk
+            self._rollback()
             raise
         finally:
             if os.path.exists(self.backup_dir):
