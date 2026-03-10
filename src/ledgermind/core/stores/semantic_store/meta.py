@@ -41,6 +41,7 @@ class SemanticMetaStore:
                 confidence REAL,
                 last_hit_at DATETIME,
                 hit_count INTEGER DEFAULT 0,
+                link_count INTEGER DEFAULT 0,
                 reinforcement_density REAL DEFAULT 0.0,
                 stability_score REAL DEFAULT 0.0,
                 coverage REAL DEFAULT 0.0,
@@ -67,26 +68,26 @@ class SemanticMetaStore:
                 )
             """)
             
-            # Sync triggers for FTS
+            # Sync triggers for FTS using rowid for integrity
             self._conn.execute("DROP TRIGGER IF EXISTS trg_semantic_meta_insert")
             self._conn.execute("""
                 CREATE TRIGGER trg_semantic_meta_insert AFTER INSERT ON semantic_meta BEGIN
-                    INSERT INTO semantic_fts(fid, title, content, keywords) VALUES (new.fid, new.title, new.content, new.keywords);
+                    INSERT INTO semantic_fts(rowid, title, content, keywords) VALUES (new.rowid, new.title, new.content, new.keywords);
                 END
             """)
             
             self._conn.execute("DROP TRIGGER IF EXISTS trg_semantic_meta_delete")
             self._conn.execute("""
                 CREATE TRIGGER trg_semantic_meta_delete AFTER DELETE ON semantic_meta BEGIN
-                    INSERT INTO semantic_fts(semantic_fts, fid, title, content, keywords) VALUES('delete', old.fid, old.title, old.content, old.keywords);
+                    INSERT INTO semantic_fts(semantic_fts, rowid, title, content, keywords) VALUES('delete', old.rowid, old.title, old.content, old.keywords);
                 END
             """)
             
             self._conn.execute("DROP TRIGGER IF EXISTS trg_semantic_meta_update")
             self._conn.execute("""
                 CREATE TRIGGER trg_semantic_meta_update AFTER UPDATE ON semantic_meta BEGIN
-                    INSERT INTO semantic_fts(semantic_fts, fid, title, content, keywords) VALUES('delete', old.fid, old.title, old.content, old.keywords);
-                    INSERT INTO semantic_fts(fid, title, content, keywords) VALUES (new.fid, new.title, new.content, new.keywords);
+                    INSERT INTO semantic_fts(semantic_fts, rowid, title, content, keywords) VALUES('delete', old.rowid, old.title, old.content, old.keywords);
+                    INSERT INTO semantic_fts(rowid, title, content, keywords) VALUES (new.rowid, new.title, new.content, new.keywords);
                 END
             """)
         except sqlite3.OperationalError as e:
@@ -124,6 +125,7 @@ class SemanticMetaStore:
             'keywords': kwargs.get('keywords', ""),
             'confidence': kwargs.get('confidence', 1.0),
             'last_hit_at': kwargs.get('last_hit_at'),
+            'link_count': kwargs.get('link_count', 0),
             'reinforcement_density': kwargs.get('reinforcement_density', 0.0),
             'stability_score': kwargs.get('stability_score', 0.0),
             'coverage': kwargs.get('coverage', 0.0),
@@ -136,10 +138,10 @@ class SemanticMetaStore:
         self._conn.execute(f"""
             INSERT INTO semantic_meta (
                 fid, target, title, status, kind, timestamp, content, context_json, namespace, phase, vitality, enrichment_status,
-                superseded_by, merge_status, keywords, confidence, last_hit_at, reinforcement_density, stability_score, coverage, 
+                superseded_by, merge_status, keywords, confidence, last_hit_at, link_count, reinforcement_density, stability_score, coverage, 
                 estimated_removal_cost, estimated_utility, content_hash, compressive_rationale
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             ) ON CONFLICT(fid) DO UPDATE SET
                 target=excluded.target,
                 title=excluded.title,
@@ -157,6 +159,7 @@ class SemanticMetaStore:
                 keywords=excluded.keywords,
                 confidence=excluded.confidence,
                 last_hit_at=excluded.last_hit_at,
+                link_count=excluded.link_count,
                 reinforcement_density=excluded.reinforcement_density,
                 stability_score=excluded.stability_score,
                 coverage=excluded.coverage,
@@ -167,18 +170,95 @@ class SemanticMetaStore:
         """, (
             fid, target, title, status, kind, ts_str, content, context_json, namespace, fields['phase'], 
             fields['vitality'], fields['enrichment_status'], fields['superseded_by'], fields['merge_status'], 
-            fields['keywords'], fields['confidence'], fields['last_hit_at'], fields['reinforcement_density'], 
+            fields['keywords'], fields['confidence'], fields['last_hit_at'], fields['link_count'], fields['reinforcement_density'], 
             fields['stability_score'], fields['coverage'], fields['estimated_removal_cost'], 
             fields['estimated_utility'], fields['content_hash'], fields['compressive_rationale']
         ))
 
     def delete(self, fid: str):
         self._conn.execute("DELETE FROM semantic_meta WHERE fid = ?", (fid,))
+        self._conn.commit()
 
     def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
         cursor = self._conn.execute("SELECT * FROM semantic_meta WHERE fid = ?", (fid,))
         row = cursor.fetchone()
         return dict(row) if row else None
+
+    def get_batch_by_fids(self, fids: List[str]) -> List[Dict[str, Any]]:
+        """Fetch multiple metadata records in a single query."""
+        if not fids: return []
+        placeholders = ', '.join(['?'] * len(fids))
+        cursor = self._conn.execute(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", fids)
+        return [dict(row) for row in cursor.fetchall()]
+
+    def resolve_to_truth(self, fid: str, depth: int = 0) -> Optional[Dict[str, Any]]:
+        """Recursively follows 'superseded_by' links to find the active truth."""
+        if depth > 20: return None
+        
+        meta = self.get_by_fid(fid)
+        if not meta: return None
+        
+        if meta.get('status') == 'active' or not meta.get('superseded_by'):
+            return meta
+            
+        return self.resolve_to_truth(meta.get('superseded_by'), depth + 1)
+
+    def keyword_search(self, query: str, limit: int = 10, namespace: str = "default", status: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Performs full-text search using FTS5 with fallback to LIKE."""
+        sanitized = query.replace('"', '""').strip()
+        if not sanitized: return []
+        
+        # 1. Try FTS5 if available
+        results = []
+        try:
+            # Match phrase first, then individual words as prefixes if phrase fails
+            fts_query = f'"{sanitized}"' 
+            sql = """
+                SELECT m.* FROM semantic_meta m
+                JOIN semantic_fts f ON m.fid = f.fid
+                WHERE semantic_fts MATCH ?
+                AND m.namespace = ?
+            """
+            params = [fts_query, namespace]
+            if status:
+                sql += " AND m.status = ?"
+                params.append(status)
+            sql += " LIMIT ?"
+            params.append(limit)
+            
+            cursor = self._conn.execute(sql, params)
+            results = [dict(row) for row in cursor.fetchall()]
+            
+            if not results:
+                # Try prefix search for each word
+                words = [w for w in sanitized.split() if len(w) > 1]
+                if words:
+                    fts_query = " ".join([f"{w}*" for w in words])
+                    params[0] = fts_query
+                    cursor = self._conn.execute(sql, params)
+                    results = [dict(row) for row in cursor.fetchall()]
+        except sqlite3.OperationalError:
+            pass
+            
+        # 2. If no FTS results, or FTS failed, use robust LIKE
+        if not results:
+            sql_fallback = """
+                SELECT * FROM semantic_meta 
+                WHERE (title LIKE ? OR content LIKE ? OR target LIKE ? OR keywords LIKE ?) 
+                AND namespace = ?
+            """
+            term = f"%{sanitized}%"
+            params_fallback = [term, term, term, term, namespace]
+            if status:
+                sql_fallback += " AND status = ?"
+                params_fallback.append(status)
+            sql_fallback += " LIMIT ?"
+            params_fallback.append(limit)
+            
+            cursor = self._conn.execute(sql_fallback, params_fallback)
+            results = [dict(row) for row in cursor.fetchall()]
+            
+        return results
 
     def list_all(self, target: Optional[str] = None, namespace: str = "default") -> List[Dict[str, Any]]:
         if target:

@@ -206,6 +206,7 @@ class LifecycleEngine:
         updates = {
             "phase": DecisionPhase.EMERGENT,
             "vitality": DecisionVitality.ACTIVE,
+            "status": "active",
             "stability_score": 0.95,
             "estimated_removal_cost": 1.0,
             "last_seen": to_naive_utc(now),

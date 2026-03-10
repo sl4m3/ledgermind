@@ -1,8 +1,8 @@
 import pytest
 import json
 from unittest.mock import MagicMock, patch
-from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
-from ledgermind.core.core.schemas import ProposalContent, KIND_PROPOSAL
+from ledgermind.core.reasoning.enrichment import LLMEnricher
+from ledgermind.core.core.schemas import DecisionStream, KIND_PROPOSAL
 
 @pytest.fixture
 def enricher():
@@ -12,9 +12,9 @@ def enricher():
 
 def test_epistemic_field_extraction(enricher):
     """Verify that LLMEnricher correctly parses strengths, objections and counter-patterns from JSON."""
-    from ledgermind.core.core.schemas import ProposalContent
+    from ledgermind.core.core.schemas import DecisionStream
     
-    proposal = ProposalContent(
+    proposal = DecisionStream(
         decision_id="test-prop-123",
         target="core/storage",
         title="Old Title",

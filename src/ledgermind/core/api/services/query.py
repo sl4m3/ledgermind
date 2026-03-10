@@ -30,15 +30,14 @@ class QueryService(MemoryService):
         generator = KnowledgeGraphGenerator(self.semantic.repo_path, self.semantic.meta, self.episodic)
         return generator.generate_mermaid(target_filter=target)
 
-    def search(self, query: str, limit: int = 5, offset: int = 0, 
+    def search(self, query: str, limit: int = 5, offset: int = 0,
                namespace: Optional[str] = None, mode: str = "balanced") -> List[Dict[str, Any]]:
         """
         Search with Recursive Truth Resolution and Hybrid Vector/Keyword ranking.
         Implementation moved from Memory.search_decisions.
         """
         effective_namespace = namespace or self.context.namespace
-        k = 60 # RRF constant
-        
+        k = 60 # RRF constant        
         # Fast path for simple keyword search
         if mode == "lite" or (len(query) < 20 and " " not in query.strip()):
             search_status = "active" if mode == "strict" else None
@@ -62,8 +61,8 @@ class QueryService(MemoryService):
         except Exception: pass
             
         kw_results = self.semantic.meta.keyword_search(query, limit=search_limit, namespace=effective_namespace)
-        
-        all_initial_fids = list(set([item['id'] for item in vec_results] + [r['fid'] for r in kw_results]))
+    
+        all_initial_fids = list(set([item.get('id') for item in vec_results] + [r.get('fid') for r in kw_results]))
         meta_cache = {m['fid']: m for m in self.semantic.meta.get_batch_by_fids(all_initial_fids)}
 
         scores = {}
@@ -111,7 +110,8 @@ class QueryService(MemoryService):
                 if mode != "maintenance" or status != "draft": continue
             
             if mode == "strict" and status not in ("active", "pending_merge"): continue
-            if mode == "balanced" and status == "draft": continue
+            # V7.0: Allow draft proposals in balanced mode if they are the latest truth
+            # if mode == "balanced" and status == "draft": continue
 
             resolved_records.append((fid, meta, scores[fid] / max_rrf))
 

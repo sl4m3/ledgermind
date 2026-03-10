@@ -100,14 +100,30 @@ class JinaEmbeddingModel:
                     embeddings[idx] = emb
             except Exception as e:
                 logger.error(f"Ошибка кодирования: {e}")
-                for idx in text_indices:
-                    embeddings[idx] = np.zeros(768)
+                # Fallback to hash-based pseudo-embedding
+                for idx, text in zip(text_indices, texts_to_encode):
+                    embeddings[idx] = self._get_hash_embedding(text)
         elif texts_to_encode:
-            # Fallback if model not loaded
-            for idx in text_indices:
-                embeddings[idx] = np.zeros(768)
+            # Fallback to hash-based pseudo-embedding if model not loaded
+            for idx, text in zip(text_indices, texts_to_encode):
+                embeddings[idx] = self._get_hash_embedding(text)
 
         return np.array(embeddings)
+
+    def _get_hash_embedding(self, text: str) -> np.ndarray:
+        """Генерирует детерминированный псевдо-эмбеддинг на основе хеша текста."""
+        # Чтобы векторы были более ортогональными, генерируем их частями с разными солями
+        vec = np.zeros(768, dtype=np.float32)
+        for i in range(12): # 12 * 64 байта = 768 байт
+            h = hashlib.blake2b(text.encode('utf-8'), salt=str(i).encode(), digest_size=64).digest()
+            vec[i*64:(i+1)*64] = np.frombuffer(h, dtype=np.uint8).astype(np.float32) / 255.0
+        
+        # Центрируем и нормализуем вектор для честного косинусного сходства
+        vec = vec - 0.5
+        norm = np.linalg.norm(vec)
+        if norm > 0:
+            vec = vec / norm
+        return vec
 
     @staticmethod
     def cosine_similarity(emb1: np.ndarray, emb2: np.ndarray) -> float:

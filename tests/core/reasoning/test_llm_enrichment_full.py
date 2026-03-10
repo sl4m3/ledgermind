@@ -3,8 +3,8 @@ import os
 import json
 from unittest.mock import patch, MagicMock
 from ledgermind.core.api.memory import Memory
-from ledgermind.core.core.schemas import ProposalContent, KIND_PROPOSAL
-from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
+from ledgermind.core.core.schemas import DecisionStream, KIND_PROPOSAL
+from ledgermind.core.reasoning.enrichment import LLMEnricher
 
 @pytest.fixture
 def test_memory(tmp_path):
@@ -23,7 +23,7 @@ def test_memory(tmp_path):
 
 @pytest.fixture
 def sample_proposal():
-    return ProposalContent(
+    return DecisionStream(
         decision_id="test-1",
         title="Raw Trajectory",
         target="network",

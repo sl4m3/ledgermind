@@ -185,7 +185,7 @@ class Memory:
         self._health_service = HealthService(self.context)
         self._integrity_service = IntegrityService(self.context)
         self._decision_command = DecisionCommandService(self.context)
-        self._event_processing = EventProcessingService(self.context)
+        self._event_processing = EventProcessingService(self.context, query_service=self._query)
 
     @property
     def events(self):

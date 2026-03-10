@@ -18,6 +18,10 @@ class EventProcessingService(MemoryService):
     validation, conflict detection, and persistence.
     """
     
+    def __init__(self, context: Any, query_service: Any = None):
+        super().__init__(context)
+        self.query_service = query_service
+    
     @property
     def router(self):
         return self.context.router if hasattr(self.context, 'router') else None
@@ -145,8 +149,8 @@ class EventProcessingService(MemoryService):
         if source in {"user", "agent"} and not (source == "agent" and is_merge) and source not in INTERNAL_SOURCES:
             # RESOLVE LINKED ID: Ensure events go to the active truth (Merge Proposal or confirmed decision)
             linked_fid = new_fid
-            if linked_fid:
-                truth = self.context.memory._resolve_to_truth(linked_fid, mode="balanced")
+            if linked_fid and self.query_service:
+                truth = self.query_service._resolve_to_truth(linked_fid, mode="balanced")
                 if truth and truth.get('fid') != linked_fid:
                     logger.info(f"Forwarding event from {linked_fid} to active truth {truth.get('fid')}")
                     # Track where it was supposed to go for later redistribution
