@@ -27,12 +27,12 @@ class LLMEnricher:
         """Discovers pending proposals and enriches them sequentially."""
         logger.info(f"Auto-Enrichment Triggered: Language={self.preferred_language}, Mode={self.mode} (Limit={limit})")
         
-        # Discover all pending proposals
+        # Discover all records where enrichment is still needed (enrichment_status is pending)
         all_proposals = memory.semantic.meta.list_all()
-        pending = [p for p in all_proposals if p.get('status') == 'pending'][:limit]
+        pending = [p for p in all_proposals if p.get('enrichment_status') == 'pending'][:limit]
         
         if not pending:
-            logger.info("No pending proposals found for enrichment.")
+            logger.info("No records found with enrichment_status='pending'.")
             return
 
         # Simple object wrapper to satisfy 'getattr' calls in process_batch
