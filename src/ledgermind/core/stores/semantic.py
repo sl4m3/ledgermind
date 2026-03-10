@@ -374,13 +374,22 @@ class SemanticStore:
                          status: str, title: Optional[str] = None, 
                          content_hash: Optional[str] = None,
                          superseded_by: Optional[str] = None,
-                         merge_status: Optional[str] = "idle"):
+                         merge_status: Optional[str] = None,
+                         enrichment_status: Optional[str] = None):
         """
         Shared logic for upserting metadata to the store.
+        If status fields are None, it tries to preserve existing values from DB.
         """
         # Prepare cached content including rationale for searchability
         rationale = context.get('rationale', '')
         cached_content = f"{content}\n{rationale}" if rationale else content
+
+        # 1. Fetch existing record to preserve fields
+        existing = self.meta.get_by_fid(fid)
+        
+        # 2. Resolve statuses (Argument -> DB -> Default)
+        final_merge_status = merge_status or (existing.get('merge_status') if existing else "idle")
+        final_enrichment_status = enrichment_status or (existing.get('enrichment_status') if existing else "pending")
 
         keywords = context.get('keywords', [])
         if isinstance(keywords, list):
@@ -388,10 +397,10 @@ class SemanticStore:
 
         # TITLE SOURCE: Always trust context.title as the primary name
         # but allow manual override if passed
-        final_title = title or context.get('title', 'Untitled Decision')
+        final_title = title or context.get('title') or (existing.get('title') if existing else 'Untitled Decision')
 
         # Use passed hash OR calculate if missing (legacy/direct calls)
-        final_hash = content_hash
+        final_hash = content_hash or (existing.get('content_hash') if existing else None)
         if not final_hash:
             import hashlib
             h = hashlib.sha256()
@@ -401,10 +410,6 @@ class SemanticStore:
         # Get superseded_by from context if not provided explicitly
         if superseded_by is None:
             superseded_by = context.get('superseded_by')
-            
-        # Get merge_status from context if not provided
-        if merge_status == "idle" or merge_status is None:
-            merge_status = context.get('merge_status', 'idle')
 
         try:
             self.meta.upsert(
@@ -415,7 +420,7 @@ class SemanticStore:
                 kind=kind,
                 timestamp=timestamp,
                 superseded_by=superseded_by,
-                merge_status=merge_status, # New field
+                merge_status=final_merge_status,
                 namespace=namespace,
                 content=cached_content[:8000],
                 keywords=keywords,
@@ -431,8 +436,13 @@ class SemanticStore:
                 coverage=context.get('coverage', 0.0),
                 estimated_removal_cost=context.get('estimated_removal_cost', 0.0),
                 estimated_utility=context.get('estimated_utility', 0.0),
-                enrichment_status=context.get('enrichment_status', 'pending')
+                enrichment_status=final_enrichment_status
             )
+            
+            # CRITICAL: Commit if not in a managed transaction
+            if not self._in_transaction and hasattr(self.meta, '_conn'):
+                self.meta._conn.commit()
+                
         except sqlite3.IntegrityError as ie:
             if "UNIQUE" in str(ie):
                 msg = f"CONFLICT: Target '{target}' in namespace '{namespace}' already has active decisions."
