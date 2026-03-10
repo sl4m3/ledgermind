@@ -78,7 +78,7 @@ jobs:
       - name: Run Safety (Dependency Check)
         id: safety
         run: |
-          safety check --json --db > safety-report.json || true
+          safety check --json > safety-report.json || true
         continue-on-error: true
 
       - name: Run Pip-audit
@@ -131,31 +131,48 @@ jobs:
             safety-report.json
             pip-audit-report.json
 
-      - name: Comment PR with security results
-        if: github.event_name == 'pull_request'
+      - name: Write security results to summary
+        if: always()
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const issue_number = context.issue.number;
-            const bandit = fs.readFileSync('bandit-report.json');
-            const safety = fs.readFileSync('safety-report.json');
-            const pipAudit = fs.readFileSync('pip-audit-report.json');
 
-            let body = '## 🔒 Security Scan Results\\n\\n';
-            body += '### Bandit (SAST)\\n';
-            body += `- ${JSON.parse(bandit).metrics['SEVERITY.HIGH'] || 0} HIGH severity issues\\n\\n`;
-            body += '### Safety (Dependencies)\\n';
-            body += `- ${JSON.parse(safety).vulnerabilities?.length || 0} known vulnerabilities\\n\\n`;
-            body += '### Pip-audit (Dependencies)\\n';
-            body += `- ${JSON.parse(pipAudit).dependencies?.filter(d => d.vulnerabilities?.length)?.length || 0} vulnerable packages\\n`;
+            function safeParseJSON(filePath) {
+              try {
+                const content = fs.readFileSync(filePath, 'utf8');
+                if (!content || !content.trim()) return {};
 
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue_number,
-              body: body
-            });
+                // Extract JSON bounds if CLI output has prepended deprecation warnings
+                const startIdx = content.indexOf('{');
+                const endIdx = content.lastIndexOf('}');
+                if (startIdx !== -1 && endIdx !== -1 && endIdx >= startIdx) {
+                   return JSON.parse(content.substring(startIdx, endIdx + 1));
+                }
+                return JSON.parse(content);
+              } catch (e) {
+                console.error(`Failed to parse ${filePath}:`, e);
+                return {};
+              }
+            }
+
+            const bandit = safeParseJSON('bandit-report.json');
+            const safety = safeParseJSON('safety-report.json');
+            const pipAudit = safeParseJSON('pip-audit-report.json');
+
+            let body = '### Bandit (SAST)\n';
+            body += `- ${bandit.metrics?.['SEVERITY.HIGH'] || 0} HIGH severity issues\n\n`;
+            body += '### Safety (Dependencies)\n';
+            body += `- ${safety.vulnerabilities?.length || 0} known vulnerabilities\n\n`;
+            body += '### Pip-audit (Dependencies)\n';
+
+            let vuln_deps_count = 0;
+            if (pipAudit.dependencies && Array.isArray(pipAudit.dependencies)) {
+               vuln_deps_count = pipAudit.dependencies.filter(d => d.vulnerabilities && d.vulnerabilities.length > 0).length;
+            }
+            body += `- ${vuln_deps_count} vulnerable packages\n`;
+
+            core.summary.addHeading('🔒 Security Scan Results', 2).addRaw(body).write();
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   lint:
