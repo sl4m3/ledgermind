@@ -170,7 +170,6 @@ if proposal_ids:
                 actual_db_path = getattr(memory.semantic.meta, 'db_path', os.path.join(storage_path, "semantic", "semantic_meta.db"))
                 with sqlite3.connect(actual_db_path) as conn:
                     conn.execute("UPDATE semantic_meta SET fid = ?, timestamp = ? WHERE fid = ?", (new_filename, ts_iso, filename))
-                    conn.execute("UPDATE semantic_fts SET fid = ? WHERE fid = ?", (new_filename, filename))
             except Exception as e:
                 print(f"   [WARN] Ошибка обновления БД для {filename} в {actual_db_path}: {e}")
 
