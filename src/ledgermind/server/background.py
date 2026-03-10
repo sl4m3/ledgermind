@@ -274,7 +274,10 @@ class BackgroundWorker:
 
     def _cleanup_orphans(self):
         try:
-            subprocess.run("pkill -f 'gemini --extensions \"\" -m'", shell=True, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+            import shutil
+            pkill_path = shutil.which("pkill")
+            if pkill_path:
+                subprocess.run([pkill_path, "-f", "gemini --extensions \"\" -m"], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL) # nosec B603
         except Exception: pass
 
 if __name__ == "__main__":
