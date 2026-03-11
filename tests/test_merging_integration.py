@@ -29,7 +29,7 @@ class TestMergingIntegration(unittest.TestCase):
             self.assertTrue(result.data[0].startswith("proposal_"))
 
     def test_builder_pattern(self):
-        builder = ProposalBuilder()
+        builder = ProposalBuilder(self.memory)
         builder.set_topic("Test topic").add_target("doc_1").add_target("doc_2").set_confidence(0.85)
         proposal = builder.build()
         
