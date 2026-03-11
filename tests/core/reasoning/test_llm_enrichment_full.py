@@ -1,8 +1,9 @@
+import os
 import json
 import pytest
 from unittest.mock import patch, MagicMock
 from ledgermind.core.api.memory import Memory
-from ledgermind.core.core.schemas import DecisionStream
+from ledgermind.core.core.schemas import DecisionStream, KIND_PROPOSAL
 from ledgermind.core.reasoning.enrichment import LLMEnricher
 
 @pytest.fixture

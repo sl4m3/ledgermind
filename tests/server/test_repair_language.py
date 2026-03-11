@@ -1,7 +1,8 @@
+import os
 import pytest
 import json
 from ledgermind.core.api.memory import Memory
-from ledgermind.server.server import MCPServer
+from ledgermind.server.server import MCPServer, MCPRole
 from ledgermind.server.tools.definitions import LedgerMindTools
 
 @pytest.fixture

@@ -1,3 +1,5 @@
+import pytest
+import threading
 import unittest
 from unittest.mock import MagicMock, patch
 from ledgermind.server.server import MCPServer
@@ -26,6 +28,7 @@ def test_maintenance_loop_skips_if_locked():
     """Verify that maintenance tasks respect file locks."""
     # This logic is now inside BackgroundWorker._run_reflection and others.
     # We mock Memory.check_environment to return locked status.
+    from ledgermind.server.background import BackgroundWorker
     
     mock_memory = MagicMock()
     # Mock environment check to say storage is locked

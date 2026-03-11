@@ -1,6 +1,7 @@
 
 import pytest
 from datetime import datetime, timedelta
+from ledgermind.core.core.schemas import MemoryEvent
 from ledgermind.core.core.targets import TargetRegistry
 from ledgermind.core.reasoning.trajectory import TrajectoryBuilder
 

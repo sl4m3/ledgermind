@@ -1,11 +1,12 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import json
 from ledgermind.server.server import MCPServer, MCPRole
 from ledgermind.server.contracts import (
     RecordDecisionRequest, SupersedeDecisionRequest
 )
 from ledgermind.server.specification import MCPApiSpecification
+from ledgermind.core.core.exceptions import ConflictError
 
 @pytest.fixture
 def mock_memory():

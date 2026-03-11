@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from ledgermind.core.reasoning.merging import MergeEngine
 
 @pytest.fixture

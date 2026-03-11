@@ -1,7 +1,7 @@
 import pytest
 import os
 import time
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from ledgermind.core.stores.semantic import SemanticStore
 from ledgermind.core.core.schemas import MemoryEvent
 

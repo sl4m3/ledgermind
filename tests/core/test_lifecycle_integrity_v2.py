@@ -29,6 +29,7 @@ def test_repro_issue_8_broken_link(memory):
 
 def test_repro_issue_11_lifecycle_audit(memory):
     """Issue #11: Verify that phase transitions are logged."""
+    from ledgermind.core.core.schemas import MemoryEvent
     # Create a proposal (stream)
     ctx = DecisionStream(
         decision_id=str(uuid.uuid4()),

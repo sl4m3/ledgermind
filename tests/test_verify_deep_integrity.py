@@ -3,6 +3,7 @@ import os
 import shutil
 import unittest
 from ledgermind.core.api.memory import Memory
+from ledgermind.core.core.exceptions import InvariantViolation
 
 class TestDeepIntegrity(unittest.TestCase):
     def setUp(self):

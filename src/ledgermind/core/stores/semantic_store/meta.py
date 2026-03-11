@@ -2,7 +2,7 @@ import sqlite3
 import json
 import logging
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from contextlib import contextmanager
 
 logger = logging.getLogger("ledgermind.core.semantic_store.meta")
@@ -14,7 +14,7 @@ class SemanticMetaStore:
     """
     def __init__(self, db_path: str):
         self.db_path = db_path
-        self._conn = sqlite3.connect(db_path, timeout=30.0, check_same_thread=False)
+        self._conn = sqlite3.connect(db_path, timeout=30.0, check_same_thread=False, isolation_level=None)
         self._conn.row_factory = sqlite3.Row
         self._init_db()
 
@@ -26,36 +26,36 @@ class SemanticMetaStore:
                 self._conn.execute("PRAGMA synchronous=NORMAL")
                 self._conn.execute("""
                     CREATE TABLE IF NOT EXISTS semantic_meta (
-                        fid TEXT PRIMARY KEY,
-                        target TEXT NOT NULL,
-                        title TEXT,
-                        status TEXT NOT NULL,
-                        kind TEXT NOT NULL,
-                        timestamp DATETIME NOT NULL,
-                        content TEXT,
-                        context_json TEXT,
-                        namespace TEXT DEFAULT 'default',
-                        phase TEXT,
-                        vitality TEXT,
-                        enrichment_status TEXT,
-                        supersedes TEXT,
-                        superseded_by TEXT,
-                        converted_to TEXT,
-                        merge_status TEXT DEFAULT 'idle',
-                        keywords TEXT,
-                        confidence REAL,
-                        last_hit_at DATETIME,
-                        hit_count INTEGER DEFAULT 0,
-                        link_count INTEGER DEFAULT 0,
-                        reinforcement_density REAL DEFAULT 0.0,
-                        stability_score REAL DEFAULT 0.0,
-                        coverage REAL DEFAULT 0.0,
-                        estimated_removal_cost REAL DEFAULT 0.0,
-                        estimated_utility REAL DEFAULT 0.0,
-                        content_hash TEXT,
-                        compressive_rationale TEXT
-                    )
-                """)
+                fid TEXT PRIMARY KEY,
+                target TEXT NOT NULL,
+                title TEXT,
+                status TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                timestamp DATETIME NOT NULL,
+                content TEXT,
+                context_json TEXT,
+                namespace TEXT DEFAULT 'default',
+                phase TEXT,
+                vitality TEXT,
+                enrichment_status TEXT,
+                supersedes TEXT,
+                superseded_by TEXT,
+                converted_to TEXT,
+                merge_status TEXT DEFAULT 'idle',
+                keywords TEXT,
+                confidence REAL,
+                last_hit_at DATETIME,
+                hit_count INTEGER DEFAULT 0,
+                link_count INTEGER DEFAULT 0,
+                reinforcement_density REAL DEFAULT 0.0,
+                stability_score REAL DEFAULT 0.0,
+                coverage REAL DEFAULT 0.0,
+                estimated_removal_cost REAL DEFAULT 0.0,
+                estimated_utility REAL DEFAULT 0.0,
+                content_hash TEXT,
+                compressive_rationale TEXT
+            )
+        """)
                 self._conn.execute("CREATE TABLE IF NOT EXISTS semantic_config (key TEXT PRIMARY KEY, value TEXT)")
                 self._conn.execute("CREATE INDEX IF NOT EXISTS idx_target ON semantic_meta(target)")
                 self._conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON semantic_meta(status)")
@@ -101,13 +101,13 @@ class SemanticMetaStore:
                     else:
                         raise
 
-                self._conn.commit()
                 break
             except sqlite3.OperationalError as e:
                 if "locked" in str(e) and attempt < 19:
                     time.sleep(0.1)
                     continue
                 raise
+
     def get_version(self) -> str:
         return self.get_config("version", "0.0.0")
 
@@ -115,7 +115,7 @@ class SemanticMetaStore:
         self.set_config("version", version)
 
     def get_config(self, key: str, default: Any = None) -> Any:
-        cursor = self._execute_with_retry("SELECT value FROM semantic_config WHERE key = ?", (key,))
+        cursor = self._conn.execute("SELECT value FROM semantic_config WHERE key = ?", (key,))
         row = cursor.fetchone()
         return row[0] if row else default
 
@@ -124,39 +124,31 @@ class SemanticMetaStore:
         max_retries = 5
         retry_delay = 0.1
         
-        import time
         for attempt in range(max_retries):
             try:
-                started_tx = False
                 if is_write and not self._conn.in_transaction:
                     self._conn.execute("BEGIN IMMEDIATE")
-                    started_tx = True
                 
                 cursor = self._conn.execute(sql, params)
                 
-                if started_tx:
+                if is_write and not self._conn.in_transaction:
                     self._conn.execute("COMMIT")
-                elif commit and self._conn.in_transaction:
+                elif commit:
                     self._conn.commit()
                     
                 return cursor
             except sqlite3.OperationalError as e:
                 if "locked" in str(e) and attempt < max_retries - 1:
-                    # If we started it, it should be rolled back
-                    if 'started_tx' in locals() and started_tx:
-                        try:
-                            self._conn.execute("ROLLBACK")
-                        except Exception:
-                            pass
+                    if is_write and not self._conn.in_transaction:
+                        try: self._conn.execute("ROLLBACK")
+                        except: pass
                     time.sleep(retry_delay * (2 ** attempt))
                     continue
                 raise
-            except Exception:
-                if 'started_tx' in locals() and started_tx:
-                    try:
-                        self._conn.execute("ROLLBACK")
-                    except Exception:
-                        pass
+            except Exception as e:
+                if is_write and not self._conn.in_transaction:
+                    try: self._conn.execute("ROLLBACK")
+                    except: pass
                 raise
 
     def set_config(self, key: str, value: str):
@@ -249,28 +241,18 @@ class SemanticMetaStore:
         return dict(row) if row else None
 
     def get_batch_by_fids(self, fids: List[str]) -> List[Dict[str, Any]]:
-        """Fetch multiple metadata records in a single query with chunking."""
-        if not fids:
-            return []
-
-        # Optimization: Chunk the query to avoid hitting SQLite's parameter limits (SQLITE_MAX_VARIABLE_NUMBER)
-        chunk_size = 900
-        results = []
-        for i in range(0, len(fids), chunk_size):
-            chunk = fids[i:i + chunk_size]
-            placeholders = ', '.join(['?'] * len(chunk))
-            cursor = self._execute_with_retry(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", tuple(chunk)) # nosec B608
-            results.extend([dict(row) for row in cursor.fetchall()])
-        return results
+        """Fetch multiple metadata records in a single query."""
+        if not fids: return []
+        placeholders = ', '.join(['?'] * len(fids))
+        cursor = self._execute_with_retry(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", tuple(fids)) # nosec B608
+        return [dict(row) for row in cursor.fetchall()]
 
     def resolve_to_truth(self, fid: str, depth: int = 0) -> Optional[Dict[str, Any]]:
         """Recursively follows 'superseded_by' links to find the active truth."""
-        if depth >= 20:
-            return None
+        if depth >= 20: return None
         
         meta = self.get_by_fid(fid)
-        if not meta:
-            return None
+        if not meta: return None
         
         next_fid = meta.get('superseded_by')
         if meta.get('status') == 'active' or not next_fid:
@@ -278,8 +260,7 @@ class SemanticMetaStore:
             
         truth = self.resolve_to_truth(next_fid, depth + 1)
         if truth is None:
-            if depth > 0 and depth >= 19:
-                return None # Depth limit hit down the chain
+            if depth > 0 and depth >= 19: return None # Depth limit hit down the chain
             return meta # Next link broken, return last known good
         return truth
 
@@ -299,8 +280,7 @@ class SemanticMetaStore:
     def keyword_search(self, query: str, limit: int = 10, namespace: str = "default", status: Optional[str] = None) -> List[Dict[str, Any]]:
         """Performs full-text search using FTS5 with fallback to LIKE."""
         sanitized = query.replace('"', '""').strip()
-        if not sanitized:
-            return []
+        if not sanitized: return []
         
         # 1. Try FTS5 if available
         results = []
@@ -356,27 +336,26 @@ class SemanticMetaStore:
 
     def list_all(self, target: Optional[str] = None, namespace: str = "default") -> List[Dict[str, Any]]:
         if target:
-            cursor = self._execute_with_retry(
+            cursor = self._conn.execute(
                 "SELECT * FROM semantic_meta WHERE target = ? AND namespace = ? ORDER BY timestamp DESC", 
                 (target, namespace)
             )
         else:
-            cursor = self._execute_with_retry("SELECT * FROM semantic_meta ORDER BY timestamp DESC")
+            cursor = self._conn.execute("SELECT * FROM semantic_meta ORDER BY timestamp DESC")
         return [dict(row) for row in cursor.fetchall()]
 
     def increment_hit(self, fid: str):
         now = datetime.now().isoformat()
-        self._execute_with_retry(
+        self._conn.execute(
             "UPDATE semantic_meta SET hit_count = hit_count + 1, last_hit_at = ? WHERE fid = ?", 
-            (now, fid),
-            is_write=True,
-            commit=True
+            (now, fid)
         )
 
     def close(self):
         if self._conn:
             try:
-                self._conn.commit()
+                if self._conn.in_transaction:
+                    self._conn.commit()
             except sqlite3.OperationalError:
                 pass
             self._conn.close()
@@ -384,9 +363,27 @@ class SemanticMetaStore:
     @contextmanager
     def batch_update(self):
         """Manual batching support."""
+        started_tx = False
         try:
+            if not self._conn.in_transaction:
+                for attempt in range(20):
+                    try:
+                        self._conn.execute("BEGIN IMMEDIATE")
+                        started_tx = True
+                        break
+                    except sqlite3.OperationalError as e:
+                        if "locked" in str(e) and attempt < 19:
+                            import time
+                            time.sleep(0.1)
+                            continue
+                        raise
             yield
-            self._conn.commit()
+            if started_tx and self._conn.in_transaction:
+                self._conn.execute("COMMIT")
         except Exception:
-            self._conn.rollback()
+            if started_tx and self._conn.in_transaction:
+                try:
+                    self._conn.execute("ROLLBACK")
+                except Exception:
+                    pass
             raise

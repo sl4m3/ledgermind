@@ -1,4 +1,5 @@
 import pytest
+import sqlite3
 from ledgermind.core.stores.semantic_store.meta import SemanticMetaStore
 
 @pytest.fixture

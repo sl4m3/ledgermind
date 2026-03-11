@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock
 from ledgermind.core.reasoning.conflict import ConflictEngine
-from ledgermind.core.core.schemas import MemoryEvent, KIND_DECISION, DecisionContent
+from ledgermind.core.core.schemas import MemoryEvent, KIND_DECISION, DecisionStream, BaseSemanticContent, DecisionContent
 
 @pytest.fixture
 def mock_meta_store():

@@ -64,9 +64,6 @@ class EventProcessingService(MemoryService):
         # Decision routing and conflict check
         # Use shared router from context (initialized by Memory)
         decision = self.context.router.route(event, intent=intent)
-        if decision and decision.should_persist and decision.store_type == "semantic" and not intent:
-             if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=effective_namespace):
-                 return MemoryDecision(should_persist=False, store_type="none", reason=f"Invariant Violation: {conflict_msg}")
         
         if decision and decision.should_persist:
             if decision.store_type == "episodic":
@@ -75,7 +72,10 @@ class EventProcessingService(MemoryService):
                     decision.metadata["event_id"] = ev_id
                     if event_emitter: event_emitter.emit("episodic_added", {"id": ev_id, "kind": event.kind})
             elif decision.store_type == "semantic":
-                self._persist_semantic(event, decision, intent, effective_namespace, vector, source, event_emitter)
+                try:
+                    self._persist_semantic(event, decision, intent, effective_namespace, vector, source, event_emitter)
+                except ConflictError as ce:
+                    return MemoryDecision(should_persist=False, store_type="none", reason=f"Invariant Violation: {str(ce)}")
 
         return decision
 
@@ -102,15 +102,20 @@ class EventProcessingService(MemoryService):
 
     def _persist_semantic(self, event, decision, intent, namespace, vector, source, event_emitter):
         with self.transaction(description="Persist Semantic Record"):
+            # Check for conflicts INSIDE the transaction to avoid race conditions
+            if not intent:
+                if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=namespace):
+                    raise ConflictError(conflict_msg)
+            else:
+                to_supersede_ids = intent.target_decision_ids if intent.resolution_type == "supersede" else None
+                if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=namespace, supersedes=to_supersede_ids):
+                    raise ConflictError(conflict_msg)
+
             if intent and intent.resolution_type == "supersede":
                 for old_id in intent.target_decision_ids:
                     old_meta = self.semantic.meta.get_by_fid(old_id)
                     if old_meta and old_meta.get('status') in ('active', 'pending_merge', 'accepted', 'draft'):
                         self.semantic.update_decision(old_id, {"status": "superseded"}, commit_msg="Deactivating for transition")
-
-            to_supersede_ids = intent.target_decision_ids if (intent and intent.resolution_type == "supersede") else None
-            if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=namespace, supersedes=to_supersede_ids):
-                raise ConflictError(f"Conflict detected: {conflict_msg}")
 
             # Prepare Context
             if isinstance(event.context, (DecisionContent, DecisionStream)):
