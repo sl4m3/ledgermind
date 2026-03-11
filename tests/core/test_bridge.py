@@ -10,7 +10,7 @@ def temp_memory_path(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def bridge(temp_memory_path):
-    return IntegrationBridge(memory_path=temp_memory_path)
+    return IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.01)
 
 def test_bridge_initialization(bridge, temp_memory_path):
     assert bridge.memory_path == os.path.abspath(temp_memory_path)

@@ -123,6 +123,10 @@ class EventProcessingService(MemoryService):
 
             new_fid = self.semantic.save(event, namespace=namespace)
             
+            # Index vector if provided
+            if vector is not None and self.vector:
+                self.vector.add_documents([{"id": new_fid}], embeddings=[vector])
+            
             # FORWARDING LOGIC: If the intent target is superseded, find the active proposal
             if intent and intent.resolution_type == "supersede" and intent.target_decision_ids:
                 # This is standard superseding during recording

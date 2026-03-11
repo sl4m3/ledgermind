@@ -148,8 +148,11 @@ class DecisionCommandService(MemoryService):
             data, _ = MemoryLoader.parse(f.read())
         
         if data.get("kind") != "proposal": raise ValueError(f"Not a proposal: {proposal_id}")
+        
+        # V7.0: Status is a root field in metadata
         ctx = data.get("context", {})
-        if str(ctx.get("status", "")).lower() != "draft": raise ValueError(f"Not draft: {proposal_id}")
+        current_status = data.get("status") or ctx.get("status", "")
+        if str(current_status).lower() != "draft": raise ValueError(f"Not draft: {proposal_id}")
 
         try:
             with self.transaction(description=f"Accept Proposal {proposal_id}"):

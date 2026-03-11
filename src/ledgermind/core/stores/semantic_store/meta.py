@@ -215,7 +215,7 @@ class SemanticMetaStore:
             fts_query = sanitized
             sql = """
                 SELECT m.* FROM semantic_meta m
-                JOIN semantic_fts f ON m.fid = f.fid
+                JOIN semantic_fts f ON m.rowid = f.rowid
                 WHERE semantic_fts MATCH ?
                 AND m.namespace = ?
             """
