@@ -5,7 +5,7 @@ import json
 import hmac
 from fastapi import FastAPI, HTTPException, Header, Depends, WebSocket, WebSocketDisconnect, Security, Query
 from fastapi.security.api_key import APIKeyHeader, APIKey
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Any, Dict
 from ledgermind.core.api.memory import Memory
 from sse_starlette.sse import EventSourceResponse
@@ -24,18 +24,18 @@ api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 memory_instance: Optional[Memory] = None
 
 class SearchRequest(BaseModel):
-    query: str
-    limit: int = 5
-    offset: int = 0
-    namespace: str = "default"
-    mode: str = "balanced"
+    query: str = Field(..., max_length=2000, description="The search query text")
+    limit: int = Field(5, ge=1, le=100, description="Number of results to return")
+    offset: int = Field(0, ge=0, description="Pagination offset")
+    namespace: str = Field("default", max_length=100)
+    mode: str = Field("balanced", max_length=50)
 
 class RecordRequest(BaseModel):
-    title: str
-    target: str
-    rationale: str
-    consequences: Optional[List[str]] = []
-    namespace: str = "default"
+    title: str = Field(..., max_length=500, description="Decision title")
+    target: str = Field(..., max_length=1000, description="Target of the decision")
+    rationale: str = Field(..., max_length=10000, description="Rationale for the decision")
+    consequences: Optional[List[str]] = Field([], max_length=100, description="List of consequences")
+    namespace: str = Field("default", max_length=100)
 
 async def get_api_key(
     api_key_header: str = Security(api_key_header),
