@@ -116,20 +116,23 @@ class SemanticMetaStore:
         import time
         for attempt in range(max_retries):
             try:
+                started_tx = False
                 if is_write and not self._conn.in_transaction:
                     self._conn.execute("BEGIN IMMEDIATE")
+                    started_tx = True
                 
                 cursor = self._conn.execute(sql, params)
                 
-                if is_write and not self._conn.in_transaction:
+                if started_tx:
                     self._conn.execute("COMMIT")
-                elif commit:
+                elif commit and self._conn.in_transaction:
                     self._conn.commit()
                     
                 return cursor
             except sqlite3.OperationalError as e:
                 if "locked" in str(e) and attempt < max_retries - 1:
-                    if is_write and not self._conn.in_transaction:
+                    # If we started it, it should be rolled back
+                    if 'started_tx' in locals() and started_tx:
                         try:
                             self._conn.execute("ROLLBACK")
                         except Exception:
@@ -138,7 +141,7 @@ class SemanticMetaStore:
                     continue
                 raise
             except Exception:
-                if is_write and not self._conn.in_transaction:
+                if 'started_tx' in locals() and started_tx:
                     try:
                         self._conn.execute("ROLLBACK")
                     except Exception:
