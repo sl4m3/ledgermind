@@ -253,6 +253,19 @@ class SemanticMetaStore:
             return meta # Next link broken, return last known good
         return truth
 
+    def list_active_conflicts(self, target: str, namespace: str = "default") -> List[str]:
+        """SQL-optimized conflict detection."""
+        cursor = self._execute_with_retry(
+            "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status IN ('active', 'draft') AND kind IN ('decision', 'proposal')",
+            (target, namespace)
+        )
+        return [row[0] for row in cursor.fetchall()]
+
+    def is_empty(self) -> bool:
+        """Returns True if the metadata table has no records."""
+        cursor = self._execute_with_retry("SELECT COUNT(*) FROM semantic_meta")
+        return cursor.fetchone()[0] == 0
+
     def keyword_search(self, query: str, limit: int = 10, namespace: str = "default", status: Optional[str] = None) -> List[Dict[str, Any]]:
         """Performs full-text search using FTS5 with fallback to LIKE."""
         sanitized = query.replace('"', '""').strip()

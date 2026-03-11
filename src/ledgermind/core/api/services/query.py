@@ -38,20 +38,23 @@ class QueryService(MemoryService):
         """
         effective_namespace = namespace or self.context.namespace
         k = 60 # RRF constant        
-        # Fast path for simple keyword search
-        if mode == "lite":
+        # Fast path for simple keyword search (V7.1: Restored heuristic for performance)
+        is_short_query = len(query) < 20 and " " not in query.strip()
+        if mode == "lite" or (is_short_query and mode == "balanced"):
             search_status = "active" if mode == "strict" else None
             kw_results = self.semantic.meta.keyword_search(query, limit=limit, namespace=effective_namespace, status=search_status)
             if kw_results:
-                return [{
+                fast_results = [{
                     "id": r['fid'],
                     "title": r['title'],
                     "preview": r['title'],
                     "target": r['target'],
                     "status": r['status'],
-                    "score": 1.0,
+                    "score": 1.0 * self._get_lifecycle_weight(r), # Apply weights
                     "kind": r['kind']
                 } for r in kw_results]
+                # V7.1: MUST SORT by score, otherwise weights have no effect on order
+                return sorted(fast_results, key=lambda x: x['score'], reverse=True)
 
         search_limit = max(200, (offset + limit) * 10) if namespace else (offset + limit) * 3
         

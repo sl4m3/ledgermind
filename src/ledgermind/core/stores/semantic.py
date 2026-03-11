@@ -113,9 +113,9 @@ class SemanticStore:
             self._fs_lock.release()
         
         self.reconcile_untracked()
-        if not skip_validate:
-            IntegrityChecker.validate(self.repo_path)
         self.sync_meta_index()
+        if not skip_validate:
+            IntegrityChecker.validate(self.repo_path, meta_store=self.meta)
 
     def reconcile_untracked(self):
         self._fs_lock.acquire(exclusive=True)
@@ -277,7 +277,7 @@ class SemanticStore:
         try:
             with self._current_tx.begin():
                 yield
-                IntegrityChecker.validate(self.repo_path)
+                IntegrityChecker.validate(self.repo_path, meta_store=self.meta)
                 self.audit.commit_transaction("Atomic Transaction Commit")
         except Exception as e:
             logger.error(f"Transaction Failed: {e}. Rolling back...")
@@ -396,7 +396,7 @@ class SemanticStore:
             )
             if not self._in_transaction:
                 try:
-                    IntegrityChecker.validate(self.repo_path, fid=relative_path, data=data)
+                    IntegrityChecker.validate(self.repo_path, fid=relative_path, data=data, meta_store=self.meta)
                     self.audit.add_artifact(relative_path, full_file_content, f"Add {event.kind}: {event.content[:50]}")
                 except Exception as e:
                     if os.path.exists(full_path): os.remove(full_path)
@@ -475,7 +475,7 @@ class SemanticStore:
                 merge_status=new_data.get("merge_status"), enrichment_status=new_data.get("enrichment_status")
             )
             if not self._in_transaction:
-                IntegrityChecker.validate(self.repo_path, fid=filename, data=new_data)
+                IntegrityChecker.validate(self.repo_path, fid=filename, data=new_data, meta_store=self.meta)
                 self.audit.update_artifact(filename, new_content, commit_msg)
             elif isinstance(self.audit, GitAuditProvider):
                 self.audit.run(["add", "--", filename])

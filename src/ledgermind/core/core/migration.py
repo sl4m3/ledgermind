@@ -1,5 +1,6 @@
 import os
 import yaml
+import json
 import logging
 from typing import Dict, Any, List
 from ledgermind.core.stores.semantic_store.loader import MemoryLoader
@@ -100,6 +101,8 @@ class MigrationEngine:
                         status=ctx.get("status", "active"),
                         kind=data["kind"],
                         timestamp=ts or datetime.now(),
+                        content=data.get("content", ""),
+                        context_json=json.dumps(ctx),
                         namespace=ctx["namespace"],
                         superseded_by=ctx.get("superseded_by")
                     )
