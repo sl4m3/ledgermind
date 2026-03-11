@@ -70,16 +70,16 @@ class DecisionCommandService(MemoryService):
                     content_sim = SequenceMatcher(None, new_text.lower(), old_content.lower()).ratio()
 
                     # Elevate similarity if titles match
-                    if title_sim > 0.90: sim = max(sim, 0.71)
-                    # Support Arbiter in the Gray Zone
-                    if 0.50 <= max(sim, content_sim) < 0.70 and arbiter_callback:
+                    if title_sim > 0.90: sim = max(sim, 0.86)
+                    # Support Arbiter in the Gray Zone (0.50 - 0.85)
+                    if 0.50 <= max(sim, content_sim) < 0.85 and arbiter_callback:
                         if arbiter_callback({"title": title, "rationale": rationale}, {"title": old_title, "rationale": old_content}) == "SUPERSEDE":
-                            sim = 0.71
+                            sim = 0.86
 
                     # Take best similarity
                     sim = max(sim, content_sim)
 
-                    if sim > 0.70:
+                    if sim > 0.85:
                         return self.supersede_decision(
                             title=title, target=target,
                             rationale=f"Auto-Evolution: Updated based on high similarity ({sim:.2f}). {rationale}",
@@ -89,6 +89,7 @@ class DecisionCommandService(MemoryService):
         except Exception as e:
             if "not found" not in str(e).lower() and "missing" not in str(e).lower():
                 logger.warning(f"Conflict resolution fallback failed: {e}", exc_info=True)
+        
         if active_conflicts:
             msg = f"CONFLICT: Target '{target}' in namespace '{effective_namespace}' already has active decisions: {active_conflicts}."
             raise ConflictError(msg)

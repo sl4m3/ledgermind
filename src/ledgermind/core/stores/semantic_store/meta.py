@@ -137,7 +137,7 @@ class SemanticMetaStore:
             'compressive_rationale': kwargs.get('compressive_rationale')
         }
 
-        self._conn.execute(f"""
+        self._conn.execute("""
             INSERT INTO semantic_meta (
                 fid, target, title, status, kind, timestamp, content, context_json, namespace, phase, vitality, enrichment_status,
                 superseded_by, converted_to, merge_status, keywords, confidence, last_hit_at, link_count, reinforcement_density, stability_score, coverage, 
@@ -194,7 +194,7 @@ class SemanticMetaStore:
         """Fetch multiple metadata records in a single query."""
         if not fids: return []
         placeholders = ', '.join(['?'] * len(fids))
-        cursor = self._conn.execute(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", fids)
+        cursor = self._conn.execute(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", fids) # nosec B608
         return [dict(row) for row in cursor.fetchall()]
 
     def resolve_to_truth(self, fid: str, depth: int = 0) -> Optional[Dict[str, Any]]:

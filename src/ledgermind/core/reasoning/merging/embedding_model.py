@@ -57,7 +57,7 @@ class JinaEmbeddingModel:
     def _text_hash(self, text: str) -> str:
         """Хэш для кэширования."""
         normalized = self._normalize_text(text)
-        return hashlib.md5(normalized.encode('utf-8')).hexdigest()[:16]
+        return hashlib.sha256(normalized.encode('utf-8')).hexdigest()[:16]
 
     def _normalize_text(self, text: str) -> str:
         """Нормализация для кэширования."""
