@@ -14,12 +14,12 @@ def test_fallback_search_logic(store):
     store.upsert(
         fid="python_opt.md", target="core/python", title="Python Optimization",
         content="Fast execution techniques for Python", status="active", kind="decision",
-        timestamp=datetime.now()
+        timestamp=datetime.now(), context_json="{}"
     )
     store.upsert(
         fid="java_perf.md", target="core/java", title="Java Performance",
         content="Garbage collection tuning", status="active", kind="decision",
-        timestamp=datetime.now()
+        timestamp=datetime.now(), context_json="{}"
     )
 
     # 2. Break FTS table to force fallback
