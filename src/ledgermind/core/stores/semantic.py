@@ -32,69 +32,38 @@ def _cached_validate_fid(repo_path_str: str, fid: str) -> str:
     from pathlib import Path
 
     # ===== LAYER 1: Reject obviously dangerous patterns FIRST =====
-
-    # Block null bytes (Windows path separator bypass)
     if "\x00" in fid:
         raise ValueError(f"Invalid file identifier (null bytes detected): {fid}")
-
-    # Block common traversal patterns
     if ".." in fid:
         raise ValueError(f"Invalid file identifier (parent directory traversal detected): {fid}")
-
-    # Block absolute paths (they should be relative)
     if fid.startswith("/") or fid.startswith("\\"):
         raise ValueError(f"Invalid file identifier (absolute path not allowed): {fid}")
-
-    # Block home directory shortcuts
     if fid.startswith("~") or fid.startswith("$HOME"):
         raise ValueError(f"Invalid file identifier (home directory expansion blocked): {fid}")
 
     # ===== LAYER 2: Canonicalize BOTH paths BEFORE comparison =====
-
     try:
         repo_path = Path(repo_path_str)
         resolved_repo = repo_path.resolve()
-
         fid_path = repo_path / fid
-
-        # Resolve symbolic links and normalize path
-        # This is critical - it resolves symlinks to their targets
         resolved_fid = fid_path.resolve()
-
     except (OSError, ValueError) as e:
-        # Invalid path (e.g., contains null bytes after encoding)
         raise ValueError(f"Invalid path resolution for '{fid}': {e}")
 
     # ===== LAYER 3: Check containment AFTER canonicalization =====
-
     try:
-        # relative_to() raises ValueError if not subpath
-        # This is the security check
         resolved_fid.relative_to(resolved_repo)
-
     except ValueError:
-        # Path is outside repository (or couldn't be made relative)
         raise ValueError(f"Invalid file identifier (path outside repository): {fid}")
 
     # ===== LAYER 4: Final safety checks =====
-
-    # Convert back to strings for final validation
     fid_str = str(resolved_fid)
     repo_str = str(resolved_repo)
-
-    # Ensure resolved path actually starts with repo path
-    # This catches edge cases where relative_to passed but path still escapes
     if not fid_str.startswith(repo_str):
         raise ValueError(f"Invalid file identifier (canonicalized path outside repository): {fid}")
-
-    # Additional: Check for suspicious patterns in canonicalized path
-    # These shouldn't exist after resolve() but check anyway
     if any(x in fid_str for x in ["../", "..\\", "\x00"]):
         raise ValueError(f"Invalid file identifier (suspicious pattern in canonicalized path): {fid}")
 
-    # SUCCESS: Path is validated
-    # Caller can now safely use fid_str
-    # We return the relative string path for consistency with existing codebase
     return os.path.relpath(fid_str, repo_str)
 
 class SemanticStore:
@@ -118,7 +87,6 @@ class SemanticStore:
             
         self.meta = meta_store or SemanticMetaStore(os.path.join(repo_path, "semantic_meta.db"))
         
-        # Check for Git availability
         git_available = False
         try:
             subprocess.run(["git", "--version"], capture_output=True, check=True) # nosec B603 B607
@@ -135,7 +103,6 @@ class SemanticStore:
         
         self.audit.initialize()
         
-        # Data Format Migration (Ensure backward compatibility)
         self._fs_lock.acquire(exclusive=True)
         try:
             if self.meta.get_version() != "1.22.0":
@@ -151,7 +118,6 @@ class SemanticStore:
         self.sync_meta_index()
 
     def reconcile_untracked(self):
-        """Finds files that are on disk but not in audit (Git) and adds them."""
         self._fs_lock.acquire(exclusive=True)
         try:
             disk_files = []
@@ -163,7 +129,6 @@ class SemanticStore:
                         disk_files.append(rel_path)
 
             for f in disk_files:
-                # Check if file is tracked by git
                 if isinstance(self.audit, GitAuditProvider):
                     res = subprocess.run(["git", "ls-files", "--error-unmatch", f], 
                                          cwd=self.repo_path, capture_output=True) # nosec B603 B607
@@ -197,58 +162,48 @@ class SemanticStore:
 
     def _remove_orphans(self, orphans: set[str]):
         for orphaned_fid in orphans:
-            logger.debug(f"Removing orphan from meta: {orphaned_fid}")
             self.meta.delete(orphaned_fid)
 
     def _update_meta_for_file(self, fid: str, force: bool = False):
         try:
             full_path = os.path.join(self.repo_path, fid)
             mtime = os.path.getmtime(full_path)
-
             existing = self.meta.get_by_fid(fid)
-
             with open(full_path, 'r', encoding='utf-8') as stream:
                 raw_content = stream.read()
 
-            # --- STRATEGIC CHANGE: Content Hash is Primary, MTime is Secondary ---
             import hashlib
             h = hashlib.sha256()
             h.update(raw_content.encode('utf-8'))
             current_hash = h.hexdigest()
 
-            # If hash matches, we can safely skip even if mtime changed (or didn't)
             if existing and not force:
                 if existing.get('content_hash') == current_hash:
                     return
 
-            # Proceed to parse if hash changed or forced
             data, body = MemoryLoader.parse(raw_content)
             if data:
                 ts = data.get("timestamp")
-                if isinstance(ts, str):
-                    ts = datetime.fromisoformat(ts)
-
+                if isinstance(ts, str): ts = datetime.fromisoformat(ts)
                 final_ts = ts or datetime.fromtimestamp(mtime)
 
                 sync_ctx = data.get("context", {})
                 sync_target = sync_ctx.get("target") or "unknown"
                 sync_ns = sync_ctx.get("namespace") or "default"
                 sync_keywords = sync_ctx.get("keywords", [])
-                if isinstance(sync_keywords, list):
-                    sync_keywords = ", ".join(sync_keywords)
+                if isinstance(sync_keywords, list): sync_keywords = ", ".join(sync_keywords)
 
-                # Get link stats from episodic store
                 link_c, link_s = 0, 0.0
-                try:
-                    link_c, link_s = self.episodic.count_links_for_semantic(fid)
+                try: link_c, link_s = self.episodic.count_links_for_semantic(fid)
                 except Exception: pass
 
-                # CORE FIELD SYNC: Prefer root YAML fields, fallback to context
                 final_status = data.get("status") or sync_ctx.get("status", "unknown")
                 final_kind = data.get("kind") or sync_ctx.get("kind", "unknown")
+                final_supersedes = data.get("supersedes") or sync_ctx.get("supersedes", [])
                 final_superseded = data.get("superseded_by") or sync_ctx.get("superseded_by")
                 final_merge_status = data.get("merge_status") or sync_ctx.get("merge_status", "idle")
                 final_enrichment_status = data.get("enrichment_status") or sync_ctx.get("enrichment_status", "pending")
+                final_converted_to = data.get("converted_to") or sync_ctx.get("converted_to")
 
                 self.meta.upsert(
                     fid=fid,
@@ -257,7 +212,9 @@ class SemanticStore:
                     status=final_status,
                     kind=final_kind,
                     timestamp=final_ts,
+                    supersedes=final_supersedes,
                     superseded_by=final_superseded,
+                    converted_to=final_converted_to,
                     merge_status=final_merge_status,
                     namespace=sync_ns,
                     content=data.get("content", "")[:8000],
@@ -278,32 +235,19 @@ class SemanticStore:
             logger.error(f"Failed to index {fid}: {e}")
 
     def sync_meta_index(self, force: bool = False):
-        """Ensures that the metadata index reflects the actual Markdown files on disk."""
         should_lock = not self._in_transaction
         if should_lock: self._fs_lock.acquire(exclusive=True)
         try:
-            # Re-verify integrity if forced
-            if force:
-                IntegrityChecker.validate(self.repo_path, force=True)
-
-            # 1. Get current files on disk
+            if force: IntegrityChecker.validate(self.repo_path, force=True)
             disk_files = self._get_disk_files()
-
-            # 2. Get current records in MetaStore
             meta_files = self._get_meta_files()
-
-            # 3. Synchronize orphans (removed from disk but in meta)
             orphans = meta_files - disk_files
             if orphans:
                 logger.info(f"Removing {len(orphans)} orphan records from meta index.")
                 self._remove_orphans(orphans)
-
-            # 4. Add/Update files
-            # We always loop over disk files and rely on _update_meta_for_file's hash check for speed
             cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
             with cm:
-                for f in disk_files:
-                    self._update_meta_for_file(f, force=force)
+                for f in disk_files: self._update_meta_for_file(f, force=force)
         finally:
             if should_lock: self._fs_lock.release()
 
@@ -325,41 +269,25 @@ class SemanticStore:
 
     @contextmanager
     def transaction(self):
-        """Groups multiple operations into a single ACID transactional unit using TransactionManager."""
         if self._in_transaction:
             yield
             return
-
         self._current_tx = TransactionManager(self.repo_path, self.meta)
         self._in_transaction = True
-        
         try:
             with self._current_tx.begin():
                 yield
-                # Invariants check before commit
                 IntegrityChecker.validate(self.repo_path)
-                
-                # Commit to Audit Provider (Git)
-                # This should happen while the OS lock is still held by TransactionManager
                 self.audit.commit_transaction("Atomic Transaction Commit")
         except Exception as e:
             logger.error(f"Transaction Failed: {e}. Rolling back...")
-            
-            # 1. FS/Git Rollback
             if isinstance(self.audit, GitAuditProvider):
                 self.audit.run(["reset", "--hard", "HEAD"])
                 self.audit.run(["clean", "-fd"])
-            
-            # 2. CLEAR LOCKS BEFORE SYNC: This is critical for SQLite in Termux
             self._in_transaction = False
             self._current_tx = None
-            
-            # 3. Post-rollback index synchronization (if needed)
-            try:
-                self.sync_meta_index() 
-            except Exception as se:
-                logger.error(f"Post-rollback synchronization failed: {se}")
-                
+            try: self.sync_meta_index() 
+            except Exception as se: logger.error(f"Post-rollback synchronization failed: {se}")
             raise
         finally:
             self._in_transaction = False
@@ -374,65 +302,40 @@ class SemanticStore:
                          timestamp: datetime, content: str, context: Dict[str, Any],
                          status: str, title: Optional[str] = None, 
                          content_hash: Optional[str] = None,
+                         supersedes: Optional[List[str]] = None,
                          superseded_by: Optional[str] = None,
                          merge_status: Optional[str] = None,
                          enrichment_status: Optional[str] = None,
                          converted_to: Optional[str] = None):
-        """
-        Shared logic for upserting metadata to the store.
-        If status fields are None, it tries to preserve existing values from DB.
-        """
-        # Prepare cached content including rationale for searchability
         rationale = context.get('rationale', '')
         cached_content = f"{content}\n{rationale}" if rationale else content
-
-        # 1. Fetch existing record to preserve fields
         existing = self.meta.get_by_fid(fid)
-        
-        # 2. Resolve statuses (Argument -> DB -> Default)
         final_merge_status = merge_status or (existing.get('merge_status') if existing else "idle")
         final_enrichment_status = enrichment_status or (existing.get('enrichment_status') if existing else "pending")
 
+        if supersedes is None:
+            raw_s = existing.get('supersedes') if existing else None
+            supersedes = context.get('supersedes') or (json.loads(raw_s) if raw_s else [])
+        if superseded_by is None: superseded_by = context.get('superseded_by')
+        if converted_to is None: converted_to = context.get('converted_to')
+
         keywords = context.get('keywords', [])
-        if isinstance(keywords, list):
-            keywords = ", ".join(keywords)
-
-        # TITLE SOURCE: Always trust context.title as the primary name
-        # but allow manual override if passed
+        if isinstance(keywords, list): keywords = ", ".join(keywords)
         final_title = title or context.get('title') or (existing.get('title') if existing else 'Untitled Decision')
-
-        # Use passed hash OR calculate if missing (legacy/direct calls)
         final_hash = content_hash or (existing.get('content_hash') if existing else None)
         if not final_hash:
             import hashlib
             h = hashlib.sha256()
-            h.update(cached_content.encode('utf-8')) # Fallback to partial hash for stability
+            h.update(cached_content.encode('utf-8'))
             final_hash = h.hexdigest()
-
-        # Get superseded_by from context if not provided explicitly
-        if superseded_by is None:
-            superseded_by = context.get('superseded_by')
-            
-        if converted_to is None:
-            converted_to = context.get('converted_to')
 
         try:
             self.meta.upsert(
-                fid=fid,
-                target=target,
-                title=final_title,
-                status=status,
-                kind=kind,
-                timestamp=timestamp,
-                superseded_by=superseded_by,
-                converted_to=converted_to,
-                merge_status=final_merge_status,
-                namespace=namespace,
-                content=cached_content[:8000],
-                keywords=keywords,
-                confidence=context.get('confidence', 1.0),
-                content_hash=final_hash,
-                last_hit_at=context.get('last_hit_at'),
+                fid=fid, target=target, title=final_title, status=status, kind=kind,
+                timestamp=timestamp, supersedes=supersedes, superseded_by=superseded_by,
+                converted_to=converted_to, merge_status=final_merge_status, namespace=namespace,
+                content=cached_content[:8000], keywords=keywords, confidence=context.get('confidence', 1.0),
+                content_hash=final_hash, last_hit_at=context.get('last_hit_at'),
                 compressive_rationale=context.get('compressive_rationale'),
                 context_json=json.dumps(context),
                 phase=context.get('phase', 'pattern'),
@@ -444,106 +347,58 @@ class SemanticStore:
                 estimated_utility=context.get('estimated_utility', 0.0),
                 enrichment_status=final_enrichment_status
             )
-            
-            # CRITICAL: Commit if not in a managed transaction
             if not self._in_transaction and hasattr(self.meta, '_conn'):
                 self.meta._conn.commit()
-                
         except sqlite3.IntegrityError as ie:
             if "UNIQUE" in str(ie):
                 msg = f"CONFLICT: Target '{target}' in namespace '{namespace}' already has active decisions."
-                logger.warning(msg)
                 raise ConflictError(msg)
             raise
 
     def save(self, event: MemoryEvent, namespace: Optional[str] = None) -> str:
         self._enforce_trust(event)
-        
-        # Security: Validate namespace
-        if namespace and namespace != "default":
-            if not re.match(r'^[a-zA-Z0-9_\-]+$', namespace):
-                raise ValueError(f"Invalid namespace format: {namespace}. Only alphanumeric, underscores, and hyphens allowed.")
-        
+        if namespace and namespace != "default" and not re.match(r'^[a-zA-Z0-9_\-]+$', namespace):
+            raise ValueError(f"Invalid namespace: {namespace}")
         if not self._in_transaction: self._fs_lock.acquire(exclusive=True)
-        
         effective_namespace = namespace if namespace and namespace != "default" else None
-        
         try:
             suffix = uuid.uuid4().hex[:8]
             filename = f"{event.kind}_{event.timestamp.strftime('%Y%m%d_%H%M%S_%f')}_{suffix}.md"
             relative_path = os.path.join(effective_namespace, filename) if effective_namespace else filename
             full_path = os.path.join(self.repo_path, relative_path)
-            
-            if self._in_transaction and self._current_tx:
-                self._current_tx.stage_file(relative_path)
-
+            if self._in_transaction and self._current_tx: self._current_tx.stage_file(relative_path)
             if effective_namespace: os.makedirs(os.path.join(self.repo_path, effective_namespace), exist_ok=True)
 
-            # CLEAN DATA: Use model_dump to get only schema-defined fields.
             data = event.model_dump(mode='json')
-            
-            # CORE PROTECTION: Ensure context does not duplicate root-level lifecycle fields
             CORE_FIELDS = ["status", "kind", "supersedes", "superseded_by", "merge_status", "enrichment_status", "timestamp", "fid", "source", "content"]
             if "context" in data and isinstance(data["context"], dict):
                 for field in CORE_FIELDS:
-                    # Move to root if exists in context
-                    if field in data["context"]:
-                        data[field] = data["context"].pop(field)
+                    if field in data["context"]: data[field] = data["context"].pop(field)
 
             body = f"# {event.content}\n\nRecorded from source: {event.source}\n"
             full_file_content = MemoryLoader.stringify(data, body)
-            
-            # CRITICAL: Calculate hash from the ACTUAL final file content
             import hashlib
             h = hashlib.sha256()
             h.update(full_file_content.encode('utf-8'))
-            content_hash = h.hexdigest()
-
-            with open(full_path, "w", encoding="utf-8") as f: 
-                f.write(full_file_content)
+            final_hash = h.hexdigest()
+            with open(full_path, "w", encoding="utf-8") as f: f.write(full_file_content)
             
-            try:
-                # Use data['context'] which is guaranteed to be a dict
-                ctx_dict = data.get('context', {})
-                
-                # Determine target and namespace
-                final_target = ctx_dict.get('target') or 'unknown'
-                final_namespace = namespace or ctx_dict.get('namespace') or 'default'
-
-                self._upsert_metadata(
-                    fid=relative_path,
-                    target=final_target,
-                    namespace=final_namespace,
-                    kind=event.kind,
-                    timestamp=event.timestamp,
-                    content=event.content,
-                    context=ctx_dict,
-                    status=data.get('status') or getattr(event.context, 'status', 'draft'), # Prefer processed data status
-                    content_hash=content_hash # Pass correctly calculated hash
-                )
-            except Exception as e:
-                # If we are in a transaction, TransactionManager will handle rollback.
-                # If not, we do manual cleanup.
-                if not self._in_transaction:
-                    if os.path.exists(full_path): os.remove(full_path)
-                
-                if isinstance(e, ConflictError): raise
-                raise RuntimeError(f"Metadata Update Failed: {e}")
-
+            ctx_dict = data.get('context', {})
+            final_target = ctx_dict.get('target') or 'unknown'
+            final_namespace = namespace or ctx_dict.get('namespace') or 'default'
+            self._upsert_metadata(
+                fid=relative_path, target=final_target, namespace=final_namespace,
+                kind=event.kind, timestamp=event.timestamp, content=event.content, context=ctx_dict,
+                status=data.get('status') or getattr(event.context, 'status', 'draft'),
+                title=data.get('title'), content_hash=final_hash,
+                supersedes=data.get('supersedes'), superseded_by=data.get('superseded_by'),
+                merge_status=data.get('merge_status'), enrichment_status=data.get('enrichment_status')
+            )
             if not self._in_transaction:
-                try:
-                    # V7.0: Validate integrity immediately after standalone save to protect I4 invariant
-                    IntegrityChecker.validate(self.repo_path, fid=relative_path, data=data)
-                    self.audit.add_artifact(relative_path, full_file_content, f"Add {event.kind}: {event.content[:50]}")
-                except Exception as e:
-                    if os.path.exists(full_path): os.remove(full_path)
-                    self.meta.delete(relative_path)
-                    raise e
-            else:
-                # In transaction: stage the file for the final atomic commit
-                if isinstance(self.audit, GitAuditProvider):
-                    self.audit.run(["add", "--", relative_path])
-            
+                IntegrityChecker.validate(self.repo_path, fid=relative_path, data=data)
+                self.audit.add_artifact(relative_path, full_file_content, f"Add {event.kind}: {event.content[:50]}")
+            elif isinstance(self.audit, GitAuditProvider):
+                self.audit.run(["add", "--", relative_path])
             return relative_path
         finally:
             if not self._in_transaction: self._fs_lock.release()
@@ -560,66 +415,44 @@ class SemanticStore:
         self._enforce_trust()
         if not self._in_transaction: self._fs_lock.acquire(exclusive=True)
         try:
-            if self._in_transaction and self._current_tx:
-                self._current_tx.stage_file(filename)
-
+            if self._in_transaction and self._current_tx: self._current_tx.stage_file(filename)
             file_path = os.path.join(self.repo_path, filename)
             with open(file_path, "r", encoding="utf-8") as f: content = f.read()
             old_data, body = MemoryLoader.parse(content)
             
             import copy
             new_data = copy.deepcopy(old_data)
-            
-            # 1. Update Lifecycle Fields (Root YAML)
-            CORE_FIELDS = ["status", "kind", "supersedes", "superseded_by", "merge_status", "enrichment_status"]
+            CORE_FIELDS = ["status", "kind", "supersedes", "superseded_by", "merge_status", "enrichment_status", "timestamp", "fid", "source", "content"]
             for field in CORE_FIELDS:
-                if field in updates:
-                    new_data[field] = updates[field]
+                if field in updates: new_data[field] = updates[field]
             
-            # Remove legacy/incorrect top-level fields
             new_data.pop("title", None)
             new_data.pop("target", None)
-
-            # 2. Update Context Fields (Business metadata)
             if "context" not in new_data: new_data["context"] = {}
-            
-            # CLEANUP: Prevent duplication by removing CORE_FIELDS from the update dictionary 
-            # before merging it into context.
             clean_updates = {k: v for k, v in updates.items() if k not in CORE_FIELDS}
             new_data["context"].update(clean_updates)
-            
-            # Also ensure context doesn't have any leftover core fields from previous versions
-            for field in CORE_FIELDS:
-                new_data["context"].pop(field, None)
+            for field in CORE_FIELDS: new_data["context"].pop(field, None)
             
             TransitionValidator.validate_update(old_data, new_data)
-            
             new_content = MemoryLoader.stringify(new_data, body)
-            
-            # CRITICAL: Calculate hash from the final file content
             import hashlib
             h = hashlib.sha256()
             h.update(new_content.encode('utf-8'))
             content_hash = h.hexdigest()
-
             with open(file_path, "w", encoding="utf-8") as f: f.write(new_content)
             
-            # CRITICAL: Manually update IntegrityChecker cache to prevent race conditions
             try:
                 stat = os.stat(file_path)
                 IntegrityChecker._file_data_cache[file_path] = (stat.st_mtime_ns, new_data)
-                # Invalidate state cache to force re-scan
                 IntegrityChecker._state_cache.pop(self.repo_path, None)
             except OSError: pass
 
             ctx = new_data.get("context", {})
             ts = new_data.get("timestamp")
             if isinstance(ts, str): ts = datetime.fromisoformat(ts)
-            
             final_target_upd = new_data.get("target") or ctx.get("target") or old_data.get("context", {}).get("target") or "unknown"
             final_ns_upd = ctx.get("namespace") or old_data.get("context", {}).get("namespace") or "default"
             
-            # Use existing timestamp from meta if file doesn't have one and we are not forcing it
             if not ts:
                 existing_meta = self.meta.get_by_fid(filename)
                 if existing_meta:
@@ -628,60 +461,37 @@ class SemanticStore:
                         try: ts = datetime.fromisoformat(ts)
                         except ValueError: ts = None
 
-            try:
-                self._upsert_metadata(
-                    fid=filename,
-                    target=final_target_upd,
-                    namespace=final_ns_upd,
-                    kind=new_data.get("kind"),
-                    timestamp=ts or datetime.now(),
-                    content=new_data.get("content", ""),
-                    context=ctx,
-                    status=new_data.get("status") or ctx.get("status"),
-                    title=new_data.get("title"),
-                    content_hash=content_hash, # Pass correctly calculated hash
-                    superseded_by=new_data.get("superseded_by"),
-                    converted_to=new_data.get("converted_to"),
-                    merge_status=new_data.get("merge_status"),
-                    enrichment_status=new_data.get("enrichment_status")
-                )
-            except Exception as e:
-                if not self._in_transaction:
-                    with open(file_path, "w", encoding="utf-8") as f: f.write(content)
-
-                from .semantic_store.transitions import TransitionError
-                from ledgermind.core.stores.semantic_store.integrity import IntegrityViolation
-                if isinstance(e, (ConflictError, TransitionError, IntegrityViolation)): raise
-                raise RuntimeError(f"Metadata Update Failed: {e}")
-
-
+            self._upsert_metadata(
+                fid=filename, target=final_target_upd, namespace=final_ns_upd,
+                kind=new_data.get("kind"), timestamp=ts or datetime.now(), content=new_data.get("content", ""),
+                context=ctx, status=new_data.get("status") or ctx.get("status"),
+                title=new_data.get("title"), content_hash=content_hash,
+                supersedes=new_data.get("supersedes"), superseded_by=new_data.get("superseded_by"),
+                merge_status=new_data.get("merge_status"), enrichment_status=new_data.get("enrichment_status")
+            )
             if not self._in_transaction:
-                try:
-                    # Pass 'new_data' to avoid redundant parsing in validation
-                    IntegrityChecker.validate(self.repo_path, fid=filename, data=new_data)
-                    self.audit.update_artifact(filename, new_content, commit_msg)
-                except Exception as e:
-                    with open(file_path, "w", encoding="utf-8") as f: f.write(content)
-                    self.sync_meta_index()
-                    raise RuntimeError(f"Integrity Violation: {e}")
-            else:
-                # Inside transaction: just stage the change
-                if isinstance(self.audit, GitAuditProvider):
-                    self.audit.run(["add", "--", filename])
+                IntegrityChecker.validate(self.repo_path, fid=filename, data=new_data)
+                self.audit.update_artifact(filename, new_content, commit_msg)
+            elif isinstance(self.audit, GitAuditProvider):
+                self.audit.run(["add", "--", filename])
+        except Exception as e:
+            if not self._in_transaction:
+                with open(file_path, "w", encoding="utf-8") as f: f.write(content)
+            from .semantic_store.transitions import TransitionError
+            from ledgermind.core.stores.semantic_store.integrity import IntegrityViolation
+            if isinstance(e, (ConflictError, TransitionError, IntegrityViolation)): raise
+            raise RuntimeError(f"Update Failed: {e}")
         finally:
             if not self._in_transaction: self._fs_lock.release()
 
     def list_decisions(self) -> List[str]:
         should_lock = not self._in_transaction
         if should_lock: self._fs_lock.acquire(exclusive=False)
-        try:
-            all_meta = self.meta.list_all()
-            return [m['fid'] for m in all_meta]
+        try: return [m['fid'] for m in self.meta.list_all()]
         finally: 
             if should_lock: self._fs_lock.release()
 
     def purge_memory(self, fid: str):
-        """Hard delete for GDPR compliance."""
         should_lock = not self._in_transaction
         if should_lock: self._fs_lock.acquire(exclusive=True)
         try:
@@ -699,8 +509,6 @@ class SemanticStore:
         should_lock = not self._in_transaction
         if should_lock: self._fs_lock.acquire(exclusive=False)
         try:
-            # We now check against BOTH active decisions and draft proposals
-            # to prevent semantic fragmentation early in the lifecycle.
             cursor = self.meta._conn.cursor()
             cursor.execute(
                 "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status IN ('active', 'draft') AND kind IN ('decision', 'proposal')",

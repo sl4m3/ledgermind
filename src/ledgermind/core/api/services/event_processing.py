@@ -114,11 +114,13 @@ class EventProcessingService(MemoryService):
 
             # Prepare Context
             if isinstance(event.context, (DecisionContent, DecisionStream)):
-                if intent and intent.resolution_type == "supersede": event.context.supersedes = intent.target_decision_ids
+                if intent and intent.resolution_type == "supersede": 
+                    event.context.supersedes = intent.target_decision_ids
                 event.context.namespace = namespace
                 event.context = event.context.model_dump(mode='json')
             elif isinstance(event.context, dict):
-                if intent and intent.resolution_type == "supersede": event.context["supersedes"] = intent.target_decision_ids
+                if intent and intent.resolution_type == "supersede": 
+                    event.context["supersedes"] = intent.target_decision_ids
                 event.context["namespace"] = namespace
 
             new_fid = self.semantic.save(event, namespace=namespace)
