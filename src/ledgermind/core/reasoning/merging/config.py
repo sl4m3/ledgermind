@@ -7,10 +7,9 @@ class MergeConfig:
     threshold: float = 0.80
     max_candidates: int = 100
     max_workers: int = 4
-    timeout: int = 30
+    timeout: int = 300
 
-    algorithms: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
-        "default": {"name": "vector_embedding", "validation_threshold": 0.60},
+    algorithms: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {        "default": {"name": "vector_embedding", "validation_threshold": 0.60},
         "rrf_jaccard": {"threshold": 0.80},
         "vector_embedding": {
             "threshold": 0.80,

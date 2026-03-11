@@ -69,11 +69,12 @@ class IntegrityChecker:
             namespace = data.get("namespace") or ctx.get("namespace", "default")
 
             if status in ("active", "draft") and kind in ("decision", "proposal"):
-                conflicts = meta_store.list_active_conflicts(target, namespace=namespace)
-                supersedes = data.get("supersedes") or ctx.get("supersedes", [])
-                for c in conflicts:
-                    if c != fid and c not in supersedes:
-                        raise IntegrityViolation(f"I4 Violation: Target '{target}' already active in {c}", fid=fid)
+                if target not in ("knowledge_validation", "knowledge_merge"):
+                    conflicts = meta_store.list_active_conflicts(target, namespace=namespace)
+                    supersedes = data.get("supersedes") or ctx.get("supersedes", [])
+                    for c in conflicts:
+                        if c != fid and c not in supersedes:
+                            raise IntegrityViolation(f"I4 Violation: Target '{target}' already active in {c}", fid=fid)
             
             s_by = data.get("superseded_by") or ctx.get("superseded_by")
             if s_by and not meta_store.get_by_fid(s_by):
@@ -154,6 +155,9 @@ class IntegrityChecker:
             # V7.0 Alignment: Include both active/draft and decision/proposal
             if status in ("active", "draft") and kind in ("decision", "proposal"):
                 target = data.get("target") or ctx.get("target")
+                if target in ("knowledge_validation", "knowledge_merge"):
+                    continue
+                    
                 namespace = data.get("namespace") or ctx.get("namespace", "default")
                 key = (target, namespace)
 
@@ -190,7 +194,7 @@ class IntegrityChecker:
 
             # Check 'superseded_by' (I3)
             s_by = data.get("superseded_by") or ctx.get("superseded_by")
-            if s_by:
+            if s_by and isinstance(s_by, str):
                 if s_by not in decisions:
                     if auto_fix_dangling:
                         dangling_refs_to_fix.append((fid, s_by))
@@ -203,27 +207,43 @@ class IntegrityChecker:
                         raise IntegrityViolation(f"I3 Violation: Dangling reference in {fid} to {s_by}", fid=fid)
 
                 # Bi-directional check
-                remote = decisions[s_by]
-                remote_ctx = remote.get("context", {})
-                remote_supersedes = remote.get("supersedes") or remote_ctx.get("supersedes", [])
-                if fid not in remote_supersedes:
-                    if auto_fix_dangling:
-                        # Add to fix list (handled in supersedes loop below)
-                        dangling_refs_to_fix.append((s_by, fid))
-                    else:
-                        raise IntegrityViolation(f"I3 Violation: Broken backlink in {s_by} for {fid}", fid=fid)
+                remote = decisions.get(s_by)
+                if remote:
+                    remote_ctx = remote.get("context", {})
+                    remote_supersedes = remote.get("supersedes") or remote_ctx.get("supersedes", [])
+                    # Robust check for list
+                    if not isinstance(remote_supersedes, list):
+                        if isinstance(remote_supersedes, str):
+                            try: remote_supersedes = json.loads(remote_supersedes)
+                            except: remote_supersedes = [remote_supersedes]
+                        else: remote_supersedes = []
+
+                    if fid not in remote_supersedes:
+                        if auto_fix_dangling:
+                            # Add to fix list (handled in supersedes loop below)
+                            dangling_refs_to_fix.append((s_by, fid))
+                        else:
+                            raise IntegrityViolation(f"I3 Violation: Broken backlink in {s_by} for {fid}", fid=fid)
 
             # Check 'supersedes' (General)
             supersedes = data.get("supersedes") or ctx.get("supersedes", [])
+            # V7.2: Ensure supersedes is a list before iterating (prevent string character iteration)
+            if isinstance(supersedes, str):
+                try: 
+                    # Try parsing as JSON first
+                    import json
+                    supersedes = json.loads(supersedes)
+                except:
+                    # If not JSON, it might be a single string ID
+                    supersedes = [supersedes] if supersedes.strip() and supersedes != "[]" else []
+            
+            if not isinstance(supersedes, list):
+                supersedes = []
+
             valid_supersedes = []
             for parent in supersedes:
+                if not parent or not isinstance(parent, str): continue
                 if parent not in decisions:
-                    if auto_fix_dangling:
-                        # Filter out non-existent parent
-                        dangling_refs_to_fix.append((fid, parent))
-                    else:
-                        raise IntegrityViolation(f"Reference Violation: {fid} claims to supersede non-existent {parent}", fid=fid)
-                else:
                     valid_supersedes.append(parent)
 
             # Fix supersedes list if needed

@@ -117,6 +117,8 @@ class MergeEngineFacade:
                         continue
                     
                     target_doc = self.memory._resolve_to_truth(doc_id, mode="balanced", cache=full_meta_map)
+                    if not target_doc:
+                        continue
                     
                     # IMPORTANT: Check if target is already being merged
                     actual_target = self.memory.semantic.meta.get_by_fid(target_doc.get('fid'))

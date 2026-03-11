@@ -20,6 +20,69 @@ class LifecycleManagementService(MemoryService):
     def reflection_engine(self):
         return self.context.reflection_engine
 
+    @property
+    def lifecycle_engine(self):
+        # Correctly access the shared LifecycleEngine from the memory context
+        return getattr(self.context, 'lifecycle', None)
+
+    def run_promotion(self, stop_event: Optional[threading.Event] = None) -> Dict[str, Any]:
+        """Automatically promotes drafts to active status based on lifecycle metrics."""
+        if not self.lifecycle_engine:
+            logger.warning("Promotion: LifecycleEngine not available in context.")
+            return {"promoted": 0}
+
+        import json
+        from datetime import datetime
+        from ledgermind.core.core.schemas import DecisionStream, DecisionPhase
+        
+        all_metas = self.semantic.meta.list_all()
+        promoted_count = 0
+        
+        logger.info(f"Promotion: Evaluating {len(all_metas)} items for phase transition.")
+        
+        for meta in all_metas:
+            if stop_event and stop_event.is_set(): break
+            
+            fid = meta.get('fid')
+            # Only promote drafts that are fully enriched
+            if meta.get('status') != 'draft' or meta.get('enrichment_status') != 'completed':
+                continue
+                
+            try:
+                # 1. Convert meta to DecisionStream for engine analysis
+                ctx_raw = meta.get('context_json')
+                ctx = json.loads(ctx_raw) if ctx_raw else {}
+                
+                stream = DecisionStream(
+                    decision_id=meta.get('id', fid),
+                    target=meta.get('target'),
+                    phase=meta.get('phase', DecisionPhase.PATTERN),
+                    frequency=meta.get('frequency', 0),
+                    coverage=meta.get('coverage', 0.0),
+                    confidence=meta.get('confidence', 0.0),
+                    stability_score=meta.get('stability_score', 0.0),
+                    first_seen=meta.get('first_seen'),
+                    last_seen=meta.get('last_seen')
+                )
+                
+                # 2. Let the engine decide
+                promoted_stream = self.lifecycle_engine.promote_stream(stream)
+                
+                # 3. If phase changed, update the semantic record
+                if promoted_stream.phase != stream.phase:
+                    updates = {
+                        "phase": promoted_stream.phase,
+                        "status": "active" if promoted_stream.phase in (DecisionPhase.EMERGENT, DecisionPhase.CANONICAL) else "draft"
+                    }
+                    self.semantic.update_decision(fid, updates, commit_msg=f"Lifecycle: Promoted to {promoted_stream.phase}")
+                    promoted_count += 1
+                    logger.info(f"Promotion: {fid} advanced to {promoted_stream.phase} (Target: {meta.get('target')})")
+                    
+            except Exception as e:
+                logger.error(f"Promotion: Failed to process {fid}: {e}")
+                
+        return {"promoted_count": promoted_count}
+
     def run_decay(self, dry_run: bool = False, stop_event: Optional[threading.Event] = None) -> DecayReport:
         """Execute the decay process for episodic and semantic memories."""
         # 1. Episodic Decay
@@ -118,17 +181,28 @@ class LifecycleManagementService(MemoryService):
         if stop_event and stop_event.is_set(): 
             return {"integrity": integrity_status, "reflection": {"proposals_created": len(reflection_proposals)}}
 
+        # AUTO-PROMOTION: Advance phases after reflection
+        promotion_report = self.run_promotion(stop_event=stop_event)
+
         decay_report = self.run_decay(stop_event=stop_event)
         
         # Stats update logic moved to health service usually, but kept here for now or delegated
         if stop_event and stop_event.is_set(): 
-            return {"integrity": integrity_status, "decay": decay_report.__dict__}
+            return {
+                "integrity": integrity_status, 
+                "decay": decay_report.__dict__,
+                "promotion": promotion_report
+            }
 
         from ledgermind.core.reasoning.merging import MergeEngine
         self.reindex_missing(stop_event=stop_event)
 
         if stop_event and stop_event.is_set(): 
-            return {"integrity": integrity_status, "decay": decay_report.__dict__}
+            return {
+                "integrity": integrity_status, 
+                "decay": decay_report.__dict__,
+                "promotion": promotion_report
+            }
 
         # Passing self.context to MergeEngine might require a shim or update to MergeEngine
         # For now, maintenance continues to orchestrate
@@ -142,6 +216,7 @@ class LifecycleManagementService(MemoryService):
         return {
             "decay": decay_report.__dict__,
             "reflection": {"proposals_created": len(reflection_proposals)},
+            "promotion": promotion_report,
             "integrity": integrity_status
         }
 

@@ -39,14 +39,24 @@ class ResponseParser:
             return None
             
     @staticmethod
-    def clean_keywords(raw: List[str]) -> List[str]:
+    def clean_keywords(raw: Any) -> List[str]:
+        if not isinstance(raw, list):
+            if isinstance(raw, str): raw = [raw]
+            else: return []
+            
         keywords = []
         for k in raw:
-            if "(" in k and ")" in k:
-                parts = re.split(r'[\(\)]', k)
+            if isinstance(k, list):
+                # Recursively handle nested lists
+                keywords.extend(ResponseParser.clean_keywords(k))
+                continue
+            
+            k_str = str(k)
+            if "(" in k_str and ")" in k_str:
+                parts = re.split(r'[\(\)]', k_str)
                 for p in parts:
                     clean = p.strip()
                     if clean: keywords.append(clean)
             else:
-                keywords.append(k.strip())
-        return list(set(keywords))
+                keywords.append(k_str.strip())
+        return list(set([k for k in keywords if k]))
