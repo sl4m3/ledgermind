@@ -1,6 +1,7 @@
 import os
 import yaml
 import logging
+import json
 from typing import Dict, Any, List, Set, Optional, Tuple
 from datetime import datetime
 
@@ -30,49 +31,95 @@ class IntegrityChecker:
         IntegrityChecker._file_data_cache.clear()
 
     @staticmethod
-    def validate(repo_path: str, fid: str = None, data: Dict[str, Any] = None, force: bool = False, auto_fix_dangling: bool = False):
+    def validate(repo_path: str, fid: str = None, data: Dict[str, Any] = None, force: bool = False, auto_fix_dangling: bool = False, meta_store: Any = None):
         """
         Main entry point for integrity validation.
-        Can validate the entire repo or a specific update.
-
-        Args:
-            auto_fix_dangling: If True, automatically removes dangling references instead of raising exceptions.
+        V7.1: Optimized to use Metadata Store where possible.
         """
-        # 1. Load full context from disk
-        decisions = IntegrityChecker._load_all_decisions(repo_path, force=force)
-
-        # 2. If single update provided, inject it into the set for global validation
+        # 1. I1 Check for single update if provided
         if fid and data:
-            # I1 Check for the new data immediately
             IntegrityChecker._check_required_fields(fid, data)
-            decisions[fid] = data
 
-        # 3. Perform Invariant Checks
-        # I4: Target Uniqueness (Strict)
+        # 2. Perform Invariant Checks using Meta Store (Index-based)
+        # We only use indexed validation if:
+        # - meta_store is provided
+        # - not a forced full validation
+        # - index is NOT empty (if it's empty, we must scan disk to be safe)
+        if meta_store and not force and not meta_store.is_empty():
+            IntegrityChecker._validate_indexed(repo_path, fid, data, meta_store)
+            return
+
+        # 3. Fallback: Load full context from disk (only if forced or no meta_store or index empty)
+        decisions = IntegrityChecker._load_all_decisions(repo_path, force=force)
+        if fid and data: decisions[fid] = data
+
         IntegrityChecker._check_target_uniqueness(decisions)
-
-        # I3: Reference Integrity (Strict)
         IntegrityChecker._check_references(decisions, auto_fix_dangling=auto_fix_dangling)
-
-        # I5: Acyclicity (Strict)
         IntegrityChecker._check_cycles(decisions)
 
     @staticmethod
-    def _load_all_decisions(repo_path: str, force: bool = False) -> Dict[str, Any]:
-        decisions = {}
-        if not os.path.exists(repo_path): return {}
+    def _validate_indexed(repo_path: str, fid: str, data: Dict[str, Any], meta_store: Any):
+        """V7.1: Perform strict checks using SQLite index for performance."""
+        if fid and data:
+            # Validate single update (Fast path for recording)
+            ctx = data.get("context", {})
+            status = data.get("status") or ctx.get("status")
+            kind = data.get("kind")
+            target = data.get("target") or ctx.get("target")
+            namespace = data.get("namespace") or ctx.get("namespace", "default")
 
-        for root, dirs, files in os.walk(repo_path):
-            # V7.0: Skip internal and backup directories
-            if ".git" in root or ".tx_backup" in root: continue
+            if status in ("active", "draft") and kind in ("decision", "proposal"):
+                conflicts = meta_store.list_active_conflicts(target, namespace=namespace)
+                supersedes = data.get("supersedes") or ctx.get("supersedes", [])
+                for c in conflicts:
+                    if c != fid and c not in supersedes:
+                        raise IntegrityViolation(f"I4 Violation: Target '{target}' already active in {c}", fid=fid)
             
+            s_by = data.get("superseded_by") or ctx.get("superseded_by")
+            if s_by and not meta_store.get_by_fid(s_by):
+                raise IntegrityViolation(f"I3 Violation: Dangling reference to {s_by}", fid=fid)
+        else:
+            # Full validation using index (Fast path for initialization)
+            all_meta = meta_store.list_all()
+            decisions = {m['fid']: {
+                "kind": m['kind'],
+                "status": m['status'],
+                "target": m['target'],
+                "namespace": m['namespace'],
+                "supersedes": json.loads(m['supersedes']) if m.get('supersedes') else [],
+                "superseded_by": m.get('superseded_by')
+            } for m in all_meta}
+            
+            IntegrityChecker._check_target_uniqueness(decisions)
+            IntegrityChecker._check_references(decisions)
+            IntegrityChecker._check_cycles(decisions)
+
+    @staticmethod
+    def _load_all_decisions(repo_path: str, force: bool = False) -> Dict[str, Any]:
+        """Load all decisions from disk with internal caching."""
+        if not os.path.exists(repo_path): return {}
+        
+        # Internal cache check
+        if repo_path in IntegrityChecker._state_cache and not force:
+            return IntegrityChecker._state_cache[repo_path]
+
+        decisions = {}
+        for root, dirs, files in os.walk(repo_path):
+            if ".git" in root or ".tx_backup" in root: continue
             for f in files:
                 if f.endswith(".md"):
                     file_path = os.path.join(root, f)
                     rel_path = os.path.relpath(file_path, repo_path)
+                    
                     try:
                         mtime = os.stat(file_path).st_mtime_ns
-                        # Load fresh data (no caching)
+                        # Cache check
+                        if rel_path in IntegrityChecker._file_data_cache and not force:
+                            cached_mtime, cached_data = IntegrityChecker._file_data_cache[rel_path]
+                            if cached_mtime == mtime:
+                                decisions[rel_path] = cached_data
+                                continue
+
                         with open(file_path, 'r', encoding='utf-8') as stream:
                             content = stream.read()
                             if "---" in content:
@@ -80,7 +127,11 @@ class IntegrityChecker:
                                 if len(parts) >= 3:
                                     data = yaml.safe_load(parts[1])
                                     decisions[rel_path] = data
+                                    # Update file cache
+                                    IntegrityChecker._file_data_cache[rel_path] = (mtime, data)
                     except Exception: continue
+        
+        IntegrityChecker._state_cache[repo_path] = decisions
         return decisions
 
     @staticmethod
