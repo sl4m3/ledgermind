@@ -52,7 +52,6 @@ class QueryService(MemoryService):
             search_status = "active" if mode == "strict" else None
             kw_results = self.semantic.meta.keyword_search(query, limit=limit, namespace=effective_namespace, status=search_status)
             if kw_results:
-                # V7.8: Include vitality and phase in fast path results
                 fast_results = [{
                     "id": r['fid'],
                     "title": r['title'],
@@ -60,9 +59,7 @@ class QueryService(MemoryService):
                     "target": r['target'],
                     "status": r['status'],
                     "score": 1.0 * self._get_lifecycle_weight(r), # Apply weights
-                    "kind": r['kind'],
-                    "vitality": r.get('vitality', 'active'),  # V7.8: Include vitality
-                    "phase": r.get('phase', 'pattern')  # V7.8: Include phase
+                    "kind": r['kind']
                 } for r in kw_results]
                 # V7.1: MUST SORT by score, otherwise weights have no effect on order
                 return sorted(fast_results, key=lambda x: x['score'], reverse=True)

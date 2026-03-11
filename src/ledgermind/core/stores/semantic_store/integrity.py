@@ -58,51 +58,6 @@ class IntegrityChecker:
         IntegrityChecker._check_cycles(decisions)
 
     @staticmethod
-    def validate_files_exist(repo_path: str, meta_store: Any):
-        """V7.7: Check that all indexed files exist on disk.
-        repo_path should be the path to the semantic directory (where semantic_meta.db resides).
-        """
-        # Create fresh DB connection to ensure we see all records
-        db_path = os.path.join(repo_path, "semantic_meta.db")
-        logger.info(f"validate_files_exist: repo_path={repo_path}, db_path={db_path}, db_exists={os.path.exists(db_path)}")
-        if not os.path.exists(db_path):
-            logger.info("validate_files_exist: No DB yet")
-            return  # No DB yet
-        
-        try:
-            import sqlite3
-            # Use timeout and WAL mode to avoid locking issues
-            conn = sqlite3.connect(db_path, timeout=5.0)
-            conn.execute("PRAGMA journal_mode=WAL")
-            cursor = conn.execute("SELECT fid FROM semantic_meta WHERE kind IN ('decision', 'proposal')")
-            fids = [row[0] for row in cursor.fetchall()]
-            conn.close()
-            logger.info(f"validate_files_exist: SQL query returned {len(fids)} fids")
-        except Exception as e:
-            logger.warning(f"validate_files_exist: Failed to query DB: {e}")
-            return
-        
-        logger.info(f"validate_files_exist: Found {len(fids)} fids")
-        
-        if not fids:
-            logger.info("validate_files_exist: Empty DB")
-            return  # Empty DB is valid
-        
-        semantic_dir = os.path.join(repo_path, "semantic")
-        logger.info(f"validate_files_exist: semantic_dir={semantic_dir}")
-        for fid in fids:
-            file_path = os.path.join(semantic_dir, fid)
-            exists = os.path.exists(file_path)
-            logger.info(f"validate_files_exist: {fid} exists={exists}")
-            if not exists:
-                logger.error(f"validate_files_exist: RAISING IntegrityViolation for {fid}")
-                raise IntegrityViolation(
-                    f"I5 Violation: File missing from disk but present in index: {fid}",
-                    fid=fid
-                )
-        logger.info("validate_files_exist: All files exist")
-
-    @staticmethod
     def _validate_indexed(repo_path: str, fid: str, data: Dict[str, Any], meta_store: Any):
         """V7.1: Perform strict checks using SQLite index for performance."""
         if fid and data:
@@ -113,14 +68,13 @@ class IntegrityChecker:
             target = data.get("target") or ctx.get("target")
             namespace = data.get("namespace") or ctx.get("namespace", "default")
 
-            if status == "active" and kind in ("decision", "proposal"):
-                if target not in ("knowledge_validation", "knowledge_merge"):
-                    conflicts = meta_store.list_active_conflicts(target, namespace=namespace)
-                    supersedes = data.get("supersedes") or ctx.get("supersedes", [])
-                    for c in conflicts:
-                        if c != fid and c not in supersedes:
-                            raise IntegrityViolation(f"I4 Violation: Target '{target}' already active in {c}", fid=fid)
-
+            if status in ("active", "draft") and kind in ("decision", "proposal"):
+                conflicts = meta_store.list_active_conflicts(target, namespace=namespace)
+                supersedes = data.get("supersedes") or ctx.get("supersedes", [])
+                for c in conflicts:
+                    if c != fid and c not in supersedes:
+                        raise IntegrityViolation(f"I4 Violation: Target '{target}' already active in {c}", fid=fid)
+            
             s_by = data.get("superseded_by") or ctx.get("superseded_by")
             if s_by and not meta_store.get_by_fid(s_by):
                 raise IntegrityViolation(f"I3 Violation: Dangling reference to {s_by}", fid=fid)
@@ -135,7 +89,7 @@ class IntegrityChecker:
                 "supersedes": json.loads(m['supersedes']) if m.get('supersedes') else [],
                 "superseded_by": m.get('superseded_by')
             } for m in all_meta}
-
+            
             IntegrityChecker._check_target_uniqueness(decisions)
             IntegrityChecker._check_references(decisions)
             IntegrityChecker._check_cycles(decisions)

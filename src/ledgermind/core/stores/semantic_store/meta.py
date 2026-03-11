@@ -260,13 +260,9 @@ class SemanticMetaStore:
         return truth
 
     def list_active_conflicts(self, target: str, namespace: str = "default") -> List[str]:
-        """SQL-optimized conflict detection.
-        
-        Only returns 'active' records as conflicts. Draft records are not considered
-        conflicts because they are not yet committed decisions/proposals.
-        """
+        """SQL-optimized conflict detection."""
         cursor = self._execute_with_retry(
-            "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status = 'active' AND kind IN ('decision', 'proposal')",
+            "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status IN ('active', 'draft') AND kind IN ('decision', 'proposal')",
             (target, namespace)
         )
         return [row[0] for row in cursor.fetchall()]
