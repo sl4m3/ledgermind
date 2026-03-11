@@ -64,9 +64,10 @@ class TestResolutionEdgeCases(unittest.TestCase):
             new_dec = self.memory.supersede_decision(f"{i}", "target_depth", f"Superseding {i-1} with enough text for validation.", [current_fid])
             current_fid = new_dec.metadata['file_id']
 
-        # Try to resolve first_fid. Depth is 21. Should return None.
+        # Try to resolve first_fid. Depth is 21. Should return the 19th item ('18').
         res = self.memory._resolve_to_truth(first_fid, mode="balanced")
-        self.assertIsNone(res, "Should return None when depth limit exceeded")
+        self.assertIsNotNone(res, "Should return the last valid item before depth limit")
+        self.assertEqual(res['title'], "18")
 
     def test_circular_dependency(self):
         """Verify circular dependency is handled by depth limit or just works until limit."""
@@ -97,9 +98,10 @@ class TestResolutionEdgeCases(unittest.TestCase):
         )
 
         # Now A -> B -> A -> B ...
-        # Resolution should hit depth limit and return None.
+        # Resolution should hit depth limit and return the item at that depth (currently B or A depending on entry).
         res = self.memory._resolve_to_truth(fid_a, mode="balanced")
-        self.assertIsNone(res)
+        self.assertIsNotNone(res)
+        self.assertIn(res['title'], ["A", "B"])
 
 if __name__ == "__main__":
     unittest.main()

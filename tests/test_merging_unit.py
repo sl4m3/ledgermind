@@ -57,7 +57,7 @@ class TestMergingAdvanced(unittest.TestCase):
     def test_transaction_manager_lock(self):
         tm = TransactionManager(self.memory)
         tm.lock_decisions(["doc_1"], "Test lock")
-        self.memory.semantic.lock_decisions.assert_called_with(["doc_1"], "Test lock")
+        self.memory.semantic.update_decision.assert_called_with("doc_1", {"merge_status": "pending"}, "Locking for merge: Test lock")
 
 if __name__ == '__main__':
     unittest.main()
