@@ -108,9 +108,40 @@ class SemanticMetaStore:
         row = cursor.fetchone()
         return row[0] if row else default
 
+    def _execute_with_retry(self, sql: str, params: tuple = (), commit: bool = False, is_write: bool = False):
+        """Executes a query with retry logic for locked databases."""
+        max_retries = 5
+        retry_delay = 0.1
+        
+        for attempt in range(max_retries):
+            try:
+                if is_write and not self._conn.in_transaction:
+                    self._conn.execute("BEGIN IMMEDIATE")
+                
+                cursor = self._conn.execute(sql, params)
+                
+                if is_write and not self._conn.in_transaction:
+                    self._conn.execute("COMMIT")
+                elif commit:
+                    self._conn.commit()
+                    
+                return cursor
+            except sqlite3.OperationalError as e:
+                if "locked" in str(e) and attempt < max_retries - 1:
+                    if is_write and not self._conn.in_transaction:
+                        try: self._conn.execute("ROLLBACK")
+                        except: pass
+                    time.sleep(retry_delay * (2 ** attempt))
+                    continue
+                raise
+            except Exception as e:
+                if is_write and not self._conn.in_transaction:
+                    try: self._conn.execute("ROLLBACK")
+                    except: pass
+                raise
+
     def set_config(self, key: str, value: str):
-        self._conn.execute("INSERT OR REPLACE INTO semantic_config (key, value) VALUES (?, ?)", (key, str(value)))
-        self._conn.commit()
+        self._execute_with_retry("INSERT OR REPLACE INTO semantic_config (key, value) VALUES (?, ?)", (key, str(value)), commit=True, is_write=True)
 
     def upsert(self, fid: str, target: str, title: str, status: str, kind: str, 
                timestamp: datetime, content: str, context_json: str, namespace: str = "default", 
@@ -139,7 +170,7 @@ class SemanticMetaStore:
             'compressive_rationale': kwargs.get('compressive_rationale')
         }
 
-        self._conn.execute("""
+        sql = """
             INSERT INTO semantic_meta (
                 fid, target, title, status, kind, timestamp, content, context_json, namespace, phase, vitality, enrichment_status,
                 supersedes, superseded_by, converted_to, merge_status, keywords, confidence, last_hit_at, link_count, reinforcement_density, stability_score, coverage, 
@@ -173,7 +204,8 @@ class SemanticMetaStore:
                 estimated_utility=excluded.estimated_utility,
                 content_hash=excluded.content_hash,
                 compressive_rationale=excluded.compressive_rationale
-        """, (
+        """
+        params = (
             fid, target, title, status, kind, ts_str, content, context_json, namespace,
             fields['phase'], fields['vitality'], fields['enrichment_status'], 
             fields['supersedes'], fields['superseded_by'], fields['converted_to'], fields['merge_status'], 
@@ -181,15 +213,19 @@ class SemanticMetaStore:
             fields['link_count'], fields['reinforcement_density'], fields['stability_score'], 
             fields['coverage'], fields['estimated_removal_cost'], fields['estimated_utility'], 
             fields['content_hash'], fields['compressive_rationale']
-        ))
+        )
+        
+        if self._conn.in_transaction:
+            self._conn.execute(sql, params)
+        else:
+            self._execute_with_retry(sql, params, is_write=True)
 
 
     def delete(self, fid: str):
-        self._conn.execute("DELETE FROM semantic_meta WHERE fid = ?", (fid,))
-        self._conn.commit()
+        self._execute_with_retry("DELETE FROM semantic_meta WHERE fid = ?", (fid,), is_write=True)
 
     def get_by_fid(self, fid: str) -> Optional[Dict[str, Any]]:
-        cursor = self._conn.execute("SELECT * FROM semantic_meta WHERE fid = ?", (fid,))
+        cursor = self._execute_with_retry("SELECT * FROM semantic_meta WHERE fid = ?", (fid,))
         row = cursor.fetchone()
         return dict(row) if row else None
 
@@ -197,7 +233,7 @@ class SemanticMetaStore:
         """Fetch multiple metadata records in a single query."""
         if not fids: return []
         placeholders = ', '.join(['?'] * len(fids))
-        cursor = self._conn.execute(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", fids) # nosec B608
+        cursor = self._execute_with_retry(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", tuple(fids)) # nosec B608
         return [dict(row) for row in cursor.fetchall()]
 
     def resolve_to_truth(self, fid: str, depth: int = 0) -> Optional[Dict[str, Any]]:
