@@ -36,6 +36,7 @@ class SemanticMetaStore:
                 vitality TEXT,
                 enrichment_status TEXT,
                 superseded_by TEXT,
+                converted_to TEXT,
                 merge_status TEXT DEFAULT 'idle',
                 keywords TEXT,
                 confidence REAL,
@@ -121,6 +122,7 @@ class SemanticMetaStore:
             'vitality': kwargs.get('vitality', 'active'),
             'enrichment_status': kwargs.get('enrichment_status', 'pending'),
             'superseded_by': kwargs.get('superseded_by'),
+            'converted_to': kwargs.get('converted_to'),
             'merge_status': kwargs.get('merge_status', 'idle'),
             'keywords': kwargs.get('keywords', ""),
             'confidence': kwargs.get('confidence', 1.0),
@@ -138,10 +140,10 @@ class SemanticMetaStore:
         self._conn.execute(f"""
             INSERT INTO semantic_meta (
                 fid, target, title, status, kind, timestamp, content, context_json, namespace, phase, vitality, enrichment_status,
-                superseded_by, merge_status, keywords, confidence, last_hit_at, link_count, reinforcement_density, stability_score, coverage, 
+                superseded_by, converted_to, merge_status, keywords, confidence, last_hit_at, link_count, reinforcement_density, stability_score, coverage, 
                 estimated_removal_cost, estimated_utility, content_hash, compressive_rationale
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             ) ON CONFLICT(fid) DO UPDATE SET
                 target=excluded.target,
                 title=excluded.title,
@@ -155,6 +157,7 @@ class SemanticMetaStore:
                 vitality=excluded.vitality,
                 enrichment_status=excluded.enrichment_status,
                 superseded_by=excluded.superseded_by,
+                converted_to=excluded.converted_to,
                 merge_status=excluded.merge_status,
                 keywords=excluded.keywords,
                 confidence=excluded.confidence,
@@ -168,12 +171,15 @@ class SemanticMetaStore:
                 content_hash=excluded.content_hash,
                 compressive_rationale=excluded.compressive_rationale
         """, (
-            fid, target, title, status, kind, ts_str, content, context_json, namespace, fields['phase'], 
-            fields['vitality'], fields['enrichment_status'], fields['superseded_by'], fields['merge_status'], 
-            fields['keywords'], fields['confidence'], fields['last_hit_at'], fields['link_count'], fields['reinforcement_density'], 
-            fields['stability_score'], fields['coverage'], fields['estimated_removal_cost'], 
-            fields['estimated_utility'], fields['content_hash'], fields['compressive_rationale']
+            fid, target, title, status, kind, ts_str, content, context_json, namespace,
+            fields['phase'], fields['vitality'], fields['enrichment_status'], 
+            fields['superseded_by'], fields['converted_to'], fields['merge_status'], 
+            fields['keywords'], fields['confidence'], fields['last_hit_at'], 
+            fields['link_count'], fields['reinforcement_density'], fields['stability_score'], 
+            fields['coverage'], fields['estimated_removal_cost'], fields['estimated_utility'], 
+            fields['content_hash'], fields['compressive_rationale']
         ))
+
 
     def delete(self, fid: str):
         self._conn.execute("DELETE FROM semantic_meta WHERE fid = ?", (fid,))
@@ -193,15 +199,20 @@ class SemanticMetaStore:
 
     def resolve_to_truth(self, fid: str, depth: int = 0) -> Optional[Dict[str, Any]]:
         """Recursively follows 'superseded_by' links to find the active truth."""
-        if depth > 20: return None
+        if depth >= 20: return None
         
         meta = self.get_by_fid(fid)
         if not meta: return None
         
-        if meta.get('status') == 'active' or not meta.get('superseded_by'):
+        next_fid = meta.get('superseded_by')
+        if meta.get('status') == 'active' or not next_fid:
             return meta
             
-        return self.resolve_to_truth(meta.get('superseded_by'), depth + 1)
+        truth = self.resolve_to_truth(next_fid, depth + 1)
+        if truth is None:
+            if depth > 0 and depth >= 19: return None # Depth limit hit down the chain
+            return meta # Next link broken, return last known good
+        return truth
 
     def keyword_search(self, query: str, limit: int = 10, namespace: str = "default", status: Optional[str] = None) -> List[Dict[str, Any]]:
         """Performs full-text search using FTS5 with fallback to LIKE."""

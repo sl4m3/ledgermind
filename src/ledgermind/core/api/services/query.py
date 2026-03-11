@@ -39,7 +39,7 @@ class QueryService(MemoryService):
         effective_namespace = namespace or self.context.namespace
         k = 60 # RRF constant        
         # Fast path for simple keyword search
-        if mode == "lite" or (len(query) < 20 and " " not in query.strip()):
+        if mode == "lite":
             search_status = "active" if mode == "strict" else None
             kw_results = self.semantic.meta.keyword_search(query, limit=limit, namespace=effective_namespace, status=search_status)
             if kw_results:
@@ -226,6 +226,9 @@ class QueryService(MemoryService):
         phase = (meta.get('phase') or '').lower()
         if phase == 'canonical': weight *= 1.5
         elif phase == 'emergent': weight *= 1.2
+        vitality = (meta.get('vitality') or '').lower()
+        if vitality == 'decaying': weight *= 0.5
+        elif vitality == 'dormant': weight *= 0.2
         return weight
 
     def _get_lifecycle_multiplier(self, phase: str, vitality: str, kind: str, status: Optional[str]) -> float:
