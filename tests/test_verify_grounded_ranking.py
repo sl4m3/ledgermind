@@ -23,11 +23,11 @@ class TestGroundedRanking(unittest.TestCase):
         # 1. Create two similar proposals (Kind boost 1.0)
         prop1 = MemoryEvent(
             source="agent", kind=KIND_PROPOSAL, content="Network Policy A",
-            context={"title": "Network Policy A", "target": "net", "rationale": "Rationale A longer than 10", "status": "draft", "confidence": 0.5}
+            context={"title": "Network Policy A", "target": "net1", "rationale": "Rationale A longer than 10", "status": "draft", "confidence": 0.5}
         )
         prop2 = MemoryEvent(
             source="agent", kind=KIND_PROPOSAL, content="Network Policy B",
-            context={"title": "Network Policy B", "target": "net", "rationale": "Rationale B longer than 10", "status": "draft", "confidence": 0.5}
+            context={"title": "Network Policy B", "target": "net2", "rationale": "Rationale B longer than 10", "status": "draft", "confidence": 0.5}
         )
         
         fid1 = self.memory.semantic.save(prop1)
