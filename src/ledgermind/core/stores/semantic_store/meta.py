@@ -2,7 +2,7 @@ import sqlite3
 import json
 import logging
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from contextlib import contextmanager
 
 logger = logging.getLogger("ledgermind.core.semantic_store.meta")
@@ -113,6 +113,7 @@ class SemanticMetaStore:
         max_retries = 5
         retry_delay = 0.1
         
+        import time
         for attempt in range(max_retries):
             try:
                 if is_write and not self._conn.in_transaction:
@@ -129,15 +130,19 @@ class SemanticMetaStore:
             except sqlite3.OperationalError as e:
                 if "locked" in str(e) and attempt < max_retries - 1:
                     if is_write and not self._conn.in_transaction:
-                        try: self._conn.execute("ROLLBACK")
-                        except: pass
+                        try:
+                            self._conn.execute("ROLLBACK")
+                        except Exception:
+                            pass
                     time.sleep(retry_delay * (2 ** attempt))
                     continue
                 raise
-            except Exception as e:
+            except Exception:
                 if is_write and not self._conn.in_transaction:
-                    try: self._conn.execute("ROLLBACK")
-                    except: pass
+                    try:
+                        self._conn.execute("ROLLBACK")
+                    except Exception:
+                        pass
                 raise
 
     def set_config(self, key: str, value: str):
@@ -230,18 +235,28 @@ class SemanticMetaStore:
         return dict(row) if row else None
 
     def get_batch_by_fids(self, fids: List[str]) -> List[Dict[str, Any]]:
-        """Fetch multiple metadata records in a single query."""
-        if not fids: return []
-        placeholders = ', '.join(['?'] * len(fids))
-        cursor = self._execute_with_retry(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", tuple(fids)) # nosec B608
-        return [dict(row) for row in cursor.fetchall()]
+        """Fetch multiple metadata records in a single query with chunking."""
+        if not fids:
+            return []
+
+        # Optimization: Chunk the query to avoid hitting SQLite's parameter limits (SQLITE_MAX_VARIABLE_NUMBER)
+        chunk_size = 900
+        results = []
+        for i in range(0, len(fids), chunk_size):
+            chunk = fids[i:i + chunk_size]
+            placeholders = ', '.join(['?'] * len(chunk))
+            cursor = self._execute_with_retry(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", tuple(chunk)) # nosec B608
+            results.extend([dict(row) for row in cursor.fetchall()])
+        return results
 
     def resolve_to_truth(self, fid: str, depth: int = 0) -> Optional[Dict[str, Any]]:
         """Recursively follows 'superseded_by' links to find the active truth."""
-        if depth >= 20: return None
+        if depth >= 20:
+            return None
         
         meta = self.get_by_fid(fid)
-        if not meta: return None
+        if not meta:
+            return None
         
         next_fid = meta.get('superseded_by')
         if meta.get('status') == 'active' or not next_fid:
@@ -249,7 +264,8 @@ class SemanticMetaStore:
             
         truth = self.resolve_to_truth(next_fid, depth + 1)
         if truth is None:
-            if depth > 0 and depth >= 19: return None # Depth limit hit down the chain
+            if depth > 0 and depth >= 19:
+                return None # Depth limit hit down the chain
             return meta # Next link broken, return last known good
         return truth
 
@@ -269,7 +285,8 @@ class SemanticMetaStore:
     def keyword_search(self, query: str, limit: int = 10, namespace: str = "default", status: Optional[str] = None) -> List[Dict[str, Any]]:
         """Performs full-text search using FTS5 with fallback to LIKE."""
         sanitized = query.replace('"', '""').strip()
-        if not sanitized: return []
+        if not sanitized:
+            return []
         
         # 1. Try FTS5 if available
         results = []

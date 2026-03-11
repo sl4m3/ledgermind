@@ -10,7 +10,20 @@ def temp_memory_path(tmp_path_factory):
 
 @pytest.fixture(scope="module")
 def bridge(temp_memory_path):
-    return IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.01)
+    import numpy as np
+    from unittest.mock import MagicMock
+    import ledgermind.core.stores.vector as vector
+    from ledgermind.core.stores.vector import _MODEL_CACHE
+
+    mock_model = MagicMock()
+    mock_model.encode.return_value = np.array([[1.0] * 384], dtype='float32')
+    mock_model.get_sentence_embedding_dimension.return_value = 384
+
+    vector.EMBEDDING_AVAILABLE = True
+    vector.LLAMA_AVAILABLE = False
+    _MODEL_CACHE["mock-model"] = mock_model
+
+    return IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.01, vector_model="mock-model")
 
 def test_bridge_initialization(bridge, temp_memory_path):
     assert bridge.memory_path == os.path.abspath(temp_memory_path)

@@ -19,6 +19,7 @@ def test_deep_grounding_inheritance(temp_memory_path, monkeypatch):
     from ledgermind.core.stores import vector
     from ledgermind.core.stores.vector import _MODEL_CACHE
     monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", False)
+    monkeypatch.setattr(vector, "LLAMA_AVAILABLE", False)
     
     memory = Memory(storage_path=temp_memory_path, vector_model=None)
     target = "Inheritance-Test"
@@ -165,11 +166,32 @@ def test_hybrid_search_rrf_and_grounding_boost(temp_memory_path, monkeypatch):
     Ensures that RRF correctly fuses Keyword and Vector results, 
     and that 'Evidence Boost' elevates grounded decisions.
     """
+    import numpy as np
+    from unittest.mock import MagicMock
     from ledgermind.core.stores import vector
     from ledgermind.core.stores.vector import _MODEL_CACHE
-    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", False)
     
-    memory = Memory(storage_path=temp_memory_path, vector_model=None)
+    v_a = np.zeros(384, dtype='float32'); v_a[0] = 1.0
+    v_b = np.zeros(384, dtype='float32'); v_b[1] = 1.0
+    v_query = np.zeros(384, dtype='float32'); v_query[0] = 1.0
+
+    def mock_encode(texts, **kwargs):
+        t = texts[0] if isinstance(texts, list) else texts
+        if "Performance latency" in t:
+            return np.array([v_a])
+        elif "System Availability" in t:
+            return np.array([v_b])
+        return np.array([v_query])
+
+    mock_model = MagicMock()
+    mock_model.encode.side_effect = mock_encode
+    mock_model.get_sentence_embedding_dimension.return_value = 384
+
+    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", True)
+    monkeypatch.setattr(vector, "LLAMA_AVAILABLE", False)
+    _MODEL_CACHE["mock-model"] = mock_model
+
+    memory = Memory(storage_path=temp_memory_path, vector_model="mock-model")
     
     # 1. Record Decision A (Vector match + Grounding boost)
     res_a = memory.record_decision(
