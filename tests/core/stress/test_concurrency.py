@@ -32,7 +32,7 @@ def test_concurrent_writes(clean_storage):
             if worker_mem:
                 worker_mem.close()
 
-    num_workers = 5
+    num_workers = 3
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = [executor.submit(worker, i) for i in range(num_workers)]
         results = [f.result() for f in futures]

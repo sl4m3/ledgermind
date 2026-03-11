@@ -376,7 +376,8 @@ class SemanticStore:
                          content_hash: Optional[str] = None,
                          superseded_by: Optional[str] = None,
                          merge_status: Optional[str] = None,
-                         enrichment_status: Optional[str] = None):
+                         enrichment_status: Optional[str] = None,
+                         converted_to: Optional[str] = None):
         """
         Shared logic for upserting metadata to the store.
         If status fields are None, it tries to preserve existing values from DB.
@@ -411,6 +412,9 @@ class SemanticStore:
         # Get superseded_by from context if not provided explicitly
         if superseded_by is None:
             superseded_by = context.get('superseded_by')
+            
+        if converted_to is None:
+            converted_to = context.get('converted_to')
 
         try:
             self.meta.upsert(
@@ -421,6 +425,7 @@ class SemanticStore:
                 kind=kind,
                 timestamp=timestamp,
                 superseded_by=superseded_by,
+                converted_to=converted_to,
                 merge_status=final_merge_status,
                 namespace=namespace,
                 content=cached_content[:8000],
@@ -636,6 +641,7 @@ class SemanticStore:
                     title=new_data.get("title"),
                     content_hash=content_hash, # Pass correctly calculated hash
                     superseded_by=new_data.get("superseded_by"),
+                    converted_to=new_data.get("converted_to"),
                     merge_status=new_data.get("merge_status"),
                     enrichment_status=new_data.get("enrichment_status")
                 )

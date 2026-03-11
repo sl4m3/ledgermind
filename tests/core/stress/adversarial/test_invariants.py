@@ -31,12 +31,13 @@ def test_conflict_injection(memory_fixture):
     """
     mem = memory_fixture
     target = "unique_singleton"
-    
-    # Use extremely different long strings to avoid similarity auto-supersede
-    mem.record_decision("ALPHA", target, "X" * 100 + " QUANTUM " + "Y" * 100)
-    
+
+    # Use semantically different text to ensure low similarity
+    mem.record_decision("Quantum Physics", target, "Qubits and entanglement in vacuum.")
+
     with pytest.raises(ConflictError):
-        mem.record_decision("OMEGA", target, "Z" * 100 + " CHICKEN " + "W" * 100)
+        mem.record_decision("Baking Recipes", target, "How to make a perfect sourdough bread.")
+
 
 def test_supersede_nonexistent(memory_fixture):
     """

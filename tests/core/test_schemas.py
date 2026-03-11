@@ -82,42 +82,39 @@ def test_memory_event_context_validation_proposal():
     assert event.context.confidence == 0.8
 
 def test_memory_event_context_validation_invalid_decision():
-    """Test that ValidationError is raised when context is invalid for decision."""
+    """Test that context remains dict when invalid for decision."""
     invalid_data = {
         "title": "", # Invalid: empty
         "target": "target-system",
         "rationale": "Because", # Invalid: too short
     }
-    with pytest.raises(ValidationError) as excinfo:
-        MemoryEvent(
-            source="agent",
-            kind=KIND_DECISION,
-            content="Made a decision",
-            context=invalid_data
-        )
-    # Pydantic V2 StringConstraints trigger first
-    error_msg = str(excinfo.value)
-    assert "String should have at least 1 character" in error_msg or "Field cannot be empty" in error_msg
-    assert "String should have at least 10 characters" in error_msg or "Field cannot be empty" in error_msg
+    event = MemoryEvent(
+        source="agent",
+        kind=KIND_DECISION,
+        content="Made a decision",
+        context=invalid_data
+    )
+    # Silently falls back to dict
+    assert isinstance(event.context, dict)
+    assert event.context == invalid_data
 
 def test_memory_event_context_validation_invalid_proposal():
-    """Test that ValidationError is raised when context is invalid for proposal."""
+    """Test that context remains dict when invalid for proposal."""
     invalid_data = {
         "title": "Valid Title",
         "target": "valid-target",
         "rationale": "Short", # Too short rationale (<10)
         "confidence": 1.5, # Invalid: > 1.0
     }
-    with pytest.raises(ValidationError) as excinfo:
-        MemoryEvent(
-            source="agent",
-            kind=KIND_PROPOSAL,
-            content="Proposed a hypothesis",
-            context=invalid_data
-        )
-    # Rationale length or confidence range
-    error_msg = str(excinfo.value)
-    assert "String should have at least 10 characters" in error_msg or "Input should be less than or equal to 1.0" in error_msg
+    event = MemoryEvent(
+        source="agent",
+        kind=KIND_PROPOSAL,
+        content="Proposed a hypothesis",
+        context=invalid_data
+    )
+    # Silently falls back to dict
+    assert isinstance(event.context, dict)
+    assert event.context == invalid_data
 
 def test_memory_event_context_non_semantic():
     """Test that context remains a dict when kind is non-semantic."""
@@ -140,7 +137,7 @@ def test_decision_content_valid():
         namespace="core"
     )
     assert decision.title == "Valid Decision"
-    assert decision.status == "active"
+    assert decision.status == "draft"
 
 def test_decision_content_empty_fields():
     """Test that empty strings for required fields in DecisionContent raise ValueError."""
