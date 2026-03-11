@@ -395,8 +395,13 @@ class SemanticStore:
                 merge_status=data.get('merge_status'), enrichment_status=data.get('enrichment_status')
             )
             if not self._in_transaction:
-                IntegrityChecker.validate(self.repo_path, fid=relative_path, data=data)
-                self.audit.add_artifact(relative_path, full_file_content, f"Add {event.kind}: {event.content[:50]}")
+                try:
+                    IntegrityChecker.validate(self.repo_path, fid=relative_path, data=data)
+                    self.audit.add_artifact(relative_path, full_file_content, f"Add {event.kind}: {event.content[:50]}")
+                except Exception as e:
+                    if os.path.exists(full_path): os.remove(full_path)
+                    self.meta.delete(relative_path)
+                    raise e
             elif isinstance(self.audit, GitAuditProvider):
                 self.audit.run(["add", "--", relative_path])
             return relative_path

@@ -62,10 +62,14 @@ class IntegrityChecker:
         decisions = {}
         if not os.path.exists(repo_path): return {}
 
-        for root, _, files in os.walk(repo_path):
+        for root, dirs, files in os.walk(repo_path):
+            # V7.0: Skip internal and backup directories
+            if ".git" in root or ".tx_backup" in root: continue
+            
             for f in files:
                 if f.endswith(".md"):
                     file_path = os.path.join(root, f)
+                    rel_path = os.path.relpath(file_path, repo_path)
                     try:
                         mtime = os.stat(file_path).st_mtime_ns
                         # Load fresh data (no caching)
@@ -75,7 +79,7 @@ class IntegrityChecker:
                                 parts = content.split("---")
                                 if len(parts) >= 3:
                                     data = yaml.safe_load(parts[1])
-                                    decisions[f] = data
+                                    decisions[rel_path] = data
                     except Exception: continue
         return decisions
 
@@ -89,14 +93,15 @@ class IntegrityChecker:
 
     @staticmethod
     def _check_target_uniqueness(decisions: Dict[str, Any]):
-        """I4: Unique Active Decisions per Target/Namespace."""
+        """I4: Unique Active Decisions/Proposals per Target/Namespace."""
         active_map = {} # (target, namespace) -> fid
         for fid, data in decisions.items():
             ctx = data.get("context", {})
             status = data.get("status") or ctx.get("status")
             kind = data.get("kind")
 
-            if status == "active" and kind == "decision":
+            # V7.0 Alignment: Include both active/draft and decision/proposal
+            if status in ("active", "draft") and kind in ("decision", "proposal"):
                 target = data.get("target") or ctx.get("target")
                 namespace = data.get("namespace") or ctx.get("namespace", "default")
                 key = (target, namespace)
