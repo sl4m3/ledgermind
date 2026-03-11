@@ -18,9 +18,31 @@ def test_deep_grounding_inheritance(temp_memory_path, monkeypatch):
     """
     from ledgermind.core.stores import vector
     from ledgermind.core.stores.vector import _MODEL_CACHE
-    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", False)
+    from unittest.mock import MagicMock
+    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", True)
+    monkeypatch.setattr(vector, "LLAMA_AVAILABLE", False)
+    _MODEL_CACHE.clear()
+    mock_model = MagicMock()
+    import numpy as np
+    def mock_encode(text):
+        if "Performance" in text:
+            v = np.zeros((1, 384))
+            v[0, 0] = 1.0
+            return v
+        if "System Availability" in text:
+            v = np.zeros((1, 384))
+            v[0, 1] = 1.0
+            return v
+        if "performance optimization latency" in text:
+            v = np.zeros((1, 384))
+            v[0, 0] = 1.0
+            return v
+        v = np.random.rand(1, 384)
+        return v / np.linalg.norm(v)
+    mock_model.encode.side_effect = mock_encode
+    _MODEL_CACHE["mock-model"] = mock_model
     
-    memory = Memory(storage_path=temp_memory_path, vector_model=None)
+    memory = Memory(storage_path=temp_memory_path, vector_model="mock-model")
     target = "Inheritance-Test"
     
     # 1. Record an event with UNIQUE content
@@ -167,9 +189,31 @@ def test_hybrid_search_rrf_and_grounding_boost(temp_memory_path, monkeypatch):
     """
     from ledgermind.core.stores import vector
     from ledgermind.core.stores.vector import _MODEL_CACHE
-    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", False)
+    from unittest.mock import MagicMock
+    import numpy as np
+    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", True)
+    monkeypatch.setattr(vector, "LLAMA_AVAILABLE", False)
+    _MODEL_CACHE.clear()
+    mock_model = MagicMock()
+    def mock_encode(text):
+        if "Performance" in text:
+            v = np.zeros((1, 384))
+            v[0, 0] = 1.0
+            return v
+        if "System Availability" in text:
+            v = np.zeros((1, 384))
+            v[0, 1] = 1.0
+            return v
+        if "performance optimization latency" in text:
+            v = np.zeros((1, 384))
+            v[0, 0] = 1.0
+            return v
+        v = np.random.rand(1, 384)
+        return v / np.linalg.norm(v)
+    mock_model.encode.side_effect = mock_encode
+    _MODEL_CACHE["mock-model"] = mock_model
     
-    memory = Memory(storage_path=temp_memory_path, vector_model=None)
+    memory = Memory(storage_path=temp_memory_path, vector_model="mock-model")
     
     # 1. Record Decision A (Vector match + Grounding boost)
     res_a = memory.record_decision(
