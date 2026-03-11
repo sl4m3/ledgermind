@@ -93,7 +93,7 @@ def print_decision_status_table(bridge: IntegrationBridge, target: str, title: s
             f"[{vit_color}]{vitality}[/{vit_color}]",
             f"{meta.get('confidence', 0.0):.2f}",
             f"{meta.get('stability_score', 0.0):.2f}",
-            f"{ctx.get('estimated_removal_cost', 0.0):.2f}",
+            f"{meta.get('estimated_removal_cost', 0.0):.2f}",
             r['status']
         )
     
@@ -159,7 +159,7 @@ def run_lifecycle_test(args):
         prop_ctx = json.loads(meta_prop.get('context_json', '{}'))
         
         fid = prop_id # Fallback
-        if prop_ctx.get('status') == 'draft':
+        if meta_prop.get('status') == 'draft':
             bridge.memory.accept_proposal(prop_id)
             console.print(f"[green]✔ Proposal accepted for {target}[/green]")
             # After acceptance, search for the actual decision file
@@ -210,10 +210,10 @@ def run_lifecycle_test(args):
                 return
             
             ctx = json.loads(meta.get('context_json', '{}'))
-            if meta.get('phase') == 'emergent' and ctx.get('estimated_removal_cost', 0) >= 0.7:
+            if meta.get('phase') == 'emergent' and meta.get('estimated_removal_cost', 0) >= 0.7:
                  console.print(f"[green]✔ Intervention verified: Immediate EMERGENT status with high removal cost.[/green]")
             else:
-                 console.print(f"[red]FAIL: Intervention metrics mismatch: Phase={meta.get('phase')}, Cost={ctx.get('estimated_removal_cost')}[/red]")
+                 console.print(f"[red]FAIL: Intervention metrics mismatch: Phase={meta.get('phase')}, Cost={meta.get('estimated_removal_cost')}[/red]")
 
         # --- STAGE 3: REINFORCEMENT & STABILITY ---
         console.print("\n[bold cyan]Stage 3: Reinforcement & Stability (Path to CANONICAL)[/bold cyan]")
@@ -235,13 +235,24 @@ def run_lifecycle_test(args):
         elif not meta_re:
             console.print(f"[yellow]! Record {fid} not found after reflection.[/yellow]")
         
-        # --- STAGE 4: AGING (DECAYING) ---
-        console.print("\n[bold yellow]Stage 4: Aging (Simulated 40 days Inactivity)[/bold yellow]")
+        # --- STAGE 4: AGING (Simulated 40 days Inactivity) ---
+        console.print("\n[bold cyan]Stage 4: Aging (Simulated 40 days Inactivity)[/bold cyan]")
         meta_db = os.path.join(tmp_dir, "semantic", "semantic_meta.db")
         episodic_db = os.path.join(tmp_dir, "episodic.db")
+
+        # CRITICAL: Close memory before warping time to avoid 'database is locked'
+        bridge.memory.close()
+
         warp_time_in_db(meta_db, "semantic_meta", 40)
         warp_time_in_db(episodic_db, "events", 40)
-        
+
+        # Re-initialize bridge
+        bridge = IntegrationBridge(
+            memory_path=tmp_dir, 
+            vector_model="v5-small-text-matching-Q4_K_M.gguf",
+            default_cli=[args.cli]
+        )
+
         # Maintenance should trigger vitality update
         bridge.memory.run_maintenance()
         
@@ -301,10 +312,22 @@ def run_lifecycle_test(args):
         else:
             console.print("[yellow]! Ranking verification: No decaying items found in search results.[/yellow]")
 
-        # --- STAGE 6: OBLIVION (DORMANT & PURGE) ---
+        # --- STAGE 6: OBLIVION (Simulated 500 days) ---
         console.print("\n[bold red]Stage 6: Oblivion (Simulated 500 days)[/bold red]")
+
+        # CRITICAL: Close memory before warping time
+        bridge.memory.close()
+
         warp_time_in_db(meta_db, "semantic_meta", 500)
         warp_time_in_db(episodic_db, "events", 500)
+
+        # Re-initialize bridge
+        bridge = IntegrationBridge(
+            memory_path=tmp_dir, 
+            vector_model="v5-small-text-matching-Q4_K_M.gguf",
+            default_cli=[args.cli]
+        )
+
         bridge.memory.run_maintenance()
         
         print_decision_status_table(bridge, target, "Knowledge State: Final")
