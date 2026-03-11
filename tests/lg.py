@@ -2,15 +2,12 @@
 import sys
 import os
 import argparse
-import subprocess
 import time
 import shutil
-import random
 import uuid
 import sqlite3
 import json
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
 
 # Ensure local src is prioritized for imports
 src_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
@@ -19,14 +16,10 @@ if os.path.exists(src_path):
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.status import Status
 from rich.table import Table
-from rich.markdown import Markdown
-from rich.live import Live
 from rich.progress import track
 
 from ledgermind.core.api.bridge import IntegrationBridge
-from ledgermind.core.core.schemas import DecisionPhase, DecisionVitality, KIND_INTERVENTION, KIND_DECISION
 
 # Configuration
 DEFAULT_CLI = os.environ.get("LEDGERMIND_CLI", "gemini")
@@ -178,7 +171,7 @@ def run_lifecycle_test(args):
              fid = active_results[0]['id']
              meta = bridge.memory.semantic.meta.get_by_fid(fid)
              if meta and meta.get('phase') == 'emergent':
-                 console.print(f"[green]✔ Successfully crystallized to EMERGENT phase.[/green]")
+                 console.print("[green]✔ Successfully crystallized to EMERGENT phase.[/green]")
              elif meta:
                  console.print(f"[red]FAIL: Expected emergent phase, got {meta.get('phase')}[/red]")
              else:
@@ -211,7 +204,7 @@ def run_lifecycle_test(args):
             
             ctx = json.loads(meta.get('context_json', '{}'))
             if meta.get('phase') == 'emergent' and meta.get('estimated_removal_cost', 0) >= 0.7:
-                 console.print(f"[green]✔ Intervention verified: Immediate EMERGENT status with high removal cost.[/green]")
+                 console.print("[green]✔ Intervention verified: Immediate EMERGENT status with high removal cost.[/green]")
             else:
                  console.print(f"[red]FAIL: Intervention metrics mismatch: Phase={meta.get('phase')}, Cost={meta.get('estimated_removal_cost')}[/red]")
 
@@ -260,7 +253,7 @@ def run_lifecycle_test(args):
         
         meta_age = bridge.memory.semantic.meta.get_by_fid(fid)
         if meta_age and meta_age.get('vitality') == 'decaying':
-            console.print(f"[green]✔ Vitality transitioned to DECAYING.[/green]")
+            console.print("[green]✔ Vitality transitioned to DECAYING.[/green]")
         elif meta_age:
             console.print(f"[red]FAIL: Expected decaying vitality, got {meta_age.get('vitality')}[/red]")
         else:

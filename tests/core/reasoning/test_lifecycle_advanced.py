@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
 from ledgermind.core.reasoning.lifecycle import LifecycleEngine
-from ledgermind.core.core.schemas import DecisionStream, DecisionVitality, DecisionPhase
+from ledgermind.core.core.schemas import DecisionStream, DecisionVitality
 
 @pytest.fixture
 def engine():

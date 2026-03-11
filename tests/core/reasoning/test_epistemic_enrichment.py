@@ -2,7 +2,7 @@ import pytest
 import json
 from unittest.mock import MagicMock, patch
 from ledgermind.core.reasoning.enrichment import LLMEnricher
-from ledgermind.core.core.schemas import DecisionStream, KIND_PROPOSAL
+from ledgermind.core.core.schemas import DecisionStream
 
 @pytest.fixture
 def enricher():

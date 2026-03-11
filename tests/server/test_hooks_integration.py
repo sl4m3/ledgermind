@@ -1,10 +1,8 @@
-import os
 import sys
 import json
 import pytest
 import io
-from unittest.mock import patch, MagicMock
-from pathlib import Path
+from unittest.mock import patch
 from ledgermind.server.cli import main
 
 def run_cli(args):

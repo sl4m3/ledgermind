@@ -1,6 +1,5 @@
 import sys
 import os
-import pytest
 import io
 from unittest.mock import patch
 from ledgermind.server.cli import main

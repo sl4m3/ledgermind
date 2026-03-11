@@ -2,8 +2,7 @@ import os
 import pytest
 import uuid
 from ledgermind.core.api.memory import Memory
-from ledgermind.core.core.schemas import KIND_DECISION, MemoryEvent
-from ledgermind.core.core.exceptions import ConflictError
+from ledgermind.core.core.schemas import MemoryEvent
 
 @pytest.fixture
 def temp_memory_path(tmp_path):
@@ -17,7 +16,6 @@ def test_deep_grounding_inheritance(temp_memory_path, monkeypatch):
     associated with its predecessors.
     """
     from ledgermind.core.stores import vector
-    from ledgermind.core.stores.vector import _MODEL_CACHE
     monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", False)
     monkeypatch.setattr(vector, "LLAMA_AVAILABLE", False)
     
@@ -66,7 +64,6 @@ def test_arbiter_callback_logic_supersede(temp_memory_path, monkeypatch):
     """Scenario 1: Arbiter decides to SUPERSEDE in the Gray Zone (0.5-0.7)."""
     import numpy as np
     from unittest.mock import MagicMock
-    from ledgermind.core.stores import vector
     from ledgermind.core.stores.vector import _MODEL_CACHE
     
     # Mock the vector model to return controlled similarity (0.6)
@@ -84,7 +81,6 @@ def test_arbiter_callback_logic_supersede(temp_memory_path, monkeypatch):
     mock_model.get_sentence_embedding_dimension.return_value = 384
     
     monkeypatch.setattr("ledgermind.core.stores.vector.EMBEDDING_AVAILABLE", True)
-    from ledgermind.core.stores.vector import _MODEL_CACHE
     _MODEL_CACHE["mock-model"] = mock_model
     
     memory = Memory(storage_path=temp_memory_path, vector_model="mock-model")
@@ -119,7 +115,6 @@ def test_arbiter_callback_logic_auto_supersede_over_0_7(temp_memory_path, monkey
     """Scenario 2: Automatic supersede happens for sim > 0.7, ignoring arbiter."""
     import numpy as np
     from unittest.mock import MagicMock
-    from ledgermind.core.stores import vector
     from ledgermind.core.stores.vector import _MODEL_CACHE
     
     mock_model = MagicMock()
@@ -128,7 +123,6 @@ def test_arbiter_callback_logic_auto_supersede_over_0_7(temp_memory_path, monkey
     mock_model.get_sentence_embedding_dimension.return_value = 384
     
     monkeypatch.setattr("ledgermind.core.stores.vector.EMBEDDING_AVAILABLE", True)
-    from ledgermind.core.stores.vector import _MODEL_CACHE
     _MODEL_CACHE["mock-model-high"] = mock_model
     
     memory = Memory(storage_path=temp_memory_path, vector_model="mock-model-high")

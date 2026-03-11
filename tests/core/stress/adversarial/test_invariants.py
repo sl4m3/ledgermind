@@ -1,7 +1,7 @@
 import pytest
 import os
 from ledgermind.core.api.memory import Memory
-from ledgermind.core.core.exceptions import InvariantViolation, ConflictError
+from ledgermind.core.core.exceptions import ConflictError
 
 @pytest.fixture
 def memory_fixture(tmp_path):

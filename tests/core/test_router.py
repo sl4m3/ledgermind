@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
 from ledgermind.core.core.router import MemoryRouter
-from ledgermind.core.core.schemas import MemoryEvent, MemoryDecision, ResolutionIntent, KIND_DECISION
+from ledgermind.core.core.schemas import MemoryEvent, ResolutionIntent, KIND_DECISION
 from unittest.mock import MagicMock
 
 @pytest.fixture

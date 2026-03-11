@@ -1,6 +1,5 @@
 import pytest
 import os
-import shutil
 from ledgermind.core.api.bridge import IntegrationBridge
 
 @pytest.fixture(scope="module")

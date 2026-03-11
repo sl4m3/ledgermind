@@ -3,7 +3,6 @@ import os
 import shutil
 import unittest
 import unittest.mock
-import json
 import time
 import logging
 from ledgermind.core.api.memory import Memory

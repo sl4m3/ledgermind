@@ -1,9 +1,6 @@
 import pytest
-import os
-import json
 from unittest.mock import MagicMock, patch
 from ledgermind.core.reasoning.merging import MergeEngine
-from ledgermind.core.core.schemas import KIND_PROPOSAL
 
 @pytest.fixture
 def mock_memory():
