@@ -35,6 +35,7 @@ class SemanticMetaStore:
                 phase TEXT,
                 vitality TEXT,
                 enrichment_status TEXT,
+                supersedes TEXT,
                 superseded_by TEXT,
                 converted_to TEXT,
                 merge_status TEXT DEFAULT 'idle',
@@ -121,6 +122,7 @@ class SemanticMetaStore:
             'phase': kwargs.get('phase', 'pattern'),
             'vitality': kwargs.get('vitality', 'active'),
             'enrichment_status': kwargs.get('enrichment_status', 'pending'),
+            'supersedes': json.dumps(kwargs.get('supersedes', [])) if isinstance(kwargs.get('supersedes'), list) else kwargs.get('supersedes'),
             'superseded_by': kwargs.get('superseded_by'),
             'converted_to': kwargs.get('converted_to'),
             'merge_status': kwargs.get('merge_status', 'idle'),
@@ -140,10 +142,10 @@ class SemanticMetaStore:
         self._conn.execute("""
             INSERT INTO semantic_meta (
                 fid, target, title, status, kind, timestamp, content, context_json, namespace, phase, vitality, enrichment_status,
-                superseded_by, converted_to, merge_status, keywords, confidence, last_hit_at, link_count, reinforcement_density, stability_score, coverage, 
+                supersedes, superseded_by, converted_to, merge_status, keywords, confidence, last_hit_at, link_count, reinforcement_density, stability_score, coverage, 
                 estimated_removal_cost, estimated_utility, content_hash, compressive_rationale
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             ) ON CONFLICT(fid) DO UPDATE SET
                 target=excluded.target,
                 title=excluded.title,
@@ -156,6 +158,7 @@ class SemanticMetaStore:
                 phase=excluded.phase,
                 vitality=excluded.vitality,
                 enrichment_status=excluded.enrichment_status,
+                supersedes=excluded.supersedes,
                 superseded_by=excluded.superseded_by,
                 converted_to=excluded.converted_to,
                 merge_status=excluded.merge_status,
@@ -173,7 +176,7 @@ class SemanticMetaStore:
         """, (
             fid, target, title, status, kind, ts_str, content, context_json, namespace,
             fields['phase'], fields['vitality'], fields['enrichment_status'], 
-            fields['superseded_by'], fields['converted_to'], fields['merge_status'], 
+            fields['supersedes'], fields['superseded_by'], fields['converted_to'], fields['merge_status'], 
             fields['keywords'], fields['confidence'], fields['last_hit_at'], 
             fields['link_count'], fields['reinforcement_density'], fields['stability_score'], 
             fields['coverage'], fields['estimated_removal_cost'], fields['estimated_utility'], 

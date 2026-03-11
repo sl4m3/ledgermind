@@ -119,6 +119,17 @@ class ReflectionEngine:
                 ctx_raw = data.get('context_json')
                 if ctx_raw:
                     ctx_dict = json.loads(ctx_raw)
+                    
+                    # CORE V7.0: Re-inject top-level fields from DB into context
+                    # This prevents data loss when model_dump() is called later
+                    for field in ['status', 'kind', 'phase', 'vitality', 'supersedes', 'superseded_by']:
+                        if field in data and data[field] is not None:
+                            val = data[field]
+                            if field == 'supersedes' and isinstance(val, str):
+                                try: val = json.loads(val)
+                                except: val = []
+                            ctx_dict[field] = val
+
                     # Ensure last_hit_at from DB overrides or merges correctly
                     ctx_dict['last_hit_at'] = data.get('last_hit_at') or ctx_dict.get('last_hit_at')
                     stream = DecisionStream(**ctx_dict)
