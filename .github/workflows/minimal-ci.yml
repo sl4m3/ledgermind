@@ -131,13 +131,12 @@ jobs:
             safety-report.json
             pip-audit-report.json
 
-      - name: Comment PR with security results
-        if: github.event_name == 'pull_request'
+      - name: Output security results to summary
+        if: always()
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const issue_number = context.issue.number;
 
             const safeParse = (file) => {
               try {
@@ -156,20 +155,14 @@ jobs:
             const safety = safeParse('safety-report.json');
             const pipAudit = safeParse('pip-audit-report.json');
 
-            let body = '## 🔒 Security Scan Results\\n\\n';
-            body += '### Bandit (SAST)\\n';
+            let body = '### Bandit (SAST)\n';
             body += `- ${bandit.metrics?.['SEVERITY.HIGH'] || 0} HIGH severity issues\\n\\n`;
             body += '### Safety (Dependencies)\\n';
             body += `- ${safety.vulnerabilities?.length || 0} known vulnerabilities\\n\\n`;
             body += '### Pip-audit (Dependencies)\\n';
             body += `- ${pipAudit.dependencies?.filter(d => d.vulnerabilities?.length)?.length || 0} vulnerable packages\\n`;
 
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue_number,
-              body: body
-            });
+            core.summary.addHeading('🔒 Security Scan Results').addRaw(body).write();
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   lint:
