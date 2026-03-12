@@ -40,8 +40,19 @@ class ResponseParser:
                         fixed_text2 = re.sub(r'"(?=[^",\[\]{}]*\s+\w+)', r'\\"', text)
                         return json.loads(fixed_text2)
                     except Exception as e2:
-                        logger.warning(f"JSON Parse error after all fixes: {e}. Snippet: {text[:300]}...")
-                        return None
+                        # V7.7: Additional fix - remove markdown formatting inside JSON strings
+                        try:
+                            # Remove **bold** and *italic* markers that break JSON
+                            cleaned = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+                            cleaned = re.sub(r'\*([^*]+)\*', r'\1', cleaned)
+                            cleaned = re.sub(r'__([^_]+)__', r'\1', cleaned)
+                            cleaned = re.sub(r'_([^_]+)_', r'\1', cleaned)
+                            # Remove newlines within strings (replace \n with space)
+                            cleaned = re.sub(r'(?<!\\)\\n', ' ', cleaned)
+                            return json.loads(cleaned)
+                        except Exception as e3:
+                            logger.warning(f"JSON Parse error after all fixes: {e}. Snippet: {text[:500]}...")
+                            return None
         except Exception as e:
             logger.error(f"Unexpected parsing error: {e}")
             return None

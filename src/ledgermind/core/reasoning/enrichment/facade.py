@@ -467,6 +467,32 @@ class LLMEnricher:
     def _execute_consolidation(self, fids: List[str], memory: Any, parent_fid: str):
         """STEP 2: Consolidation (Architect). Performs deep synthesis."""
         if len(fids) < 2: return
+        
+        # V7.7: Filter out proposals that cannot be superseded (fulfilled, superseded, etc.)
+        valid_fids = []
+        for fid in fids:
+            meta = memory.semantic.meta.get_by_fid(fid)
+            if meta:
+                status = meta.get('status', 'draft')
+                # Can only supersede: draft, active, deprecated
+                # Cannot supersede: fulfilled, superseded, rejected, falsified
+                if status in ('fulfilled', 'superseded', 'rejected', 'falsified'):
+                    logger.info(f"  - Skipping {fid} (status={status}): cannot supersede.")
+                else:
+                    valid_fids.append(fid)
+            else:
+                valid_fids.append(fid)
+        
+        if len(valid_fids) < 2:
+            logger.info(f"  - Consolidation cancelled: only {len(valid_fids)} valid targets remain.")
+            # Mark parent as fulfilled since we can't merge
+            memory.semantic.update_decision(parent_fid, {"status": "fulfilled", "enrichment_status": "completed"}, 
+                                           "Consolidation cancelled: insufficient valid targets.")
+            return
+        
+        # Use filtered list
+        fids = valid_fids
+        
         logger.info(f"  - Starting Deep Architectural Synthesis for {len(fids)} documents...")
         
         docs_full = []
