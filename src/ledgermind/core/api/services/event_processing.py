@@ -162,7 +162,15 @@ class EventProcessingService(MemoryService):
                         self.semantic.update_decision(old_id, {"status": "superseded"}, commit_msg="Deactivating for transition")
 
             to_supersede_ids = intent.target_decision_ids if (intent and intent.resolution_type == "supersede") else None
+
+            # Explicit lock conflict check to avoid TOCTOU.
+            # If this happens it means a race condition occurred between router.route and the lock acquisition
             if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=namespace, supersedes=to_supersede_ids):
+                if not intent:
+                    # In order not to break API contract, raising a specific error is difficult here,
+                    # but if we are here it's due to a race condition (as the first check passed).
+                    # We will raise ConflictError to abort the transaction cleanly.
+                    raise ConflictError(f"Invariant Violation: {conflict_msg}")
                 raise ConflictError(f"Conflict detected: {conflict_msg}")
 
             # Prepare Context

@@ -21,12 +21,6 @@ class SemanticMetaStore:
     def _init_db(self):
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
-        
-        # FAST PATH: If the table already exists, skip DDL to avoid write-lock contention
-        cursor = self._conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_meta'")
-        if cursor.fetchone():
-            return
-            
         self._conn.execute("""
             CREATE TABLE IF NOT EXISTS semantic_meta (
                 fid TEXT PRIMARY KEY,
@@ -62,7 +56,7 @@ class SemanticMetaStore:
         self._conn.execute("CREATE TABLE IF NOT EXISTS semantic_config (key TEXT PRIMARY KEY, value TEXT)")
         self._conn.execute("CREATE INDEX IF NOT EXISTS idx_target ON semantic_meta(target)")
         self._conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON semantic_meta(status)")
-        
+
         # Initialize FTS5 for full-text search
         try:
             self._conn.execute("""
@@ -75,7 +69,7 @@ class SemanticMetaStore:
                     tokenize='unicode61'
                 )
             """)
-            
+
             # Sync triggers for FTS using rowid for integrity
             self._conn.execute("DROP TRIGGER IF EXISTS trg_semantic_meta_insert")
             self._conn.execute("""
@@ -83,14 +77,14 @@ class SemanticMetaStore:
                     INSERT INTO semantic_fts(rowid, title, content, keywords) VALUES (new.rowid, new.title, new.content, new.keywords);
                 END
             """)
-            
+
             self._conn.execute("DROP TRIGGER IF EXISTS trg_semantic_meta_delete")
             self._conn.execute("""
                 CREATE TRIGGER trg_semantic_meta_delete AFTER DELETE ON semantic_meta BEGIN
                     INSERT INTO semantic_fts(semantic_fts, rowid, title, content, keywords) VALUES('delete', old.rowid, old.title, old.content, old.keywords);
                 END
             """)
-            
+
             self._conn.execute("DROP TRIGGER IF EXISTS trg_semantic_meta_update")
             self._conn.execute("""
                 CREATE TRIGGER trg_semantic_meta_update AFTER UPDATE ON semantic_meta BEGIN
