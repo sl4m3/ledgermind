@@ -46,8 +46,13 @@ class BackgroundWorker:
 
         self.interval = interval_seconds  # Maintenance interval (5 min default)
 
-        if log_path:
-            self._setup_logging(os.path.abspath(log_path))
+        # Determine log path (default to storage/logs/worker.log)
+        if log_path is None:
+            log_dir = os.path.join(self.memory.storage_path, "logs")
+            os.makedirs(log_dir, exist_ok=True)
+            log_path = os.path.join(log_dir, "worker.log")
+        
+        self._setup_logging(os.path.abspath(log_path))
 
         self.running = False
         self._stop_event = threading.Event()
@@ -67,14 +72,29 @@ class BackgroundWorker:
         atexit.register(self._cleanup_on_exit)
 
     def _setup_logging(self, log_path: str):
+        """Configure root logger with file and (optional) console handlers."""
         log_dir = os.path.dirname(log_path)
         if log_dir: os.makedirs(log_dir, exist_ok=True)
+        
         root_logger = logging.getLogger()
+        # Remove existing handlers to avoid duplicates
         for handler in root_logger.handlers[:]:
             root_logger.removeHandler(handler)
+            handler.close()
+        
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        
+        # File handler (overwrite mode for fresh start)
         fh = logging.FileHandler(log_path, mode='w')
-        fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        fh.setFormatter(formatter)
         root_logger.addHandler(fh)
+        
+        # Console handler if running in foreground (tty)
+        if sys.stderr.isatty():
+            ch = logging.StreamHandler(sys.stderr)
+            ch.setFormatter(formatter)
+            root_logger.addHandler(ch)
+        
         root_logger.setLevel(logging.INFO)
         logger.info(f"Worker logging initialized at {log_path}")
 
@@ -247,9 +267,7 @@ class BackgroundWorker:
         """
         try:
             self.start()
-            session_dir = os.path.join(self.memory.storage_path, "sessions")
             lock_path = os.path.join(self.memory.storage_path, "worker.pid")
-            os.makedirs(session_dir, exist_ok=True)
 
             while self.running:
                 # 0. CRITICAL: Lock file health check (Manual removal detection)
@@ -257,25 +275,13 @@ class BackgroundWorker:
                     logger.warning("Worker lock file (worker.pid) deleted manually. Shutting down.")
                     break
 
-                # SESSION MONITORING & RESPONSIVE SLEEP
-                # Check sessions and flags every 5 seconds
-                for _ in range(20): # ~100 seconds total max sleep between checks
-                    if not self.running or not os.path.exists(lock_path): break
-
-                    # Check active client sessions
-                    active = 0
-                    try:
-                        for f in os.listdir(session_dir):
-                            if f.endswith(".lock") and self._is_process_running(int(f.split(".")[0])):
-                                active += 1
-                    except Exception: active = 1
-
-                    if active == 0:
-                        logger.info("No active sessions. Shutting down.")
-                        self.running = False
+                # RESPONSIVE SLEEP
+                # Check lock file every 5 seconds, sleep for ~100 seconds total
+                for _ in range(20):
+                    if not self.running or not os.path.exists(lock_path):
                         break
-
-                    if self._stop_event.wait(5.0): break
+                    if self._stop_event.wait(5.0):
+                        break
 
         except Exception as fatal_e:
             logger.critical(f"FATAL: Worker loop crashed: {fatal_e}", exc_info=True)

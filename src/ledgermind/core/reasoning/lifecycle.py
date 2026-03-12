@@ -135,6 +135,12 @@ class LifecycleEngine:
 
         elif delta_evidence == 2:
             delta_stability = 0.3
+        
+        # V7.0: For decisions without new evidence, compute stability from lifetime
+        # Решения набирают стабильность со временем (7 дней для полной стабильности)
+        elif delta_evidence == 0 and lifetime_days > 0:
+            age_factor = min(1.0, lifetime_days / 7.0)
+            delta_stability = age_factor * 0.5  # Максимум 0.5 за возраст
 
         new_stability = stream.stability_score
         if old_evidence > 0:

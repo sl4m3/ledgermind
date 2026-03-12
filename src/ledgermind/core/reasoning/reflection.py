@@ -119,7 +119,7 @@ class ReflectionEngine:
                 ctx_raw = data.get('context_json')
                 if ctx_raw:
                     ctx_dict = json.loads(ctx_raw)
-                    
+
                     # CORE V7.0: Re-inject top-level fields from DB into context
                     # This prevents data loss when model_dump() is called later
                     for field in ['status', 'kind', 'phase', 'vitality', 'supersedes', 'superseded_by']:
@@ -132,6 +132,26 @@ class ReflectionEngine:
 
                     # Ensure last_hit_at from DB overrides or merges correctly
                     ctx_dict['last_hit_at'] = data.get('last_hit_at') or ctx_dict.get('last_hit_at')
+
+                    # V7.0: Convert procedural from list[dict] to ProceduralContent
+                    if ctx_dict.get('procedural'):
+                        from ledgermind.core.core.schemas import ProceduralContent, ProceduralStep
+                        proc_list = ctx_dict['procedural']
+                        if isinstance(proc_list, list):
+                            try:
+                                steps = [
+                                    ProceduralStep(
+                                        action=step.get('action', ''),
+                                        expected_outcome=step.get('expected_outcome'),
+                                        rationale=step.get('rationale')
+                                    )
+                                    for step in proc_list
+                                ]
+                                ctx_dict['procedural'] = ProceduralContent(steps=steps)
+                            except Exception as proc_err:
+                                logger.warning(f"Failed to convert procedural for {fid}: {proc_err}")
+                                ctx_dict['procedural'] = None
+
                     stream = DecisionStream(**ctx_dict)
                     updated = self.lifecycle.calculate_temporal_signals(stream, [], now)
                     

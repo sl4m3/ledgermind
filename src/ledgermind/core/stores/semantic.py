@@ -424,17 +424,34 @@ class SemanticStore:
             file_path = os.path.join(self.repo_path, filename)
             with open(file_path, "r", encoding="utf-8") as f: content = f.read()
             old_data, body = MemoryLoader.parse(content)
-            
+
             import copy
             new_data = copy.deepcopy(old_data)
             CORE_FIELDS = ["status", "kind", "supersedes", "superseded_by", "merge_status", "enrichment_status", "timestamp", "fid", "source", "content"]
-            for field in CORE_FIELDS:
-                if field in updates: new_data[field] = updates[field]
             
+            # V7.0: Normalize procedural format before applying updates
+            updates_normalized = updates.copy()
+            if 'procedural' in updates_normalized and updates_normalized['procedural']:
+                from ledgermind.core.core.schemas import ProceduralContent, ProceduralStep
+                proc = updates_normalized['procedural']
+                if isinstance(proc, list):
+                    try:
+                        steps = [
+                            ProceduralStep(**step) if isinstance(step, dict) else step
+                            for step in proc
+                        ]
+                        updates_normalized['procedural'] = ProceduralContent(steps=steps)
+                    except Exception as proc_err:
+                        logger.warning(f"Failed to normalize procedural: {proc_err}")
+                        updates_normalized['procedural'] = None
+            
+            for field in CORE_FIELDS:
+                if field in updates_normalized: new_data[field] = updates_normalized[field]
+
             new_data.pop("title", None)
             new_data.pop("target", None)
             if "context" not in new_data: new_data["context"] = {}
-            clean_updates = {k: v for k, v in updates.items() if k not in CORE_FIELDS}
+            clean_updates = {k: v for k, v in updates_normalized.items() if k not in CORE_FIELDS}
             new_data["context"].update(clean_updates)
             for field in CORE_FIELDS: new_data["context"].pop(field, None)
             

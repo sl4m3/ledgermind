@@ -143,6 +143,39 @@ class LLMEnricher:
 
         self.process_batch(proposals_objs, memory.episodic, memory=memory)
 
+    def synthesize_merged_rationale(self, rationales: List[str], memory: Any = None) -> str:
+        """
+        Synthesizes a unified rationale from multiple source rationales.
+        Used during manual proposal acceptance.
+        """
+        if not rationales:
+            return "No rationale provided."
+        if len(rationales) == 1:
+            return rationales[0]
+
+        logger.info(f"Synthesizing merged rationale for {len(rationales)} items...")
+        
+        combined_text = "\n\n--- SOURCE RATIONALE ---\n\n".join(rationales)
+        config = EnrichmentConfig.from_memory(memory, mode=self.mode or "lite", preferred_language=self.preferred_language or "russian")
+        
+        # Use existing prompts from builder.py
+        instructions = PromptBuilder.build_consolidation_prompt(config)
+        full_prompt = PromptBuilder.wrap_with_data(instructions, combined_text, config)
+        
+        client = self._get_client(config, memory)
+        
+        try:
+            response = client.call("You are a Senior Principal Software Architect.", full_prompt)
+            if response:
+                res_data = ResponseParser.parse_json(response)
+                if res_data and "rationale" in res_data:
+                    return str(res_data["rationale"]).strip()
+                return response.strip()
+        except Exception as e:
+            logger.warning(f"LLM Synthesis failed: {e}. Falling back to concatenation.")
+            
+        return "\n\n".join(rationales)
+
     def process_batch(self, proposals: List[Any], episodic_store: Any, memory: Any = None) -> List[Any]:
         """Iteratively processes a list of proposals, handling validation clusters separately.
         
@@ -167,6 +200,9 @@ class LLMEnricher:
                     if target == 'knowledge_validation':
                         logger.info(f"\n>>> [STEP 1/2: CLUSTER VALIDATION {i}/{total}] Processing {fid}")
                         self._handle_validation_cluster(prop, memory)
+                        # V7.5: Mark validation cluster as completed
+                        memory.semantic.update_decision(fid, {"enrichment_status": "completed"},
+                                                         commit_msg="Enrichment: validation completed")
                         results.append(prop)
                         continue
 
@@ -185,11 +221,16 @@ class LLMEnricher:
 
                     while True:
                         eids = getattr(current_obj, 'evidence_event_ids', [])
-                        if not eids: break
+                        if not eids:
+                            # V7.5: Nothing to enrich, mark as completed
+                            memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, commit_msg="Enrichment: completed (no evidence)")
+                            break
 
                         logs_text, used_ids, missing_ids = LogProcessor.get_batch_logs(current_obj, episodic_store, config)
 
                         if not used_ids and not missing_ids:
+                            # V7.5: No logs found, nothing more to enrich
+                            memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, commit_msg="Enrichment: completed (no logs)")
                             break
 
                         if not used_ids and missing_ids:
@@ -214,6 +255,9 @@ class LLMEnricher:
                         iteration += 1
                         if iteration > 10: break # Hard safety
 
+                    # V7.5: Mark as completed after enrichment cycle
+                    memory.semantic.update_decision(fid, {"enrichment_status": "completed"},
+                                                     commit_msg="Enrichment: completed")
                     results.append(current_obj)
                 logger.info("Batch transaction committed successfully")
             except Exception as e:
@@ -335,25 +379,25 @@ class LLMEnricher:
             source_phases = []
             total_evidence_count = 0
             stability_scores = []
-            
+
             for g_fid in fids:
                 meta = memory.semantic.meta.get_by_fid(g_fid)
                 if meta:
                     ctx = json.loads(meta.get('context_json', '{}')) if meta.get('context_json') else {}
-                    
+
                     # Collect phase
                     phase_str = ctx.get('phase', 'pattern')
                     try:
                         source_phases.append(DecisionPhase(phase_str))
                     except ValueError:
                         source_phases.append(DecisionPhase.PATTERN)
-                    
+
                     # Collect evidence count
                     total_evidence_count += ctx.get('total_evidence_count', 0) or meta.get('total_evidence_count', 0)
-                    
+
                     # Collect stability score
                     stability_scores.append(ctx.get('stability_score', 0.0) or meta.get('stability_score', 0.0))
-            
+
             # Calculate inherited phase with validation
             avg_stability = sum(stability_scores) / len(stability_scores) if stability_scores else 0.0
             inherited_phase = self._inherit_phase_with_validation(
@@ -361,7 +405,7 @@ class LLMEnricher:
                 total_evidence_count=total_evidence_count,
                 stability_score=avg_stability
             )
-            
+
             logger.info(f"  - Inherited phase: {inherited_phase.value} (evidence={total_evidence_count}, stability={avg_stability:.2f})")
 
             # Create new decision WITH inherited phase (decisions don't have direct event links)
@@ -380,7 +424,25 @@ class LLMEnricher:
                     stability_score=avg_stability,
                     hit_count=0  # New decision has no hits yet
                 )
-                
+
+                # V7.0: Convert procedural from LLM response (list[dict]) to ProceduralContent
+                procedural_raw = res_data.get('procedural')
+                procedural_converted = None
+                if procedural_raw and isinstance(procedural_raw, list):
+                    from ledgermind.core.core.schemas import ProceduralContent, ProceduralStep
+                    try:
+                        steps = [
+                            ProceduralStep(
+                                action=_clean_text(step.get('action', '')),
+                                expected_outcome=_clean_text(step.get('expected_outcome')),
+                                rationale=_clean_text(step.get('rationale'))
+                            )
+                            for step in procedural_raw
+                        ]
+                        procedural_converted = ProceduralContent(steps=steps)
+                    except Exception as proc_err:
+                        logger.warning(f"Failed to convert procedural: {proc_err}")
+
                 updates = {
                     "status": "active",
                     "enrichment_status": "completed",
@@ -391,7 +453,7 @@ class LLMEnricher:
                     "strengths": res_data.get("strengths", []),
                     "objections": res_data.get("objections", []),
                     "consequences": res_data.get("consequences", []),
-                    "procedural": res_data.get("procedural"),
+                    "procedural": procedural_converted.model_dump(mode='json') if procedural_converted else None,
                     "total_evidence_count": total_evidence_count
                 }
                 memory.semantic.update_decision(new_fid, updates, "Deep architectural consolidation complete.")
@@ -400,8 +462,8 @@ class LLMEnricher:
 
             if parent_fid != 'unknown':
                 meta = memory.semantic.meta.get_by_fid(parent_fid)
-                if meta and meta.get('target') == 'knowledge_merge':
-                    memory.semantic.update_decision(parent_fid, {"status": "fulfilled", "enrichment_status": "completed"}, "Direct merge completed.")
+                if meta and meta.get('target') in ('knowledge_merge', 'knowledge_validation'):
+                    memory.semantic.update_decision(parent_fid, {"status": "fulfilled", "enrichment_status": "completed"}, "Direct consolidation completed.")
                     
         except Exception as e:
             logger.error(f"  - Deep consolidation failed: {e}", exc_info=True)

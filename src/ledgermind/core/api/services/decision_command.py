@@ -115,6 +115,7 @@ class DecisionCommandService(MemoryService):
                            namespace: Optional[str] = None,
                            vector: Optional[Any] = None,
                            phase: Optional[Any] = None,  # DecisionPhase or None
+                           enrichment_status: str = "pending",
                            memory_facade: Any = None) -> MemoryDecision:
         """Helper to evolve knowledge."""
         effective_namespace = namespace or self.context.namespace
@@ -129,7 +130,9 @@ class DecisionCommandService(MemoryService):
             decision_id=str(uuid.uuid4()), title=title, target=target, rationale=rationale,
             status="active",
             consequences=consequences or [], evidence_event_ids=evidence_ids or [], namespace=effective_namespace,
-            phase=phase or DecisionPhase.EMERGENT, vitality=DecisionVitality.ACTIVE, first_seen=datetime.now(), last_seen=datetime.now()
+            phase=phase or DecisionPhase.EMERGENT, vitality=DecisionVitality.ACTIVE, 
+            enrichment_status=enrichment_status,
+            first_seen=datetime.now(), last_seen=datetime.now()
         )
         decision = memory_facade.process_event(
             source="agent", kind=KIND_DECISION, content=title, context=ctx,
@@ -178,9 +181,11 @@ class DecisionCommandService(MemoryService):
                                 if s_data and s_data.rationale: original_rationales.append(s_data.rationale)
                             except Exception: continue
                         if original_rationales:
-                            from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
+                            from ledgermind.core.reasoning.enrichment import LLMEnricher
                             mode = self.semantic.meta.get_config("arbitration_mode", "lite")
                             final_rationale = LLMEnricher(mode=mode).synthesize_merged_rationale(original_rationales)
+                            # V7.5: Since we synthesized, mark as completed
+                            enrichment_status = "completed"
                 else:
                     if enrichment_status != "completed":
                         final_rationale = f"Accepted proposal {proposal_id}. {final_rationale}"
@@ -201,7 +206,8 @@ class DecisionCommandService(MemoryService):
                     title=title, target=target, rationale=final_rationale,
                     old_decision_ids=list(set([proposal_id] + (supersedes or []))),
                     consequences=ctx.get("suggested_consequences", []), evidence_ids=list(grounding_ids),
-                    phase=proposal_phase, memory_facade=memory_facade
+                    phase=proposal_phase, enrichment_status=enrichment_status,
+                    memory_facade=memory_facade
                 )
 
                 if decision.should_persist:

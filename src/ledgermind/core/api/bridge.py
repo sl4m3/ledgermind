@@ -146,8 +146,8 @@ class Bridge:
     def record_decision(self, title: str, target: str, rationale: str, consequences: Optional[List[str]] = None) -> MemoryDecision:
         return self._memory.record_decision(title, target, rationale, consequences)
 
-    def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str]) -> MemoryDecision:
-        return self._memory.supersede_decision(title, target, rationale, old_decision_ids)
+    def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], enrichment_status: str = "pending") -> MemoryDecision:
+        return self._memory.supersede_decision(title, target, rationale, old_decision_ids, enrichment_status=enrichment_status)
 
     def accept_proposal(self, proposal_id: str) -> MemoryDecision:
         return self._memory.accept_proposal(proposal_id)
