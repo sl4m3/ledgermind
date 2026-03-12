@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 import time
+import argparse
 
 # Custom Formatter for better visibility
 class ColorFormatter(logging.Formatter):
@@ -32,31 +33,45 @@ except ImportError as e:
     sys.exit(1)
 
 def main():
+    # V7.6: Command-line arguments for flexible configuration
+    parser = argparse.ArgumentParser(description='LEDGERMIND Hypothesis Merging')
+    parser.add_argument('--threshold', type=float, default=0.85,
+                        help='Similarity threshold (default: 0.85, range: 0.7-0.95)')
+    parser.add_argument('--storage', type=str, default=None,
+                        help='Storage path (default: auto-detect)')
+    args = parser.parse_args()
+    
+    # Validate threshold
+    if not 0.5 <= args.threshold <= 0.95:
+        logger.error(f"Invalid threshold {args.threshold}. Must be between 0.5 and 0.95")
+        sys.exit(1)
+
     logger.info("="*60)
     logger.info("LEDGERMIND HYPOTHESIS MERGING SESSION START")
     logger.info("="*60)
 
     # Detect storage path
-    storage_path = os.path.abspath("../.ledgermind")
+    storage_path = os.path.abspath(args.storage if args.storage else "../.ledgermind")
     if not os.path.exists(storage_path):
         storage_path = os.path.abspath(".ledgermind")
 
     logger.info(f"Storage Path: {storage_path}")
-    
-    # 1. Initialize Memory 
+    logger.info(f"Merge Threshold: {args.threshold}")
+
+    # 1. Initialize Memory
     logger.info("Initializing Memory components...")
     memory = Memory(storage_path=storage_path)
-    
+
     try:
         # 2. Configuration
         # Threshold 0.85 is strictly for semantic similarity
         config = MergeConfig(
-            threshold=0.85,
+            threshold=args.threshold,
             max_candidates=100
         )
         # Ensure we use vector_embedding
         config.algorithms['default'] = {'name': 'vector_embedding'}
-        
+
         logger.debug(f"Merge Configuration: threshold={config.threshold}, algorithm=vector_embedding")
         
         # 3. Initialize Merge Engine

@@ -64,23 +64,24 @@ class DecayEngine:
         """
         now = datetime.now()
         results = []
-        
+
         for dec in decisions:
             status = dec.get('status')
             kind = dec.get('kind')
-            
-            if status not in ('active', 'deprecated', 'draft'):
+
+            # V7.6: Skip draft records - they are in progress and should not decay
+            if status == 'draft':
                 continue
-            
+                
+            if status not in ('active', 'deprecated'):
+                continue
+
             # Differentiated decay rate
             # Proposals decay at full rate (e.g. 0.05 per week)
             # Decisions/Constraints decay at 1/3 rate (slower)
-            # Drafts decay at 2x rate (aggressive cleanup)
             effective_rate = self.semantic_decay_rate
             if kind in ('decision', 'constraint', 'assumption'):
                 effective_rate = self.semantic_decay_rate / 3.0
-            elif status == 'draft':
-                effective_rate = self.semantic_decay_rate * 2.0
             
             last_hit = dec.get('last_hit_at')
             if not last_hit:

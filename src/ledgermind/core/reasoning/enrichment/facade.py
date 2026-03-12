@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import json
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 
 from ledgermind.core.core.schemas import DecisionStream, ProceduralContent, ProceduralStep, DecisionPhase
@@ -198,7 +199,8 @@ class LLMEnricher:
                     target_ids = getattr(prop, 'target_ids', [])
 
                     if target == 'knowledge_validation':
-                        logger.info(f"\n>>> [STEP 1/2: CLUSTER VALIDATION {i}/{total}] Processing {fid}")
+                        status = getattr(prop, 'status', 'unknown')
+                        logger.info(f"\n>>> [STEP 1/2: CLUSTER VALIDATION {i}/{total}] Processing {fid} (status={status})")
                         self._handle_validation_cluster(prop, memory)
                         # V7.5: Mark validation cluster as completed
                         memory.semantic.update_decision(fid, {"enrichment_status": "completed"},
@@ -207,12 +209,14 @@ class LLMEnricher:
                         continue
 
                     if target == 'knowledge_merge' or target_ids:
-                        logger.info(f"\n>>> [STEP 2/2: DEEP CONSOLIDATION {i}/{total}] Processing {fid}")
+                        status = getattr(prop, 'status', 'unknown')
+                        logger.info(f"\n>>> [STEP 2/2: DEEP CONSOLIDATION {i}/{total}] Processing {fid} (status={status})")
                         self._execute_consolidation(target_ids, memory, fid)
                         results.append(prop)
                         continue
 
-                    logger.info(f"\n>>> [STEP 3: STANDARD ENRICHMENT {i}/{total}] Processing {fid}")
+                    status = getattr(prop, 'status', 'unknown')
+                    logger.info(f"\n>>> [STEP 3: STANDARD ENRICHMENT {i}/{total}] Processing {fid} (status={status})")
 
                     # Normal enrichment flow
                     current_obj = prop
@@ -304,9 +308,40 @@ class LLMEnricher:
                     u_fid = group_fids[0]
                     meta = memory.semantic.meta.get_by_fid(u_fid)
                     if meta:
-                        prev_status = meta.get('metadata', {}).get('previous_status', 'draft')
-                        logger.info(f"  - Group detected (Unique): {u_fid}. Restoring to {prev_status}.")
-                        memory.semantic.update_decision(u_fid, {"status": prev_status, "merge_status": "idle", "superseded_by": None}, f"Rollback unique: {prev_status}")
+                        kind = meta.get('kind', 'proposal')
+                        
+                        # V7.6: Decision/Constraint/Assumption always stay active
+                        if kind in ('decision', 'constraint', 'assumption'):
+                            restore_status = 'active'
+                        else:
+                            restore_status = meta.get('metadata', {}).get('previous_status', 'draft')
+                        
+                        logger.info(f"  - Group detected (Unique): {u_fid} (kind={kind}). Restoring to {restore_status}.")
+
+                        # V7.6: Read existing fields from context_json
+                        ctx_raw = meta.get('context_json')
+                        ctx = json.loads(ctx_raw) if ctx_raw else {}
+                        existing_title = ctx.get('title') or meta.get('title')
+                        existing_rationale = ctx.get('rationale') or meta.get('rationale')
+
+                        # V7.6: Ensure mandatory fields exist for valid DecisionStream
+                        update_data = {
+                            "status": restore_status,
+                            "merge_status": "idle",
+                            "superseded_by": None
+                        }
+
+                        # Fill mandatory fields only if truly missing
+                        if not existing_title:
+                            update_data['title'] = f"Hypothesis: {meta.get('target', 'unknown')}"
+                        if not existing_rationale:
+                            update_data['rationale'] = f"Unique hypothesis for {meta.get('target', 'unknown')}"
+                        if not meta.get('first_seen'):
+                            update_data['first_seen'] = meta.get('timestamp', datetime.now().isoformat())
+                        if not meta.get('last_seen'):
+                            update_data['last_seen'] = meta.get('timestamp', datetime.now().isoformat())
+
+                        memory.semantic.update_decision(u_fid, update_data, f"Restore unique: {restore_status}")
                         self._inherit_cluster_evidence(memory, fid, u_fid, filter_fids=[u_fid])
                         handled_fids.add(u_fid)
 
@@ -315,8 +350,36 @@ class LLMEnricher:
                 if tid not in handled_fids:
                     meta = memory.semantic.meta.get_by_fid(tid)
                     if meta:
-                        prev_status = meta.get('metadata', {}).get('previous_status', 'draft')
-                        memory.semantic.update_decision(tid, {"status": prev_status, "merge_status": "idle", "superseded_by": None}, "Safety rollback.")
+                        kind = meta.get('kind', 'proposal')
+
+                        # V7.6: Decision/Constraint/Assumption always stay active
+                        if kind in ('decision', 'constraint', 'assumption'):
+                            restore_status = 'active'
+                        else:
+                            restore_status = meta.get('metadata', {}).get('previous_status', 'draft')
+
+                        # V7.6: Read existing fields from context_json
+                        ctx_raw = meta.get('context_json')
+                        ctx = json.loads(ctx_raw) if ctx_raw else {}
+                        existing_title = ctx.get('title') or meta.get('title')
+                        existing_rationale = ctx.get('rationale') or meta.get('rationale')
+
+                        # V7.6: Ensure mandatory fields exist
+                        update_data = {
+                            "status": restore_status,
+                            "merge_status": "idle",
+                            "superseded_by": None
+                        }
+                        if not existing_title:
+                            update_data['title'] = f"Hypothesis: {meta.get('target', 'unknown')}"
+                        if not existing_rationale:
+                            update_data['rationale'] = f"Unique hypothesis for {meta.get('target', 'unknown')}"
+                        if not meta.get('first_seen'):
+                            update_data['first_seen'] = meta.get('timestamp', datetime.now().isoformat())
+                        if not meta.get('last_seen'):
+                            update_data['last_seen'] = meta.get('timestamp', datetime.now().isoformat())
+
+                        memory.semantic.update_decision(tid, update_data, "Safety rollback.")
 
             memory.semantic.update_decision(fid, {"status": "fulfilled", "enrichment_status": "completed"}, f"Done: {res_data.get('reasoning', 'N/A')}")
 
@@ -325,8 +388,36 @@ class LLMEnricher:
             for tid in target_ids:
                 meta = memory.semantic.meta.get_by_fid(tid)
                 if meta:
-                    prev_status = meta.get('metadata', {}).get('previous_status', 'draft')
-                    memory.semantic.update_decision(tid, {"status": prev_status, "merge_status": "idle", "superseded_by": None}, "Error rollback.")
+                    kind = meta.get('kind', 'proposal')
+
+                    # V7.6: Decision/Constraint/Assumption always stay active
+                    if kind in ('decision', 'constraint', 'assumption'):
+                        restore_status = 'active'
+                    else:
+                        restore_status = meta.get('metadata', {}).get('previous_status', 'draft')
+
+                    # V7.6: Read existing fields from context_json
+                    ctx_raw = meta.get('context_json')
+                    ctx = json.loads(ctx_raw) if ctx_raw else {}
+                    existing_title = ctx.get('title') or meta.get('title')
+                    existing_rationale = ctx.get('rationale') or meta.get('rationale')
+
+                    # V7.6: Ensure mandatory fields exist
+                    update_data = {
+                        "status": restore_status,
+                        "merge_status": "idle",
+                        "superseded_by": None
+                    }
+                    if not existing_title:
+                        update_data['title'] = f"Hypothesis: {meta.get('target', 'unknown')}"
+                    if not existing_rationale:
+                        update_data['rationale'] = f"Unique hypothesis for {meta.get('target', 'unknown')}"
+                    if not meta.get('first_seen'):
+                        update_data['first_seen'] = meta.get('timestamp', datetime.now().isoformat())
+                    if not meta.get('last_seen'):
+                        update_data['last_seen'] = meta.get('timestamp', datetime.now().isoformat())
+
+                    memory.semantic.update_decision(tid, update_data, "Error rollback.")
             memory.semantic.update_decision(fid, {"status": "falsified", "enrichment_status": "completed"}, f"Aborted: {str(e)}")
 
     def _execute_consolidation(self, fids: List[str], memory: Any, parent_fid: str):

@@ -34,25 +34,48 @@ class LifecycleManagementService(MemoryService):
         import json
         from datetime import datetime
         from ledgermind.core.core.schemas import DecisionStream, DecisionPhase
-        
+
         all_metas = self.semantic.meta.list_all()
         promoted_count = 0
-        
+
         logger.info(f"Promotion: Evaluating {len(all_metas)} items for phase transition.")
-        
+
         for meta in all_metas:
             if stop_event and stop_event.is_set(): break
-            
+
             fid = meta.get('fid')
-            # Only promote drafts that are fully enriched
-            if meta.get('status') != 'draft' or meta.get('enrichment_status') != 'completed':
+            # V7.6: Only process active records - skip draft, deprecated, fulfilled, etc.
+            if meta.get('status') != 'active':
                 continue
-                
+            # V7.6: Only promote fully enriched proposals
+            if meta.get('enrichment_status') != 'completed':
+                continue
+
             try:
                 # 1. Convert meta to DecisionStream for engine analysis
                 ctx_raw = meta.get('context_json')
                 ctx = json.loads(ctx_raw) if ctx_raw else {}
-                
+
+                # V7.6: Ensure first_seen and last_seen are valid datetimes
+                # Read from context_json where they are actually stored
+                first_seen_raw = ctx.get('first_seen') or meta.get('first_seen')
+                last_seen_raw = ctx.get('last_seen') or meta.get('last_seen')
+
+                # Parse or default to current time if missing/invalid
+                try:
+                    first_seen = datetime.fromisoformat(first_seen_raw.replace('Z', '+00:00')) if first_seen_raw else datetime.now()
+                except (ValueError, AttributeError):
+                    first_seen = datetime.now()
+
+                try:
+                    last_seen = datetime.fromisoformat(last_seen_raw.replace('Z', '+00:00')) if last_seen_raw else datetime.now()
+                except (ValueError, AttributeError):
+                    last_seen = datetime.now()
+
+                # V7.6: Read title and rationale from context_json
+                title = ctx.get('title') or meta.get('title') or f"Decision {fid}"
+                rationale = ctx.get('rationale') or meta.get('rationale') or ""
+
                 stream = DecisionStream(
                     decision_id=meta.get('id', fid),
                     target=meta.get('target'),
@@ -61,13 +84,15 @@ class LifecycleManagementService(MemoryService):
                     coverage=meta.get('coverage', 0.0),
                     confidence=meta.get('confidence', 0.0),
                     stability_score=meta.get('stability_score', 0.0),
-                    first_seen=meta.get('first_seen'),
-                    last_seen=meta.get('last_seen')
+                    first_seen=first_seen,
+                    last_seen=last_seen,
+                    title=title,
+                    rationale=rationale
                 )
-                
+
                 # 2. Let the engine decide
                 promoted_stream = self.lifecycle_engine.promote_stream(stream)
-                
+
                 # 3. If phase changed, update the semantic record
                 if promoted_stream.phase != stream.phase:
                     updates = {
@@ -77,10 +102,10 @@ class LifecycleManagementService(MemoryService):
                     self.semantic.update_decision(fid, updates, commit_msg=f"Lifecycle: Promoted to {promoted_stream.phase}")
                     promoted_count += 1
                     logger.info(f"Promotion: {fid} advanced to {promoted_stream.phase} (Target: {meta.get('target')})")
-                    
+
             except Exception as e:
                 logger.error(f"Promotion: Failed to process {fid}: {e}")
-                
+
         return {"promoted_count": promoted_count}
 
     def run_decay(self, dry_run: bool = False, stop_event: Optional[threading.Event] = None) -> DecayReport:
