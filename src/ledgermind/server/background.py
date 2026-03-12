@@ -22,6 +22,8 @@ except ImportError:
     sys.path.insert(0, os.getcwd() + "/src")
     from ledgermind.core.api.memory import Memory
 
+from ledgermind.server.workers import EnrichmentWorker, ReflectionWorker
+
 logger = logging.getLogger("ledgermind.worker")
 
 class BackgroundWorker:
@@ -29,20 +31,30 @@ class BackgroundWorker:
     Active Runtime Loop ("The Heartbeat") for LedgerMind.
     Designed to run as a standalone, detached process.
     Supports graceful shutdown and lock file monitoring.
+    
+    Architecture:
+    - Runs as a separate process (via __main__)
+    - Manages multiple worker threads for parallel execution:
+      - ReflectionWorker: Every 5 minutes (reflection, promotion, decay, merge)
+      - EnrichmentWorker: Every 1 minute (LLM enrichment of pending items)
+      - WatchdogThread: Every 10 seconds (lock file monitoring)
+    - Main thread acts as manager and session monitor
     """
     def __init__(self, memory: Memory, interval_seconds: int = 300, log_path: Optional[str] = None):
         self.memory = memory
         self.memory.storage_path = os.path.abspath(self.memory.storage_path)
 
-        self.interval = interval_seconds
-        self.enrichment_interval = 60
+        self.interval = interval_seconds  # Maintenance interval (5 min default)
 
         if log_path:
             self._setup_logging(os.path.abspath(log_path))
 
         self.running = False
         self._stop_event = threading.Event()
-        self.enrichment_thread: Optional[threading.Thread] = None
+        
+        # Worker threads
+        self.enrichment_worker: Optional[EnrichmentWorker] = None
+        self.reflection_worker: Optional[ReflectionWorker] = None
         self.watchdog_thread: Optional[threading.Thread] = None
 
         self.last_run: Dict[str, datetime] = {}
@@ -103,15 +115,29 @@ class BackgroundWorker:
         self._stop_event.clear()
         self.status = "running"
 
-        # 1. Start enrichment thread
-        self.enrichment_thread = threading.Thread(target=self._enrichment_loop, name="EnrichWorker", daemon=True)
-        self.enrichment_thread.start()
-        
-        # 2. Start watchdog thread (10s interval)
+        # 1. Start enrichment worker (every 60s, 10s initial delay)
+        self.enrichment_worker = EnrichmentWorker(
+            stop_event=self._stop_event,
+            memory=self.memory,
+            interval_seconds=60,
+            initial_delay=10.0,
+        )
+        self.enrichment_worker.start()
+
+        # 2. Start reflection worker (every 300s, 30s initial delay)
+        self.reflection_worker = ReflectionWorker(
+            stop_event=self._stop_event,
+            memory=self.memory,
+            interval_seconds=self.interval,
+            initial_delay=30.0,
+        )
+        self.reflection_worker.start()
+
+        # 3. Start watchdog thread (10s interval)
         self.watchdog_thread = threading.Thread(target=self._lock_watchdog, name="WorkerWatchdog", daemon=True)
         self.watchdog_thread.start()
-        
-        logger.info("Background Worker started (Maintenance: MainThread, Enrichment: Parallel, Watchdog: 10s).")
+
+        logger.info("Background Worker started (Workers: Reflection=5min, Enrichment=1min, Watchdog=10s).")
 
     def _lock_watchdog(self):
         """Monitor worker.pid file. If missing, force immediate exit."""
@@ -133,7 +159,18 @@ class BackgroundWorker:
         self._stop_event.set()
         self.status = "stopping"
 
-        # 1. Kill all registered gemini subprocesses immediately
+        # 1. Shutdown worker threads gracefully
+        logger.info("Stopping worker threads...")
+        
+        if self.enrichment_worker:
+            self.enrichment_worker.shutdown()
+            self.enrichment_worker.join(timeout=timeout / 2)
+            
+        if self.reflection_worker:
+            self.reflection_worker.shutdown()
+            self.reflection_worker.join(timeout=timeout / 2)
+
+        # 2. Kill all registered gemini subprocesses immediately
         with self._proc_lock:
             if self._active_subprocesses:
                 logger.info(f"Killing {len(self._active_subprocesses)} active subprocesses...")
@@ -144,7 +181,7 @@ class BackgroundWorker:
                     except Exception: pass
                 self._active_subprocesses.clear()
 
-        # 2. Release lock and remove worker.pid
+        # 3. Release lock and remove worker.pid
         self._release_worker_lock()
         self.status = "stopped"
         logger.info("Background Worker stopped.")
@@ -197,61 +234,34 @@ class BackgroundWorker:
             except Exception: pass
             finally: self._worker_lock_fd = None
 
-    def _enrichment_loop(self):
-        self._stop_event.wait(10.0)
-        while self.running:
-            try:
-                start_time = time.time()
-                mode = self.memory.semantic.meta.get_config("arbitration_mode", "optimal")
-                if mode != "lite":
-                    from ledgermind.core.reasoning.llm_enrichment import LLMEnricher
-                    enricher = LLMEnricher(mode=mode, worker=self)
-                    try:
-                        enricher.process_batch(self.memory)
-                    finally: enricher.close()
-                
-                # Responsive sleep
-                elapsed = time.time() - start_time
-                wait_time = max(5.0, self.enrichment_interval - elapsed)
-                for _ in range(int(wait_time * 2)):
-                    if not self.running: break
-                    time.sleep(0.5)
-            except Exception as e:
-                logger.error(f"Enrichment Loop error: {e}")
-                if self._stop_event.wait(30.0): break
-
     def run_forever(self):
-        """Main worker loop with lock monitoring and maintenance."""
+        """
+        Main worker loop - acts as manager and session monitor.
+        
+        Worker threads handle periodic tasks in parallel:
+        - ReflectionWorker: maintenance every 5 minutes
+        - EnrichmentWorker: LLM enrichment every 1 minute
+        - WatchdogThread: lock file monitoring every 10 seconds
+        
+        Main thread only monitors sessions and lock file health.
+        """
         try:
             self.start()
             session_dir = os.path.join(self.memory.storage_path, "sessions")
             lock_path = os.path.join(self.memory.storage_path, "worker.pid")
             os.makedirs(session_dir, exist_ok=True)
-            
-            last_maintenance = 0
-            
+
             while self.running:
                 # 0. CRITICAL: Lock file health check (Manual removal detection)
                 if not os.path.exists(lock_path):
                     logger.warning("Worker lock file (worker.pid) deleted manually. Shutting down.")
                     break
 
-                now = time.time()
-                # 1. MAINTENANCE CYCLE
-                if now - last_maintenance >= self.interval:
-                    try:
-                        logger.info("Starting maintenance cycle in main thread...")
-                        self.memory.check_environment()
-                        self.memory.run_maintenance(stop_event=self._stop_event)
-                        last_maintenance = time.time()
-                    except Exception as me:
-                        logger.error(f"Maintenance failed: {me}")
-
-                # 2. SESSION MONITORING & RESPONSIVE SLEEP
+                # SESSION MONITORING & RESPONSIVE SLEEP
                 # Check sessions and flags every 5 seconds
                 for _ in range(20): # ~100 seconds total max sleep between checks
                     if not self.running or not os.path.exists(lock_path): break
-                    
+
                     # Check active client sessions
                     active = 0
                     try:
@@ -259,14 +269,14 @@ class BackgroundWorker:
                             if f.endswith(".lock") and self._is_process_running(int(f.split(".")[0])):
                                 active += 1
                     except Exception: active = 1
-                    
+
                     if active == 0:
                         logger.info("No active sessions. Shutting down.")
                         self.running = False
                         break
-                    
+
                     if self._stop_event.wait(5.0): break
-                        
+
         except Exception as fatal_e:
             logger.critical(f"FATAL: Worker loop crashed: {fatal_e}", exc_info=True)
         finally:

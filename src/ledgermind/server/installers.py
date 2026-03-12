@@ -22,17 +22,47 @@ class BaseInstaller:
             f.write(content)
         os.chmod(script_path, 0o700)
 
+    def _add_mcp_to_config(self, config_path: str, memory_path: str):
+        """Helper: inject MCP server config into a settings.json file."""
+        config_dir = os.path.dirname(config_path)
+        if not os.path.exists(config_dir):
+            os.makedirs(config_dir, exist_ok=True)
+
+        config = {"mcpServers": {}}
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+            except json.JSONDecodeError:
+                config = {"mcpServers": {}}
+        else:
+            config = {"mcpServers": {}}
+
+        if "mcpServers" not in config:
+            config["mcpServers"] = {}
+
+        config["mcpServers"]["ledgermind"] = {
+            "command": "ledgermind-mcp",
+            "args": ["run", "--path", os.path.abspath(memory_path)],
+            "disabled": False
+        }
+
+        with open(config_path, "w") as f:
+            json.dump(config, f, indent=2)
+
 
 class ClaudeInstaller(BaseInstaller):
     def __init__(self):
         super().__init__("claude")
         self.global_settings = os.path.join(self.home_dir, ".claude", "settings.json")
 
-    def install(self, project_path: str):
+    def install(self, project_path: str, memory_path: str = None):
         project_path = os.path.abspath(project_path)
+        # Determine memory path
+        if memory_path is None:
+            memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
         # Hooks are now stored INSIDE the project
         project_hooks_dir = os.path.join(project_path, ".claude", "hooks")
-        memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
         os.makedirs(project_hooks_dir, exist_ok=True)
         
         # 1. Create UserPromptSubmit script (Context injection & backup sync)
@@ -107,16 +137,38 @@ cat | {cli_entry} bridge-sync --path "{memory_path}" --cli "claude" --stdin 2>> 
 
         print(f"✓ Installed Claude hooks locally in {project_hooks_dir}")
 
+    def install_mcp_server(self, project_path: str, memory_path: str):
+        """Install MCP server configuration for Claude via claude mcp add."""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["claude", "mcp", "add", "ledgermind", "ledgermind-mcp", "--path", os.path.abspath(memory_path)],
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode == 0:
+                print(f"✓ Added LedgerMind MCP server to Claude Desktop")
+                return True
+            else:
+                print(f"! Failed to add MCP to Claude: {result.stderr.strip() if result.stderr else result.stdout.strip()}")
+                return False
+        except FileNotFoundError:
+            print("! Claude CLI not found. Install it from https://claude.ai/download")
+            return False
+        except Exception as e:
+            print(f"! Error adding MCP to Claude: {e}")
+            return False
+
 
 class CursorInstaller(BaseInstaller):
     def __init__(self):
         super().__init__("cursor")
         self.global_hooks_file = os.path.join(self.home_dir, ".cursor", "hooks.json")
 
-    def install(self, project_path: str):
+    def install(self, project_path: str, memory_path: str = None):
         project_path = os.path.abspath(project_path)
+        if memory_path is None:
+            memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
         project_hooks_dir = os.path.join(project_path, ".ledgermind", "hooks")
-        memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
         os.makedirs(project_hooks_dir, exist_ok=True)
         
         before_script_path = os.path.join(project_hooks_dir, "ledgermind_before.sh")
@@ -155,16 +207,18 @@ ledgermind-mcp bridge-record --path "{memory_path}" --prompt "Agent interaction"
 
 
 class GeminiInstaller(BaseInstaller):
-    def __init__(self):
+    def __init__(self, config_mode: str = "global"):
         super().__init__("gemini")
+        self.config_mode = config_mode
 
-    def install(self, project_path: str):
+    def install(self, project_path: str, memory_path: str = None):
         project_path = os.path.abspath(project_path)
+        if memory_path is None:
+            memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
         # Store hooks in .gemini/hooks inside the project (as in ledgermind repo)
         project_hooks_dir = os.path.join(project_path, ".gemini", "hooks")
-        memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
         os.makedirs(project_hooks_dir, exist_ok=True)
-        
+
         hook_file = os.path.join(project_hooks_dir, "ledgermind_hook.py")
 
         with open(hook_file, "w") as f:
@@ -192,7 +246,7 @@ def log_debug(msg):
 def main():
     log_debug(f'--- Hook Execution Start ---')
     log_debug(f'Args: {{sys.argv}}')
-    
+
     stdin_json = {{}}
     prompt = ''
     if not sys.stdin.isatty():
@@ -212,16 +266,16 @@ def main():
     try:
         from ledgermind.core.api.bridge import IntegrationBridge
         bridge = IntegrationBridge(memory_path=MEMORY_PATH)
-        
+
         action = sys.argv[1] if len(sys.argv) > 1 else 'unknown'
-        
+
         if action == 'before':
             log_debug('Processing BeforeAgent')
             if prompt:
                 # Record prompt to episodic memory
                 bridge.memory.process_event(source='user', kind='prompt', content=prompt)
                 log_debug('Prompt recorded to episodic.db')
-                
+
                 # Fetch context
                 context = bridge.get_context_for_prompt(prompt)
                 if context:
@@ -248,14 +302,14 @@ def main():
                     if transcript_path and os.path.exists(transcript_path):
                         with open(transcript_path, 'r', encoding='utf-8') as f:
                             transcript = json.load(f)
-                        
+
                         turns = transcript.get("messages", transcript.get("turns", []))
                         last_user_idx = -1
                         for i in range(len(turns) - 1, -1, -1):
                             if turns[i].get("type") == "user" or turns[i].get("role") == "user":
                                 last_user_idx = i
                                 break
-                        
+
                         agent_turns = turns[last_user_idx + 1:] if last_user_idx != -1 else []
                         if not agent_turns and turns:
                             agent_turns = [turns[-1]]
@@ -267,17 +321,17 @@ def main():
                                 if text_content:
                                     bridge.memory.process_event(source='agent', kind='result', content=text_content)
                                     events_recorded += 1
-                                
+
                                 tool_calls = t.get("toolCalls", []) + t.get("tool_calls", [])
                                 for tc in tool_calls:
                                     tool_name = tc.get("name", "unknown")
                                     status = tc.get("status", "unknown")
                                     args_str = json.dumps(tc.get("args", {{}}), ensure_ascii=False)
-                                    
+
                                     result_str = tc.get("resultDisplay", "")
                                     if not result_str and tc.get("result"):
                                         result_str = json.dumps(tc.get("result"), ensure_ascii=False)
-                                    
+
                                     tool_event_content = f"Tool: {{tool_name}}\\nStatus: {{status}}\\nArgs: {{args_str}}\\nResult:\\n{{result_str}}"
                                     bridge.memory.process_event(source='agent', kind='call', content=tool_event_content)
                                     events_recorded += 1
@@ -301,6 +355,47 @@ if __name__ == '__main__':
 """)
         print(f"✓ Installed Gemini CLI hooks successfully.")
 
+    def install_mcp_server(self, project_path: str, memory_path: str):
+        """Install MCP server configuration for Gemini."""
+        try:
+            from ledgermind.core.utils.gemini_config import GeminiConfigManager
+            # Determine settings path based on self.config_mode
+            if self.config_mode == "global":
+                settings_path = GeminiConfigManager.get_config_path(mode="global", project_path=None)
+            else:
+                settings_path = GeminiConfigManager.get_config_path(mode="project", project_path=project_path)
+
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+
+            # Load existing or create new config
+            config = {"mcpServers": {}}
+            if os.path.exists(settings_path):
+                try:
+                    with open(settings_path, "r") as f:
+                        config = json.load(f)
+                except json.JSONDecodeError:
+                    config = {"mcpServers": {}}
+
+            if "mcpServers" not in config:
+                config["mcpServers"] = {}
+
+            # Add LedgerMind MCP server
+            config["mcpServers"]["ledgermind"] = {
+                "command": "ledgermind-mcp",
+                "args": ["run", "--path", os.path.abspath(memory_path)],
+                "disabled": False
+            }
+
+            with open(settings_path, "w") as f:
+                json.dump(config, f, indent=2)
+
+            print(f"✓ Added LedgerMind MCP server to Gemini settings ({self.config_mode}): {settings_path}")
+            return True
+        except Exception as e:
+            print(f"! Failed to add MCP to Gemini settings: {e}")
+            return False
+
 
 class VSCodeInstaller(BaseInstaller):
     def __init__(self):
@@ -315,9 +410,10 @@ class VSCodeInstaller(BaseInstaller):
             self.global_storage = os.path.expanduser("~/.config/Code/User/globalStorage")
             self.extensions_dir = os.path.expanduser("~/.vscode/extensions")
 
-    def install(self, project_path: str):
+    def install(self, project_path: str, memory_path: str = None):
         project_path = os.path.abspath(project_path)
-        memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
+        if memory_path is None:
+            memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
         
         # 1. Физическая установка расширения LedgerMind
         self._install_extension_files(project_path)
@@ -424,21 +520,21 @@ class VSCodeInstaller(BaseInstaller):
         print(f"  → Injected LedgerMind MCP into {ext_name} settings.")
 
 
-def install_client(client_name: str, project_path: str):
+def install_client(client_name: str, project_path: str, memory_path: str = None, **kwargs):
     installers = {
-        "claude": ClaudeInstaller,
-        "cursor": CursorInstaller,
-        "gemini": GeminiInstaller,
-        "vscode": VSCodeInstaller,
+        "claude": lambda: ClaudeInstaller(),
+        "cursor": lambda: CursorInstaller(),
+        "gemini": lambda: GeminiInstaller(config_mode=kwargs.get('gemini_config_mode', 'global')),
+        "vscode": lambda: VSCodeInstaller(),
     }
-    
+
     if client_name not in installers:
         print(f"Error: Unsupported client '{client_name}'. Supported: {list(installers.keys())}")
         return False
-        
+
     installer = installers[client_name]()
     try:
-        installer.install(os.path.abspath(project_path))
+        installer.install(os.path.abspath(project_path), memory_path=memory_path)
         return True
     except Exception as e:
         print(f"✗ Failed to install {client_name} hooks: {e}")
