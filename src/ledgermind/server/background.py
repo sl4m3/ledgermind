@@ -271,26 +271,40 @@ class BackgroundWorker:
     def run_forever(self):
         """
         Main worker loop - acts as manager and session monitor.
-        
+
         Worker threads handle periodic tasks in parallel:
         - ReflectionWorker: maintenance every 5 minutes
         - EnrichmentWorker: LLM enrichment every 1 minute
         - WatchdogThread: lock file monitoring every 10 seconds
-        
-        Main thread only monitors sessions and lock file health.
+
+        Main thread monitors:
+        1. worker.pid health (manual removal detection)
+        2. sessions/ folder (shutdown if no active MCP sessions)
         """
         try:
             self.start()
             lock_path = os.path.join(self.memory.storage_path, "worker.pid")
+            sessions_dir = os.path.join(self.memory.storage_path, "sessions")
 
             while self.running:
                 # 0. CRITICAL: Lock file health check (Manual removal detection)
                 if not os.path.exists(lock_path):
                     logger.warning("Worker lock file (worker.pid) deleted manually. Shutting down.")
                     break
+                
+                # 1. CRITICAL: Check for active MCP sessions
+                # If sessions/ folder exists and has no .lock files, shutdown worker
+                if os.path.exists(sessions_dir):
+                    try:
+                        lock_files = [f for f in os.listdir(sessions_dir) if f.endswith('.lock')]
+                        if not lock_files:
+                            logger.info("No active MCP sessions found in sessions/. Shutting down.")
+                            break
+                    except Exception as e:
+                        logger.debug(f"Session check error: {e}")
 
                 # RESPONSIVE SLEEP
-                # Check lock file every 5 seconds, sleep for ~100 seconds total
+                # Check lock file and sessions every 5 seconds, sleep for ~100 seconds total
                 for _ in range(20):
                     if not self.running or not os.path.exists(lock_path):
                         break
