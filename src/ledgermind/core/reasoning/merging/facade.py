@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional
 import logging
 import functools
+import random
 from .algorithm_factory import AlgorithmFactory
 from .transaction_manager import TransactionManager
 from .validator import DuplicateValidator
@@ -64,7 +65,12 @@ class MergeEngineFacade:
                 resolved_candidates.append(resolved)
 
         logger.info(f"Filtered to {len(resolved_candidates)} stable active truths for clustering.")
-        
+
+        # V7.7: RANDOMIZE ORDER to avoid processing same candidates every cycle
+        # This prevents "merge loops" where the same cluster is always selected
+        random.shuffle(resolved_candidates)
+        logger.debug(f"Shuffled candidates for diverse merge exploration.")
+
         # 2. PRE-CACHE EMBEDDINGS (Batch optimization)
         # We must ensure the model is initialized before batch encoding
         if hasattr(self.algorithm, '_ensure_model'):
