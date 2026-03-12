@@ -152,6 +152,12 @@ class ReflectionEngine:
                                 logger.warning(f"Failed to convert procedural for {fid}: {proc_err}")
                                 ctx_dict['procedural'] = None
 
+                    # V7.7: Ensure mandatory fields exist for DecisionStream
+                    if not ctx_dict.get('title'):
+                        ctx_dict['title'] = f"Decision: {data.get('target', 'unknown')}"
+                    if not ctx_dict.get('rationale'):
+                        ctx_dict['rationale'] = "Auto-generated during lifecycle processing"
+
                     stream = DecisionStream(**ctx_dict)
                     updated = self.lifecycle.calculate_temporal_signals(stream, [], now)
                     
