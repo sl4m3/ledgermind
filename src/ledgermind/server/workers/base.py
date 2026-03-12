@@ -38,14 +38,18 @@ class WorkerThread(threading.Thread, ABC):
         """Main worker loop with initial delay and periodic execution."""
         logger.info(f"[{self.name}] Worker thread started (interval={self.interval}s)")
         
+        # Set running flag IMMEDIATELY to allow responsive sleep to work correctly
+        self.running = True
+        
         # Initial delay if specified
         if self.initial_delay > 0:
             logger.info(f"[{self.name}] Waiting {self.initial_delay}s before first run...")
             if self._responsive_sleep(self.initial_delay):
-                return  # Shutdown requested
+                self.running = False
+                logger.info(f"[{self.name}] Worker thread stopped (during initial delay)")
+                return
         
-        self.running = True
-        
+        # Main work loop
         while self.running and not self.stop_event.is_set():
             try:
                 start_time = time.time()
