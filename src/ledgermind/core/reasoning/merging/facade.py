@@ -149,18 +149,23 @@ class MergeEngineFacade:
                 # STAGE 1: Unified Clustering
                 # Collect ALL potential neighbors into a single cluster for analysis
                 all_neighbors = to_merge + to_validate
-                
+
                 if all_neighbors:
                     group = [candidate] + all_neighbors
                     
+                    # V7.7: Ensure we have at least 2 items for merge
+                    if len(group) < 2:
+                        logger.debug(f"Skipping merge for {cand_id}: only {len(group)} item(s) in group.")
+                        continue
+
                     # If we have ANY uncertain matches (grey zone), the whole group needs LLM validation
                     target = "knowledge_merge" if not to_validate else "knowledge_validation"
-                    
+
                     if target == "knowledge_merge":
                         topic = f"Merge Cluster: {candidate.get('topic', candidate.get('title', 'Knowledge Group'))}"
                     else:
                         topic = f"Validation Cluster: Multi-Document Analysis ({len(group)} items)"
-                    
+
                     # ATOMIC TRANSACTION: Create proposal AND supersede targets together
                     pid = self.execute_merge_transaction(group, topic=topic, target=target)
                     if pid:
