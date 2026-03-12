@@ -64,9 +64,6 @@ class EventProcessingService(MemoryService):
         # Decision routing and conflict check
         # Use shared router from context (initialized by Memory)
         decision = self.context.router.route(event, intent=intent)
-        if decision and decision.should_persist and decision.store_type == "semantic" and not intent:
-             if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=effective_namespace):
-                 return MemoryDecision(should_persist=False, store_type="none", reason=f"Invariant Violation: {conflict_msg}")
         
         if decision and decision.should_persist:
             if decision.store_type == "episodic":
@@ -102,15 +99,18 @@ class EventProcessingService(MemoryService):
 
     def _persist_semantic(self, event, decision, intent, namespace, vector, source, event_emitter):
         with self.transaction(description="Persist Semantic Record"):
+            to_supersede_ids = intent.target_decision_ids if (intent and intent.resolution_type == "supersede") else None
+            if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=namespace, supersedes=to_supersede_ids):
+                decision.should_persist = False
+                decision.store_type = "none"
+                decision.reason = f"Invariant Violation: {conflict_msg}"
+                return decision
+
             if intent and intent.resolution_type == "supersede":
                 for old_id in intent.target_decision_ids:
                     old_meta = self.semantic.meta.get_by_fid(old_id)
                     if old_meta and old_meta.get('status') in ('active', 'pending_merge', 'accepted', 'draft'):
                         self.semantic.update_decision(old_id, {"status": "superseded"}, commit_msg="Deactivating for transition")
-
-            to_supersede_ids = intent.target_decision_ids if (intent and intent.resolution_type == "supersede") else None
-            if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=namespace, supersedes=to_supersede_ids):
-                raise ConflictError(f"Conflict detected: {conflict_msg}")
 
             # Prepare Context
             if isinstance(event.context, (DecisionContent, DecisionStream)):
