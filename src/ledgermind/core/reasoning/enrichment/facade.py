@@ -4,7 +4,7 @@ import re
 import json
 from typing import List, Dict, Any, Optional
 
-from ledgermind.core.core.schemas import DecisionStream, ProceduralContent, ProceduralStep
+from ledgermind.core.core.schemas import DecisionStream, ProceduralContent, ProceduralStep, DecisionPhase
 from ledgermind.core.stores.semantic_store.loader import MemoryLoader
 from .clients import CloudLLMClient, LocalLLMClient
 from .config import EnrichmentConfig
@@ -19,11 +19,65 @@ class LLMEnricher:
     Facade for the LLM enrichment subsystem.
     Handles prioritized knowledge processing: Merge -> Validation -> Distillation.
     """
+    
+    # Пороговые значения для валидации фаз
+    MIN_EVIDENCE_FOR_PHASE = {
+        DecisionPhase.PATTERN: 0,
+        DecisionPhase.EMERGENT: 5,
+        DecisionPhase.CANONICAL: 15
+    }
+    
+    MIN_STABILITY_FOR_PHASE = {
+        DecisionPhase.PATTERN: 0.0,
+        DecisionPhase.EMERGENT: 0.5,
+        DecisionPhase.CANONICAL: 0.7
+    }
+    
+    PHASE_ORDER = [DecisionPhase.PATTERN, DecisionPhase.EMERGENT, DecisionPhase.CANONICAL]
+    
     def __init__(self, mode: Optional[str] = None, preferred_language: Optional[str] = None):
         self.mode = mode
         self.preferred_language = preferred_language
         self._cloud_client = None
         self._local_client = None
+    
+    def _inherit_phase_with_validation(
+        self,
+        source_phases: List[DecisionPhase],
+        total_evidence_count: int,
+        stability_score: float
+    ) -> DecisionPhase:
+        """
+        Наследует фазу с валидацией по метрикам.
+        
+        Принцип: максимальная фаза среди исходных, но с проверкой на достаточность метрик.
+        Если метрики не дотягивают — фаза понижается до ближайшей подходящей.
+        
+        Args:
+            source_phases: Список фаз исходных гипотез
+            total_evidence_count: Суммарное количество evidence
+            stability_score: Средняя стабильность
+        
+        Returns:
+            DecisionPhase: Результирующая фаза
+        """
+        if not source_phases:
+            return DecisionPhase.PATTERN
+        
+        # 1. Определяем максимальную фазу
+        max_phase = max(source_phases, key=lambda p: self.PHASE_ORDER.index(p))
+        
+        # 2. Понижаем фазу если метрики не дотягивают
+        for phase in reversed(self.PHASE_ORDER):  # CANONICAL → EMERGENT → PATTERN
+            if self.PHASE_ORDER.index(max_phase) >= self.PHASE_ORDER.index(phase):
+                min_evidence = self.MIN_EVIDENCE_FOR_PHASE.get(phase, 0)
+                min_stability = self.MIN_STABILITY_FOR_PHASE.get(phase, 0.0)
+                
+                if (total_evidence_count >= min_evidence and 
+                    stability_score >= min_stability):
+                    return phase
+        
+        return DecisionPhase.PATTERN
 
     def run_auto_enrichment(self, memory: Any, limit: Optional[int] = None):
         """Orchestrates prioritized auto-enrichment."""
@@ -90,69 +144,81 @@ class LLMEnricher:
         self.process_batch(proposals_objs, memory.episodic, memory=memory)
 
     def process_batch(self, proposals: List[Any], episodic_store: Any, memory: Any = None) -> List[Any]:
-        """Iteratively processes a list of proposals, handling validation clusters separately."""
+        """Iteratively processes a list of proposals, handling validation clusters separately.
+        
+        All operations are wrapped in a single transaction to ensure atomicity:
+        either all clusters are processed successfully, or none are.
+        """
         results = []
         total = len(proposals)
-        for i, prop in enumerate(proposals, 1):
-            fid = getattr(prop, 'fid', 'unknown')
-            
-            # STAGE 1: Handle Knowledge Clusters (Merge & Validation)
-            target = getattr(prop, 'target', '')
-            target_ids = getattr(prop, 'target_ids', [])
-            
-            if target == 'knowledge_validation':
-                logger.info(f"\n>>> [STEP 1/2: CLUSTER VALIDATION {i}/{total}] Processing {fid}")
-                self._handle_validation_cluster(prop, memory)
-                results.append(prop)
-                continue
-                
-            if target == 'knowledge_merge' or target_ids:
-                logger.info(f"\n>>> [STEP 2/2: DEEP CONSOLIDATION {i}/{total}] Processing {fid}")
-                self._execute_consolidation(target_ids, memory, fid)
-                results.append(prop)
-                continue
+        
+        logger.info(f"Starting enrichment batch transaction with {total} proposals")
+        
+        # Wrap entire batch in a single transaction for atomicity
+        with memory.semantic.transaction():
+            try:
+                for i, prop in enumerate(proposals, 1):
+                    fid = getattr(prop, 'fid', 'unknown')
 
-            logger.info(f"\n>>> [STEP 3: STANDARD ENRICHMENT {i}/{total}] Processing {fid}")
-            
-            # Normal enrichment flow
-            current_obj = prop
-            iteration = 1
-            config = EnrichmentConfig.from_memory(memory, mode=self.mode, preferred_language=self.preferred_language)
-            
-            while True:
-                eids = getattr(current_obj, 'evidence_event_ids', [])
-                if not eids: break
-                
-                logs_text, used_ids, missing_ids = LogProcessor.get_batch_logs(current_obj, episodic_store, config)
-                
-                if not used_ids and not missing_ids: 
-                    break
-                
-                if not used_ids and missing_ids:
-                    # Only missing IDs found, clear them out and continue
-                    current_obj.evidence_event_ids = [eid for eid in eids if eid not in missing_ids]
-                    with memory.semantic.transaction():
-                        memory.semantic.update_decision(fid, {"evidence_event_ids": current_obj.evidence_event_ids}, commit_msg="Enrichment: removed missing ids")
-                    continue
+                    # STAGE 1: Handle Knowledge Clusters (Merge & Validation)
+                    target = getattr(prop, 'target', '')
+                    target_ids = getattr(prop, 'target_ids', [])
 
-                logger.info(f"  - Calling LLM for distillation (Iter {iteration}, {len(used_ids)} events)...")
-                enriched = self.enrich_proposal(current_obj, cluster_logs=logs_text, memory=memory, used_event_ids=used_ids + missing_ids)
-                
-                if not enriched: break
-                
-                # Check for progress
-                if len(getattr(enriched, 'evidence_event_ids', [])) >= len(eids):
-                    logger.warning(f"  - No progress in Iter {iteration}. Stopping enrichment for {fid}.")
-                    break
+                    if target == 'knowledge_validation':
+                        logger.info(f"\n>>> [STEP 1/2: CLUSTER VALIDATION {i}/{total}] Processing {fid}")
+                        self._handle_validation_cluster(prop, memory)
+                        results.append(prop)
+                        continue
 
-                with memory.semantic.transaction():
-                    memory.semantic.update_decision(fid, enriched.model_dump(mode="json"), commit_msg=f"Enrichment: Iter {iteration}")
-                
-                current_obj = enriched
-                iteration += 1
-                if iteration > 10: break # Hard safety
-                
-            results.append(current_obj)
+                    if target == 'knowledge_merge' or target_ids:
+                        logger.info(f"\n>>> [STEP 2/2: DEEP CONSOLIDATION {i}/{total}] Processing {fid}")
+                        self._execute_consolidation(target_ids, memory, fid)
+                        results.append(prop)
+                        continue
+
+                    logger.info(f"\n>>> [STEP 3: STANDARD ENRICHMENT {i}/{total}] Processing {fid}")
+
+                    # Normal enrichment flow
+                    current_obj = prop
+                    iteration = 1
+                    config = EnrichmentConfig.from_memory(memory, mode=self.mode, preferred_language=self.preferred_language)
+
+                    while True:
+                        eids = getattr(current_obj, 'evidence_event_ids', [])
+                        if not eids: break
+
+                        logs_text, used_ids, missing_ids = LogProcessor.get_batch_logs(current_obj, episodic_store, config)
+
+                        if not used_ids and not missing_ids:
+                            break
+
+                        if not used_ids and missing_ids:
+                            # Only missing IDs found, clear them out and continue
+                            current_obj.evidence_event_ids = [eid for eid in eids if eid not in missing_ids]
+                            memory.semantic.update_decision(fid, {"evidence_event_ids": current_obj.evidence_event_ids}, commit_msg=f"Enrichment: removed missing ids")
+                            continue
+
+                        logger.info(f"  - Calling LLM for distillation (Iter {iteration}, {len(used_ids)} events)...")
+                        enriched = self.enrich_proposal(current_obj, cluster_logs=logs_text, memory=memory, used_event_ids=used_ids + missing_ids)
+
+                        if not enriched: break
+
+                        # Check for progress
+                        if len(getattr(enriched, 'evidence_event_ids', [])) >= len(eids):
+                            logger.warning(f"  - No progress in Iter {iteration}. Stopping enrichment for {fid}.")
+                            break
+
+                        memory.semantic.update_decision(fid, enriched.model_dump(mode="json"), commit_msg=f"Enrichment: Iter {iteration}")
+
+                        current_obj = enriched
+                        iteration += 1
+                        if iteration > 10: break # Hard safety
+
+                    results.append(current_obj)
+                logger.info("Batch transaction committed successfully")
+            except Exception as e:
+                logger.error(f"Batch transaction rolled back: {e}")
+                raise
         return results
 
     def _handle_validation_cluster(self, proposal: Any, memory: Any):
@@ -241,9 +307,15 @@ class LLMEnricher:
         logger.info("  - Sending consolidation request to LLM (Heavy Task)...")
         client = self._get_client(config, memory)
         response = client.call("You are a Senior Principal Software Architect.", full_prompt, fid=parent_fid)
-        
+
         try:
-            res_data = json.loads(re.search(r'\{.*\}', response, re.DOTALL).group(0))
+            # Use ResponseParser for robust JSON extraction with escape sequence fixing
+            res_data = ResponseParser.parse_json(response)
+            if not res_data:
+                logger.error(f"LLM response parsing failed. Response length: {len(response)}")
+                raise ValueError(f"Failed to parse LLM response. Raw snippet: {response[:300]}...")
+            
+            logger.debug(f"LLM response parsed successfully. Keys: {list(res_data.keys())}")
             
             def _clean_text(text: Any) -> str:
                 if not text: return ""
@@ -258,35 +330,73 @@ class LLMEnricher:
             if len(target) < 3: target = "consolidated"
             
             logger.info(f"  - LLM Synthesis Complete: '{title}'")
+
+            # Collect metrics from all consolidated proposals for phase inheritance
+            source_phases = []
+            total_evidence_count = 0
+            stability_scores = []
             
-            all_pending_eids = set()
             for g_fid in fids:
                 meta = memory.semantic.meta.get_by_fid(g_fid)
-                if meta and meta.get('evidence_event_ids'):
-                    all_pending_eids.update(meta.get('evidence_event_ids'))
-
-            new_decision = memory.supersede_decision(
-                title=title, target=target, rationale=_clean_text(res_data.get("rationale", "Synthesized content.")),
-                old_decision_ids=fids, evidence_ids=list(all_pending_eids)
+                if meta:
+                    ctx = json.loads(meta.get('context_json', '{}')) if meta.get('context_json') else {}
+                    
+                    # Collect phase
+                    phase_str = ctx.get('phase', 'pattern')
+                    try:
+                        source_phases.append(DecisionPhase(phase_str))
+                    except ValueError:
+                        source_phases.append(DecisionPhase.PATTERN)
+                    
+                    # Collect evidence count
+                    total_evidence_count += ctx.get('total_evidence_count', 0) or meta.get('total_evidence_count', 0)
+                    
+                    # Collect stability score
+                    stability_scores.append(ctx.get('stability_score', 0.0) or meta.get('stability_score', 0.0))
+            
+            # Calculate inherited phase with validation
+            avg_stability = sum(stability_scores) / len(stability_scores) if stability_scores else 0.0
+            inherited_phase = self._inherit_phase_with_validation(
+                source_phases=source_phases,
+                total_evidence_count=total_evidence_count,
+                stability_score=avg_stability
             )
             
+            logger.info(f"  - Inherited phase: {inherited_phase.value} (evidence={total_evidence_count}, stability={avg_stability:.2f})")
+
+            # Create new decision WITH inherited phase (decisions don't have direct event links)
+            new_decision = memory.supersede_decision(
+                title=title, target=target, rationale=_clean_text(res_data.get("rationale", "Synthesized content.")),
+                old_decision_ids=fids, evidence_ids=[], phase=inherited_phase
+            )
+
             new_fid = new_decision.metadata.get('file_id')
             if new_fid:
+                # Compute confidence for the consolidated decision
+                from ledgermind.core.reasoning.decay import DecayEngine
+                decay_engine = DecayEngine()
+                computed_confidence = decay_engine.calculate_confidence(
+                    total_evidence_count=total_evidence_count,
+                    stability_score=avg_stability,
+                    hit_count=0  # New decision has no hits yet
+                )
+                
                 updates = {
                     "status": "active",
-                    "enrichment_status": "completed", 
+                    "enrichment_status": "completed",
                     "merge_status": "idle",
-                    "keywords": [str(k).strip() for k in res_data.get("keywords", []) if str(k).strip()], 
-                    "confidence": 1.0,
+                    "keywords": [str(k).strip() for k in res_data.get("keywords", []) if str(k).strip()],
+                    "confidence": computed_confidence,
                     "compressive_rationale": _clean_text(res_data.get("compressive_rationale")),
                     "strengths": res_data.get("strengths", []),
                     "objections": res_data.get("objections", []),
                     "consequences": res_data.get("consequences", []),
-                    "procedural": res_data.get("procedural")
+                    "procedural": res_data.get("procedural"),
+                    "total_evidence_count": total_evidence_count
                 }
                 memory.semantic.update_decision(new_fid, updates, "Deep architectural consolidation complete.")
                 self._inherit_cluster_evidence(memory, parent_fid, new_fid, filter_fids=fids)
-                logger.info(f"  - SUCCESS: Created active record: {new_fid}")
+                logger.info(f"  - SUCCESS: Created active record: {new_fid} (inherited {total_evidence_count} evidence)")
 
             if parent_fid != 'unknown':
                 meta = memory.semantic.meta.get_by_fid(parent_fid)
@@ -389,7 +499,20 @@ class LLMEnricher:
         
         total_count = getattr(proposal, 'total_evidence_count', 0) + removed_count
         status = "completed" if not remaining else "pending"
+
+        # V7.0: Compute confidence AFTER all metrics are updated
+        from ledgermind.core.reasoning.decay import DecayEngine
+        decay_engine = DecayEngine()
         
+        stability = getattr(proposal, 'stability_score', 0.0)
+        hit_count = getattr(proposal, 'hit_count', 0)
+        
+        computed_confidence = decay_engine.calculate_confidence(
+            total_evidence_count=total_count,
+            stability_score=stability,
+            hit_count=hit_count
+        )
+
         updates = {
             "title": _clean_text(data.get("title") or data.get("goal") or getattr(proposal, 'title', '')),
             "rationale": _clean_text(data.get("rationale") or getattr(proposal, 'rationale', '')),
@@ -403,7 +526,10 @@ class LLMEnricher:
             "procedural": procedural.model_dump(mode="json") if procedural else None,
             "enrichment_status": status,
             "total_evidence_count": total_count,
-            "evidence_event_ids": remaining
+            "evidence_event_ids": remaining,
+            # V7.0: Use computed confidence based on final metrics
+            "confidence": computed_confidence,
+            "stability_score": stability
         }
         
         # Apply to both __dict__ and internal data for consistency

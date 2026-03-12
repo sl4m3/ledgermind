@@ -18,11 +18,11 @@ class ResponseParser:
                 if match: text = match.group(1)
             elif "{" in text and "}" in text:
                 text = text[text.find("{"):text.rfind("}")+1]
-            
+
             # 2. Очистка от невидимых управляющих символов (кроме легальных в JSON)
             # Удаляем символы в диапазоне 00-1F, которые ломают json.loads
             text = re.sub(r'[\x00-\x1F\x7F]', '', text)
-            
+
             try:
                 return json.loads(text)
             except json.JSONDecodeError as e:
@@ -32,8 +32,16 @@ class ResponseParser:
                 try:
                     return json.loads(fixed_text)
                 except Exception:
-                    logger.error(f"JSON Parse error after fix: {e}. Raw snippet: {text[:200]}...")
-                    return None
+                    # 4. Попытка исправить неэкранированные кавычки внутри строк
+                    # Это происходит, когда LLM генерирует "text "quoted" more" вместо "text \"quoted\" more"
+                    try:
+                        # Простая эвристика: заменяем " внутри строк на \"
+                        # Ищем паттерны вроде: "key": "value "nested" continue"
+                        fixed_text2 = re.sub(r'"(?=[^",\[\]{}]*\s+\w+)', r'\\"', text)
+                        return json.loads(fixed_text2)
+                    except Exception as e2:
+                        logger.warning(f"JSON Parse error after all fixes: {e}. Snippet: {text[:300]}...")
+                        return None
         except Exception as e:
             logger.error(f"Unexpected parsing error: {e}")
             return None

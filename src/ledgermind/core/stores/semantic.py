@@ -219,7 +219,7 @@ class SemanticStore:
                     namespace=sync_ns,
                     content=data.get("content", "")[:8000],
                     keywords=sync_keywords,
-                    confidence=sync_ctx.get("confidence", 1.0) if sync_ctx else 1.0,
+                    confidence=sync_ctx.get("confidence", 0.0) if sync_ctx else 0.0,
                     content_hash=current_hash,
                     compressive_rationale=sync_ctx.get("compressive_rationale"),
                     context_json=json.dumps(sync_ctx or {}),
@@ -334,7 +334,7 @@ class SemanticStore:
                 fid=fid, target=target, title=final_title, status=status, kind=kind,
                 timestamp=timestamp, supersedes=supersedes, superseded_by=superseded_by,
                 converted_to=converted_to, merge_status=final_merge_status, namespace=namespace,
-                content=cached_content[:8000], keywords=keywords, confidence=context.get('confidence', 1.0),
+                content=cached_content[:8000], keywords=keywords, confidence=context.get('confidence', 0.0),
                 content_hash=final_hash, last_hit_at=context.get('last_hit_at'),
                 compressive_rationale=context.get('compressive_rationale'),
                 context_json=json.dumps(context),
@@ -511,14 +511,15 @@ class SemanticStore:
         return self.audit.get_head_hash()
 
     def list_active_conflicts(self, target: str, namespace: str = "default") -> List[str]:
+        """Return only 'active' records as conflicts. Draft records are not conflicts."""
         should_lock = not self._in_transaction
         if should_lock: self._fs_lock.acquire(exclusive=False)
         try:
             cursor = self.meta._conn.cursor()
             cursor.execute(
-                "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status IN ('active', 'draft') AND kind IN ('decision', 'proposal')",
+                "SELECT fid FROM semantic_meta WHERE target = ? AND namespace = ? AND status = 'active' AND kind IN ('decision', 'proposal')",
                 (target, namespace)
             )
             return [row[0] for row in cursor.fetchall()]
-        finally: 
+        finally:
             if should_lock: self._fs_lock.release()

@@ -31,10 +31,18 @@ class QueryService(MemoryService):
         return generator.generate_mermaid(target_filter=target)
 
     def search(self, query: str, limit: int = 5, offset: int = 0,
-               namespace: Optional[str] = None, mode: str = "balanced") -> List[Dict[str, Any]]:
+               namespace: Optional[str] = None, mode: str = "balanced",
+               min_confidence: float = 0.0) -> List[Dict[str, Any]]:
         """
         Search with Recursive Truth Resolution and Hybrid Vector/Keyword ranking.
-        Implementation moved from Memory.search_decisions.
+        
+        Args:
+            query: Search query
+            limit: Maximum results to return
+            offset: Number of results to skip
+            namespace: Namespace to search in
+            mode: Search mode (lite, balanced, strict, maintenance)
+            min_confidence: Minimum confidence threshold (0.0-1.0)
         """
         effective_namespace = namespace or self.context.namespace
         k = 60 # RRF constant        
@@ -191,13 +199,21 @@ class QueryService(MemoryService):
                 cand["base_score"] = cand.get("base_score", 0.0) + reliability_boost
 
             cand["similarity_score"] = min(1.0, cand.get("base_score", 0.0))
+            
+            # Extract confidence from context
+            cand["confidence"] = ctx.get("confidence", 0.0)
+            
+            # Filter by min_confidence threshold
+            if cand["confidence"] < min_confidence:
+                continue
+            
             final_results.append(cand)
             seen_ids.add(cand['id'])
             try: self.semantic.meta.increment_hit(cand['id'])
             except Exception: pass
-            
+
             if len(final_results) >= limit: break
-            
+
         return final_results
 
     def _resolve_to_truth(self, doc_id: str, mode: str, cache: Optional[Dict[str, Dict[str, Any]]] = None) -> Optional[Dict[str, Any]]:

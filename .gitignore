@@ -29,3 +29,6 @@ benchmarks/results/
 .ledgermind/
 node_modules/
 **/node_modules/
+
+.qwen/
+gha-creds-*.json

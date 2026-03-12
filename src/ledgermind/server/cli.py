@@ -21,7 +21,7 @@ def init_project(path: str):
     from rich.console import Console
     from rich.panel import Panel
     from ledgermind.core.api.memory import Memory
-    from ledgermind.server.installers import install_client
+    from ledgermind.server.installers import install_client, ClaudeInstaller, GeminiInstaller
 
     console = Console()
     console.print(Panel("[bold cyan]Welcome to LedgerMind Setup[/bold cyan]", expand=False))
@@ -250,13 +250,30 @@ def init_project(path: str):
         if client != "none":
             console.print(f"\nInstalling hooks for {client} in {project_path}...")
             try:
-                success = install_client(client, project_path)
+                success = install_client(client, project_path, memory_path=custom_path, gemini_config_mode=gemini_config_mode)
                 if success:
                     console.print(f"[green]✓ Hooks installed for {client}[/green]")
                 else:
                     console.print(f"[bold red]✗ Failed to install hooks for {client}[/bold red]")
             except Exception as e:
                 console.print(f"[yellow]Hook installer for '{client}' failed: {e}[/yellow]")
+
+        # Install MCP server (mandatory for supported clients)
+        if client in ["claude", "gemini"]:
+            console.print(f"\n[bold yellow]Installing MCP server for {client}...[/bold yellow]")
+            try:
+                if client == "claude":
+                    claude_installer = ClaudeInstaller()
+                    mcp_success = claude_installer.install_mcp_server(project_path, custom_path)
+                elif client == "gemini":
+                    gemini_installer = GeminiInstaller(config_mode=gemini_config_mode)
+                    mcp_success = gemini_installer.install_mcp_server(project_path, custom_path)
+                if mcp_success:
+                    console.print(f"[green]✓ MCP server configured for {client}[/green]")
+                else:
+                    console.print(f"[yellow]! MCP server configuration failed for {client}[/yellow]")
+            except Exception as e:
+                console.print(f"[yellow]! Error installing MCP server for {client}: {e}[/yellow]")
 
     except Exception as e:
         console.print(f"[bold red]✗ Error during initialization:[/bold red] {e}")
@@ -587,11 +604,6 @@ def main():
     stats_parser = subparsers.add_parser("stats", help="Show memory statistics")
     stats_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
 
-    # Install hooks command
-    install_parser = subparsers.add_parser("install", help="Install LedgerMind hooks into a client")
-    install_parser.add_argument("client", choices=["claude", "cursor", "gemini"], help="Target client to install hooks for")
-    install_parser.add_argument("--path", default=os.getcwd(), help="Current project path to bind hooks to")
-
     # Bridge commands
     bc_parser = subparsers.add_parser("bridge-context", help="Internal: get context")
     bc_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
@@ -623,7 +635,7 @@ def main():
 
     # Default to 'run' if no command is provided
     import sys
-    known_commands = ["run", "init", "check", "stats", "export-schema", "install", "bridge-context", "bridge-record", "bridge-sync", "-h", "--help", "--verbose", "-v", "--log-file"]
+    known_commands = ["run", "init", "check", "stats", "export-schema", "bridge-context", "bridge-record", "bridge-sync", "-h", "--help", "--verbose", "-v", "--log-file"]
     if len(sys.argv) > 1 and sys.argv[1] not in known_commands:
         sys.argv.insert(1, "run")
 
@@ -637,9 +649,6 @@ def main():
     
     if args.command == "export-schema":
         export_schemas()
-    elif args.command == "install":
-        from ledgermind.server.installers import install_client
-        install_client(args.client, args.path)
     elif args.command == "bridge-context":
         bridge_context(args.path, args.prompt, args.cli, args.threshold, args.stdin)
     elif args.command == "bridge-sync":

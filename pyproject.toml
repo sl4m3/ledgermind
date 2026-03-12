@@ -78,7 +78,7 @@ ledgermind = ["VERSION"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 asyncio_mode = "strict"
-addopts = "-n 4 --dist loadscope --durations=5"
+addopts = "--durations=5"
 filterwarnings = [
     "ignore:Exception ignored in. <function LlamaModel.__del__:pytest.PytestUnraisableExceptionWarning",
     "ignore:AttributeError. 'LlamaModel' object has no attribute 'sampler':pytest.PytestUnraisableExceptionWarning"

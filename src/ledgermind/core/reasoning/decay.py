@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Tuple
+import math
 from ledgermind.core.utils.datetime_utils import to_naive_utc
 
 class DecayReport:
@@ -23,6 +24,38 @@ class DecayEngine:
         self.ttl_days = ttl_days
         self.semantic_decay_rate = semantic_decay_rate
         self.forget_threshold = forget_threshold
+
+    def calculate_confidence(self, total_evidence_count: int = 0, stability_score: float = 0.0, 
+                            hit_count: int = 0) -> float:
+        """
+        Вычисляет confidence на основе evidence, stability, и usage.
+        
+        Формула:
+        - evidence_component (40%): log10(total_evidence_count + 1) / 2
+        - stability_component (40%): stability_score
+        - usage_component (20%): log1p(hit_count) / 2.3
+        
+        Returns: confidence (0.0 - 1.0)
+        """
+        # 1. Evidence component (0.0 - 1.0)
+        # Логарифмическая шкала: 1 = 0.15, 10 = 0.5, 100 = 1.0
+        evidence_component = min(1.0, math.log10(max(0, total_evidence_count) + 1) / 2)
+        
+        # 2. Stability component (0.0 - 1.0)
+        stability_component = max(0.0, min(1.0, stability_score))
+        
+        # 3. Usage component (0.0 - 1.0)
+        # Логарифмическая шкала: 1 = 0.13, 10 = 0.43, 100 = 0.87
+        usage_component = min(1.0, math.log1p(max(0, hit_count)) / 2.3)
+        
+        # Weighted average
+        confidence = (
+            evidence_component * 0.4 +
+            stability_component * 0.4 +
+            usage_component * 0.2
+        )
+        
+        return round(confidence, 4)
 
     def evaluate_semantic(self, decisions: List[Dict[str, Any]]) -> List[Tuple[str, float, bool]]:
         """

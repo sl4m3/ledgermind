@@ -68,7 +68,7 @@ class IntegrityChecker:
             target = data.get("target") or ctx.get("target")
             namespace = data.get("namespace") or ctx.get("namespace", "default")
 
-            if status in ("active", "draft") and kind in ("decision", "proposal"):
+            if status == "active" and kind in ("decision", "proposal"):
                 if target not in ("knowledge_validation", "knowledge_merge"):
                     conflicts = meta_store.list_active_conflicts(target, namespace=namespace)
                     supersedes = data.get("supersedes") or ctx.get("supersedes", [])
@@ -152,8 +152,8 @@ class IntegrityChecker:
             status = data.get("status") or ctx.get("status")
             kind = data.get("kind")
 
-            # V7.0 Alignment: Include both active/draft and decision/proposal
-            if status in ("active", "draft") and kind in ("decision", "proposal"):
+            # V7.3 Alignment: Only enforce I4 for 'active' status
+            if status == "active" and kind in ("decision", "proposal"):
                 target = data.get("target") or ctx.get("target")
                 if target in ("knowledge_validation", "knowledge_merge"):
                     continue

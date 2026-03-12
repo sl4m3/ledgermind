@@ -52,11 +52,6 @@ class DecisionVitality(str, Enum):
     DECAYING = "decaying"
     DORMANT = "dormant"
 
-class PatternScope(str, Enum):
-    LOCAL = "local"
-    SYSTEM = "system"
-    INFRA = "infra"
-
 class ProposalStatus(str, Enum):
     DRAFT = "draft"
     ACCEPTED = "accepted"
@@ -118,11 +113,8 @@ class BaseSemanticContent(BaseModel):
 
 class DecisionStream(BaseSemanticContent):
     decision_id: StrictStr = Field(default_factory=lambda: str(uuid.uuid4()))
-    scope: PatternScope = PatternScope.LOCAL
-    provenance: Literal["internal", "external"] = "internal"
-    frequency: int = 0
+    # V7.0: frequency и reinforcement_density удалены — используем total_evidence_count для promotion logic
     lifetime_days: float = 0.0
-    reinforcement_density: float = 0.0
 
 class DecisionContent(BaseSemanticContent):
     # Backward compatibility for direct saves

@@ -108,12 +108,13 @@ class DecisionCommandService(MemoryService):
             raise InvariantViolation(f"Failed to record decision: {decision.reason}")
         return decision
 
-    def supersede_decision(self, title: str, target: str, rationale: str, 
-                           old_decision_ids: List[str], 
-                           consequences: Optional[List[str]] = None, 
-                           evidence_ids: Optional[List[int]] = None, 
-                           namespace: Optional[str] = None, 
+    def supersede_decision(self, title: str, target: str, rationale: str,
+                           old_decision_ids: List[str],
+                           consequences: Optional[List[str]] = None,
+                           evidence_ids: Optional[List[int]] = None,
+                           namespace: Optional[str] = None,
                            vector: Optional[Any] = None,
+                           phase: Optional[Any] = None,  # DecisionPhase or None
                            memory_facade: Any = None) -> MemoryDecision:
         """Helper to evolve knowledge."""
         effective_namespace = namespace or self.context.namespace
@@ -128,7 +129,7 @@ class DecisionCommandService(MemoryService):
             decision_id=str(uuid.uuid4()), title=title, target=target, rationale=rationale,
             status="active",
             consequences=consequences or [], evidence_event_ids=evidence_ids or [], namespace=effective_namespace,
-            phase=DecisionPhase.EMERGENT, vitality=DecisionVitality.ACTIVE, first_seen=datetime.now(), last_seen=datetime.now()
+            phase=phase or DecisionPhase.EMERGENT, vitality=DecisionVitality.ACTIVE, first_seen=datetime.now(), last_seen=datetime.now()
         )
         decision = memory_facade.process_event(
             source="agent", kind=KIND_DECISION, content=title, context=ctx,
@@ -159,6 +160,14 @@ class DecisionCommandService(MemoryService):
             with self.transaction(description=f"Accept Proposal {proposal_id}"):
                 supersedes = ctx.get("suggested_supersedes", [])
                 target, title, enrichment_status, final_rationale = ctx.get("target"), ctx.get("title"), ctx.get("enrichment_status"), ctx.get("rationale", "")
+                
+                # V7.0: Inherit phase from proposal
+                proposal_phase_str = ctx.get('phase', 'pattern')
+                try:
+                    from ledgermind.core.core.schemas import DecisionPhase
+                    proposal_phase = DecisionPhase(proposal_phase_str)
+                except (ValueError, AttributeError):
+                    proposal_phase = None  # Will default to EMERGENT in supersede_decision
 
                 if target == "knowledge_merge" and supersedes:
                     if enrichment_status != "completed":
@@ -187,13 +196,14 @@ class DecisionCommandService(MemoryService):
 
                 try: grounding_ids.update(self.episodic.get_linked_event_ids(proposal_id))
                 except Exception: pass
-                
+
                 decision = self.supersede_decision(
                     title=title, target=target, rationale=final_rationale,
                     old_decision_ids=list(set([proposal_id] + (supersedes or []))),
-                    consequences=ctx.get("suggested_consequences", []), evidence_ids=list(grounding_ids), memory_facade=memory_facade
+                    consequences=ctx.get("suggested_consequences", []), evidence_ids=list(grounding_ids),
+                    phase=proposal_phase, memory_facade=memory_facade
                 )
-                
+
                 if decision.should_persist:
                     self.semantic.update_decision(proposal_id, {"status": "accepted", "converted_to": decision.metadata.get("file_id")}, commit_msg=f"Accepted and converted")
         except Exception as e:
