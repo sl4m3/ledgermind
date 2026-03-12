@@ -604,6 +604,10 @@ def main():
     stats_parser = subparsers.add_parser("stats", help="Show memory statistics")
     stats_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
 
+    # Settings command
+    from ledgermind.server.settings import create_settings_parser
+    create_settings_parser(subparsers)
+
     # Bridge commands
     bc_parser = subparsers.add_parser("bridge-context", help="Internal: get context")
     bc_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
@@ -635,7 +639,7 @@ def main():
 
     # Default to 'run' if no command is provided
     import sys
-    known_commands = ["run", "init", "check", "stats", "export-schema", "bridge-context", "bridge-record", "bridge-sync", "-h", "--help", "--verbose", "-v", "--log-file"]
+    known_commands = ["run", "init", "check", "stats", "settings", "export-schema", "bridge-context", "bridge-record", "bridge-sync", "-h", "--help", "--verbose", "-v", "--log-file"]
     if len(sys.argv) > 1 and sys.argv[1] not in known_commands:
         sys.argv.insert(1, "run")
 
@@ -661,6 +665,8 @@ def main():
         check_project(args.path)
     elif args.command == "stats":
         show_stats(args.path)
+    elif args.command == "settings":
+        handle_settings_command(args)
     elif args.command == "run":
         # Cleanup any previous orphaned processes before starting
         cleanup_orphans()
