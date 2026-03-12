@@ -82,15 +82,13 @@ class LLMEnricher:
 
     def run_auto_enrichment(self, memory: Any, limit: Optional[int] = None):
         """Orchestrates prioritized auto-enrichment."""
-        # Dynamically determine config if not set
+        # V7.7: Use enrichment_* settings (legacy settings removed)
         if memory and hasattr(memory, 'semantic') and hasattr(memory.semantic, 'meta'):
             meta = memory.semantic.meta
             if self.mode is None:
-                # V7.7: Use enrichment_mode (primary) or arbitration_mode (legacy)
-                self.mode = meta.get_config("enrichment_mode") or meta.get_config("arbitration_mode") or "rich"
+                self.mode = meta.get_config("enrichment_mode") or "rich"
             if self.preferred_language is None:
-                # V7.7: Use enrichment_language (primary) or preferred_language (legacy)
-                self.preferred_language = meta.get_config("enrichment_language") or meta.get_config("preferred_language") or "russian"
+                self.preferred_language = meta.get_config("enrichment_language") or "russian"
 
         logger.info(f"Auto-Enrichment Triggered: Language={self.preferred_language}, Mode={self.mode}")
         

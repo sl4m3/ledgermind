@@ -13,15 +13,17 @@ class EnrichmentConfig:
     model_name: str = "gemini-2.5-flash-lite"
     
     @classmethod
-    def from_memory(cls, memory: Any, mode: str = "optimal", preferred_language: str = "auto") -> 'EnrichmentConfig':
+    def from_memory(cls, memory: Any, mode: str = "rich", preferred_language: str = "auto") -> 'EnrichmentConfig':
         """Creates config from memory settings."""
         config = cls(mode=mode, preferred_language=preferred_language)
         if memory and hasattr(memory, 'config'):
             config.max_tokens = getattr(memory.config, 'max_enrichment_tokens', config.max_tokens)
-        
+
         if memory and hasattr(memory, 'semantic') and hasattr(memory.semantic, 'meta'):
             meta = memory.semantic.meta
+            # V7.7: Use enrichment_* settings (legacy settings removed)
+            config.mode = meta.get_config("enrichment_mode") or config.mode
             config.model_name = meta.get_config("enrichment_model") or config.model_name
-            config.preferred_language = meta.get_config("preferred_language") or config.preferred_language
-            
+            config.preferred_language = meta.get_config("enrichment_language") or config.preferred_language
+
         return config

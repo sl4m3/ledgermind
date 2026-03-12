@@ -53,7 +53,8 @@ class EnrichmentWorker(WorkerThread):
         """Выполнить enrichment (внутри coordinator context)."""
         try:
             # Get current mode from memory config
-            mode = self.memory.semantic.meta.get_config("arbitration_mode", "optimal")
+            # V7.7: Use enrichment_mode setting (legacy arbitration_mode removed)
+            mode = self.memory.semantic.meta.get_config("enrichment_mode", "rich")
 
             if mode == "lite":
                 logger.debug("[EnrichmentWorker] Skipping: lite mode active")

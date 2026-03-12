@@ -57,8 +57,8 @@ class ReflectionEngine:
         result_ids = []
         max_id = after_id
         
-        # V7.7: Use enrichment_mode (primary) or arbitration_mode (legacy)
-        arbitration_mode = self.semantic.meta.get_config("enrichment_mode") or self.semantic.meta.get_config("arbitration_mode") or "rich"
+        # V7.7: Use enrichment_mode setting (legacy arbitration_mode removed)
+        arbitration_mode = self.semantic.meta.get_config("enrichment_mode") or "rich"
 
         # NO GLOBAL TRANSACTION: Processing trajectories doesn't require a lock,
         # and semantic.save() will handle its own granular transactions.
