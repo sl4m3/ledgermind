@@ -64,6 +64,9 @@ class EventProcessingService(MemoryService):
         # Decision routing and conflict check
         # Use shared router from context (initialized by Memory)
         decision = self.context.router.route(event, intent=intent)
+        if decision and decision.should_persist and decision.store_type == "semantic" and not intent:
+             if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=effective_namespace):
+                 return MemoryDecision(should_persist=False, store_type="none", reason=f"Invariant Violation: {conflict_msg}")
         
         if decision and decision.should_persist:
             if decision.store_type == "episodic":
@@ -72,12 +75,7 @@ class EventProcessingService(MemoryService):
                     decision.metadata["event_id"] = ev_id
                     if event_emitter: event_emitter.emit("episodic_added", {"id": ev_id, "kind": event.kind})
             elif decision.store_type == "semantic":
-                try:
-                    self._persist_semantic(event, decision, intent, effective_namespace, vector, source, event_emitter)
-                except ConflictError as e:
-                    if not intent:
-                        return MemoryDecision(should_persist=False, store_type="none", reason=f"Invariant Violation: {str(e)}")
-                    raise e
+                self._persist_semantic(event, decision, intent, effective_namespace, vector, source, event_emitter)
 
         return decision
 

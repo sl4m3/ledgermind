@@ -124,16 +124,7 @@ class TransactionManager:
                 # IMMEDIATE ensures we have a write lock right now
                 # Check in_transaction to avoid "cannot start a transaction within a transaction"
                 if not db_conn.in_transaction:
-                    retries = 30
-                    for attempt in range(retries):
-                        try:
-                            db_conn.execute("BEGIN IMMEDIATE")
-                            break
-                        except sqlite3.OperationalError as e:
-                            if "database is locked" in str(e) and attempt < retries - 1:
-                                time.sleep(0.1)
-                            else:
-                                raise
+                    db_conn.execute("BEGIN IMMEDIATE")
 
             # 3. Prepare backup directory
             if not os.path.exists(self.backup_dir):
