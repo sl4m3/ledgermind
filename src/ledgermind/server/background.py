@@ -23,6 +23,7 @@ except ImportError:
     from ledgermind.core.api.memory import Memory
 
 from ledgermind.server.workers import EnrichmentWorker, ReflectionWorker
+from ledgermind.server.workers.coordinator import WorkerCoordinator
 
 logger = logging.getLogger("ledgermind.worker")
 
@@ -56,7 +57,10 @@ class BackgroundWorker:
 
         self.running = False
         self._stop_event = threading.Event()
-        
+
+        # Coordinator для управления доступом воркеров
+        self.coordinator = WorkerCoordinator()
+
         # Worker threads
         self.enrichment_worker: Optional[EnrichmentWorker] = None
         self.reflection_worker: Optional[ReflectionWorker] = None
@@ -141,6 +145,7 @@ class BackgroundWorker:
             memory=self.memory,
             interval_seconds=60,
             initial_delay=10.0,
+            coordinator=self.coordinator,
         )
         self.enrichment_worker.start()
 
@@ -150,6 +155,7 @@ class BackgroundWorker:
             memory=self.memory,
             interval_seconds=self.interval,
             initial_delay=30.0,
+            coordinator=self.coordinator,
         )
         self.reflection_worker.start()
 
@@ -181,7 +187,15 @@ class BackgroundWorker:
 
         # 1. Shutdown worker threads gracefully
         logger.info("Stopping worker threads...")
-        
+
+        # Log coordinator stats before shutdown
+        if self.coordinator:
+            stats = self.coordinator.stats
+            logger.info(f"Coordinator stats: enrichment={stats['enrichment_completed']}/{stats['enrichment_started']}, "
+                       f"reflection={stats['reflection_completed']}/{stats['reflection_started']}, "
+                       f"skipped={stats['reflection_skipped']}, wait_time={stats['reflection_wait_total_sec']}s")
+            self.coordinator.force_stop_all()
+
         if self.enrichment_worker:
             self.enrichment_worker.shutdown()
             self.enrichment_worker.join(timeout=timeout / 2)
