@@ -605,7 +605,7 @@ def main():
     stats_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
 
     # Settings command
-    from ledgermind.server.settings import create_settings_parser
+    from ledgermind.server.settings import create_settings_parser, handle_settings_command
     create_settings_parser(subparsers)
 
     # Bridge commands

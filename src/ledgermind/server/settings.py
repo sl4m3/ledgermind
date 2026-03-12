@@ -81,9 +81,19 @@ def get_storage_path(custom_path: Optional[str] = None) -> str:
 
 def load_settings(storage_path: str) -> Dict[str, Any]:
     """Load settings from storage."""
-    meta_db_path = os.path.join(storage_path, "semantic_meta.db")
+    # Try both possible locations for semantic_meta.db
+    possible_paths = [
+        os.path.join(storage_path, "semantic_meta.db"),
+        os.path.join(storage_path, "semantic", "semantic_meta.db"),
+    ]
     
-    if not os.path.exists(meta_db_path):
+    meta_db_path = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            meta_db_path = path
+            break
+    
+    if not meta_db_path:
         return {}
     
     import sqlite3
@@ -91,32 +101,71 @@ def load_settings(storage_path: str) -> Dict[str, Any]:
     conn.row_factory = sqlite3.Row
     
     settings = {}
-    for key in DEFAULT_SETTINGS.keys():
-        cursor = conn.execute(
-            "SELECT value FROM meta_config WHERE key = ?",
-            (key,)
-        )
-        row = cursor.fetchone()
-        if row:
-            try:
-                settings[key] = json.loads(row['value'])
-            except (json.JSONDecodeError, TypeError):
-                settings[key] = row['value']
-        else:
-            settings[key] = DEFAULT_SETTINGS[key]['default']
+    
+    # Check which table exists
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_config'")
+    if cursor.fetchone():
+        # LedgerMind format: key|value in semantic_config table
+        cursor = conn.execute("SELECT key, value FROM semantic_config")
+        for row in cursor:
+            key = row['key']
+            value = row['value']
+            if key in DEFAULT_SETTINGS:
+                try:
+                    settings[key] = json.loads(value)
+                except (json.JSONDecodeError, TypeError):
+                    settings[key] = value
+            else:
+                settings[key] = value
     
     conn.close()
+    
+    # Fill in defaults for missing settings
+    for key, config in DEFAULT_SETTINGS.items():
+        if key not in settings:
+            settings[key] = config['default']
+    
     return settings
 
 
 def save_setting(storage_path: str, key: str, value: Any) -> bool:
-    """Save a single setting to storage."""
-    from ledgermind.core.api.memory import Memory
+    """Save a single setting to storage using INSERT OR REPLACE."""
+    # Try both possible locations
+    possible_paths = [
+        os.path.join(storage_path, "semantic_meta.db"),
+        os.path.join(storage_path, "semantic", "semantic_meta.db"),
+    ]
     
-    try:
+    meta_db_path = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            meta_db_path = path
+            break
+    
+    if not meta_db_path:
+        # Create the database if it doesn't exist
+        from ledgermind.core.api.memory import Memory
         memory = Memory(storage_path=storage_path)
-        memory.semantic.meta.set_config(key, value)
         memory.close()
+        meta_db_path = os.path.join(storage_path, "semantic", "semantic_meta.db")
+    
+    import sqlite3
+    try:
+        conn = sqlite3.connect(meta_db_path)
+        
+        # Serialize value
+        if isinstance(value, (dict, list, bool)):
+            value_str = json.dumps(value)
+        else:
+            value_str = str(value)
+        
+        # Use INSERT OR REPLACE for semantic_config table
+        conn.execute(
+            "INSERT OR REPLACE INTO semantic_config (key, value) VALUES (?, ?)",
+            (key, value_str)
+        )
+        conn.commit()
+        conn.close()
         return True
     except Exception as e:
         print(f"Error saving setting: {e}", file=sys.stderr)
