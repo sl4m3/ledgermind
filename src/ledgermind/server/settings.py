@@ -17,25 +17,15 @@ from typing import Optional, Dict, Any, List
 
 # Default settings with their types and descriptions
 DEFAULT_SETTINGS = {
-    "arbitration_mode": {
-        "default": "lite",
-        "choices": ["lite", "optimal", "rich"],
-        "description": "How to resolve memory conflicts (lite=algorithmic, optimal=local LLM, rich=cloud LLM)"
+    "enrichment_mode": {
+        "default": "rich",
+        "choices": ["lite", "rich"],
+        "description": "Enrichment mode (lite=basic/no LLM, rich=full LLM enrichment)"
     },
-    "preferred_language": {
+    "enrichment_language": {
         "default": "russian",
         "choices": None,  # Free text
-        "description": "Language for records (e.g., 'russian', 'english', 'german')"
-    },
-    "client": {
-        "default": "none",
-        "choices": ["cursor", "claude", "gemini", "vscode", "none"],
-        "description": "Client integration for context capture"
-    },
-    "embedder": {
-        "default": "jina-v5-4bit",
-        "choices": ["jina-v5-4bit", "custom"],
-        "description": "Embedding model for vector search"
+        "description": "Language for LLM enrichment responses (e.g., 'russian', 'english')"
     },
     "enrichment_model": {
         "default": "gemini-2.5-flash-lite",
@@ -47,15 +37,26 @@ DEFAULT_SETTINGS = {
         "choices": None,
         "description": "Similarity threshold for merging duplicates (0.5-0.95)"
     },
-    "enrichment_mode": {
-        "default": "rich",
-        "choices": ["lite", "rich"],
-        "description": "Enrichment mode (lite=basic, rich=full LLM)"
+    "embedder": {
+        "default": "jina-v5-4bit",
+        "choices": ["jina-v5-4bit", "custom"],
+        "description": "Embedding model for vector search"
     },
-    "enrichment_language": {
+    "client": {
+        "default": "none",
+        "choices": ["cursor", "claude", "gemini", "vscode", "none"],
+        "description": "Client integration for context capture"
+    },
+    # Legacy settings (for backward compatibility, map to new settings)
+    "arbitration_mode": {
+        "default": "rich",
+        "choices": ["lite", "optimal", "rich"],
+        "description": "Legacy: Use enrichment_mode instead"
+    },
+    "preferred_language": {
         "default": "russian",
         "choices": None,
-        "description": "Language for LLM enrichment responses"
+        "description": "Legacy: Use enrichment_language instead"
     },
 }
 
@@ -120,6 +121,15 @@ def load_settings(storage_path: str) -> Dict[str, Any]:
     
     conn.close()
     
+    # V7.7: Migrate legacy settings to new names
+    # preferred_language → enrichment_language
+    if 'preferred_language' in settings and 'enrichment_language' not in settings:
+        settings['enrichment_language'] = settings['preferred_language']
+    
+    # arbitration_mode → enrichment_mode  
+    if 'arbitration_mode' in settings and 'enrichment_mode' not in settings:
+        settings['enrichment_mode'] = settings['arbitration_mode']
+    
     # Fill in defaults for missing settings
     for key, config in DEFAULT_SETTINGS.items():
         if key not in settings:
@@ -158,6 +168,20 @@ def save_setting(storage_path: str, key: str, value: Any) -> bool:
             value_str = json.dumps(value)
         else:
             value_str = str(value)
+        
+        # V7.7: Sync legacy settings for backward compatibility
+        if key == 'enrichment_language':
+            # Also update preferred_language for backward compatibility
+            conn.execute(
+                "INSERT OR REPLACE INTO semantic_config (key, value) VALUES (?, ?)",
+                ('preferred_language', value_str)
+            )
+        elif key == 'enrichment_mode':
+            # Also update arbitration_mode for backward compatibility
+            conn.execute(
+                "INSERT OR REPLACE INTO semantic_config (key, value) VALUES (?, ?)",
+                ('arbitration_mode', value_str)
+            )
         
         # Use INSERT OR REPLACE for semantic_config table
         conn.execute(

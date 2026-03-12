@@ -86,10 +86,11 @@ class LLMEnricher:
         if memory and hasattr(memory, 'semantic') and hasattr(memory.semantic, 'meta'):
             meta = memory.semantic.meta
             if self.mode is None:
-                # Try enrichment_mode, then fallback to arbitration_mode
-                self.mode = meta.get_config("enrichment_mode") or meta.get_config("arbitration_mode") or "optimal"
+                # V7.7: Use enrichment_mode (primary) or arbitration_mode (legacy)
+                self.mode = meta.get_config("enrichment_mode") or meta.get_config("arbitration_mode") or "rich"
             if self.preferred_language is None:
-                self.preferred_language = meta.get_config("preferred_language") or "russian"
+                # V7.7: Use enrichment_language (primary) or preferred_language (legacy)
+                self.preferred_language = meta.get_config("enrichment_language") or meta.get_config("preferred_language") or "russian"
 
         logger.info(f"Auto-Enrichment Triggered: Language={self.preferred_language}, Mode={self.mode}")
         

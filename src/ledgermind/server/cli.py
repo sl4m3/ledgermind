@@ -226,14 +226,19 @@ def init_project(path: str):
 
         # Create memory structure. VectorStore init will auto-download GGUF if missing and URL is known.
         memory = Memory(storage_path=custom_path, vector_model=model_path)
-        
-        # Save Arbitration Mode and Client to config
-        memory.semantic.meta.set_config("arbitration_mode", mode)
+
+        # V7.7: Save new enrichment_* settings (with legacy compatibility)
+        memory.semantic.meta.set_config("enrichment_mode", mode)
+        memory.semantic.meta.set_config("enrichment_language", language)
         memory.semantic.meta.set_config("client", client)
+        
+        # Legacy settings for backward compatibility
+        memory.semantic.meta.set_config("arbitration_mode", mode)
         memory.semantic.meta.set_config("preferred_language", language)
+        
         if enrichment_model:
             memory.semantic.meta.set_config("enrichment_model", enrichment_model)
-        
+
         if client == "gemini":
             memory.semantic.meta.set_config("gemini_binary_path", gemini_binary)
             memory.semantic.meta.set_config("gemini_config_mode", gemini_config_mode)
@@ -241,8 +246,8 @@ def init_project(path: str):
 
         console.print(f"[green]✓ Created memory structure at {custom_path}[/green]")
         console.print(f"[green]✓ Configured vector model: {model_name}[/green]")
-        console.print(f"[green]✓ Set arbitration mode: {mode}[/green]")
-        console.print(f"[green]✓ Set preferred language: {language}[/green]")
+        console.print(f"[green]✓ Set enrichment mode: {mode}[/green]")
+        console.print(f"[green]✓ Set enrichment language: {language}[/green]")
         console.print(f"[green]✓ Registered client: {client}[/green]")
         if enrichment_model:
             console.print(f"[green]✓ Configured enrichment model: {enrichment_model}[/green]")
