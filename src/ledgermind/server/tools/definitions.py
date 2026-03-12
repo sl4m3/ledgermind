@@ -201,7 +201,8 @@ class LedgerMindTools:
         try:
             self.server._check_capability("maintenance")
             
-            lang = self.server.memory.semantic.meta.get_config("preferred_language", "russian").lower()
+            # V7.7: Use enrichment_language setting (legacy preferred_language removed)
+            lang = self.server.memory.semantic.meta.get_config("enrichment_language", "russian").lower()
             metas = self.server.memory.semantic.meta.list_all()
             
             reset_count = 0

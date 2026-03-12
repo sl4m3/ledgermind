@@ -227,15 +227,10 @@ def init_project(path: str):
         # Create memory structure. VectorStore init will auto-download GGUF if missing and URL is known.
         memory = Memory(storage_path=custom_path, vector_model=model_path)
 
-        # V7.7: Save new enrichment_* settings (with legacy compatibility)
+        # V7.7: Save enrichment_* settings (legacy settings removed)
         memory.semantic.meta.set_config("enrichment_mode", mode)
         memory.semantic.meta.set_config("enrichment_language", language)
         memory.semantic.meta.set_config("client", client)
-        
-        # Legacy settings for backward compatibility
-        memory.semantic.meta.set_config("arbitration_mode", mode)
-        memory.semantic.meta.set_config("preferred_language", language)
-        
         if enrichment_model:
             memory.semantic.meta.set_config("enrichment_model", enrichment_model)
 
