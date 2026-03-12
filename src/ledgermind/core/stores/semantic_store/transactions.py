@@ -105,8 +105,8 @@ class TransactionManager:
         self.repo_path = repo_path
         self.meta_db = meta_db
         # Shared lock instance across transactions in the same manager
-        # V7.6: Increased timeout to 600s for long LLM calls during enrichment
-        self.lock = FileSystemLock(os.path.join(repo_path, ".lock"), timeout=600)
+        # V7.6: Return to default timeout - lock released between LLM calls now
+        self.lock = FileSystemLock(os.path.join(repo_path, ".lock"))
         self.backup_dir = os.path.join(repo_path, ".tx_backup")
         self._staged_files: List[str] = []
 
