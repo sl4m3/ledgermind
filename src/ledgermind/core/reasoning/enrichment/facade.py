@@ -179,95 +179,140 @@ class LLMEnricher:
 
     def process_batch(self, proposals: List[Any], episodic_store: Any, memory: Any = None) -> List[Any]:
         """Iteratively processes a list of proposals, handling validation clusters separately.
-        
-        All operations are wrapped in a single transaction to ensure atomicity:
-        either all clusters are processed successfully, or none are.
+
+        Operations are split into individual transactions to avoid long-held locks:
+        - Validation/Consolidation: Single transaction (fast)
+        - Standard enrichment: Per-proposal transactions (LLM calls outside tx)
         """
         results = []
         total = len(proposals)
-        
-        logger.info(f"Starting enrichment batch transaction with {total} proposals")
-        
-        # Wrap entire batch in a single transaction for atomicity
-        with memory.semantic.transaction():
+        processed_count = 0
+        error_count = 0
+
+        logger.info(f"Starting enrichment batch with {total} proposals")
+
+        for i, prop in enumerate(proposals, 1):
             try:
-                for i, prop in enumerate(proposals, 1):
-                    fid = getattr(prop, 'fid', 'unknown')
+                fid = getattr(prop, 'fid', 'unknown')
 
-                    # STAGE 1: Handle Knowledge Clusters (Merge & Validation)
-                    target = getattr(prop, 'target', '')
-                    target_ids = getattr(prop, 'target_ids', [])
+                # STAGE 1: Handle Knowledge Clusters (Merge & Validation)
+                target = getattr(prop, 'target', '')
+                target_ids = getattr(prop, 'target_ids', [])
 
-                    if target == 'knowledge_validation':
-                        status = getattr(prop, 'status', 'unknown')
-                        logger.info(f"\n>>> [STEP 1/2: CLUSTER VALIDATION {i}/{total}] Processing {fid} (status={status})")
+                if target == 'knowledge_validation':
+                    status = getattr(prop, 'status', 'unknown')
+                    logger.info(f"\n>>> [STEP 1/2: CLUSTER VALIDATION {i}/{total}] Processing {fid} (status={status})")
+                    # V7.6: Keep validation in single transaction (fast operation)
+                    with memory.semantic.transaction():
                         self._handle_validation_cluster(prop, memory)
                         # V7.5: Mark validation cluster as completed
                         memory.semantic.update_decision(fid, {"enrichment_status": "completed"},
                                                          commit_msg="Enrichment: validation completed")
-                        results.append(prop)
-                        continue
+                    results.append(prop)
+                    processed_count += 1
+                    continue
 
-                    if target == 'knowledge_merge' or target_ids:
-                        status = getattr(prop, 'status', 'unknown')
-                        logger.info(f"\n>>> [STEP 2/2: DEEP CONSOLIDATION {i}/{total}] Processing {fid} (status={status})")
-                        self._execute_consolidation(target_ids, memory, fid)
-                        results.append(prop)
-                        continue
-
+                if target == 'knowledge_merge' or target_ids:
                     status = getattr(prop, 'status', 'unknown')
-                    logger.info(f"\n>>> [STEP 3: STANDARD ENRICHMENT {i}/{total}] Processing {fid} (status={status})")
+                    logger.info(f"\n>>> [STEP 2/2: DEEP CONSOLIDATION {i}/{total}] Processing {fid} (status={status})")
+                    # V7.6: Keep consolidation in single transaction (fast operation)
+                    with memory.semantic.transaction():
+                        self._execute_consolidation(target_ids, memory, fid)
+                    results.append(prop)
+                    processed_count += 1
+                    continue
 
-                    # Normal enrichment flow
-                    current_obj = prop
-                    iteration = 1
-                    config = EnrichmentConfig.from_memory(memory, mode=self.mode, preferred_language=self.preferred_language)
+                status = getattr(prop, 'status', 'unknown')
+                logger.info(f"\n>>> [STEP 3: STANDARD ENRICHMENT {i}/{total}] Processing {fid} (status={status})")
 
-                    while True:
-                        eids = getattr(current_obj, 'evidence_event_ids', [])
-                        if not eids:
-                            # V7.5: Nothing to enrich, mark as completed
-                            memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, commit_msg="Enrichment: completed (no evidence)")
-                            break
+                # V7.6: Standard enrichment with per-proposal transactions
+                result = self._process_single_proposal(prop, episodic_store, memory, i, total)
+                results.append(result)
+                processed_count += 1
 
-                        logs_text, used_ids, missing_ids = LogProcessor.get_batch_logs(current_obj, episodic_store, config)
-
-                        if not used_ids and not missing_ids:
-                            # V7.5: No logs found, nothing more to enrich
-                            memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, commit_msg="Enrichment: completed (no logs)")
-                            break
-
-                        if not used_ids and missing_ids:
-                            # Only missing IDs found, clear them out and continue
-                            current_obj.evidence_event_ids = [eid for eid in eids if eid not in missing_ids]
-                            memory.semantic.update_decision(fid, {"evidence_event_ids": current_obj.evidence_event_ids}, commit_msg=f"Enrichment: removed missing ids")
-                            continue
-
-                        logger.info(f"  - Calling LLM for distillation (Iter {iteration}, {len(used_ids)} events)...")
-                        enriched = self.enrich_proposal(current_obj, cluster_logs=logs_text, memory=memory, used_event_ids=used_ids + missing_ids)
-
-                        if not enriched: break
-
-                        # Check for progress
-                        if len(getattr(enriched, 'evidence_event_ids', [])) >= len(eids):
-                            logger.warning(f"  - No progress in Iter {iteration}. Stopping enrichment for {fid}.")
-                            break
-
-                        memory.semantic.update_decision(fid, enriched.model_dump(mode="json"), commit_msg=f"Enrichment: Iter {iteration}")
-
-                        current_obj = enriched
-                        iteration += 1
-                        if iteration > 10: break # Hard safety
-
-                    # V7.5: Mark as completed after enrichment cycle
-                    memory.semantic.update_decision(fid, {"enrichment_status": "completed"},
-                                                     commit_msg="Enrichment: completed")
-                    results.append(current_obj)
-                logger.info("Batch transaction committed successfully")
             except Exception as e:
-                logger.error(f"Batch transaction rolled back: {e}")
-                raise
+                error_count += 1
+                logger.error(f"Failed to process {fid}: {e}")
+                # Continue with next proposal - don't break entire batch
+                continue
+
+        logger.info(f"Batch processing completed: {processed_count}/{total} successful, {error_count} errors")
         return results
+
+    def _process_single_proposal(self, prop: Any, episodic_store: Any, memory: Any, index: int, total: int) -> Any:
+        """
+        Process a single proposal with per-iteration transactions.
+        
+        LLM calls happen OUTSIDE transactions to avoid long-held locks.
+        Updates happen in SHORT transactions.
+        """
+        fid = getattr(prop, 'fid', 'unknown')
+        current_obj = prop
+        iteration = 1
+        config = EnrichmentConfig.from_memory(memory, mode=self.mode, preferred_language=self.preferred_language)
+
+        while True:
+            eids = getattr(current_obj, 'evidence_event_ids', [])
+            if not eids:
+                # V7.5: Nothing to enrich, mark as completed
+                with memory.semantic.transaction():
+                    memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, 
+                                                   commit_msg="Enrichment: completed (no evidence)")
+                break
+
+            logs_text, used_ids, missing_ids = LogProcessor.get_batch_logs(current_obj, episodic_store, config)
+
+            if not used_ids and not missing_ids:
+                # V7.5: No logs found, nothing more to enrich
+                with memory.semantic.transaction():
+                    memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, 
+                                                   commit_msg="Enrichment: completed (no logs)")
+                break
+
+            if not used_ids and missing_ids:
+                # Only missing IDs found, clear them out and continue
+                current_obj.evidence_event_ids = [eid for eid in eids if eid not in missing_ids]
+                with memory.semantic.transaction():
+                    memory.semantic.update_decision(fid, {"evidence_event_ids": current_obj.evidence_event_ids}, 
+                                                   commit_msg=f"Enrichment: removed missing ids")
+                continue
+
+            logger.info(f"  - Calling LLM for distillation (Iter {iteration}, {len(used_ids)} events)...")
+            # V7.6: LLM call OUTSIDE transaction to avoid long-held locks
+            enriched = self.enrich_proposal(current_obj, cluster_logs=logs_text, memory=memory, used_event_ids=used_ids + missing_ids)
+
+            if not enriched: 
+                # Mark as completed if LLM failed
+                with memory.semantic.transaction():
+                    memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, 
+                                                   commit_msg="Enrichment: completed (LLM failed)")
+                break
+
+            # Check for progress
+            if len(getattr(enriched, 'evidence_event_ids', [])) >= len(eids):
+                logger.warning(f"  - No progress in Iter {iteration}. Stopping enrichment for {fid}.")
+                # Still mark as completed even if no progress
+                with memory.semantic.transaction():
+                    memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, 
+                                                   commit_msg="Enrichment: completed (no progress)")
+                break
+
+            # V7.6: Short transaction for update
+            with memory.semantic.transaction():
+                memory.semantic.update_decision(fid, enriched.model_dump(mode="json"), 
+                                               commit_msg=f"Enrichment: Iter {iteration}")
+
+            current_obj = enriched
+            iteration += 1
+            if iteration > 10: 
+                # Hard safety limit
+                with memory.semantic.transaction():
+                    memory.semantic.update_decision(fid, {"enrichment_status": "completed"}, 
+                                                   commit_msg="Enrichment: completed (iteration limit)")
+                break
+
+        # V7.5: Final completion marker (already marked in loops above)
+        return current_obj
 
     def _handle_validation_cluster(self, proposal: Any, memory: Any):
         """STEP 1: Validation (Sorter). Only groups FIDs."""
