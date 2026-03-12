@@ -234,9 +234,17 @@ class SemanticStore:
         except Exception as e:
             logger.error(f"Failed to index {fid}: {e}")
 
-    def sync_meta_index(self, force: bool = False):
+    def sync_meta_index(self, force: bool = False, read_only: bool = False):
+        """
+        Синхронизировать meta индекс с файловой системой.
+        
+        force: Если True, запустить IntegrityChecker
+        read_only: Если True, использовать shared lock (не блокирует чтение другими)
+        """
         should_lock = not self._in_transaction
-        if should_lock: self._fs_lock.acquire(exclusive=True)
+        if should_lock: 
+            # Для read_only использовать shared lock (не эксклюзивный)
+            self._fs_lock.acquire(exclusive=not read_only)
         try:
             if force: IntegrityChecker.validate(self.repo_path, force=True)
             disk_files = self._get_disk_files()

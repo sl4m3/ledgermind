@@ -192,7 +192,10 @@ class LifecycleManagementService(MemoryService):
     def run_maintenance(self, stop_event: Optional[threading.Event] = None) -> Dict[str, Any]:
         """Runs periodic maintenance tasks."""
         from ledgermind.core.stores.semantic_store.integrity import IntegrityChecker
-        self.semantic.sync_meta_index()
+        
+        # V7.6: Использовать read_only=True для быстрой синхронизации без эксклюзивной блокировки
+        self.semantic.sync_meta_index(force=False, read_only=True)
+        
         integrity_status = "ok"
         try:
             IntegrityChecker.validate(self.semantic.repo_path, force=True)
