@@ -19,83 +19,95 @@ class SemanticMetaStore:
         self._init_db()
 
     def _init_db(self):
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute("PRAGMA synchronous=NORMAL")
-        self._conn.execute("""
-            CREATE TABLE IF NOT EXISTS semantic_meta (
-                fid TEXT PRIMARY KEY,
-                target TEXT NOT NULL,
-                title TEXT,
-                status TEXT NOT NULL,
-                kind TEXT NOT NULL,
-                timestamp DATETIME NOT NULL,
-                content TEXT,
-                context_json TEXT,
-                namespace TEXT DEFAULT 'default',
-                phase TEXT,
-                vitality TEXT,
-                enrichment_status TEXT,
-                supersedes TEXT,
-                superseded_by TEXT,
-                converted_to TEXT,
-                merge_status TEXT DEFAULT 'idle',
-                keywords TEXT,
-                confidence REAL,
-                last_hit_at DATETIME,
-                hit_count INTEGER DEFAULT 0,
-                link_count INTEGER DEFAULT 0,
-                reinforcement_density REAL DEFAULT 0.0,
-                stability_score REAL DEFAULT 0.0,
-                coverage REAL DEFAULT 0.0,
-                estimated_removal_cost REAL DEFAULT 0.0,
-                estimated_utility REAL DEFAULT 0.0,
-                content_hash TEXT,
-                compressive_rationale TEXT
-            )
-        """)
-        self._conn.execute("CREATE TABLE IF NOT EXISTS semantic_config (key TEXT PRIMARY KEY, value TEXT)")
-        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_target ON semantic_meta(target)")
-        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON semantic_meta(status)")
-        
-        # Initialize FTS5 for full-text search
-        try:
-            self._conn.execute("""
-                CREATE VIRTUAL TABLE IF NOT EXISTS semantic_fts USING fts5(
-                    fid UNINDEXED,
-                    title,
-                    content,
-                    keywords,
-                    content='semantic_meta',
-                    tokenize='unicode61'
-                )
-            """)
-            
-            # Sync triggers for FTS using rowid for integrity
-            self._conn.execute("DROP TRIGGER IF EXISTS trg_semantic_meta_insert")
-            self._conn.execute("""
-                CREATE TRIGGER trg_semantic_meta_insert AFTER INSERT ON semantic_meta BEGIN
-                    INSERT INTO semantic_fts(rowid, title, content, keywords) VALUES (new.rowid, new.title, new.content, new.keywords);
-                END
-            """)
-            
-            self._conn.execute("DROP TRIGGER IF EXISTS trg_semantic_meta_delete")
-            self._conn.execute("""
-                CREATE TRIGGER trg_semantic_meta_delete AFTER DELETE ON semantic_meta BEGIN
-                    INSERT INTO semantic_fts(semantic_fts, rowid, title, content, keywords) VALUES('delete', old.rowid, old.title, old.content, old.keywords);
-                END
-            """)
-            
-            self._conn.execute("DROP TRIGGER IF EXISTS trg_semantic_meta_update")
-            self._conn.execute("""
-                CREATE TRIGGER trg_semantic_meta_update AFTER UPDATE ON semantic_meta BEGIN
-                    INSERT INTO semantic_fts(semantic_fts, rowid, title, content, keywords) VALUES('delete', old.rowid, old.title, old.content, old.keywords);
-                    INSERT INTO semantic_fts(rowid, title, content, keywords) VALUES (new.rowid, new.title, new.content, new.keywords);
-                END
-            """)
-        except sqlite3.OperationalError as e:
-            logger.warning(f"FTS5 initialization failed (likely missing module): {e}")
+        max_retries = 10
+        for attempt in range(max_retries):
+            try:
+                self._conn.execute("PRAGMA journal_mode=WAL")
+                self._conn.execute("PRAGMA synchronous=NORMAL")
+                self._conn.execute("""
+                    CREATE TABLE IF NOT EXISTS semantic_meta (
+                        fid TEXT PRIMARY KEY,
+                        target TEXT NOT NULL,
+                        title TEXT,
+                        status TEXT NOT NULL,
+                        kind TEXT NOT NULL,
+                        timestamp DATETIME NOT NULL,
+                        content TEXT,
+                        context_json TEXT,
+                        namespace TEXT DEFAULT 'default',
+                        phase TEXT,
+                        vitality TEXT,
+                        enrichment_status TEXT,
+                        supersedes TEXT,
+                        superseded_by TEXT,
+                        converted_to TEXT,
+                        merge_status TEXT DEFAULT 'idle',
+                        keywords TEXT,
+                        confidence REAL,
+                        last_hit_at DATETIME,
+                        hit_count INTEGER DEFAULT 0,
+                        link_count INTEGER DEFAULT 0,
+                        reinforcement_density REAL DEFAULT 0.0,
+                        stability_score REAL DEFAULT 0.0,
+                        coverage REAL DEFAULT 0.0,
+                        estimated_removal_cost REAL DEFAULT 0.0,
+                        estimated_utility REAL DEFAULT 0.0,
+                        content_hash TEXT,
+                        compressive_rationale TEXT
+                    )
+                """)
+                self._conn.execute("CREATE TABLE IF NOT EXISTS semantic_config (key TEXT PRIMARY KEY, value TEXT)")
+                self._conn.execute("CREATE INDEX IF NOT EXISTS idx_target ON semantic_meta(target)")
+                self._conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON semantic_meta(status)")
 
-        self._conn.commit()
+                # Initialize FTS5 for full-text search
+                try:
+                    self._conn.execute("""
+                        CREATE VIRTUAL TABLE IF NOT EXISTS semantic_fts USING fts5(
+                            fid UNINDEXED,
+                            title,
+                            content,
+                            keywords,
+                            content='semantic_meta',
+                            tokenize='unicode61'
+                        )
+                    """)
+
+                    # Sync triggers for FTS using rowid for integrity
+                    self._conn.execute("DROP TRIGGER IF EXISTS trg_semantic_meta_insert")
+                    self._conn.execute("""
+                        CREATE TRIGGER trg_semantic_meta_insert AFTER INSERT ON semantic_meta BEGIN
+                            INSERT INTO semantic_fts(rowid, title, content, keywords) VALUES (new.rowid, new.title, new.content, new.keywords);
+                        END
+                    """)
+
+                    self._conn.execute("DROP TRIGGER IF EXISTS trg_semantic_meta_delete")
+                    self._conn.execute("""
+                        CREATE TRIGGER trg_semantic_meta_delete AFTER DELETE ON semantic_meta BEGIN
+                            INSERT INTO semantic_fts(semantic_fts, rowid, title, content, keywords) VALUES('delete', old.rowid, old.title, old.content, old.keywords);
+                        END
+                    """)
+
+                    self._conn.execute("DROP TRIGGER IF EXISTS trg_semantic_meta_update")
+                    self._conn.execute("""
+                        CREATE TRIGGER trg_semantic_meta_update AFTER UPDATE ON semantic_meta BEGIN
+                            INSERT INTO semantic_fts(semantic_fts, rowid, title, content, keywords) VALUES('delete', old.rowid, old.title, old.content, old.keywords);
+                            INSERT INTO semantic_fts(rowid, title, content, keywords) VALUES (new.rowid, new.title, new.content, new.keywords);
+                        END
+                    """)
+                except sqlite3.OperationalError as e:
+                    if "locked" in str(e).lower():
+                        raise # Re-raise to be caught by outer loop
+                    logger.warning(f"FTS5 initialization failed (likely missing module): {e}")
+
+                self._conn.commit()
+                break # Success, exit retry loop
+            except sqlite3.OperationalError as e:
+                if "locked" in str(e).lower() and attempt < max_retries - 1:
+                    import time
+                    time.sleep(0.1 * (2 ** attempt))
+                    continue
+                raise
 
     def get_version(self) -> str:
         return self.get_config("version", "0.0.0")

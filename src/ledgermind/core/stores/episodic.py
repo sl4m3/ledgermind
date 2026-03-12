@@ -68,33 +68,45 @@ class EpisodicStore:
             self.engine.dispose()
 
     def _init_db(self):
-        with sqlite3.connect(self.db_path, timeout=30.0) as conn:
-            conn.row_factory = sqlite3.Row
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA synchronous=NORMAL")
-            conn.execute("PRAGMA busy_timeout=10000")
-            with conn:
-                conn.execute("""
-                    CREATE TABLE IF NOT EXISTS events (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        source TEXT,
-                        kind TEXT,
-                        content TEXT,
-                        context TEXT,
-                        timestamp TEXT,
-                        status TEXT DEFAULT 'active',
-                        linked_id TEXT DEFAULT NULL,
-                        link_strength REAL DEFAULT 1.0
-                    )
-                """)
-                # Migration: Add link_strength if it doesn't exist
-                try:
-                    conn.execute("ALTER TABLE events ADD COLUMN link_strength REAL DEFAULT 1.0")
-                except sqlite3.OperationalError:
-                    pass
-                
-                # Performance: Add index for duplicate detection
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_events_duplicate ON events (source, kind, content, timestamp)")
+        max_retries = 10
+        for attempt in range(max_retries):
+            try:
+                with sqlite3.connect(self.db_path, timeout=30.0) as conn:
+                    conn.row_factory = sqlite3.Row
+                    conn.execute("PRAGMA journal_mode=WAL")
+                    conn.execute("PRAGMA synchronous=NORMAL")
+                    conn.execute("PRAGMA busy_timeout=10000")
+                    with conn:
+                        conn.execute("""
+                            CREATE TABLE IF NOT EXISTS events (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                source TEXT,
+                                kind TEXT,
+                                content TEXT,
+                                context TEXT,
+                                timestamp TEXT,
+                                status TEXT DEFAULT 'active',
+                                linked_id TEXT DEFAULT NULL,
+                                link_strength REAL DEFAULT 1.0
+                            )
+                        """)
+                        # Migration: Add link_strength if it doesn't exist
+                        try:
+                            conn.execute("ALTER TABLE events ADD COLUMN link_strength REAL DEFAULT 1.0")
+                        except sqlite3.OperationalError as e:
+                            if "locked" in str(e).lower():
+                                raise
+                            pass
+
+                        # Performance: Add index for duplicate detection
+                        conn.execute("CREATE INDEX IF NOT EXISTS idx_events_duplicate ON events (source, kind, content, timestamp)")
+                break
+            except sqlite3.OperationalError as e:
+                if "locked" in str(e).lower() and attempt < max_retries - 1:
+                    import time
+                    time.sleep(0.1 * (2 ** attempt))
+                    continue
+                raise
 
     def _serialize_context(self, context_data: Any) -> str:
         if not context_data:
