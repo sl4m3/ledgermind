@@ -64,8 +64,6 @@ class EventProcessingService(MemoryService):
         # Decision routing and conflict check
         # Use shared router from context (initialized by Memory)
         decision = self.context.router.route(event, intent=intent)
-
-        # TOCTOU FIX: Must check before returning soft fail, but we keep soft fail to avoid breaking change
         if decision and decision.should_persist and decision.store_type == "semantic" and not intent:
              if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=effective_namespace):
                  return MemoryDecision(should_persist=False, store_type="none", reason=f"Invariant Violation: {conflict_msg}")
@@ -111,14 +109,15 @@ class EventProcessingService(MemoryService):
                         self.semantic.update_decision(old_id, {"status": "superseded"}, commit_msg="Deactivating for transition")
 
             to_supersede_ids = intent.target_decision_ids if (intent and intent.resolution_type == "supersede") else None
-            # Also explicitly verify the conflict here under lock
-            if not intent:
-                if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=namespace):
-                    # We can't return soft fail here easily since we are inside _persist_semantic.
-                    # If this happens it means TOCTOU occurred, raising is correct fallback.
-                    raise ConflictError(f"Invariant Violation: {conflict_msg}")
 
+            # Explicit lock conflict check to avoid TOCTOU.
+            # If this happens it means a race condition occurred between router.route and the lock acquisition
             if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=namespace, supersedes=to_supersede_ids):
+                if not intent:
+                    # In order not to break API contract, raising a specific error is difficult here,
+                    # but if we are here it's due to a race condition (as the first check passed).
+                    # We will raise ConflictError to abort the transaction cleanly.
+                    raise ConflictError(f"Invariant Violation: {conflict_msg}")
                 raise ConflictError(f"Conflict detected: {conflict_msg}")
 
             # Prepare Context

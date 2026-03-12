@@ -3,7 +3,6 @@ import json
 import threading
 from typing import List, Optional, Dict, Any, Tuple
 from contextlib import contextmanager
-import time
 from ledgermind.core.core.schemas import MemoryEvent
 
 from sqlalchemy import create_engine, text
@@ -43,26 +42,17 @@ class EpisodicStore:
 
     @contextmanager
     def _get_conn(self):
-        max_retries = 5
-        for attempt in range(max_retries):
-            session = self.Session()
-            try:
-                conn = session.connection()
-                conn.connection.row_factory = sqlite3.Row
-                yield conn.connection
-                session.commit() # Finalize changes
-                break
-            except sqlite3.OperationalError as e:
-                session.rollback()
-                if "database is locked" in str(e) and attempt < max_retries - 1:
-                    time.sleep(0.1 * (2 ** attempt))
-                    continue
-                raise
-            except Exception:
-                session.rollback()
-                raise
-            finally:
-                session.close()
+        session = self.Session()
+        try:
+            conn = session.connection()
+            conn.connection.row_factory = sqlite3.Row
+            yield conn.connection
+            session.commit() # Finalize changes
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     def _get_pool_status(self) -> Dict[str, int]:
         pool: Pool = self.engine.pool
@@ -105,9 +95,6 @@ class EpisodicStore:
                 
                 # Performance: Add index for duplicate detection
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_events_duplicate ON events (source, kind, content, timestamp)")
-
-                # Performance: Add index for fast semantic linking and evidence lookups
-                conn.execute("CREATE INDEX IF NOT EXISTS idx_events_linked_id ON events (linked_id)")
 
     def _serialize_context(self, context_data: Any) -> str:
         if not context_data:
