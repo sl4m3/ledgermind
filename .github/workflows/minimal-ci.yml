@@ -72,13 +72,13 @@ jobs:
       - name: Run Bandit (SAST)
         id: bandit
         run: |
-          bandit -r src/ -f json -o bandit-report.json || true
+          bandit -r src/ -f json 2>/dev/null > bandit-report.json || true
         continue-on-error: true
 
       - name: Run Safety (Dependency Check)
         id: safety
         run: |
-          safety check --json --db > safety-report.json || true
+          safety check --json > safety-report.json || true
         continue-on-error: true
 
       - name: Run Pip-audit
@@ -138,24 +138,29 @@ jobs:
           script: |
             const fs = require('fs');
             const issue_number = context.issue.number;
-            const bandit = fs.readFileSync('bandit-report.json');
-            const safety = fs.readFileSync('safety-report.json');
-            const pipAudit = fs.readFileSync('pip-audit-report.json');
 
-            let body = '## 🔒 Security Scan Results\\n\\n';
-            body += '### Bandit (SAST)\\n';
-            body += `- ${JSON.parse(bandit).metrics['SEVERITY.HIGH'] || 0} HIGH severity issues\\n\\n`;
-            body += '### Safety (Dependencies)\\n';
-            body += `- ${JSON.parse(safety).vulnerabilities?.length || 0} known vulnerabilities\\n\\n`;
-            body += '### Pip-audit (Dependencies)\\n';
-            body += `- ${JSON.parse(pipAudit).dependencies?.filter(d => d.vulnerabilities?.length)?.length || 0} vulnerable packages\\n`;
+            function safeParse(path) {
+              if (!fs.existsSync(path)) throw new Error(`Report file ${path} does not exist`);
+              const data = fs.readFileSync(path, 'utf8');
+              const start = data.indexOf('{');
+              const end = data.lastIndexOf('}');
+              if (start === -1 || end === -1) throw new Error(`Invalid JSON output in ${path}`);
+              return JSON.parse(data.substring(start, end + 1));
+            }
 
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issue_number,
-              body: body
-            });
+            const bandit = safeParse('bandit-report.json');
+            const safety = safeParse('safety-report.json');
+            const pipAudit = safeParse('pip-audit-report.json');
+
+            let body = '## 🔒 Security Scan Results\n\n';
+            body += '### Bandit (SAST)\n';
+            body += `- ${bandit.metrics && bandit.metrics['SEVERITY.HIGH'] ? bandit.metrics['SEVERITY.HIGH'] : 0} HIGH severity issues\n\n`;
+            body += '### Safety (Dependencies)\n';
+            body += `- ${safety.vulnerabilities ? safety.vulnerabilities.length : 0} known vulnerabilities\n\n`;
+            body += '### Pip-audit (Dependencies)\n';
+            body += `- ${pipAudit.dependencies ? pipAudit.dependencies.filter(d => d.vulnerabilities && d.vulnerabilities.length).length : 0} vulnerable packages\n`;
+
+            await core.summary.addHeading('Security Scan Results').addRaw(body).write();
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   lint:
