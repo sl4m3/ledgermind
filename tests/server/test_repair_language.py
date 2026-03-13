@@ -71,8 +71,8 @@ def test_repair_language_logic(mcp_server, temp_memory):
     assert meta_pending["enrichment_status"] == "pending" # Remained pending
 
 def test_repair_language_to_english(mcp_server, temp_memory):
-    # Setup preferred language to English
-    temp_memory.semantic.meta.set_config("preferred_language", "english")
+    # Setup enrichment language to English
+    temp_memory.semantic.meta.set_config("enrichment_language", "english")
     
     with temp_memory.semantic.transaction():
         # Create Russian decision (Incorrect for this config)
