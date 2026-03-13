@@ -3,7 +3,7 @@ import os
 import re
 import json
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from ledgermind.core.core.schemas import DecisionStream, ProceduralContent, ProceduralStep, DecisionPhase
 from ledgermind.core.stores.semantic_store.loader import MemoryLoader
@@ -464,6 +464,156 @@ class LLMEnricher:
                     memory.semantic.update_decision(tid, update_data, "Error rollback.")
             memory.semantic.update_decision(fid, {"status": "falsified", "enrichment_status": "completed"}, f"Aborted: {str(e)}")
 
+    def _resolve_target_conflict(self, memory: Any, consolidated_fids: List[str], conflict_fids: List[str], proposed_target: str) -> Tuple[str, List[str]]:
+        """
+        V7.8: Resolve target conflicts when LLM-proposed target is already in use.
+        
+        Args:
+            memory: Memory instance
+            consolidated_fids: Documents being consolidated
+            conflict_fids: Existing active decisions with same target
+            proposed_target: Target from LLM
+            
+        Returns:
+            Tuple of (final_target, all_fids_to_supersede)
+        """
+        logger.info(f"  - Target conflict detected: {proposed_target} has {len(conflict_fids)} active decision(s)")
+        
+        # Collect conflict document info for LLM
+        conflict_docs = []
+        for fid in conflict_fids:
+            meta = memory.semantic.meta.get_by_fid(fid)
+            if meta:
+                ctx = json.loads(meta.get('context_json', '{}')) if meta.get('context_json') else {}
+                conflict_docs.append({
+                    "fid": fid,
+                    "title": meta.get('title', ''),
+                    "target": meta.get('target', ''),
+                    "rationale": meta.get('rationale', '')[:500]  # Truncate for token limit
+                })
+        
+        # Collect consolidated doc info
+        consolidated_docs = []
+        for fid in consolidated_fids:
+            meta = memory.semantic.meta.get_by_fid(fid)
+            if meta:
+                ctx = json.loads(meta.get('context_json', '{}')) if meta.get('context_json') else {}
+                consolidated_docs.append({
+                    "fid": fid,
+                    "title": meta.get('title', ''),
+                    "target": meta.get('target', ''),
+                    "rationale": meta.get('rationale', '')[:500]
+                })
+        
+        # Build prompt for conflict resolution
+        prompt = f"""
+Target Conflict Resolution
+
+You are consolidating knowledge documents. A target conflict was detected.
+
+PROPOSED TARGET: {proposed_target}
+
+CONSOLIDATED DOCUMENTS ({len(consolidated_docs)}):
+{json.dumps(consolidated_docs, indent=2, ensure_ascii=False)}
+
+CONFLICTING ACTIVE DECISIONS ({len(conflict_docs)}):
+{json.dumps(conflict_docs, indent=2, ensure_ascii=False)}
+
+TASK: Determine if the conflicting decisions represent the SAME knowledge as the 
+consolidated documents, or DIFFERENT knowledge.
+
+If SAME KNOWLEDGE: Return action="merge" to include conflicts in consolidation.
+If DIFFERENT KNOWLEDGE: Return action="separate" and propose a NEW unique target 
+that clearly distinguishes the consolidated knowledge from the conflicts.
+
+Return ONLY valid JSON:
+{{
+    "action": "merge" | "separate",
+    "reason": "Brief explanation of your decision",
+    "new_target": "proposed.new.target"  // Required only if action="separate"
+}}
+"""
+        
+        # Call LLM with retry (3 attempts)
+        config = EnrichmentConfig.from_memory(memory, mode="rich", preferred_language=self.preferred_language)
+        client = self._get_client(config, memory)
+        
+        for attempt in range(1, 4):
+            try:
+                logger.info(f"  - Conflict resolution attempt {attempt}/3...")
+                response = client.call("You are a Knowledge Architecture Expert.", prompt, fid=parent_fid)
+                
+                if not response:
+                    logger.warning(f"  - Attempt {attempt}: Empty response")
+                    continue
+                
+                # Parse JSON from response
+                result = ResponseParser.parse_json(response)
+                if not result:
+                    logger.warning(f"  - Attempt {attempt}: Failed to parse JSON")
+                    continue
+                
+                action = result.get('action')
+                if action not in ('merge', 'separate'):
+                    logger.warning(f"  - Attempt {attempt}: Invalid action '{action}'")
+                    continue
+                
+                if action == 'merge':
+                    logger.info(f"  - LLM decided to MERGE conflicts (reason: {result.get('reason', 'N/A')})")
+                    return proposed_target, consolidated_fids + conflict_fids
+                else:
+                    new_target = result.get('new_target', '')
+                    if not new_target or len(new_target) < 3:
+                        logger.warning(f"  - Attempt {attempt}: Invalid new_target '{new_target}'")
+                        continue
+                    
+                    logger.info(f"  - LLM decided to SEPARATE with new target: {new_target} (reason: {result.get('reason', 'N/A')})")
+                    return new_target, consolidated_fids
+                    
+            except Exception as e:
+                logger.error(f"  - Attempt {attempt}: Error - {e}")
+                continue
+        
+        # Fallback after 3 failed attempts
+        logger.warning(f"  - LLM failed to resolve conflict after 3 attempts. Using fallback.")
+        fallback_target = self._get_fallback_target(consolidated_fids, memory)
+        return fallback_target, consolidated_fids
+
+    def _get_fallback_target(self, fids: List[str], memory: Any) -> str:
+        """
+        V7.8: Fallback target selection when LLM fails.
+        Uses longest + most common target from source documents.
+        """
+        targets = []
+        for fid in fids:
+            meta = memory.semantic.meta.get_by_fid(fid)
+            if meta:
+                target = meta.get('target', '')
+                if target:
+                    targets.append(target)
+        
+        if not targets:
+            return "consolidated"
+        
+        # Count frequency
+        from collections import Counter
+        target_counts = Counter(targets)
+        
+        # Find most common
+        most_common = target_counts.most_common(1)[0][0]
+        
+        # Find longest
+        longest = max(targets, key=len)
+        
+        # Prefer longest if it's also common, otherwise use most common
+        if target_counts[longest] >= target_counts[most_common] / 2:
+            fallback = longest
+        else:
+            fallback = most_common
+        
+        logger.info(f"  - Fallback target: {fallback} (longest={longest}, most_common={most_common})")
+        return fallback
+
     def _execute_consolidation(self, fids: List[str], memory: Any, parent_fid: str):
         """STEP 2: Consolidation (Architect). Performs deep synthesis."""
         if len(fids) < 2: return
@@ -569,10 +719,41 @@ class LLMEnricher:
 
             logger.info(f"  - Inherited phase: {inherited_phase.value} (evidence={total_evidence_count}, stability={avg_stability:.2f})")
 
+            # V7.8: Check for target conflicts BEFORE creating new decision
+            # Get proposed target from LLM
+            llm_target = target
+            
+            # Find all active decisions with same target (exact match only)
+            try:
+                all_metas = memory.semantic.meta.list_all(target=llm_target)
+                active_conflicts = [m['fid'] for m in all_metas if m.get('status') == 'active']
+                # Exclude documents already being consolidated
+                conflict_fids = [c for c in active_conflicts if c not in fids]
+                
+                if conflict_fids:
+                    # Target conflict detected - resolve it
+                    logger.info(f"  - Target '{llm_target}' has {len(conflict_fids)} active conflict(s)")
+                    final_target, all_supersedes = self._resolve_target_conflict(
+                        memory=memory,
+                        consolidated_fids=fids,
+                        conflict_fids=conflict_fids,
+                        proposed_target=llm_target
+                    )
+                    logger.info(f"  - Using target: {final_target} (superseding {len(all_supersedes)} documents)")
+                else:
+                    # No conflicts - use LLM target as-is
+                    final_target = llm_target
+                    all_supersedes = fids
+                    
+            except Exception as e:
+                logger.warning(f"  - Failed to check target conflicts: {e}. Using LLM target.")
+                final_target = llm_target
+                all_supersedes = fids
+
             # Create new decision WITH inherited phase (decisions don't have direct event links)
             new_decision = memory.supersede_decision(
-                title=title, target=target, rationale=_clean_text(res_data.get("rationale", "Synthesized content.")),
-                old_decision_ids=fids, evidence_ids=[], phase=inherited_phase
+                title=title, target=final_target, rationale=_clean_text(res_data.get("rationale", "Synthesized content.")),
+                old_decision_ids=all_supersedes, evidence_ids=[], phase=inherited_phase
             )
 
             new_fid = new_decision.metadata.get('file_id')
