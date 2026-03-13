@@ -1,18 +1,21 @@
-# Latest Release: v3.2.1
+# Latest Release: v3.3.0
 
-## March 2, 2026
+## March 13, 2026
 
-LedgerMind v3.2.1 focuses on advanced knowledge processing through iterative
-enrichment and high-signal compressive rationales.
+LedgerMind v3.3.0 is a major release with 130+ commits of improvements
+spanning intelligent merging, lifecycle optimization, and architectural
+hardening.
 
 ### Highlights
 
-- **Iterative Enrichment:** Recursive refinement of knowledge artifacts for
-  deeper insights.
-- **Compressive Rationale:** Condensing complex logs into concise, high-signal
-  technical intelligence.
-- **Asynchronous Reliability:** Stable, non-blocking LLM enrichment for all
-  knowledge types.
-- **Refinement:** Improved background processing resilience and stability.
+- **Intelligent Merging:** Quadratic model with hierarchical target deduction
+  and reactive incremental consolidation.
+- **Lifecycle Engine:** Confidence calculation, phase inheritance, and
+  automatic vitality transitions.
+- **Language Localization:** Multilingual LLM prompts with self-healing audit.
+- **Architecture:** Service decomposition, WorkerCoordinator, ACID transactions.
+- **Performance:** 5500+ OPS search, 8+ OPS recording.
+- **Security:** Bandit fixes, strict I4 integrity, conflict resolution.
+- **Background Worker:** Responsive shutdown, watchdog monitoring.
 
-[View full v3.2.1 changelog](./v3.2.1.md)
+[View full v3.3.0 changelog](./v3.3.0.md)

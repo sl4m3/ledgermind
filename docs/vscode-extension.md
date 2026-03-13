@@ -66,7 +66,7 @@ code --install-extension ledgermind-vscode-*.vsix
 |-------------|---------|-------|
 | **VS Code** | 1.80+ | Stable or Insiders |
 | **Node.js** | 18+ | For building from source |
-| **LedgerMind** | 3.1.0+ | MCP server running locally |
+| **LedgerMind** | 3.3.0+ | MCP server running locally |
 
 ---
 

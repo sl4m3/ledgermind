@@ -168,8 +168,8 @@ class BackgroundWorker:
     def _lock_watchdog(self):
         """Monitor worker.pid and sessions/*.lock files. If missing, force immediate exit."""
         lock_path = os.path.join(self.memory.storage_path, "worker.pid")
-        # V7.8: sessions folder is at ../.ledgermind/sessions (one level up from storage)
-        sessions_dir = os.path.join(os.path.dirname(self.memory.storage_path), "sessions")
+        # V7.8: sessions folder is inside storage path
+        sessions_dir = os.path.join(self.memory.storage_path, "sessions")
         
         while self.running:
             # Check worker.pid
@@ -187,7 +187,6 @@ class BackgroundWorker:
                     sessions_active = len(lock_files) > 0
                 except Exception:
                     sessions_active = False
-            # If sessions_dir doesn't exist, sessions_active stays False
             
             if not sessions_active:
                 logger.info("No active MCP sessions (sessions/ missing or empty). Shutting down.")
@@ -304,8 +303,8 @@ class BackgroundWorker:
         try:
             self.start()
             lock_path = os.path.join(self.memory.storage_path, "worker.pid")
-            # V7.8: sessions folder is at ../.ledgermind/sessions (one level up from storage)
-            sessions_dir = os.path.join(os.path.dirname(self.memory.storage_path), "sessions")
+            # V7.8: sessions folder is inside storage path
+            sessions_dir = os.path.join(self.memory.storage_path, "sessions")
 
             while self.running:
                 # 0. CRITICAL: Lock file health check (Manual removal detection)
@@ -314,15 +313,18 @@ class BackgroundWorker:
                     break
 
                 # 1. CRITICAL: Check for active MCP sessions
-                # If sessions/ folder exists and has no .lock files, shutdown worker
+                # If sessions/ folder doesn't exist or has no .lock files, shutdown worker
+                sessions_active = False
                 if os.path.exists(sessions_dir):
                     try:
                         lock_files = [f for f in os.listdir(sessions_dir) if f.endswith('.lock')]
-                        if not lock_files:
-                            logger.info("No active MCP sessions found in sessions/. Shutting down.")
-                            break
+                        sessions_active = len(lock_files) > 0
                     except Exception as e:
                         logger.debug(f"Session check error: {e}")
+                
+                if not sessions_active:
+                    logger.info("No active MCP sessions (sessions/ missing or empty). Shutting down.")
+                    break
 
                 # RESPONSIVE SLEEP
                 # Check lock file and sessions every 5 seconds, sleep for ~100 seconds total

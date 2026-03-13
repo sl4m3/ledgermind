@@ -9,6 +9,12 @@ def test_worker_locking(tmp_path):
     os.makedirs(storage, exist_ok=True)
     memory = Memory(storage_path=storage)
     
+    # Create a dummy session so the worker doesn't shut down immediately
+    sessions_dir = os.path.join(storage, "sessions")
+    os.makedirs(sessions_dir, exist_ok=True)
+    with open(os.path.join(sessions_dir, "test.lock"), "w") as f:
+        f.write("test")
+
     worker1 = BackgroundWorker(memory)
     worker2 = BackgroundWorker(memory)
     

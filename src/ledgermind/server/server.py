@@ -180,9 +180,9 @@ class MCPServer:
 
     def _register_session(self):
         """Registers the current PID as an active session for the background worker."""
-        # V7.8: sessions folder is at ../.ledgermind/sessions (one level up from storage)
+        # V7.8: sessions folder is inside storage path
         storage = os.path.abspath(self.memory.storage_path)
-        sessions_dir = os.path.join(os.path.dirname(storage), "sessions")
+        sessions_dir = os.path.join(storage, "sessions")
         try:
             os.makedirs(sessions_dir, exist_ok=True)
             session_file = os.path.join(sessions_dir, f"{os.getpid()}.lock")
@@ -403,9 +403,9 @@ class MCPServer:
             self._rest_stop_event.set()
 
         # 2. Cleanup session file (Worker will detect this and shutdown if no other sessions)
-        # V7.8: sessions folder is at ../.ledgermind/sessions (one level up from storage)
+        # V7.8: sessions folder is inside storage path
         storage = os.path.abspath(self.memory.storage_path)
-        sessions_dir = os.path.join(os.path.dirname(storage), "sessions")
+        sessions_dir = os.path.join(storage, "sessions")
         session_file = os.path.join(sessions_dir, f"{os.getpid()}.lock")
         try:
             if os.path.exists(session_file):
