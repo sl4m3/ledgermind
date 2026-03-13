@@ -193,10 +193,16 @@ class MergeEngineFacade:
                 sim_scores = [self.algorithm.calculate_similarity(base_doc, doc) for doc in group[1:]]
                 avg_confidence = sum(sim_scores) / len(sim_scores) if sim_scores else 1.0
                 builder.set_confidence(avg_confidence)
-                
+
+                # V7.8: Deduplicate group by fid to avoid adding same target multiple times
+                seen_fids = set()
                 for doc in group:
-                    builder.add_target(doc.get('id', doc.get('fid', 'unknown_id')))
-                
+                    # Use fid as primary key (consistent with semantic store)
+                    fid = doc.get('fid') or doc.get('id')
+                    if fid and fid not in seen_fids:
+                        seen_fids.add(fid)
+                        builder.add_target(fid)
+
                 proposal_data = builder.build()
                 proposal_fid = self.transaction_manager.create_proposal(proposal_data)
                 
@@ -204,10 +210,14 @@ class MergeEngineFacade:
                     raise Exception("Failed to save merge proposal file.")
 
                 # 2. Mark all targets as 'pending merge' IMMEDIATELY in the same transaction
+                # V7.8: Deduplicate to avoid updating same target multiple times
+                reserved_fids = set()
                 for doc in group:
-                    fid = doc.get('fid')
-                    if not fid: continue
-                    
+                    fid = doc.get('fid') or doc.get('id')
+                    if not fid or fid in reserved_fids:
+                        continue
+                    reserved_fids.add(fid)
+
                     # We ONLY set merge_status. We DO NOT set superseded_by yet,
                     # because this is just a proposal, not a confirmed truth.
                     updates = {
