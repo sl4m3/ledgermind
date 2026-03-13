@@ -61,6 +61,7 @@ class Bridge:
                     # Core fields we want to return
                     # We only return: target, title, compressive_rationale, strengths, objections, consequences
                     memory_item = {
+                        "id": fid,
                         "target": item.get('target'),
                         "title": item.get('title'),
                         "compressive_rationale": item.get('compressive_rationale'),

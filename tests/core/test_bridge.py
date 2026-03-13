@@ -18,10 +18,18 @@ def test_bridge_initialization(bridge, temp_memory_path):
 
 def test_record_and_get_context(bridge):
     # Record a decision directly into memory to have context
-    bridge.record_decision(
+    dec = bridge.record_decision(
         title="Database Choice",
         target="db_engine",
         rationale="We use SQLite for simplicity in this project"
+    )
+    dec_id = dec.metadata["file_id"]
+
+    # Simulating LLM enrichment by adding compressive_rationale
+    bridge.update_decision(
+        dec_id, 
+        {"compressive_rationale": "We use SQLite for simplicity"}, 
+        "Enriching for test"
     )
     
     # Wait for vector indexing if it's async (it's sync currently)
