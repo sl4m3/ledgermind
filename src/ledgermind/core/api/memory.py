@@ -126,7 +126,6 @@ class Memory:
         # V7.7: CRITICAL - Validate integrity on startup
         # This detects manual file deletions that break referential integrity
         # Note: Only run if LEDGERMIND_VALIDATE_INTEGRITY env var is set
-        import os
         if os.environ.get("LEDGERMIND_VALIDATE_INTEGRITY") == "1":
             try:
                 logger.info(f"Running integrity check: storage={self.storage_path}")
