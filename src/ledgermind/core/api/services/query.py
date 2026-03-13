@@ -161,7 +161,7 @@ class QueryService(MemoryService):
                 "kind": meta.get("kind"),
                 "is_active": (meta.get("status") == "active"),
                 "evidence_count": link_count,
-                "vitality": vitality,
+                "vitality": vitality,  # V7.8: Include vitality for lifecycle verification
                 "phase": phase
             }
 

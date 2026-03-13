@@ -132,11 +132,22 @@ class LifecycleManagementService(MemoryService):
                     if should_forget:
                         meta = self.semantic.meta.get_by_fid(fid)
                         kind = meta.get('kind') if meta else None
-                        
+
                         if kind in ('decision', 'constraint', 'intervention', 'proposal'):
-                             logger.info(f"Semantic Decay: Marking {fid} as dormant/deprecated (conf={new_conf})")
-                             self.semantic.update_decision(fid, {"confidence": 0.0, "status": "deprecated", "vitality": "dormant"}, 
-                                                         commit_msg=f"Decay: Knowledge reached zero confidence, marked as dormant.")
+                             # V7.8: Gradual vitality transition: active → decaying → dormant
+                             # Don't jump directly to dormant, go through decaying first
+                             current_vitality = meta.get('vitality', 'active') if meta else 'active'
+                             
+                             if current_vitality == 'decaying':
+                                 # Already decaying, now transition to dormant
+                                 logger.info(f"Semantic Decay: Marking {fid} as dormant/deprecated (conf={new_conf})")
+                                 self.semantic.update_decision(fid, {"confidence": 0.0, "status": "deprecated", "vitality": "dormant"},
+                                                             commit_msg=f"Decay: Knowledge reached zero confidence, marked as dormant.")
+                             else:
+                                 # First time - set to decaying
+                                 logger.info(f"Semantic Decay: Marking {fid} as decaying (conf={new_conf})")
+                                 self.semantic.update_decision(fid, {"confidence": new_conf, "vitality": "decaying"},
+                                                             commit_msg=f"Decay: Knowledge confidence dropped, marked as decaying.")
                         else:
                              logger.info(f"Semantic Decay: Forgetting {fid} (conf={new_conf})")
                              # Note: assuming forget logic is simple enough or delegated
@@ -147,11 +158,13 @@ class LifecycleManagementService(MemoryService):
                         updates = {"confidence": new_conf}
                         meta = self.semantic.meta.get_by_fid(fid)
                         if meta:
-                            if meta.get('status') == 'active' and new_conf < 0.5:
-                                updates["status"] = "deprecated"
-                            if meta.get('vitality') == 'active' and new_conf < 0.9:
+                            # V7.8: Gradual vitality transition
+                            current_vitality = meta.get('vitality', 'active')
+                            if current_vitality == 'active' and new_conf < 0.9:
                                 updates["vitality"] = "decaying"
-                        
+                            elif current_vitality == 'decaying' and new_conf < 0.3:
+                                updates["vitality"] = "dormant"
+
                         self.semantic.update_decision(fid, updates, commit_msg=f"Decay: Reduced confidence to {new_conf}")
             
         return DecayReport(len(to_archive), len(to_prune), retained, semantic_forgotten=forgotten_count)

@@ -30,5 +30,7 @@ benchmarks/results/
 node_modules/
 **/node_modules/
 
+scripts/
+
 .qwen/
 gha-creds-*.json
