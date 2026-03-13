@@ -229,10 +229,10 @@ class ReflectionEngine:
                         except (ValueError, TypeError): pass
             
             stream = self.lifecycle.calculate_temporal_signals(stream, reinforcement_dates, now)
-            
-            if arbitration_mode != "lite":
-                stream.enrichment_status = "pending"
-            
+
+            # V7.8: Always set enrichment_status (lite mode removed)
+            stream.enrichment_status = "pending"
+
             # Persist via process_event (V5.0 standard)
             # This call will automatically acquire the necessary locks and savepoints
             decision = self.processor.process_event(

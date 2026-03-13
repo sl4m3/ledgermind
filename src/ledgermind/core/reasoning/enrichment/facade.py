@@ -156,7 +156,7 @@ class LLMEnricher:
         logger.info(f"Synthesizing merged rationale for {len(rationales)} items...")
         
         combined_text = "\n\n--- SOURCE RATIONALE ---\n\n".join(rationales)
-        config = EnrichmentConfig.from_memory(memory, mode=self.mode or "lite", preferred_language=self.preferred_language or "russian")
+        config = EnrichmentConfig.from_memory(memory, mode=self.mode or "rich", preferred_language=self.preferred_language or "russian")
         
         # Use existing prompts from builder.py
         instructions = PromptBuilder.build_consolidation_prompt(config)

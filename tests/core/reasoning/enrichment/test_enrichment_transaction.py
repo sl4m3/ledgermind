@@ -35,7 +35,7 @@ class TestEnrichmentTransactionPerProposal:
     @pytest.fixture
     def enricher(self):
         """Create an LLMEnricher instance."""
-        return LLMEnricher(mode="lite", preferred_language="russian")
+        return LLMEnricher(mode="rich", preferred_language="russian")
 
     def test_batch_continues_on_i4_violation(self, memory, enricher):
         """
@@ -176,7 +176,7 @@ class TestEnrichmentTransactionLogging:
 
     @pytest.fixture
     def enricher(self):
-        return LLMEnricher(mode="lite", preferred_language="russian")
+        return LLMEnricher(mode="rich", preferred_language="russian")
 
     def test_batch_start_log(self, memory, enricher, caplog):
         """Should log when batch processing starts (V7.7: per-proposal transactions)."""

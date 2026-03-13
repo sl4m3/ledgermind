@@ -56,10 +56,7 @@ class EnrichmentWorker(WorkerThread):
             # V7.7: Use enrichment_mode setting (legacy arbitration_mode removed)
             mode = self.memory.semantic.meta.get_config("enrichment_mode", "rich")
 
-            if mode == "lite":
-                logger.debug("[EnrichmentWorker] Skipping: lite mode active")
-                return
-
+            # V7.8: lite mode removed, always enrich
             logger.info(f"[EnrichmentWorker] Starting enrichment cycle (mode={mode})")
 
             # Import here to avoid circular imports
