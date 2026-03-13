@@ -14,7 +14,9 @@ class SemanticMetaStore:
     """
     def __init__(self, db_path: str):
         self.db_path = db_path
-        self._conn = sqlite3.connect(db_path, timeout=30.0, check_same_thread=False)
+        # isolation_level=None disables implicit transactions. This is critical for WAL mode
+        # to ensure that concurrent READ queries do not pin the connection to an old snapshot.
+        self._conn = sqlite3.connect(db_path, timeout=30.0, check_same_thread=False, isolation_level=None)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA busy_timeout = 30000")
         self._init_db()
