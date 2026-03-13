@@ -162,7 +162,10 @@ class DecisionCommandService(MemoryService):
         try:
             with self.transaction(description=f"Accept Proposal {proposal_id}"):
                 supersedes = ctx.get("suggested_supersedes", [])
-                target, title, enrichment_status, final_rationale = ctx.get("target"), ctx.get("title"), ctx.get("enrichment_status"), ctx.get("rationale", "")
+                target, title = ctx.get("target"), ctx.get("title")
+                # V7.7: Default enrichment_status to "pending" if not set
+                enrichment_status = ctx.get("enrichment_status") or "pending"
+                final_rationale = ctx.get("rationale", "")
                 
                 # V7.0: Inherit phase from proposal
                 proposal_phase_str = ctx.get('phase', 'pattern')
