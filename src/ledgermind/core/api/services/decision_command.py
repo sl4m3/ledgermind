@@ -167,13 +167,11 @@ class DecisionCommandService(MemoryService):
                 enrichment_status = ctx.get("enrichment_status") or "pending"
                 final_rationale = ctx.get("rationale", "")
                 
-                # V7.0: Inherit phase from proposal
-                proposal_phase_str = ctx.get('phase', 'pattern')
-                try:
-                    from ledgermind.core.core.schemas import DecisionPhase
-                    proposal_phase = DecisionPhase(proposal_phase_str)
-                except (ValueError, AttributeError):
-                    proposal_phase = None  # Will default to EMERGENT in supersede_decision
+                # V7.8: Accept proposal = crystallization to EMERGENT
+                # Human validation supersedes automatic metrics.
+                # When a human accepts a proposal, it becomes EMERGENT regardless of evidence/stability.
+                # The lifecycle promotion system handles further advancement to CANONICAL.
+                proposal_phase = DecisionPhase.EMERGENT
 
                 if target == "knowledge_merge" and supersedes:
                     if enrichment_status != "completed":
