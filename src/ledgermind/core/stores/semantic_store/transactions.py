@@ -20,6 +20,7 @@ class FileSystemLock:
         self.timeout = timeout
         self._fd = None
         self._local = threading.local()
+        self._thread_lock = threading.RLock()
 
     @property
     def _lock_depth(self) -> int:
@@ -34,6 +35,9 @@ class FileSystemLock:
         """
         Acquires an OS-level lock. Supports recursion within the same thread.
         """
+        # 1. Thread-level isolation first
+        self._thread_lock.acquire()
+
         # Handle recursive locking
         if self._lock_depth > 0:
             self._lock_depth += 1
@@ -59,7 +63,9 @@ class FileSystemLock:
                 self._lock_depth = 1
                 return True
             except (BlockingIOError, OSError):
-                if timeout == 0: return False
+                if timeout == 0: 
+                    self._thread_lock.release()
+                    return False
                 
             # Blocking wait with timeout
             while True:
@@ -70,32 +76,41 @@ class FileSystemLock:
                     return True
                 except (BlockingIOError, OSError):
                     if time.time() - start_time >= effective_timeout:
+                        self._thread_lock.release()
                         # Before giving up, log who is holding it if possible
                         raise TimeoutError(f"Could not acquire OS lock on {self.lock_path} after {effective_timeout}s. "
                                          f"Check if another process is stuck.")
                     time.sleep(0.05) # Balanced sleep for Termux environment
 
-        except ImportError:
-            # Fallback for Windows (simplified)
-            self._lock_depth = 1 # Dummy depth
-            return True # Not implemented properly for Windows yet, but we are on Android/Linux
+        except Exception as e:
+            self._thread_lock.release()
+            if isinstance(e, ImportError):
+                # Fallback for Windows (simplified)
+                self._lock_depth = 1 # Dummy depth
+                return True 
+            raise
 
     def release(self):
         """Releases the lock, accounting for recursion depth."""
-        if self._lock_depth > 1:
-            self._lock_depth -= 1
-            return
+        try:
+            if self._lock_depth > 1:
+                self._lock_depth -= 1
+                return
 
-        if self._fd is not None:
-            try:
-                import fcntl
-                fcntl.flock(self._fd, fcntl.LOCK_UN)
-                os.close(self._fd)
-            except Exception:
-                pass
-            finally:
-                self._fd = None
-                self._lock_depth = 0
+            if self._fd is not None:
+                try:
+                    import fcntl
+                    fcntl.flock(self._fd, fcntl.LOCK_UN)
+                    os.close(self._fd)
+                except Exception:
+                    pass
+                finally:
+                    self._fd = None
+                    self._lock_depth = 0
+        finally:
+            # Ensure we only release thread lock if it was actually held by this call
+            # (RLock.release can be called only as many times as acquire)
+            self._thread_lock.release()
 
 class TransactionManager:
     """
