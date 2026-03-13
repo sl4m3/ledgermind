@@ -113,6 +113,9 @@ class SemanticStore:
             self._fs_lock.release()
         
         self.reconcile_untracked()
+        if not skip_validate:
+            # V7.7: CRITICAL - Validate files exist BEFORE sync to detect manual deletions
+            IntegrityChecker.validate_files_exist(self.repo_path, self.meta)
         self.sync_meta_index()
         if not skip_validate:
             IntegrityChecker.validate(self.repo_path, meta_store=self.meta)

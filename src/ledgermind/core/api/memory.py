@@ -123,6 +123,18 @@ class Memory:
         if db_model:
             self.config.vector_model = db_model
 
+        # V7.7: CRITICAL - Validate integrity on startup
+        # This detects manual file deletions that break referential integrity
+        try:
+            # Check that all indexed files exist on disk (only for non-empty DB)
+            logger.info(f"Running integrity check: storage={self.storage_path}")
+            from ledgermind.core.stores.semantic_store.integrity import IntegrityChecker
+            IntegrityChecker.validate_files_exist(self.storage_path, None)  # Pass None to force direct DB access
+            logger.info("Integrity check passed")
+        except IntegrityViolation as e:
+            logger.error(f"Integrity violation detected on startup: {e}")
+            raise
+
         # 3. Initialize Vector Engine
         self.vector = VectorStore(
             os.path.join(self.storage_path, "vector_index"),

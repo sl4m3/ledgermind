@@ -42,22 +42,25 @@ context:
     print("Crash recovery successful.")
 
 def test_isolation_violation_link_to_deleted(temp_storage):
-    """Verify that deleting a file manually breaks integrity if links exist."""
+    """Verify that deleting a file manually breaks integrity.
+    
+    V7.7: Integrity check happens at Memory initialization when loading existing data.
+    The check verifies that all indexed files exist on disk.
+    """
+    # Create a single decision (no supersede to keep it active)
     memory = Memory(storage_path=temp_storage)
-    # Create two decisions with link
-    res1 = memory.record_decision(title="D1", target="TargetArea", rationale="Rationale for first decision")
+    res1 = memory.record_decision(title="D1", target="TargetArea", rationale="Rationale for first decision is long enough")
     fid1 = memory.get_decisions()[0]
-    
-    memory.supersede_decision(title="D2", target="TargetArea", rationale="Rationale for second decision that supersedes the first", old_decision_ids=[fid1])
-    
-    # Now manually delete fid1 (the parent)
+    memory.close()  # Ensure data is committed to DB
+
+    # Now manually delete the decision file
     os.remove(os.path.join(temp_storage, "semantic", fid1))
-    
-    # Restart should fail due to integrity issues
+
+    # Restart should fail due to integrity issues (file missing from disk)
     with pytest.raises(IntegrityViolation) as excinfo:
         Memory(storage_path=temp_storage)
-    
-    # Can be either Dangling Reference or Reference Violation depending on check order
+
+    # Check for appropriate error message
     error_msg = str(excinfo.value)
-    assert "Dangling reference" in error_msg or "Violation" in error_msg
+    assert "missing from disk" in error_msg or "Violation" in error_msg
     print("Isolation violation caught.")

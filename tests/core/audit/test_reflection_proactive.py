@@ -64,18 +64,23 @@ def test_reflection_lower_error_threshold():
     processed_contents = [call.kwargs["content"] for call in mock_processor.process_event.call_args_list]
     assert any("hypothesis for" in c.lower() for c in processed_contents)
 
-def test_reflection_skips_active_targets():
-    """Verify that it updates existing stream instead of creating a new one."""
+def test_reflection_allows_multiple_drafts_per_target():
+    """Verify that reflection CAN create multiple drafts for the same target.
+    
+    V7.1: Idempotency check disabled to allow natural evolution via merging.
+    Multiple draft proposals per target are expected and handled by merge engine.
+    """
     mock_episodic = MagicMock()
     mock_semantic = MagicMock()
     mock_processor = MagicMock()
-    
+
     now = datetime.now()
     mock_episodic.query.return_value = [
         {"id": i, "kind": "result", "content": "Success", "timestamp": now.isoformat(), "context": {"status": "active", "target": "existing_target", "success": True}}
         for i in range(6)
     ]
-    
+
+    # Even if there's an existing active decision for this target
     mock_semantic.meta.list_all.return_value = [
         {
             "fid": "stream_1",
@@ -84,14 +89,15 @@ def test_reflection_skips_active_targets():
             "target": "existing_target",
             "context_json": '{"decision_id": "stream_1", "title": "pattern", "rationale": "pattern of behavior", "phase": "emergent", "status": "active", "target": "existing_target", "vitality": "active", "evidence_event_ids": []}'
         }
-    ]    
-    
+    ]
+
     engine = ReflectionEngine(mock_episodic, mock_semantic, processor=mock_processor)
     results, _ = engine.run_cycle()
 
-    # Should NOT call process_event (create), but should call update_decision
-    assert mock_processor.process_event.call_count == 0
-    assert mock_processor.update_decision.call_count >= 1
+    # V7.1: Reflection CAN create new proposals even if target has active decisions
+    # Merge engine will handle duplicates later
+    assert mock_processor.process_event.call_count >= 1
     
-    args, kwargs = mock_processor.update_decision.call_args
-    assert args[0] == "stream_1"
+    # Verify it created a hypothesis proposal
+    processed_contents = [call.kwargs["content"] for call in mock_processor.process_event.call_args_list]
+    assert any("hypothesis for" in c.lower() for c in processed_contents)
