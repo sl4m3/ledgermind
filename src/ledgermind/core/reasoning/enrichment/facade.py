@@ -36,9 +36,9 @@ class LLMEnricher:
     
     PHASE_ORDER = [DecisionPhase.PATTERN, DecisionPhase.EMERGENT, DecisionPhase.CANONICAL]
     
-    def __init__(self, mode: Optional[str] = None, preferred_language: Optional[str] = None):
+    def __init__(self, mode: Optional[str] = None, enrichment_language: Optional[str] = None):
         self.mode = mode
-        self.preferred_language = preferred_language
+        self.enrichment_language = enrichment_language
         self._cloud_client = None
         self._local_client = None
     
@@ -87,10 +87,10 @@ class LLMEnricher:
             meta = memory.semantic.meta
             if self.mode is None:
                 self.mode = meta.get_config("enrichment_mode") or "rich"
-            if self.preferred_language is None:
-                self.preferred_language = meta.get_config("enrichment_language") or "russian"
+            if self.enrichment_language is None:
+                self.enrichment_language = meta.get_config("enrichment_language") or "russian"
 
-        logger.info(f"Auto-Enrichment Triggered: Language={self.preferred_language}, Mode={self.mode}")
+        logger.info(f"Auto-Enrichment Triggered: Language={self.enrichment_language}, Mode={self.mode}")
         
         # 1. Discover all records where enrichment is still needed
         all_metas = memory.semantic.meta.list_all()
@@ -156,7 +156,7 @@ class LLMEnricher:
         logger.info(f"Synthesizing merged rationale for {len(rationales)} items...")
         
         combined_text = "\n\n--- SOURCE RATIONALE ---\n\n".join(rationales)
-        config = EnrichmentConfig.from_memory(memory, mode=self.mode or "rich", preferred_language=self.preferred_language or "russian")
+        config = EnrichmentConfig.from_memory(memory, mode=self.mode or "rich", enrichment_language=self.enrichment_language or "russian")
         
         # Use existing prompts from builder.py
         instructions = PromptBuilder.build_consolidation_prompt(config)
@@ -248,7 +248,7 @@ class LLMEnricher:
         fid = getattr(prop, 'fid', 'unknown')
         current_obj = prop
         iteration = 1
-        config = EnrichmentConfig.from_memory(memory, mode=self.mode, preferred_language=self.preferred_language)
+        config = EnrichmentConfig.from_memory(memory, mode=self.mode, enrichment_language=self.enrichment_language)
 
         while True:
             eids = getattr(current_obj, 'evidence_event_ids', [])
@@ -326,7 +326,7 @@ class LLMEnricher:
 
         docs_summary = "\n\n".join([f"FID: {d['fid']}\nTitle: {d['title']}\nTarget: {d.get('target', 'unknown')}\nKeywords: {d.get('keywords', [])}\nRationale: {d.get('rationale', '')[:300]}\nContent: {d['content'][:500]}" for d in docs_meta])
         
-        config = EnrichmentConfig.from_memory(memory, mode="rich", preferred_language=self.preferred_language)
+        config = EnrichmentConfig.from_memory(memory, mode="rich", enrichment_language=self.enrichment_language)
         instructions = PromptBuilder.build_clustering_prompt(config)
         full_prompt = PromptBuilder.wrap_with_data(instructions, docs_summary, config)
         
@@ -505,37 +505,16 @@ class LLMEnricher:
                     "rationale": meta.get('rationale', '')[:500]
                 })
         
-        # Build prompt for conflict resolution
-        prompt = f"""
-Target Conflict Resolution
-
-You are consolidating knowledge documents. A target conflict was detected.
-
-PROPOSED TARGET: {proposed_target}
-
-CONSOLIDATED DOCUMENTS ({len(consolidated_docs)}):
-{json.dumps(consolidated_docs, indent=2, ensure_ascii=False)}
-
-CONFLICTING ACTIVE DECISIONS ({len(conflict_docs)}):
-{json.dumps(conflict_docs, indent=2, ensure_ascii=False)}
-
-TASK: Determine if the conflicting decisions represent the SAME knowledge as the 
-consolidated documents, or DIFFERENT knowledge.
-
-If SAME KNOWLEDGE: Return action="merge" to include conflicts in consolidation.
-If DIFFERENT KNOWLEDGE: Return action="separate" and propose a NEW unique target 
-that clearly distinguishes the consolidated knowledge from the conflicts.
-
-Return ONLY valid JSON:
-{{
-    "action": "merge" | "separate",
-    "reason": "Brief explanation of your decision",
-    "new_target": "proposed.new.target"  // Required only if action="separate"
-}}
-"""
+        # V7.8: Use PromptBuilder for consistent prompt formatting
+        config = EnrichmentConfig.from_memory(memory, mode="rich", enrichment_language=self.enrichment_language)
+        prompt = PromptBuilder.build_target_conflict_resolution_prompt(
+            config=config,
+            proposed_target=proposed_target,
+            consolidated_docs=consolidated_docs,
+            conflict_docs=conflict_docs
+        )
         
         # Call LLM with retry (3 attempts)
-        config = EnrichmentConfig.from_memory(memory, mode="rich", preferred_language=self.preferred_language)
         client = self._get_client(config, memory)
         
         for attempt in range(1, 4):
@@ -655,7 +634,7 @@ Return ONLY valid JSON:
         if len(docs_full) < 2: return
         
         docs_summary = "\n\n--- DOCUMENT BOUNDARY ---\n\n".join(docs_full)
-        config = EnrichmentConfig.from_memory(memory, mode="rich", preferred_language=self.preferred_language)
+        config = EnrichmentConfig.from_memory(memory, mode="rich", enrichment_language=self.enrichment_language)
         instructions = PromptBuilder.build_consolidation_prompt(config)
         full_prompt = PromptBuilder.wrap_with_data(instructions, docs_summary, config)
         
@@ -832,7 +811,7 @@ Return ONLY valid JSON:
     def enrich_proposal(self, proposal: Any, cluster_logs: Optional[str] = None, memory: Any = None, used_event_ids: Optional[List[int]] = None) -> Any:
         fid = getattr(proposal, 'fid', 'unknown')
         target = getattr(proposal, 'target', 'general')
-        config = EnrichmentConfig.from_memory(memory, self.mode, self.preferred_language)
+        config = EnrichmentConfig.from_memory(memory, self.mode, self.enrichment_language)
         instructions = PromptBuilder.build_system_prompt(target, getattr(proposal, 'rationale', ''), config)
         client = self._get_client(config, memory)
         response = client.call(instructions, cluster_logs or "", fid=fid)
