@@ -28,7 +28,7 @@ class TestEvidenceInheritance:
 
     @pytest.fixture
     def enricher(self):
-        return LLMEnricher(mode="rich", preferred_language="russian")
+        return LLMEnricher(mode="rich", enrichment_language="russian")
 
     def test_consolidation_inherits_total_evidence_count(self, memory, enricher):
         """
