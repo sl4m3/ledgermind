@@ -79,16 +79,15 @@ def init_project(path: str):
     ).ask()
     if client is None: return
     
-    # 5. Arbitration Mode
-    console.print("\n[bold yellow]Step 5: Arbitration Mode[/bold yellow]")
+    # 5. Enrichment Mode
+    console.print("\n[bold yellow]Step 5: Enrichment Mode[/bold yellow]")
     console.print("How should LedgerMind resolve memory conflicts and summarize knowledge?")
-    console.print("  [bold]lite[/bold]    - Algorithmic resolution only (Fast, no LLM required)")
     console.print("  [bold]optimal[/bold] - Local LLM via Ollama/DeepSeek (Private, medium speed)")
     console.print("  [bold]rich[/bold]    - Cloud LLM via client (Highest quality, uses API)")
     mode = questionary.select(
         "Select mode:",
-        choices=["lite", "optimal", "rich"],
-        default="lite"
+        choices=["optimal", "rich"],
+        default="optimal"
     ).ask()
     if mode is None: return
 
@@ -612,13 +611,13 @@ def main():
     bc_parser = subparsers.add_parser("bridge-context", help="Internal: get context")
     bc_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
     bc_parser.add_argument("--prompt", required=True, help="User prompt")
-    bc_parser.add_argument("--cli", help="Default CLI for arbitration")
+    bc_parser.add_argument("--cli", help="Default CLI for enrichment")
     bc_parser.add_argument("--threshold", type=float, help="Relevance threshold")
     bc_parser.add_argument("--stdin", action="store_true", help="Read from stdin")
 
     bs_parser = subparsers.add_parser("bridge-sync", help="Internal: sync transcript history (Stop hook)")
     bs_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
-    bs_parser.add_argument("--cli", help="Default CLI for arbitration")
+    bs_parser.add_argument("--cli", help="Default CLI for enrichment")
     bs_parser.add_argument("--stdin", action="store_true", help="Read from stdin")
 
     br_parser = subparsers.add_parser("bridge-record", help="Internal: record interaction")
@@ -627,7 +626,7 @@ def main():
     br_parser.add_argument("--response", required=True, help="Agent response")
     br_parser.add_argument("--success", action="store_true", default=True, help="Was successful")
     br_parser.add_argument("--metadata", default=None, help="JSON metadata")
-    br_parser.add_argument("--cli", help="Default CLI for arbitration")
+    br_parser.add_argument("--cli", help="Default CLI for enrichment")
     br_parser.add_argument("--stdin", action="store_true", help="Read from stdin")
 
     # Global options

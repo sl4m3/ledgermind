@@ -65,7 +65,7 @@ It is an **autonomous knowledge lifecycle manager** that combines a hybrid stora
 | **Self-Healing Index** | Automatically rebuilds the SQLite metadata index from Markdown source files if corruption or desync is detected. |
 | **Lifecycle & Vitality Engine** | Autonomous `DecisionStream` lifecycle phases (`PATTERN` → `EMERGENT` → `CANONICAL`) with temporal signal analysis. |
 | **Procedural Distillation** | `DistillationEngine` automatically converts successful trajectories into step-by-step instructions. |
-| **Intelligent Conflict Resolution** | Vector similarity automatically supersedes outdated decisions (70% threshold) or triggers LLM arbitration (50-70%). |
+| **Intelligent Conflict Resolution** | Vector similarity automatically supersedes outdated decisions (70% threshold) or triggers LLM enrichment (50-70%). |
 | **Multi-Agent Namespacing** | Logical partitioning of memory for multiple agents within a single project. |
 | **4-bit GGUF Integration** | Optimized for Termux/Android with embedding caching for maximum stability. |
 | **Hybrid Storage** | SQLite for fast queries + Git for cryptographic audit and version history. |
@@ -162,8 +162,7 @@ This will guide you through:
 2. **Memory Path**: Configuring isolated memory storage (default: `../.ledgermind`)
 3. **Embedding Model**: Choosing between `jina-v5-4bit` (default) or a custom GGUF/HF model
 4. **Client Hooks**: Installing automatic context hooks for your preferred client
-5. **Arbitration Mode**: Selecting a conflict resolution strategy:
-   - `lite`: Fast, purely algorithmic
+5. **Enrichment Mode**: Selecting a conflict resolution strategy:
    - `optimal`: Uses local LLMs (e.g., Ollama) for hypothesis enrichment
    - `rich`: Uses cloud LLMs (OpenAI, Anthropic) for maximum insight
 

@@ -60,7 +60,7 @@ This document covers practical workflows for common scenarios when using LedgerM
    - Namespace: `default` (can change later)
    - Vector Model: `jina-v5-4bit` (recommended for mobile)
    - TTL: `30` days (default)
-   - Arbitration Mode: `lite` (algorithmic, fastest)
+   - Enrichment Mode: `optimal` (local LLM, private)
 
 4. **Verify Setup**
    ```bash
@@ -102,7 +102,7 @@ This document covers practical workflows for common scenarios when using LedgerM
 **Best Practices**:
 - Use default settings for initial setup
 - Verify Git is configured before recording decisions
-- Start with `lite` arbitration mode for fastest performance
+- Start with `optimal` enrichment mode for best balance of privacy and quality
 - Test with a simple decision before complex workflows
 
 ---
@@ -1127,7 +1127,7 @@ This document covers practical workflows for common scenarios when using LedgerM
    ```
 
 **Best Practices**:
-- Use arbitration modes appropriate for your setup
+- Use enrichment modes appropriate for your setup
 - Review conflicts manually when uncertain
 - Supersede rather than forget for history
 - Document conflict resolution rationale
