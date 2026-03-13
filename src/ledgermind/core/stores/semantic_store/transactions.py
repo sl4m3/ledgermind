@@ -14,13 +14,21 @@ class FileSystemLock:
     Robust OS-level file locking mechanism using fcntl.flock on Unix/Android.
     Ensures that only one process or thread can modify the store at a time.
     """
+    _global_thread_locks = {}
+    _registry_lock = threading.Lock()
+
     def __init__(self, lock_path: str, timeout: int = 180):
         # V7.6: Increased default timeout from 60s to 180s to accommodate LLM calls
         self.lock_path = os.path.abspath(lock_path)
         self.timeout = timeout
         self._fd = None
         self._local = threading.local()
-        self._thread_lock = threading.RLock()
+        
+        # Ensure we use the same RLock for the same path across all instances in this process
+        with self._registry_lock:
+            if self.lock_path not in self._global_thread_locks:
+                self._global_thread_locks[self.lock_path] = threading.RLock()
+        self._thread_lock = self._global_thread_locks[self.lock_path]
 
     @property
     def _lock_depth(self) -> int:
