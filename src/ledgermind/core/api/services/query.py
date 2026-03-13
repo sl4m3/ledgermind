@@ -52,6 +52,7 @@ class QueryService(MemoryService):
             search_status = "active" if mode == "strict" else None
             kw_results = self.semantic.meta.keyword_search(query, limit=limit, namespace=effective_namespace, status=search_status)
             if kw_results:
+                # V7.8: Include vitality and phase in fast path results
                 fast_results = [{
                     "id": r['fid'],
                     "title": r['title'],
@@ -59,7 +60,9 @@ class QueryService(MemoryService):
                     "target": r['target'],
                     "status": r['status'],
                     "score": 1.0 * self._get_lifecycle_weight(r), # Apply weights
-                    "kind": r['kind']
+                    "kind": r['kind'],
+                    "vitality": r.get('vitality', 'active'),  # V7.8: Include vitality
+                    "phase": r.get('phase', 'pattern')  # V7.8: Include phase
                 } for r in kw_results]
                 # V7.1: MUST SORT by score, otherwise weights have no effect on order
                 return sorted(fast_results, key=lambda x: x['score'], reverse=True)
@@ -119,7 +122,7 @@ class QueryService(MemoryService):
 
             if not self.context.include_history and status not in ("active", "superseded", "deprecated", "pending_merge", "draft"):
                 if mode != "maintenance" or status != "draft": continue
-            
+
             if mode == "strict" and status not in ("active", "pending_merge"): continue
             # V7.0: Allow draft proposals in balanced mode if they are the latest truth
             # if mode == "balanced" and status == "draft": continue
@@ -137,8 +140,8 @@ class QueryService(MemoryService):
                 continue
 
             link_count, _ = link_counts.get(final_id, (0, 0.0))
-            boost = min(link_count * 0.2, 1.0) 
-            
+            boost = min(link_count * 0.2, 1.0)
+
             phase = meta.get('phase', 'pattern').lower()
             vitality = meta.get('vitality', 'active').lower()
             kind = meta.get('kind', 'proposal').lower()
@@ -181,11 +184,11 @@ class QueryService(MemoryService):
             if skipped < offset:
                 skipped += 1
                 continue
-            
+
             try:
                 ctx = json.loads(cand.pop('context_json'))
             except Exception: ctx = {}
-            
+
             cand["rationale"] = ctx.get("rationale")
             cand["consequences"] = ctx.get("consequences", [])
             cand["compressive_rationale"] = ctx.get("compressive_rationale")
