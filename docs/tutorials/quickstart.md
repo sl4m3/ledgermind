@@ -161,13 +161,12 @@ Which client do you use?
 
 **Recommendation**: Choose the client you actually use. See the [Client Support Matrix](#zero-touch-setup) below for details.
 
-### Step 5: Arbitration Mode
+### Step 5: Enrichment Mode
 
 ```
-Step 5: Arbitration Mode
+Step 5: Enrichment Mode
 How should LedgerMind resolve memory conflicts and summarize knowledge?
 
-  lite     # Algorithmic resolution only (Fast, no LLM required)
   optimal  # Local LLM via Ollama/DeepSeek (Private, medium speed)
   rich     # Cloud LLM via client (Highest quality, uses API)
 ```
@@ -181,7 +180,6 @@ How should LedgerMind resolve memory conflicts and summarize knowledge?
 
 | Mode | Speed | Privacy | Quality | When to Use |
 |-------|-------|----------|-------------|
-| `lite` | Fastest | Complete | Good for basic decisions |
 | `optimal` | Medium | Local data only | Recommended for most users |
 | `rich` | Slowest | Uses API keys | When quality is critical |
 

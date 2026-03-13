@@ -180,27 +180,27 @@ class MCPServer:
 
     def _register_session(self):
         """Registers the current PID as an active session for the background worker."""
-        # Use the actual memory storage path which is initialized earlier
+        # V7.8: sessions folder is at ../.ledgermind/sessions (one level up from storage)
         storage = os.path.abspath(self.memory.storage_path)
-        session_dir = os.path.join(storage, "sessions")
+        sessions_dir = os.path.join(os.path.dirname(storage), "sessions")
         try:
-            os.makedirs(session_dir, exist_ok=True)
-            session_file = os.path.join(session_dir, f"{os.getpid()}.lock")
+            os.makedirs(sessions_dir, exist_ok=True)
+            session_file = os.path.join(sessions_dir, f"{os.getpid()}.lock")
             with open(session_file, 'w') as f:
                 f.write(str(os.getpid()))
             logger.info(f"Session registered: {session_file}")
-            
+
             # Ensure file is removed on exit
             import atexit
             def _cleanup():
-                try: 
+                try:
                     if os.path.exists(session_file):
                         os.remove(session_file)
                         logger.debug(f"Session cleaned up: {session_file}")
                 except: pass
             atexit.register(_cleanup)
         except Exception as e:
-            logger.error(f"Failed to register session in {session_dir}: {e}")
+            logger.error(f"Failed to register session in {sessions_dir}: {e}")
 
     def _start_background_worker(self):
         """Starts the background worker as a fully detached daemon-like process."""
@@ -403,8 +403,10 @@ class MCPServer:
             self._rest_stop_event.set()
 
         # 2. Cleanup session file (Worker will detect this and shutdown if no other sessions)
+        # V7.8: sessions folder is at ../.ledgermind/sessions (one level up from storage)
         storage = os.path.abspath(self.memory.storage_path)
-        session_file = os.path.join(storage, "sessions", f"{os.getpid()}.lock")
+        sessions_dir = os.path.join(os.path.dirname(storage), "sessions")
+        session_file = os.path.join(sessions_dir, f"{os.getpid()}.lock")
         try:
             if os.path.exists(session_file):
                 os.remove(session_file)

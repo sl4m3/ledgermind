@@ -789,7 +789,7 @@ bridge = IntegrationBridge(
     relevance_threshold=0.7,    # Only return results with 70%+ relevance
     retention_turns=10,          # Remember context for N turns
     vector_model="../.ledgermind/models/3.1.2-small-text-matching-Q4_K_M.gguf",
-    default_cli=["gemini"],      # Default LLMs for arbitration
+    default_cli=["gemini"],      # Default LLMs for enrichment
     memory_instance=None           # Optional: reuse existing Memory instance
 )
 ```
@@ -802,7 +802,7 @@ bridge = IntegrationBridge(
 | `relevance_threshold` | float | `0.7` | Minimum relevance score for context (0.0-1.0) |
 | `retention_turns` | int | `10` | How many turns to remember context |
 | `vector_model` | str | Default model path | Path to GGUF model |
-| `default_cli` | List[str] | `["gemini"]` | Default LLMs for arbitration |
+| `default_cli` | List[str] | `["gemini"]` | Default LLMs for enrichment |
 | `memory_instance` | Memory | `None` | Optional existing Memory instance |
 
 ### Context & Recording
@@ -936,7 +936,7 @@ def record_decision(
 ) -> MemoryDecision:
 ```
 
-**Difference from Memory API**: Uses `arbitrate_with_cli()` for automatic LLM arbitration.
+**Difference from Memory API**: Uses `arbitrate_with_cli()` for automatic LLM enrichment.
 
 #### supersede_decision()
 
@@ -1062,7 +1062,7 @@ Proxies to `Memory.check_environment()`.
 
 #### arbitrate_with_cli()
 
-Internal method for automatic LLM arbitration.
+Internal method for automatic LLM enrichment.
 
 ```python
 def arbitrate_with_cli(self, cli_list: List[str], new_decision: Any, old_decisions: Any) -> str:

@@ -47,29 +47,25 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 python3 -c "import uuid; print(uuid.uuid4())"
 ```
 
-### LEDGERMIND_ARB_MODE
+### LEDGERMIND_ENRICH_MODE
 
-**Purpose**: Override default arbitration mode (from init or config file).
+**Purpose**: Override default enrichment mode (from init or config file).
 
 **Usage**:
 ```bash
 # Set to 'optimal' mode for local LLM
-export LEDGERMIND_ARB_MODE=optimal
+export LEDGERMIND_ENRICH_MODE=optimal
 
 # Or set to 'rich' for cloud LLM
-export LEDGERMIND_ARB_MODE=rich
-
-# Force algorithmic mode
-export LEDGERMIND_ARB_MODE=lite
+export LEDGERMIND_ENRICH_MODE=rich
 ```
 
-**Priority**: Overrides `arbitration_mode` in configuration file.
+**Priority**: Overrides `enrichment_mode` in configuration file.
 
 **Supported Values**:
 
 | Value | Description | LLM Required |
 |--------|-------------|----------------|
-| `lite` | Algorithmic resolution only (fastest) | No |
 | `optimal` | Local LLM (Ollama, DeepSeek) | Yes |
 | `rich` | Cloud LLM (OpenAI, Anthropic) | Yes |
 
@@ -394,29 +390,28 @@ Which client do you use?
 | **VS Code** | onDidSave, ChatParticipant | Extension config | ✅ |
 | **None** | None | N/A | ❌ |
 
-**5. Arbitration Mode**
+**5. Enrichment Mode**
 
 ```
-Step 5: Arbitration Mode
-How should to LedgerMind resolve memory conflicts and summarize knowledge?
+Step 5: Enrichment Mode
+How should LedgerMind resolve memory conflicts and summarize knowledge?
 
-  lite     # Algorithmic resolution only (Fast, no LLM required)
   optimal  # Local LLM via Ollama/DeepSeek (Private, medium speed)
   rich     # Cloud LLM via client (Highest quality, uses API)
 ```
 
 **Mode Comparison**:
 
-| Aspect | Lite | Optimal | Rich |
-|---------|------|-------|------|
-| Speed | Fastest | Medium | Slowest |
-| Privacy | Complete | Local data only | External API usage |
-| Quality | Good | Better | Best |
-| LLM Required | No | Yes | Yes |
-| Cost | Free | Compute cost | API cost |
+| Aspect | Optimal | Rich |
+|---------|-------|------|
+| Speed | Medium | Slowest |
+| Privacy | Local data only | External API usage |
+| Quality | Better | Best |
+| LLM Required | Yes | Yes |
+| Cost | Compute cost | API cost |
 
 **Configuration Persistence**:
-- Arbitration mode is saved to configuration file
+- Enrichment mode is saved to configuration file
 - Used by `IntegrationBridge.arbitrate_with_cli()`
 
 ---
@@ -440,7 +435,7 @@ How should to LedgerMind resolve memory conflicts and summarize knowledge?
   "namespace": "default",
   "vector_model": "/path/to/model.gguf",
   "vector_workers": 4,
-  "arbitration_mode": "optimal",
+  "enrichment_mode": "optimal",
   "enable_git": true,
   "relevance_threshold": 0.7,
   "retention_turns": 10
@@ -465,7 +460,7 @@ cat > ~/.ledgermind/config.json << 'EOF'
 {
   "storage_path": "/custom/memory/path",
   "ttl_days": 60,
-  "arbitration_mode": "optimal"
+  "enrichment_mode": "optimal"
 }
 EOF
 
@@ -514,37 +509,11 @@ python3 -m "import json; print(json.loads(open(' ~/.ledgermind/config.json').rea
 
 ---
 
-## Arbitration Modes
+## Enrichment Modes
 
 ### Overview
 
-Arbitration mode determines how LedgerMind resolves conflicts and enriches knowledge.
-
-### Mode: lite
-
-**Description**: Purely algorithmic resolution. No LLM required.
-
-**Behavior**:
-- Vector similarity analysis determines if new decision conflicts with existing ones
-- Threshold: If similarity >= 70%, automatically supersede old decision
-- Fast, deterministic, no external dependencies
-- Good for basic conflict resolution
-
-**Configuration**:
-```bash
-# Via config file
-{
-  "arbitration_mode": "lite"
-}
-
-# Via environment variable
-export LEDGERMIND_ARB_MODE=lite
-```
-
-**Best For**:
-- Production environments where consistency is critical
-- Resource-constrained deployments
-- Situations requiring zero external dependencies
+Enrichment mode determines how LedgerMind resolves conflicts and enriches knowledge.
 
 ### Mode: optimal
 
@@ -557,15 +526,14 @@ export LEDGERMIND_ARB_MODE=lite
 - Private: All data stays on-device
 
 **Configuration**:
-
 ```bash
 # Via config file
 {
-  "arbitration_mode": "optimal"
+  "enrichment_mode": "optimal"
 }
 
 # Via environment variable
-export LEDGERMIND_ARB_MODE=optimal
+export LEDGERMIND_ENRICH_MODE=optimal
 ```
 
 **LLM Client Setup**:
@@ -596,11 +564,11 @@ export LEDGERMIND_ARB_MODE=optimal
 ```bash
 # Via config file
 {
-  "arbitration_mode": "rich"
+  "enrichment_mode": "rich"
 }
 
 # Via environment variable
-export LEDGERMIND_ARB_MODE=rich
+export LEDGERMIND_ENRICH_MODE=rich
 ```
 
 **API Key Configuration**:
