@@ -142,7 +142,7 @@ class QueryService(MemoryService):
             phase = meta.get('phase', 'pattern').lower()
             vitality = meta.get('vitality', 'active').lower()
             kind = meta.get('kind', 'proposal').lower()
-            
+
             lifecycle_multiplier = self._get_lifecycle_multiplier(phase, vitality, kind, meta.get("status"))
             
             final_candidates[final_id] = {
@@ -230,13 +230,24 @@ class QueryService(MemoryService):
                 if current_id in cache:
                     meta = cache[current_id]
                     if meta.get("status") == "active" or not meta.get("superseded_by"):
+                        # V7.8: Ensure vitality is present
+                        if 'vitality' not in meta:
+                            full_meta = self.semantic.meta.get_by_fid(current_id)
+                            if full_meta:
+                                meta['vitality'] = full_meta.get('vitality', 'active')
                         return meta
                     current_id = meta.get("superseded_by")
                     depth += 1
                 else: break
             else: return None
 
-        return self.semantic.meta.resolve_to_truth(doc_id)
+        result = self.semantic.meta.resolve_to_truth(doc_id)
+        # V7.8: Ensure vitality is present in resolved result
+        if result and 'vitality' not in result:
+            full_meta = self.semantic.meta.get_by_fid(doc_id)
+            if full_meta:
+                result['vitality'] = full_meta.get('vitality', 'active')
+        return result
 
     def _get_lifecycle_weight(self, meta: Optional[Dict[str, Any]]) -> float:
         if not meta: return 1.0

@@ -137,16 +137,28 @@ class LifecycleManagementService(MemoryService):
                              # V7.8: Gradual vitality transition: active → decaying → dormant
                              # Don't jump directly to dormant, go through decaying first
                              current_vitality = meta.get('vitality', 'active') if meta else 'active'
+                             current_status = meta.get('status', 'active') if meta else 'active'
+                             current_conf = meta.get('confidence', 0.0) if meta else 0.0
                              
                              if current_vitality == 'decaying':
-                                 # Already decaying, now transition to dormant
-                                 logger.info(f"Semantic Decay: Marking {fid} as dormant/deprecated (conf={new_conf})")
-                                 self.semantic.update_decision(fid, {"confidence": 0.0, "status": "deprecated", "vitality": "dormant"},
-                                                             commit_msg=f"Decay: Knowledge reached zero confidence, marked as dormant.")
+                                 # Already decaying - transition to dormant only if status is also deprecated
+                                 # This ensures 'decaying' state is visible for at least one cycle
+                                 if current_status == 'deprecated':
+                                     logger.info(f"Semantic Decay: Marking {fid} as dormant/deprecated (conf={new_conf})")
+                                     self.semantic.update_decision(fid, {"confidence": 0.0, "status": "deprecated", "vitality": "dormant"},
+                                                                 commit_msg=f"Decay: Knowledge reached zero confidence, marked as dormant.")
+                                 else:
+                                     # First cycle with decaying - stay decaying, mark as deprecated
+                                     logger.info(f"Semantic Decay: {fid} remains decaying (conf={new_conf})")
+                                     self.semantic.update_decision(fid, {"confidence": new_conf, "status": "deprecated"},
+                                                                 commit_msg=f"Decay: Knowledge remains decaying.")
+                             elif current_vitality == 'dormant':
+                                 # Already dormant - no change needed
+                                 logger.debug(f"Semantic Decay: {fid} already dormant")
                              else:
-                                 # First time - set to decaying
+                                 # First time - set to decaying (NOT dormant even if conf=0)
                                  logger.info(f"Semantic Decay: Marking {fid} as decaying (conf={new_conf})")
-                                 self.semantic.update_decision(fid, {"confidence": new_conf, "vitality": "decaying"},
+                                 self.semantic.update_decision(fid, {"confidence": new_conf, "vitality": "decaying", "status": "deprecated"},
                                                              commit_msg=f"Decay: Knowledge confidence dropped, marked as decaying.")
                         else:
                              logger.info(f"Semantic Decay: Forgetting {fid} (conf={new_conf})")
@@ -162,7 +174,7 @@ class LifecycleManagementService(MemoryService):
                             current_vitality = meta.get('vitality', 'active')
                             if current_vitality == 'active' and new_conf < 0.9:
                                 updates["vitality"] = "decaying"
-                            elif current_vitality == 'decaying' and new_conf < 0.3:
+                            elif current_vitality == 'decaying' and new_conf < 0.2:
                                 updates["vitality"] = "dormant"
 
                         self.semantic.update_decision(fid, updates, commit_msg=f"Decay: Reduced confidence to {new_conf}")
