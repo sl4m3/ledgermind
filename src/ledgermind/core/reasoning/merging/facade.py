@@ -116,6 +116,7 @@ class MergeEngineFacade:
 
                 to_merge = []
                 to_validate = []
+                seen_target_fids = set()
 
                 for res in search_results:
                     doc_id = res.get('id')
@@ -125,9 +126,20 @@ class MergeEngineFacade:
                     target_doc = self.memory._resolve_to_truth(doc_id, mode="balanced", cache=full_meta_map)
                     if not target_doc:
                         continue
+                        
+                    target_fid = target_doc.get('fid')
+                    
+                    # Prevent self-merging (resolved truth is the candidate itself)
+                    if target_fid == cand_id:
+                        continue
+                        
+                    # Prevent duplicate targets in the same group
+                    if target_fid in seen_target_fids:
+                        continue
+                    seen_target_fids.add(target_fid)
                     
                     # IMPORTANT: Check if target is already being merged
-                    actual_target = self.memory.semantic.meta.get_by_fid(target_doc.get('fid'))
+                    actual_target = self.memory.semantic.meta.get_by_fid(target_fid)
                     if not actual_target or actual_target.get('merge_status') == 'pending':
                         continue
 

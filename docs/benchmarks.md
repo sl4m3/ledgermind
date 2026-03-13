@@ -34,7 +34,7 @@ This document provides comprehensive performance metrics for LedgerMind's memory
 | **OS** | Android 13 (Termux) | Ubuntu 22.04 |
 | **Python** | 3.11.4 | 3.12.4 |
 | **SQLite** | 3.44.2 | 3.44.2 |
-| **Vector Model** | Jina 3.1.1 Small (4-bit) | MiniLM 3.1.1 |
+| **Vector Model** | Jina v5 Small (4-bit) | MiniLM v3 |
 
 ### Test Dataset
 
@@ -48,7 +48,7 @@ This document provides comprehensive performance metrics for LedgerMind's memory
 
 ## Benchmark Results
 
-### Summary Table (3.1.1)
+### Summary Table (v3.3.0)
 
 | Metric | Mobile (GGUF) | Server (MiniLM) | Ratio |
 |--------|-----------|----------|----------:----------|
@@ -372,7 +372,7 @@ conn = sqlite3.connect(self.db_path, check_same_thread=False)
 
 ## Historical Comparison
 
-### Version 3.1.2x → 3.1.2 Migration
+### Version 3.2.0 → 3.3.0 Migration
 
 **Major Changes**:
 
@@ -388,9 +388,9 @@ conn = sqlite3.connect(self.db_path, check_same_thread=False)
 - Search throughput: +40% (subquery optimization)
 - Overall system performance: +60% (multiple optimizations)
 
-### 3.1.2 → Current (Latest)
+### 3.3.0 → Current (Latest)
 
-**Improvements in 3.1.2**:
+**Improvements in 3.3.0**:
 - Search fast-path: 18,000+ ops/sec (server), 7,450 (mobile)
 - Write throughput: 70.6 ops/sec (server), 7.0 (mobile)
 - Subquery RowID: Major query performance improvement
@@ -422,7 +422,7 @@ python3 -m pytest benchmark/test_search_benchmark.py::test_search_operations
 
 # Run with specific configuration
 python3 -m pytest benchmark/test_search_benchmark.py::test_search_operations \
-    --workers=4 --vector-model=../.ledgermind/models/3.1.2-small-text-matching-Q4_K_M.gguf
+    --workers=4 --vector-model=../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf
 
 # Run memory benchmarks
 python3 -m pytest benchmark/test_operations.py::test_performance

@@ -21,10 +21,15 @@ class GeminiConfigManager:
     @staticmethod
     def get_config_path(mode: str = "global", 
                         global_path: str = "~/.gemini/settings.json",
-                        project_path: str = ".gemini/settings.json") -> str:
+                        project_path: str = None) -> str:
         """Returns the absolute path to the gemini config based on mode."""
         if mode == "project":
-            return os.path.abspath(project_path)
+            # If project_path is a directory, append default filename
+            p = project_path or "."
+            if os.path.isdir(p):
+                return os.path.abspath(os.path.join(p, ".gemini", "settings.json"))
+            else:
+                return os.path.abspath(p)
         else:
             return os.path.expanduser(global_path)
 

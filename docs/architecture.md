@@ -65,6 +65,14 @@ LedgerMind consists of several interconnected layers:
 
 **Location**: `src/ledgermind/core/api/memory.py`
 
+**Services (V7.0 Decomposition)**:
+- `QueryService` — Search with RRF and lifecycle weights
+- `LifecycleManagementService` — Decay, reflection, maintenance
+- `HealthService` — Health checks and statistics
+- `IntegrityService` — Data integrity, evidence linking
+- `DecisionCommandService` — Record/supersede/accept decisions
+- `EventProcessingService` — Event processing core
+
 The `Memory` class is the main entry point for all LedgerMind operations. It coordinates storage, reasoning, and lifecycle management.
 
 #### Class Definition
@@ -264,7 +272,7 @@ class GGUFEmbeddingAdapter:
 
 1. **Embedding Cache**: 100-entry cache with LRU eviction
 2. **Lazy Loading**: Model loaded only on first `add_document()` or `search()`
-3. **Task Prefix**: Jina 3.1.2 uses `"text-matching: "` prefix for better retrieval
+3. **Task Prefix**: Jina v5 uses `"text-matching: "` prefix for better retrieval
 4. **NumPy Operations**: Efficient cosine similarity without external dependencies
 
 #### 3.2.4 Store Interfaces

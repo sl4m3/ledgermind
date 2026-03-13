@@ -21,6 +21,12 @@ class SemanticMetaStore:
     def _init_db(self):
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
+        
+        # FAST PATH: If the table already exists, skip DDL to avoid write-lock contention
+        cursor = self._conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_meta'")
+        if cursor.fetchone():
+            return
+            
         self._conn.execute("""
             CREATE TABLE IF NOT EXISTS semantic_meta (
                 fid TEXT PRIMARY KEY,

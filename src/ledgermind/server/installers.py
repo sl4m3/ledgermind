@@ -141,10 +141,20 @@ cat | {cli_entry} bridge-sync --path "{memory_path}" --cli "claude" --stdin 2>> 
         """Install MCP server configuration for Claude via claude mcp add."""
         try:
             import subprocess
+            # Try to add first
             result = subprocess.run(
-                ["claude", "mcp", "add", "ledgermind", "ledgermind-mcp", "--path", os.path.abspath(memory_path)],
+                ["claude", "mcp", "add", "ledgermind", "ledgermind-mcp", "--", "--path", os.path.abspath(memory_path)],
                 capture_output=True, text=True, timeout=30
             )
+            
+            # If it fails because it already exists, remove it and try again to update the path
+            if result.returncode != 0 and "already exists" in (result.stderr or result.stdout):
+                subprocess.run(["claude", "mcp", "remove", "ledgermind"], capture_output=True, timeout=10)
+                result = subprocess.run(
+                    ["claude", "mcp", "add", "ledgermind", "ledgermind-mcp", "--", "--path", os.path.abspath(memory_path)],
+                    capture_output=True, text=True, timeout=30
+                )
+
             if result.returncode == 0:
                 print(f"✓ Added LedgerMind MCP server to Claude Desktop")
                 return True

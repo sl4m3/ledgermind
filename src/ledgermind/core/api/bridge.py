@@ -17,7 +17,7 @@ class Bridge:
     High-level bridge for integrating LedgerMind into CLI tools.
     """
     
-    def __init__(self, memory_path: str = "../.ledgermind", relevance_threshold: float = 0.7, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None, memory_instance: Optional['Memory'] = None):
+    def __init__(self, memory_path: str = "../.ledgermind", relevance_threshold: float = 0.85, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None, memory_instance: Optional['Memory'] = None):
         self.memory_path = os.path.abspath(memory_path)
         if memory_instance:
             self._memory = memory_instance
@@ -56,19 +56,57 @@ class Bridge:
                     
                 score = item.get('score', 0)
                 if score >= self.relevance_threshold:
-                    memories.append({
-                        "id": fid,
-                        "title": item.get('title'),
+                    path = os.path.join(self.memory_path, "semantic", fid)
+                    
+                    # Core fields we want to return
+                    # We only return: target, title, compressive_rationale, strengths, objections, consequences
+                    memory_item = {
                         "target": item.get('target'),
-                        "path": os.path.join(self.memory_path, "semantic", fid),
-                        "content": item.get('content'),
-                        "rationale": item.get('rationale'),
+                        "title": item.get('title'),
                         "compressive_rationale": item.get('compressive_rationale'),
                         "strengths": item.get('strengths', []),
                         "objections": item.get('objections', []),
-                        "consequences": item.get('consequences'),
-                        "expected_outcome": item.get('expected_outcome')
-                    })
+                        "consequences": item.get('consequences', [])
+                    }
+                    
+                    # Check for "..." placeholders and load from file if found
+                    placeholders = ["...", "…"]
+                    needs_load = any(
+                        (isinstance(v, str) and v in placeholders) or 
+                        (isinstance(v, list) and any(x in placeholders for x in v))
+                        for v in memory_item.values()
+                    )
+                    
+                    if needs_load and os.path.exists(path):
+                        try:
+                            with open(path, 'r', encoding='utf-8') as f:
+                                raw_content = f.read()
+                            data, body = MemoryLoader.parse(raw_content)
+                            if data:
+                                ctx = data.get("context", {})
+                                if memory_item["target"] in placeholders:
+                                    memory_item["target"] = ctx.get("target") or data.get("target")
+                                if memory_item["title"] in placeholders:
+                                    memory_item["title"] = data.get("title")
+                                if memory_item["compressive_rationale"] in placeholders:
+                                    memory_item["compressive_rationale"] = ctx.get("compressive_rationale")
+                                if not memory_item["strengths"] or memory_item["strengths"] == placeholders:
+                                    memory_item["strengths"] = ctx.get("strengths") or []
+                                if not memory_item["objections"] or memory_item["objections"] == placeholders:
+                                    memory_item["objections"] = ctx.get("objections") or []
+                                if not memory_item["consequences"] or memory_item["consequences"] == placeholders:
+                                    memory_item["consequences"] = ctx.get("consequences") or []
+                        except Exception as e:
+                            logger.error(f"Failed to load full memory from {path}: {e}")
+
+                    # One final sweep to ensure no remaining placeholders in the returned dict
+                    for k, v in memory_item.items():
+                        if isinstance(v, str) and v in placeholders:
+                            memory_item[k] = ""
+                        elif isinstance(v, list):
+                            memory_item[k] = [x for x in v if x not in placeholders]
+
+                    memories.append(memory_item)
             return memories
         except Exception as e:
             logger.error(f"Error searching memories: {e}")

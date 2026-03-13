@@ -73,6 +73,12 @@ class EpisodicStore:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.execute("PRAGMA busy_timeout=10000")
+            
+            # FAST PATH: If the table already exists, skip DDL to avoid write-lock contention
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
+            if cursor.fetchone():
+                return
+                
             with conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS events (

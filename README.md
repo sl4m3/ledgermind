@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v3.2.1** · Autonomous Memory Management System for AI Agents
+**v3.3.0** · Autonomous Memory Management System for AI Agents
 
 ![Banner](assets/banner.png)
 
@@ -81,26 +81,27 @@ LedgerMind consists of several interconnected components working together to cre
 
 ### Key Components
 
-**Memory (`core/api/memory.py`)**: The main entry point that coordinates all storage and reasoning operations.
+**Memory (`src/ledgermind/core/api/memory.py`)**: The main entry point that coordinates all storage and reasoning operations.
 
 **Stores**:
-- `EpisodicStore` (`stores/episodic.py`): SQLite WAL-mode database for short-term events
-- `SemanticStore` (`stores/semantic.py`): Git + SQLite for long-term decisions with cryptographic audit
-- `VectorStore` (`stores/vector.py`): GGUF/Transformer-based semantic search with embedding cache
+- `EpisodicStore` (`src/ledgermind/core/stores/episodic.py`): SQLite WAL-mode database for short-term events
+- `SemanticStore` (`src/ledgermind/core/stores/semantic.py`): Git + SQLite for long-term decisions with cryptographic audit
+- `VectorStore` (`src/ledgermind/core/stores/vector.py`): GGUF/Transformer-based semantic search with embedding cache
 
 **Reasoning Engines**:
-- `ConflictEngine`: Detects target conflicts before decisions are recorded
-- `ResolutionEngine`: Validates supersede operations ensure all conflicts are addressed
-- `DecayEngine`: Manages memory lifecycle, archiving old events, pruning archived ones
-- `ReflectionEngine`: Discovers patterns from episodic events and generates proposals
-- `LifecycleEngine`: Manages phase transitions and vitality decay for knowledge streams
-- `DistillationEngine`: Converts successful trajectories into procedural knowledge
+- `ConflictEngine` (`src/ledgermind/core/reasoning/conflict.py`): Detects target conflicts before decisions are recorded
+- `ResolutionEngine` (`src/ledgermind/core/reasoning/resolution.py`): Validates supersede operations ensure all conflicts are addressed
+- `DecayEngine` (`src/ledgermind/core/reasoning/decay.py`): Manages memory lifecycle, archiving old events, pruning archived ones
+- `ReflectionEngine` (`src/ledgermind/core/reasoning/reflection.py`): Discovers patterns from episodic events and generates proposals
+- `LifecycleEngine` (`src/ledgermind/core/reasoning/lifecycle.py`): Manages phase transitions and vitality decay for knowledge streams
 
-**Background Worker** (`server/background.py`): Autonomous heartbeat loop that runs every 5 minutes:
+**Background Worker** (`src/ledgermind/server/background.py`): Autonomous heartbeat loop that runs every 5 minutes:
 - Health checks with stale lock breaking
 - Git sync to index new commits
 - Reflection cycle to generate proposals
 - Decay cycle to prune old data
+
+**MCP Server** (`src/ledgermind/server/server.py`): 15 tools via Model Context Protocol with REST gateway option
 
 ### Data Flow
 
@@ -134,6 +135,21 @@ pip install ledgermind
 pkg install clang cmake ninja
 ```
 
+### Docker Installation
+
+```bash
+# Build Docker image
+docker build -t ledgermind:latest .
+
+# Run with persistent storage
+docker run -d \
+  -p 9090:9090 \
+  -v ./data:/app/data \
+  -e LEDGERMIND_API_KEY="your-secure-key" \
+  --name ledgermind \
+  ledgermind:latest
+```
+
 ### Verification
 
 ```bash
@@ -156,7 +172,7 @@ For a detailed step-by-step guide, see the [Quick Start Guide](docs/quickstart.m
 ledgermind init
 ```
 
-This will guide you through:
+This will guide you through 6 steps:
 
 1. **Project Location**: Setting the current codebase path
 2. **Memory Path**: Configuring isolated memory storage (default: `../.ledgermind`)
@@ -165,12 +181,16 @@ This will guide you through:
 5. **Enrichment Mode**: Selecting a conflict resolution strategy:
    - `optimal`: Uses local LLMs (e.g., Ollama) for hypothesis enrichment
    - `rich`: Uses cloud LLMs (OpenAI, Anthropic) for maximum insight
+6. **Language Preference**: Setting the language for enriched records (e.g., `russian`, `english`)
 
 ### 2. Starting the MCP Server
 
 ```bash
 # Start with default settings
 ledgermind run --path ../.ledgermind
+
+# Or with REST API gateway enabled
+ledgermind run --path ../.ledgermind --rest-port 8080
 ```
 
 ---
@@ -270,8 +290,8 @@ LedgerMind is optimized for high-speed operation on **Android/Termux** as well a
 
 | Metric | Mobile (GGUF) | Server (MiniLM) | Notes |
 |---------|:----------------:|:-----------------:|-------:|
-| **Search OPS** | 7,450 | 19,602 | Optimized Subquery RowID joins |
-| **Write OPS** | 7.0 | 70.6 | Full SQLite WAL + Git commit |
+| **Search OPS** | 5 153 | 11 019 | Optimized Subquery RowID joins |
+| **Write OPS** | 7.0 | 93.6 | Full SQLite WAL + Git commit |
 
 ### Latency (Mean)
 
@@ -289,13 +309,13 @@ LedgerMind is optimized for high-speed operation on **Android/Termux** as well a
 - **Lazy Loading**: VectorStore loads models on first use
 - **4-bit Quantization**: GGUF models for mobile efficiency
 
-For detailed benchmark methodology and additional metrics, see [dev/bench/](https://sl4m3.github.io/ledgermind/dev/bench/).
+For detailed benchmark methodology and additional metrics, see [benchmarks/](benchmarks/).
 
 ---
 
 ## Migration from v2.x
 
-If you're upgrading from LedgerMind v2.x to v3.1.0:
+If you're upgrading from LedgerMind v2.x to v3.3.0:
 
 1. **Backup your existing memory**:
    ```bash
@@ -303,7 +323,7 @@ If you're upgrading from LedgerMind v2.x to v3.1.0:
    # Then use export_memory_bundle tool to create backup
    ```
 
-2. **Install v3.1.0**:
+2. **Install v3.3.0**:
    ```bash
    pip install --upgrade ledgermind
    ```
@@ -319,7 +339,9 @@ If you're upgrading from LedgerMind v2.x to v3.1.0:
    - Ensures `kind` field exists
    - Ensures `namespace` field exists
    - Fixes `rationale` if too short
-   - Converts to new lifecycle phase system
+   - Converts to new lifecycle phase system (PATTERN → EMERGENT → CANONICAL)
+
+> **Note**: The migration is non-destructive. Your original files remain untouched.
 
 ---
 
@@ -403,6 +425,38 @@ lsof -i :9090  # Linux/macOS
 netstat -an | grep 9090  # Cross-platform
 ```
 
+### Issue: API Key Authentication Failed
+
+**Symptom:**
+```
+403 Forbidden: Invalid or missing X-API-Key header
+```
+
+**Cause**: `LEDGERMIND_API_KEY` is set but client is not providing it.
+
+**Solution:**
+```bash
+# Set the API key in your environment
+export LEDGERMIND_API_KEY="your-secure-key"
+
+# Or generate a new secure key
+python3 -c "import secrets; print(secrets.token_hex(32))"
+
+# Add to MCP client configuration
+# For Claude Desktop, add to ~/.claude/config.json:
+{
+  "mcpServers": {
+    "ledgermind": {
+      "command": "ledgermind-mcp",
+      "args": ["run", "--path", "/path/to/memory"],
+      "env": {
+        "LEDGERMIND_API_KEY": "your-secure-key"
+      }
+    }
+  }
+}
+```
+
 ### Issue: Stale Lock File
 
 **Symptom:**
@@ -423,6 +477,19 @@ For more troubleshooting help:
 1. **Check the logs**: View `.ledgermind/audit.log` for detailed error messages
 2. **Run diagnostics**: `ledgermind check --path /path/to/.ledgermind`
 3. **Enable verbose logging**: `ledgermind run --path /path/to/.ledgermind --verbose`
+
+---
+
+## Why LedgerMind?
+
+**LedgerMind is designed for:**
+
+- **AI Agent Developers** who need persistent, evolving memory across sessions
+- **DevOps Engineers** deploying autonomous systems at scale
+- **Software Architects** maintaining decision history and rationale
+- **Research Teams** tracking experimental hypotheses and outcomes
+
+**Key Philosophy:** Memory should be autonomous, not passive. LedgerMind doesn't just store — it thinks, evolves, and self-heals.
 
 ---
 

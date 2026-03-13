@@ -117,8 +117,8 @@ def init_project(path: str):
         gemini_config_mode = questionary.select(
             "Select Gemini configuration mode:",
             choices=[
-                questionary.Choice("global", title="Global (~/.gemini/settings.json) - simple setup"),
-                questionary.Choice("project", title="Project (.gemini/settings.json) - isolate this agent")
+                questionary.Choice(title="Global (~/.gemini/settings.json) - simple setup", value="global"),
+                questionary.Choice(title="Project (.gemini/settings.json) - isolate this agent", value="project")
             ],
             default="global"
         ).ask()

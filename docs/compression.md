@@ -27,15 +27,15 @@ This document covers all compression-related aspects of LedgerMind's memory syst
 
 **Purpose**: Optimize vector search for resource-constrained environments (mobile, Termux) while maintaining acceptable accuracy.
 
-**Model Used**: `jina-embeddings-3.1.2-small-text-matching-Q4_K_M.gguf`
+**Model Used**: `jina-embeddings-v5-small-text-matching-Q4_K_M.gguf`
 
 **Specifications**:
 - Architecture: BERT-based transformer for text matching
-- Output dimension: 1024 (768-dimensional)
+- Output dimension: 1024
 - Quantization: 4-bit (Q4_K_M)
 - Parameter count: ~8 million parameters @ 4-bit
 - Model size: ~60 MB
-- Task prefix: "text-matching: " (for Jina 3.1.2)
+- Task prefix: "text-matching: " (for Jina v5)
 
 **Architecture**:
 ```
@@ -123,9 +123,9 @@ class GGUFEmbeddingAdapter:
                 embeddings.append(self._cache[text])
                 continue
 
-            # Apply Jina 3.1.2 prefix for text-matching
+            # Apply Jina v5 prefix for text-matching
             prefix = ""
-            if "jina-embeddings-3.1.2" in self._model_path:
+            if "jina-embeddings-v5" in self._model_path or "/v5-" in self._model_path:
                 prefix = "text-matching: "
             processed_text = f"{prefix}{text}"
 
@@ -176,7 +176,7 @@ class GGUFEmbeddingAdapter:
 
 | Model | Size | Description | Platform | Use Case |
 |------|------|----------|-------------|-----------|
-| **jina-embeddings-3.1.2-small** (4-bit) | ~60 MB | Mobile/Termux | Default, resource-constrained |
+| **jina-embeddings-v5-small** (4-bit) | ~60 MB | Mobile/Termux | Default, resource-constrained |
 | **text-embedding-3-small** | ~150 MB | Server environments | Larger, more accurate |
 | **text-embedding-3-large** | ~500 MB | Server environments | Maximum accuracy, resource-intensive |
 | **all-MiniLM** | ~120 MB | Legacy support | Alternative for older hardware |
@@ -184,7 +184,7 @@ class GGUFEmbeddingAdapter:
 **Size Analysis**:
 
 ```
-jina-embeddings-3.1.2-small (4-bit) = 60 MB:
+jina-embeddings-v5-small (4-bit) = 60 MB:
   - 8M parameters @ 4-bit ≈ 32 MB
   - 4× larger than quantization baseline
 
@@ -204,7 +204,7 @@ text-embedding-3-large = 500 MB:
 
 # When custom selected:
 Step 1: Enter model URL or local path
-> https://huggingface.co/jinaai/jina-embeddings-3.1.2/resolve/main/3.1.2-small-text-matching-Q4_K_M.gguf
+> https://huggingface.co/jinaai/jina-embeddings-v5-text-small-text-matching-GGUF/resolve/main/v5-small-text-matching-Q4_K_M.gguf
 
 # Or local file
 > /path/to/model.gguf
@@ -221,8 +221,8 @@ Step 2: Download and verify
 mkdir -p ~/.ledgermind/models
 
 # 2. Download model
-curl -L -o ~/.ledgermind/models/3.1.2-small-text-matching-Q4_K_M.gguf \
-  https://huggingface.co/jinaai/jina-embeddings/3.1.2/resolve/main/3.1.2-small-text-matching-Q4_K_M.gguf
+curl -L -o ~/.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf \
+  https://huggingface.co/jinaai/jina-embeddings-v5-text-small-text-matching-GGUF/resolve/main/v5-small-text-matching-Q4_K_M.gguf
 
 # 3. Verify download
 # (Automatic during init)
@@ -369,7 +369,7 @@ meta.update_multiple([
 
 ## Network Compression
 
-**Current Status**: Not implemented in 3.1.2
+**Current Status**: Not implemented in v3.3.0
 
 **Rationale**: Network I/O operations are minimal for local storage.
 

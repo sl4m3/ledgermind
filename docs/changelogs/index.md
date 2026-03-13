@@ -4,6 +4,22 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.3.0] - 2026-03-13
+
+- **Intelligent Merging:** Quadratic merging model with hierarchical target
+  deduction and reactive incremental consolidation.
+- **Lifecycle Engine:** Confidence calculation, phase inheritance, and automatic
+  vitality transitions (ACTIVE → DECAYING → DORMANT).
+- **Language Localization:** Multilingual LLM prompts with `enrichment_language`
+  setting and self-healing audit.
+- **Architecture:** Service decomposition, WorkerCoordinator, per-proposal
+  transactions, and ACID guarantees.
+- **Performance:** 5500+ OPS search, 8+ OPS recording with fast-path heuristics.
+- **Security:** Bandit vulnerability fixes, strict I4 integrity, intelligent
+  conflict resolution.
+- **Background Worker:** Responsive shutdown, watchdog monitoring, session
+  detection, and enrichment status tracking.
+
 ## [v3.2.1] - 2026-03-02
 
 - **Iterative Enrichment:** Recursive refinement of knowledge artifacts for 
