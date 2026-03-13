@@ -217,7 +217,10 @@ class TestEnrichmentTransactionLogging:
         assert "Batch processing completed:" in caplog.text
 
     def test_batch_rollback_log(self, memory, enricher, caplog):
-        """Should log when batch processing has errors (V7.7: per-proposal error handling)."""
+        """Should log errors when batch processing fails (V7.7: per-proposal error handling).
+        
+        V7.7: Errors are logged but don't raise - batch continues with other proposals.
+        """
         import logging
         caplog.set_level(logging.ERROR)
 
@@ -243,14 +246,16 @@ class TestEnrichmentTransactionLogging:
                 self.fid = fid
                 self.target = target
                 self.evidence_event_ids = [1, 2, 3]  # Non-empty to trigger enrichment loop
-        
+
         proposals = [MockProposal(fid, "general")]
-        
+
         def raise_error(*args, **kwargs):
             raise ValueError("Test error")
-        
+
         with patch.object(enricher, 'enrich_proposal', side_effect=raise_error):
-            with pytest.raises(ValueError):
-                enricher.process_batch(proposals, memory.episodic, memory=memory)
+            # V7.7: No exception raised - error is logged and batch continues
+            enricher.process_batch(proposals, memory.episodic, memory=memory)
         
-        assert "Batch transaction rolled back" in caplog.text
+        # Verify error was logged
+        assert "Test error" in caplog.text
+        assert "Failed to process" in caplog.text

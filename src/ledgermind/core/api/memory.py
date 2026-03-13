@@ -282,7 +282,7 @@ class Memory:
         """
         return self._decision_command.supersede_decision(
             title, target, rationale, old_decision_ids, consequences, evidence_ids, namespace, vector, phase,
-            enrichment_status=enrichment_status,
+            enrichment_status=enrichment_status or "pending",
             memory_facade=self
         )
 
