@@ -54,8 +54,12 @@ def test_rich_mode_calls_cloud_model(sample_proposal):
     }
 
     # Patch the CloudLLMClient.call method
+    # Also mock memory to avoid config lookup issues
+    mock_memory = MagicMock()
+    mock_memory.semantic.meta.get_config.return_value = None  # Use defaults
+    
     with patch("ledgermind.core.reasoning.enrichment.clients.CloudLLMClient.call", return_value=json.dumps(valid_json)):
-        res = enricher.enrich_proposal(sample_proposal, cluster_logs="logs", memory=MagicMock())
+        res = enricher.enrich_proposal(sample_proposal, cluster_logs="logs", memory=mock_memory)
         assert res.title == "Rich Title"
         assert res.compressive_rationale.startswith("Rich TL;DR")
 

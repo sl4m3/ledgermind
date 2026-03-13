@@ -42,12 +42,15 @@ context:
     print("Crash recovery successful.")
 
 def test_isolation_violation_link_to_deleted(temp_storage):
-    """Verify that deleting a file manually breaks integrity.
+    """Verify that deleting a file manually is detected.
     
-    V7.7: Integrity check happens at Memory initialization when loading existing data.
-    The check verifies that all indexed files exist on disk.
+    V7.7: Integrity check (validate_files_exist) was removed from __init__ 
+    for performance. It's now available as a standalone manual operation.
+    
+    This test verifies that the system continues to work even when a file
+    is manually deleted (graceful degradation).
     """
-    # Create a single decision (no supersede to keep it active)
+    # Create a single decision
     memory = Memory(storage_path=temp_storage)
     res1 = memory.record_decision(title="D1", target="TargetArea", rationale="Rationale for first decision is long enough")
     fid1 = memory.get_decisions()[0]
@@ -56,11 +59,12 @@ def test_isolation_violation_link_to_deleted(temp_storage):
     # Now manually delete the decision file
     os.remove(os.path.join(temp_storage, "semantic", fid1))
 
-    # Restart should fail due to integrity issues (file missing from disk)
-    with pytest.raises(IntegrityViolation) as excinfo:
-        Memory(storage_path=temp_storage)
-
-    # Check for appropriate error message
-    error_msg = str(excinfo.value)
-    assert "missing from disk" in error_msg or "Violation" in error_msg
-    print("Isolation violation caught.")
+    # V7.7: Restart does NOT fail - system degrades gracefully
+    # The missing file will be detected by reconcile_untracked() or integrity checks
+    new_memory = Memory(storage_path=temp_storage)
+    
+    # Verify the missing decision is not returned
+    decisions = new_memory.get_decisions()
+    assert fid1 not in decisions
+    
+    print("Graceful degradation verified - missing file handled correctly.")

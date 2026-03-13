@@ -18,7 +18,7 @@ def test_epistemic_field_extraction(enricher):
         title="Old Title",
         rationale="Initial rationale that is long enough for validation purposes."
     )
-    
+
     # Mock LLM response with structured arguments
     llm_json = {
         "title": "Smart Enriched Title",
@@ -27,13 +27,17 @@ def test_epistemic_field_extraction(enricher):
         "strengths": ["Strong point 1", "Strong point 2"],
         "objections": ["Critical risk 1"]
     }
-    
+
     # Patch the CloudLLMClient.call method (since mode="rich")
+    # Also mock memory.semantic.meta.get_config to return proper values
+    mock_memory = MagicMock()
+    mock_memory.semantic.meta.get_config.return_value = None  # Use defaults
+    
     with patch("ledgermind.core.reasoning.enrichment.clients.CloudLLMClient.call", return_value=json.dumps(llm_json)):
-        # We simulate the parsing part of enrich_proposal. 
+        # We simulate the parsing part of enrich_proposal.
         # MUST provide cluster_logs to avoid early skip.
-        enriched = enricher.enrich_proposal(proposal, cluster_logs="Some logs content", memory=MagicMock())
-        
+        enriched = enricher.enrich_proposal(proposal, cluster_logs="Some logs content", memory=mock_memory)
+
         assert enriched.title == "Smart Enriched Title"
         assert enriched.compressive_rationale.startswith("TL;DR")
         assert "Strong point 1" in enriched.strengths
