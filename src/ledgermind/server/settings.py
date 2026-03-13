@@ -19,8 +19,8 @@ from typing import Optional, Dict, Any, List
 DEFAULT_SETTINGS = {
     "enrichment_mode": {
         "default": "rich",
-        "choices": ["lite", "rich"],
-        "description": "Enrichment mode (lite=basic/no LLM, rich=full LLM enrichment)"
+        "choices": ["rich"],  # V7.8: lite removed, optimal reserved for future
+        "description": "Enrichment mode (rich=full LLM enrichment with cloud API)"
     },
     "enrichment_language": {
         "default": "russian",
