@@ -16,53 +16,66 @@ class SemanticMetaStore:
         self.db_path = db_path
         self._conn = sqlite3.connect(db_path, timeout=30.0, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        self._conn.execute("PRAGMA busy_timeout = 30000")
         self._init_db()
 
     def _init_db(self):
-        self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute("PRAGMA synchronous=NORMAL")
-        
         # FAST PATH: If the table already exists, skip DDL to avoid write-lock contention
-        cursor = self._conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_meta'")
-        if cursor.fetchone():
-            return
+        try:
+            cursor = self._conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='semantic_meta'")
+            if cursor.fetchone():
+                return
+        except sqlite3.OperationalError:
+            # If the database is completely locked during this read, we just proceed and retry later
+            pass
+
+        try:
+            self._conn.execute("PRAGMA journal_mode=WAL")
+            self._conn.execute("PRAGMA synchronous=NORMAL")
+        except sqlite3.OperationalError:
+            # If another thread/process is currently initializing WAL, it might lock the DB.
+            # We can safely ignore this as the mode will persist anyway.
+            pass
             
-        self._conn.execute("""
-            CREATE TABLE IF NOT EXISTS semantic_meta (
-                fid TEXT PRIMARY KEY,
-                target TEXT NOT NULL,
-                title TEXT,
-                status TEXT NOT NULL,
-                kind TEXT NOT NULL,
-                timestamp DATETIME NOT NULL,
-                content TEXT,
-                context_json TEXT,
-                namespace TEXT DEFAULT 'default',
-                phase TEXT,
-                vitality TEXT,
-                enrichment_status TEXT,
-                supersedes TEXT,
-                superseded_by TEXT,
-                converted_to TEXT,
-                merge_status TEXT DEFAULT 'idle',
-                keywords TEXT,
-                confidence REAL,
-                last_hit_at DATETIME,
-                hit_count INTEGER DEFAULT 0,
-                link_count INTEGER DEFAULT 0,
-                reinforcement_density REAL DEFAULT 0.0,
-                stability_score REAL DEFAULT 0.0,
-                coverage REAL DEFAULT 0.0,
-                estimated_removal_cost REAL DEFAULT 0.0,
-                estimated_utility REAL DEFAULT 0.0,
-                content_hash TEXT,
-                compressive_rationale TEXT
-            )
-        """)
-        self._conn.execute("CREATE TABLE IF NOT EXISTS semantic_config (key TEXT PRIMARY KEY, value TEXT)")
-        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_target ON semantic_meta(target)")
-        self._conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON semantic_meta(status)")
-        
+        try:
+            self._conn.execute("""
+                CREATE TABLE IF NOT EXISTS semantic_meta (
+                    fid TEXT PRIMARY KEY,
+                    target TEXT NOT NULL,
+                    title TEXT,
+                    status TEXT NOT NULL,
+                    kind TEXT NOT NULL,
+                    timestamp DATETIME NOT NULL,
+                    content TEXT,
+                    context_json TEXT,
+                    namespace TEXT DEFAULT 'default',
+                    phase TEXT,
+                    vitality TEXT,
+                    enrichment_status TEXT,
+                    supersedes TEXT,
+                    superseded_by TEXT,
+                    converted_to TEXT,
+                    merge_status TEXT DEFAULT 'idle',
+                    keywords TEXT,
+                    confidence REAL,
+                    last_hit_at DATETIME,
+                    hit_count INTEGER DEFAULT 0,
+                    link_count INTEGER DEFAULT 0,
+                    reinforcement_density REAL DEFAULT 0.0,
+                    stability_score REAL DEFAULT 0.0,
+                    coverage REAL DEFAULT 0.0,
+                    estimated_removal_cost REAL DEFAULT 0.0,
+                    estimated_utility REAL DEFAULT 0.0,
+                    content_hash TEXT,
+                    compressive_rationale TEXT
+                )
+            """)
+            self._conn.execute("CREATE TABLE IF NOT EXISTS semantic_config (key TEXT PRIMARY KEY, value TEXT)")
+            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_target ON semantic_meta(target)")
+            self._conn.execute("CREATE INDEX IF NOT EXISTS idx_status ON semantic_meta(status)")
+        except sqlite3.OperationalError:
+            pass # Ignore lock errors on DDL since another thread is already initializing it.
+
         # Initialize FTS5 for full-text search
         try:
             self._conn.execute("""
