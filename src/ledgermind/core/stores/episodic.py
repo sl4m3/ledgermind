@@ -96,6 +96,9 @@ class EpisodicStore:
                 # Performance: Add index for duplicate detection
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_events_duplicate ON events (source, kind, content, timestamp)")
 
+                # Performance: Add index for linked_id queries (foreign key-like)
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_events_linked_id ON events (linked_id)")
+
     def _serialize_context(self, context_data: Any) -> str:
         if not context_data:
             return "{}"
@@ -252,20 +255,28 @@ class EpisodicStore:
         if not semantic_ids:
             return {}
 
-        placeholders = ','.join('?' for _ in semantic_ids)
+        results = {}
+        # Optimization: Chunk the query to avoid hitting SQLite's parameter limits (SQLITE_MAX_VARIABLE_NUMBER)
+        chunk_size = 900
         sql_template = "SELECT linked_id, COUNT(*), SUM(link_strength) FROM events WHERE linked_id IN ({}) GROUP BY linked_id"
-        with self._get_conn() as conn:
-            cursor = conn.execute(
-                sql_template.format(placeholders),
-                semantic_ids
-            )
-            results = {row[0]: (row[1] or 0, row[2] or 0.0) for row in cursor.fetchall()}
 
-            # Ensure all requested IDs are in the result
-            for sid in semantic_ids:
-                if sid not in results:
-                    results[sid] = (0, 0.0)
-            return results
+        with self._get_conn() as conn:
+            for i in range(0, len(semantic_ids), chunk_size):
+                chunk = semantic_ids[i:i + chunk_size]
+                placeholders = ','.join('?' for _ in chunk)
+                cursor = conn.execute(
+                    sql_template.format(placeholders),
+                    chunk
+                )
+
+                chunk_results = {row[0]: (row[1] or 0, row[2] or 0.0) for row in cursor.fetchall()}
+                results.update(chunk_results)
+
+        # Ensure all requested IDs are in the result
+        for sid in semantic_ids:
+            if sid not in results:
+                results[sid] = (0, 0.0)
+        return results
 
     def mark_archived(self, event_ids: List[int]):
         if not event_ids: return
