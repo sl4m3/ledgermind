@@ -1,6 +1,6 @@
 # LedgerMind
 
-**v3.3.0** · Autonomous Memory Management System for AI Agents
+**v3.3.1** · Autonomous Memory Management System for AI Agents
 
 ![Banner](assets/banner.png)
 
