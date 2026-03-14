@@ -120,7 +120,10 @@ class SemanticMetaStore:
         except sqlite3.OperationalError as e:
             logger.warning(f"FTS5 initialization failed (likely missing module): {e}")
 
-        self._conn.commit()
+        try:
+            self._conn.execute("COMMIT")
+        except sqlite3.OperationalError:
+            pass # No active transaction to commit
 
     def get_version(self) -> str:
         return self.get_config("version", "0.0.0")
@@ -325,7 +328,7 @@ class SemanticMetaStore:
             sql += " LIMIT ?"
             params.append(limit)
             
-            cursor = self._conn.execute(sql, params)
+            cursor = self._execute_with_retry(sql, params)
             results = [dict(row) for row in cursor.fetchall()]
             
             if not results:
@@ -334,7 +337,7 @@ class SemanticMetaStore:
                 if words:
                     fts_query = " ".join([f"{w}*" for w in words])
                     params[0] = fts_query
-                    cursor = self._conn.execute(sql, params)
+                    cursor = self._execute_with_retry(sql, params)
                     results = [dict(row) for row in cursor.fetchall()]
         except sqlite3.OperationalError:
             pass
@@ -354,19 +357,19 @@ class SemanticMetaStore:
             sql_fallback += " LIMIT ?"
             params_fallback.append(limit)
             
-            cursor = self._conn.execute(sql_fallback, params_fallback)
+            cursor = self._execute_with_retry(sql_fallback, params_fallback)
             results = [dict(row) for row in cursor.fetchall()]
             
         return results
 
     def list_all(self, target: Optional[str] = None, namespace: str = "default") -> List[Dict[str, Any]]:
         if target:
-            cursor = self._conn.execute(
+            cursor = self._execute_with_retry(
                 "SELECT * FROM semantic_meta WHERE target = ? AND namespace = ? ORDER BY timestamp DESC", 
                 (target, namespace)
             )
         else:
-            cursor = self._conn.execute("SELECT * FROM semantic_meta ORDER BY timestamp DESC")
+            cursor = self._execute_with_retry("SELECT * FROM semantic_meta ORDER BY timestamp DESC")
         return [dict(row) for row in cursor.fetchall()]
 
     def increment_hit(self, fid: str):
