@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import logging
+import sys
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 from contextlib import contextmanager
@@ -16,7 +17,10 @@ class SemanticMetaStore:
         self.db_path = db_path
         # isolation_level=None disables implicit transactions. This is critical for WAL mode
         # to ensure that concurrent READ queries do not pin the connection to an old snapshot.
-        self._conn = sqlite3.connect(db_path, timeout=30.0, check_same_thread=False, isolation_level=None)
+        if sys.version_info >= (3, 12):
+            self._conn = sqlite3.connect(db_path, timeout=30.0, check_same_thread=False, autocommit=True)
+        else:
+            self._conn = sqlite3.connect(db_path, timeout=30.0, check_same_thread=False, isolation_level=None)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA busy_timeout = 30000")
         self._init_db()
@@ -136,27 +140,34 @@ class SemanticMetaStore:
         
         for attempt in range(max_retries):
             try:
-                if is_write and not self._conn.in_transaction:
-                    self._conn.execute("BEGIN IMMEDIATE")
+                started_tx = False
+                if is_write:
+                    try:
+                        self._conn.execute("BEGIN IMMEDIATE")
+                        started_tx = True
+                    except sqlite3.OperationalError as e:
+                        if "within a transaction" not in str(e):
+                            raise
                 
                 cursor = self._conn.execute(sql, params)
                 
-                if is_write and not self._conn.in_transaction:
+                if started_tx:
                     self._conn.execute("COMMIT")
-                elif commit:
+                elif commit and not is_write:
+                    # If it wasn't a write but still needs commit (rare, mostly for config)
                     self._conn.commit()
                     
                 return cursor
             except sqlite3.OperationalError as e:
                 if "locked" in str(e) and attempt < max_retries - 1:
-                    if is_write and not self._conn.in_transaction:
+                    if is_write and started_tx:
                         try: self._conn.execute("ROLLBACK")
                         except: pass
                     time.sleep(retry_delay * (2 ** attempt))
                     continue
                 raise
             except Exception as e:
-                if is_write and not self._conn.in_transaction:
+                if is_write and started_tx:
                     try: self._conn.execute("ROLLBACK")
                     except: pass
                 raise

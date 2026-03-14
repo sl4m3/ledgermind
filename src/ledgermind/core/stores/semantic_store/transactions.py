@@ -146,20 +146,19 @@ class TransactionManager:
         try:
             # 2. Start EXCLUSIVE DB transaction with retries
             if db_conn:
-                # IMMEDIATE ensures we have a write lock right now
-                # Check in_transaction to avoid "cannot start a transaction within a transaction"
-                if not db_conn.in_transaction:
-                    max_retries = 15
-                    retry_delay = 0.1
-                    for attempt in range(max_retries):
-                        try:
-                            db_conn.execute("BEGIN IMMEDIATE")
-                            break
-                        except sqlite3.OperationalError as e:
-                            if "locked" in str(e) and attempt < max_retries - 1:
-                                time.sleep(retry_delay * (1.5 ** attempt))
-                                continue
-                            raise
+                max_retries = 15
+                retry_delay = 0.1
+                for attempt in range(max_retries):
+                    try:
+                        db_conn.execute("BEGIN IMMEDIATE")
+                        break
+                    except sqlite3.OperationalError as e:
+                        if "within a transaction" in str(e):
+                            break # Already in transaction
+                        if "locked" in str(e) and attempt < max_retries - 1:
+                            time.sleep(retry_delay * (1.5 ** attempt))
+                            continue
+                        raise
 
             # 3. Prepare backup directory
             if not os.path.exists(self.backup_dir):
