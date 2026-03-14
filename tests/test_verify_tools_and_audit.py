@@ -16,12 +16,18 @@ class TestTools(unittest.TestCase):
         if os.path.exists(self.test_dir):
             shutil.rmtree(self.test_dir)
         os.makedirs(self.test_dir)
-        self.memory = Memory(storage_path=self.test_dir)
         
+        # Clean up any stale worker.pid from previous runs
+        worker_pid_file = os.path.join(self.test_dir, "worker.pid")
+        if os.path.exists(worker_pid_file):
+            os.remove(worker_pid_file)
+        
+        self.memory = Memory(storage_path=self.test_dir)
+
         # Patch BackgroundWorker to avoid SQLite concurrency issues in unit tests
         self.patcher = unittest.mock.patch.object(BackgroundWorker, "start")
         self.patcher.start()
-        
+
         self.server = MCPServer(self.memory, storage_path=self.test_dir)
 
     def tearDown(self):
