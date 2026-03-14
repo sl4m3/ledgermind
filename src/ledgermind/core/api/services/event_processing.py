@@ -30,10 +30,10 @@ class EventProcessingService(MemoryService):
     def conflict_engine(self):
         return self.context.conflict_engine
 
-    def process_event(self, 
-                      source: str, 
-                      kind: str, 
-                      content: str, 
+    def process_event(self,
+                      source: str,
+                      kind: str,
+                      content: str,
                       context: Optional[Union[DecisionContent, DecisionStream, Dict[str, Any]]] = None,
                       intent: Optional[ResolutionIntent] = None,
                       namespace: Optional[str] = None,
@@ -57,17 +57,23 @@ class EventProcessingService(MemoryService):
             self._force_draft_status(context)
 
         event = MemoryEvent(source=source, kind=kind, content=content, context=context or {}, timestamp=final_timestamp)
-        
+
         if self.episodic.find_duplicate(event, ignore_links=True).value:
             return MemoryDecision(should_persist=False, store_type="none", reason="Duplicate event detected")
 
         # Decision routing and conflict check
         # Use shared router from context (initialized by Memory)
         decision = self.context.router.route(event, intent=intent)
-        if decision and decision.should_persist and decision.store_type == "semantic" and not intent:
-             if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=effective_namespace):
-                 return MemoryDecision(should_persist=False, store_type="none", reason=f"Invariant Violation: {conflict_msg}")
         
+        # CRITICAL: Check conflicts INSIDE transaction for semantic writes without intent
+        # This prevents race conditions where two concurrent writes both pass conflict check
+        if decision and decision.should_persist and decision.store_type == "semantic" and not intent:
+            # Conflict check will happen inside _persist_semantic within the transaction
+            pass
+        elif decision and decision.should_persist and decision.store_type == "semantic" and intent:
+            # With intent (supersede), conflict already validated
+            pass
+
         if decision and decision.should_persist:
             if decision.store_type == "episodic":
                 if source in {"user", "agent"}:
@@ -102,27 +108,34 @@ class EventProcessingService(MemoryService):
 
     def _persist_semantic(self, event, decision, intent, namespace, vector, source, event_emitter):
         with self.transaction(description="Persist Semantic Record"):
+            to_supersede_ids = intent.target_decision_ids if (intent and intent.resolution_type == "supersede") else None
+            
+            # CRITICAL: Conflict check MUST happen AFTER acquiring transaction lock
+            # but BEFORE any writes. The transaction lock ensures no other thread
+            # can pass conflict check while we're in the transaction.
+            if conflict_msg := self.conflict_engine.check_for_conflicts(
+                event, namespace=namespace, supersedes=to_supersede_ids
+            ):
+                raise ConflictError(f"Conflict detected: {conflict_msg}")
+            
             if intent and intent.resolution_type == "supersede":
                 for old_id in intent.target_decision_ids:
                     old_meta = self.semantic.meta.get_by_fid(old_id)
                     if old_meta and old_meta.get('status') in ('active', 'pending_merge', 'accepted', 'draft'):
                         self.semantic.update_decision(old_id, {"status": "superseded"}, commit_msg="Deactivating for transition")
 
-            to_supersede_ids = intent.target_decision_ids if (intent and intent.resolution_type == "supersede") else None
-            if conflict_msg := self.conflict_engine.check_for_conflicts(event, namespace=namespace, supersedes=to_supersede_ids):
-                raise ConflictError(f"Conflict detected: {conflict_msg}")
-
             # Prepare Context
             if isinstance(event.context, (DecisionContent, DecisionStream)):
-                if intent and intent.resolution_type == "supersede": 
+                if intent and intent.resolution_type == "supersede":
                     event.context.supersedes = intent.target_decision_ids
                 event.context.namespace = namespace
                 event.context = event.context.model_dump(mode='json')
             elif isinstance(event.context, dict):
-                if intent and intent.resolution_type == "supersede": 
+                if intent and intent.resolution_type == "supersede":
                     event.context["supersedes"] = intent.target_decision_ids
                 event.context["namespace"] = namespace
 
+            # SAVE the decision - this writes to disk and meta
             new_fid = self.semantic.save(event, namespace=namespace)
             
             # Index vector if provided
