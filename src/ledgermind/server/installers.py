@@ -106,19 +106,28 @@ cat | {cli_entry} bridge-sync --path "{memory_path}" --cli "claude" --stdin 2>> 
             if "hooks" not in settings:
                 settings["hooks"] = {}
 
-            # UserPromptSubmit: trigger on all prompts
+            # UserPromptSubmit: trigger on all prompts with absolute path
             settings["hooks"]["UserPromptSubmit"] = [
                 {
                     "matcher": "*",
-                    "hooks": [{"type": "command", "command": before_script_path}]
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": os.path.abspath(before_script_path)
+                        }
+                    ]
                 }
             ]
             
-            # Stop: trigger when Claude finishes responding
-            # We use both with and without matcher for maximum compatibility
+            # Stop: trigger when Claude finishes responding with absolute path
             settings["hooks"]["Stop"] = [
                 {
-                    "hooks": [{"type": "command", "command": stop_script_path}]
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": os.path.abspath(stop_script_path)
+                        }
+                    ]
                 }
             ]
 
@@ -130,10 +139,8 @@ cat | {cli_entry} bridge-sync --path "{memory_path}" --cli "claude" --stdin 2>> 
             os.makedirs(os.path.dirname(s_path), exist_ok=True)
             with open(s_path, "w") as f:
                 json.dump(settings, f, indent=2)
-
-        os.makedirs(os.path.dirname(self.global_settings), exist_ok=True)
-        with open(self.global_settings, "w") as f:
-            json.dump(settings, f, indent=2)
+            
+            print(f"✓ Configured Claude hooks in: {s_path}")
 
         print(f"✓ Installed Claude hooks locally in {project_hooks_dir}")
 
@@ -225,12 +232,14 @@ class GeminiInstaller(BaseInstaller):
         project_path = os.path.abspath(project_path)
         if memory_path is None:
             memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
+        
         # Store hooks in .gemini/hooks inside the project (as in ledgermind repo)
         project_hooks_dir = os.path.join(project_path, ".gemini", "hooks")
         os.makedirs(project_hooks_dir, exist_ok=True)
 
         hook_file = os.path.join(project_hooks_dir, "ledgermind_hook.py")
-
+        
+        # 1. Create the hook script
         with open(hook_file, "w") as f:
             f.write(f"""import os
 import sys
@@ -363,6 +372,77 @@ def main():
 if __name__ == '__main__':
     main()
 """)
+
+        # 2. Update settings.json with hooks
+        try:
+            from ledgermind.core.utils.gemini_config import GeminiConfigManager
+            if self.config_mode == "global":
+                settings_path = GeminiConfigManager.get_config_path(mode="global")
+            else:
+                settings_path = GeminiConfigManager.get_config_path(mode="project", project_path=project_path)
+
+            os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+            
+            config = {}
+            if os.path.exists(settings_path):
+                try:
+                    with open(settings_path, "r") as f:
+                        config = json.load(f)
+                except json.JSONDecodeError:
+                    config = {}
+
+            # Ensure hooksConfig exists
+            if "hooksConfig" not in config:
+                config["hooksConfig"] = {
+                    "enabled": True,
+                    "notifications": True,
+                    "disabled": []
+                }
+
+            if "hooks" not in config:
+                config["hooks"] = {}
+
+            # Use relative path for hook script if it's a project config, otherwise absolute
+            if self.config_mode == "project":
+                hook_rel_path = ".gemini/hooks/ledgermind_hook.py"
+            else:
+                hook_rel_path = hook_file
+
+            # Set BeforeAgent hook
+            config["hooks"]["BeforeAgent"] = [
+                {
+                    "matcher": "*",
+                    "hooks": [
+                        {
+                            "name": "ledgermind-context",
+                            "type": "command",
+                            "command": f"python3 {hook_rel_path} before"
+                        }
+                    ]
+                }
+            ]
+
+            # Set AfterAgent hook
+            config["hooks"]["AfterAgent"] = [
+                {
+                    "matcher": "*",
+                    "hooks": [
+                        {
+                            "name": "ledgermind-record",
+                            "type": "command",
+                            "command": f"python3 {hook_rel_path} after"
+                        }
+                    ]
+                }
+            ]
+
+            with open(settings_path, "w") as f:
+                json.dump(config, f, indent=2)
+            
+            print(f"✓ Configured Gemini CLI hooks in: {settings_path}")
+        except Exception as e:
+            print(f"! Failed to configure Gemini CLI hooks in settings.json: {e}")
+
         print(f"✓ Installed Gemini CLI hooks successfully.")
 
     def install_mcp_server(self, project_path: str, memory_path: str):
@@ -379,13 +459,13 @@ if __name__ == '__main__':
             os.makedirs(os.path.dirname(settings_path), exist_ok=True)
 
             # Load existing or create new config
-            config = {"mcpServers": {}}
+            config = {}
             if os.path.exists(settings_path):
                 try:
                     with open(settings_path, "r") as f:
                         config = json.load(f)
                 except json.JSONDecodeError:
-                    config = {"mcpServers": {}}
+                    config = {}
 
             if "mcpServers" not in config:
                 config["mcpServers"] = {}
@@ -393,8 +473,7 @@ if __name__ == '__main__':
             # Add LedgerMind MCP server
             config["mcpServers"]["ledgermind"] = {
                 "command": "ledgermind-mcp",
-                "args": ["run", "--path", os.path.abspath(memory_path)],
-                "disabled": False
+                "args": ["run", "--path", os.path.abspath(memory_path)]
             }
 
             with open(settings_path, "w") as f:

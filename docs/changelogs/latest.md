@@ -1,20 +1,19 @@
-# Latest Release: v3.3.1
+# Latest Release: v3.3.2
 
 ## March 14, 2026
 
-LedgerMind v3.3.1 is a critical performance and stability release with database optimizations, concurrency fixes, and improved reliability.
+LedgerMind v3.3.2 is a maintenance release that automates Gemini CLI hook configuration and refines default settings for better compatibility.
 
 ### Highlights
 
-- **Performance:** SQLite index on `linked_id`, N+1 query elimination, 5500+ OPS search
-- **Security:** TOCTOU race condition fix, global thread lock registry
-- **Stability:** SQLite DB locked errors resolved, manual write blocking
-- **UX:** CLI error surfacing, test stability improvements
+- **Installer:** Zero-touch hook configuration for Gemini CLI in `settings.json`.
+- **Config:** Removed hardcoded model defaults to favor system/environment settings.
+- **Portability:** Relative paths for project-level hooks.
 
 ### Metrics
 
-- Record Decision: **10.31 OPS** (+4.1% vs v3.3.0)
+- Record Decision: **10.31 OPS** (stable)
 - Search Fast Path: **4,179 OPS** (stable)
 - Tests: **300 passed** (all green)
 
-[View full v3.3.1 changelog](./v3.3.1.md)
+[View full v3.3.2 changelog](./v3.3.2.md)
