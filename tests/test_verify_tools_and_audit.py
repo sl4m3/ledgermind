@@ -28,7 +28,7 @@ class TestTools(unittest.TestCase):
         self.patcher = unittest.mock.patch.object(BackgroundWorker, "start")
         self.patcher.start()
 
-        self.server = MCPServer(self.memory, storage_path=self.test_dir)
+        self.server = MCPServer(self.memory, storage_path=self.test_dir, start_worker=False)
 
     def tearDown(self):
         self.patcher.stop()
