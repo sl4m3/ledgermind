@@ -4,6 +4,14 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.3.1] - 2026-03-14
+
+- **Performance Optimizations:** SQLite index on `linked_id`, N+1 query elimination, batch query optimization
+- **Security & Concurrency:** TOCTOU race condition fix, SQLite DB locked errors resolved, global thread lock registry
+- **Bug Fixes:** list_active_conflicts status filter, reconcile_untracked meta sync, _update_meta_for_file dead code
+- **UX Improvements:** CLI error surfacing, test stability with retries
+- **Metrics:** Record Decision +4.1% faster (10.31 OPS), all 300 tests passing
+
 ## [v3.3.0] - 2026-03-13
 
 - **Intelligent Merging:** Quadratic merging model with hierarchical target

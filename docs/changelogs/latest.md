@@ -1,21 +1,20 @@
-# Latest Release: v3.3.0
+# Latest Release: v3.3.1
 
-## March 13, 2026
+## March 14, 2026
 
-LedgerMind v3.3.0 is a major release with 130+ commits of improvements
-spanning intelligent merging, lifecycle optimization, and architectural
-hardening.
+LedgerMind v3.3.1 is a critical performance and stability release with database optimizations, concurrency fixes, and improved reliability.
 
 ### Highlights
 
-- **Intelligent Merging:** Quadratic model with hierarchical target deduction
-  and reactive incremental consolidation.
-- **Lifecycle Engine:** Confidence calculation, phase inheritance, and
-  automatic vitality transitions.
-- **Language Localization:** Multilingual LLM prompts with self-healing audit.
-- **Architecture:** Service decomposition, WorkerCoordinator, ACID transactions.
-- **Performance:** 5500+ OPS search, 8+ OPS recording.
-- **Security:** Bandit fixes, strict I4 integrity, conflict resolution.
-- **Background Worker:** Responsive shutdown, watchdog monitoring.
+- **Performance:** SQLite index on `linked_id`, N+1 query elimination, 5500+ OPS search
+- **Security:** TOCTOU race condition fix, global thread lock registry
+- **Stability:** SQLite DB locked errors resolved, manual write blocking
+- **UX:** CLI error surfacing, test stability improvements
 
-[View full v3.3.0 changelog](./v3.3.0.md)
+### Metrics
+
+- Record Decision: **10.31 OPS** (+4.1% vs v3.3.0)
+- Search Fast Path: **4,179 OPS** (stable)
+- Tests: **300 passed** (all green)
+
+[View full v3.3.1 changelog](./v3.3.1.md)
