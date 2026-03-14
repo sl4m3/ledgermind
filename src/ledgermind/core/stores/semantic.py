@@ -164,7 +164,7 @@ class SemanticStore:
         for orphaned_fid in orphans:
             self.meta.delete(orphaned_fid)
 
-    def _update_meta_for_file(self, fid: str, force: bool = False):
+    def _update_meta_for_file(self, fid: str, force: bool = False, link_data: Optional[Tuple[int, float]] = None):
         try:
             full_path = os.path.join(self.repo_path, fid)
             mtime = os.path.getmtime(full_path)
@@ -194,8 +194,13 @@ class SemanticStore:
                 if isinstance(sync_keywords, list): sync_keywords = ", ".join(sync_keywords)
 
                 link_c, link_s = 0, 0.0
-                try: link_c, link_s = self.episodic.count_links_for_semantic(fid)
-                except Exception: pass
+                if link_data is not None:
+                    # Unpack properly, handling edge case where it might be malformed
+                    if isinstance(link_data, (tuple, list)) and len(link_data) >= 2:
+                        link_c, link_s = link_data[0], link_data[1]
+                else:
+                    try: link_c, link_s = self.episodic.count_links_for_semantic(fid)
+                    except Exception: pass
 
                 final_status = data.get("status") or sync_ctx.get("status", "unknown")
                 final_kind = data.get("kind") or sync_ctx.get("kind", "unknown")
@@ -253,9 +258,20 @@ class SemanticStore:
             if orphans:
                 logger.info(f"Removing {len(orphans)} orphan records from meta index.")
                 self._remove_orphans(orphans)
+
+            # ⚡ Bolt: Prevent N+1 query problem by batch-fetching link counts
+            link_counts_batch = {}
+            if disk_files and hasattr(self, 'episodic') and hasattr(self.episodic, 'count_links_for_semantic_batch'):
+                try:
+                    link_counts_batch = self.episodic.count_links_for_semantic_batch(list(disk_files))
+                except Exception as e:
+                    logger.warning(f"Failed to batch-fetch link counts: {e}")
+
             cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
             with cm:
-                for f in disk_files: self._update_meta_for_file(f, force=force)
+                for f in disk_files:
+                    link_data = link_counts_batch.get(f)
+                    self._update_meta_for_file(f, force=force, link_data=link_data)
         finally:
             if should_lock: self._fs_lock.release()
 
