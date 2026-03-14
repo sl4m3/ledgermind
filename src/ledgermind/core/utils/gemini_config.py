@@ -38,11 +38,7 @@ class GeminiConfigManager:
         """Creates the config file and its parent directories if they don't exist."""
         os.makedirs(os.path.dirname(path), exist_ok=True)
         if not os.path.exists(path):
-            settings = default_settings or {
-                "model": "gemini-2.0-flash",
-                "temperature": 0.3,
-                "maxOutputTokens": 2048
-            }
+            settings = default_settings or {}
             try:
                 with open(path, 'w', encoding='utf-8') as f:
                     json.dump(settings, f, indent=2)

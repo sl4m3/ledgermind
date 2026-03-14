@@ -4,6 +4,12 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.3.2] - 2026-03-14
+
+- **Installer Automation:** Zero-touch Gemini CLI hook registration in `settings.json`
+- **Config Refinement:** Flexible model selection by removing hardcoded defaults
+- **Portability:** Relative path support for project-specific hooks
+
 ## [v3.3.1] - 2026-03-14
 
 - **Performance Optimizations:** SQLite index on `linked_id`, N+1 query elimination, batch query optimization
