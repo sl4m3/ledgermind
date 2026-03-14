@@ -91,15 +91,19 @@ def test_concurrent_conflict(clean_storage):
     except ImportError:
         vector_enabled = False
 
-    if vector_enabled:
-        # With vector search: only ONE should succeed
-        assert success_count <= 1, f"Expected max 1 success with vector search, got {success_count}"
-    else:
-        # Without vector search: conflict detection is based on exact target match only
-        # Multiple writes to same target with different content may all succeed
-        # This is expected behavior - just verify no errors occurred
+    # If vector search is enabled, the second write might auto-supersede the first
+    # if it executes slightly later, resulting in two 'success' returns.
+    # The true invariant is that there must be at most ONE active decision for the target.
+    final_mem = Memory(storage_path=clean_storage)
+    try:
+        active_decisions = final_mem.semantic.list_active_conflicts(target)
+        assert len(active_decisions) <= 1, f"Expected at most 1 active decision, got {len(active_decisions)}: {active_decisions}"
+
+        # Verify no unhandled errors occurred
         error_results = [r for r in results if r.startswith("error:")]
         assert len(error_results) == 0, f"Unexpected errors: {error_results}"
-    
-    # Total must match
-    assert success_count + conflict_count + timeout_count == num_workers
+
+        # Total must match
+        assert success_count + conflict_count + timeout_count == num_workers
+    finally:
+        final_mem.close()

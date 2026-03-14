@@ -202,7 +202,10 @@ class EventProcessingService(MemoryService):
             if conflict_msg := self.conflict_engine.check_for_conflicts(
                 event, namespace=namespace, supersedes=to_supersede_ids
             ):
-                raise ConflictError(f"Conflict detected: {conflict_msg}")
+                decision.should_persist = False
+                decision.store_type = 'none'
+                decision.reason = f"Conflict detected: {conflict_msg}"
+                return
 
             if intent and intent.resolution_type == "supersede":
                 for old_id in intent.target_decision_ids:
