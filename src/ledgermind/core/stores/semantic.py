@@ -127,6 +127,7 @@ class SemanticStore:
                         rel_path = os.path.relpath(os.path.join(root, f), self.repo_path)
                         disk_files.append(rel_path)
 
+            recovered = False
             for f in disk_files:
                 if isinstance(self.audit, GitAuditProvider):
                     res = subprocess.run(["git", "ls-files", "--error-unmatch", f], 
@@ -137,8 +138,13 @@ class SemanticStore:
                             with open(os.path.join(self.repo_path, f), 'r', encoding='utf-8') as stream:
                                 content = stream.read()
                             self.audit.add_artifact(f, content, f"Recovery: Auto-adding untracked file {f}")
+                            recovered = True
                         except Exception as e:
                             logger.error(f"Failed to recover {f}: {e}")
+            
+            # Sync meta index if any files were recovered
+            if recovered:
+                self.sync_meta_index(force=False)
         finally:
             self._fs_lock.release()
 
@@ -164,6 +170,7 @@ class SemanticStore:
             self.meta.delete(orphaned_fid)
 
     def _update_meta_for_file(self, fid: str, force: bool = False, link_counts: Optional[Dict[str, Tuple[int, float]]] = None):
+        import json
         try:
             full_path = os.path.join(self.repo_path, fid)
             mtime = os.path.getmtime(full_path)
@@ -178,61 +185,68 @@ class SemanticStore:
 
             if existing and not force:
                 if existing.get('content_hash') == current_hash:
+                    # Hash matches - skip parsing (optimization)
                     return
 
-                    # Get link stats from episodic store
-                    link_c, link_s = 0, 0.0
-                    if link_counts is not None:
-                        link_c, link_s = link_counts.get(fid, (0, 0.0))
-                    else:
-                        try:
-                            link_c, link_s = self.episodic.count_links_for_semantic(fid)
-                        except Exception: pass
+            # Parse file content
+            from ledgermind.core.stores.semantic_store.loader import MemoryLoader
+            data, body = MemoryLoader.parse(raw_content)
+            if not data: return
 
-                sync_ctx = data.get("context", {})
-                sync_target = sync_ctx.get("target") or "unknown"
-                sync_ns = sync_ctx.get("namespace") or "default"
-                sync_keywords = sync_ctx.get("keywords", [])
-                if isinstance(sync_keywords, list): sync_keywords = ", ".join(sync_keywords)
-
-                link_c, link_s = 0, 0.0
-                try: link_c, link_s = self.episodic.count_links_for_semantic(fid)
+            # Get link stats from episodic store
+            link_c, link_s = 0, 0.0
+            if link_counts is not None:
+                link_c, link_s = link_counts.get(fid, (0, 0.0))
+            else:
+                try:
+                    link_c, link_s = self.episodic.count_links_for_semantic(fid)
                 except Exception: pass
 
-                final_status = data.get("status") or sync_ctx.get("status", "unknown")
-                final_kind = data.get("kind") or sync_ctx.get("kind", "unknown")
-                final_supersedes = data.get("supersedes") or sync_ctx.get("supersedes", [])
-                final_superseded = data.get("superseded_by") or sync_ctx.get("superseded_by")
-                final_merge_status = data.get("merge_status") or sync_ctx.get("merge_status", "idle")
-                final_enrichment_status = data.get("enrichment_status") or sync_ctx.get("enrichment_status", "pending")
-                final_converted_to = data.get("converted_to") or sync_ctx.get("converted_to")
+            sync_ctx = data.get("context", {})
+            sync_target = sync_ctx.get("target") or "unknown"
+            sync_ns = sync_ctx.get("namespace") or "default"
+            sync_keywords = sync_ctx.get("keywords", [])
+            if isinstance(sync_keywords, list): sync_keywords = ", ".join(sync_keywords)
 
-                self.meta.upsert(
-                    fid=fid,
-                    target=sync_target,
-                    title=sync_ctx.get("title", "") if sync_ctx else "",
-                    status=final_status,
-                    kind=final_kind,
-                    timestamp=final_ts,
-                    supersedes=final_supersedes,
-                    superseded_by=final_superseded,
-                    converted_to=final_converted_to,
-                    merge_status=final_merge_status,
-                    namespace=sync_ns,
-                    content=data.get("content", "")[:8000],
-                    keywords=sync_keywords,
-                    confidence=sync_ctx.get("confidence", 0.0) if sync_ctx else 0.0,
-                    content_hash=current_hash,
-                    compressive_rationale=sync_ctx.get("compressive_rationale"),
-                    context_json=json.dumps(sync_ctx or {}),
-                    phase=sync_ctx.get("phase", existing.get('phase', 'pattern') if existing else 'pattern'),
-                    vitality=sync_ctx.get("vitality", existing.get('vitality', 'active') if existing else 'active'),
-                    reinforcement_density=sync_ctx.get("reinforcement_density", 0.0),
-                    stability_score=sync_ctx.get("stability_score", 0.0),
-                    coverage=sync_ctx.get("coverage", 0.0),
-                    link_count=link_c,
-                    enrichment_status=final_enrichment_status
-                )
+            final_status = data.get("status") or sync_ctx.get("status", "unknown")
+            final_kind = data.get("kind") or sync_ctx.get("kind", "unknown")
+            final_supersedes = data.get("supersedes") or sync_ctx.get("supersedes", [])
+            final_superseded = data.get("superseded_by") or sync_ctx.get("superseded_by")
+            final_merge_status = data.get("merge_status") or sync_ctx.get("merge_status", "idle")
+            final_enrichment_status = data.get("enrichment_status") or sync_ctx.get("enrichment_status", "pending")
+            final_converted_to = data.get("converted_to") or sync_ctx.get("converted_to")
+
+            from datetime import datetime
+            ts = data.get("timestamp")
+            if isinstance(ts, str): ts = datetime.fromisoformat(ts)
+            final_ts = ts or datetime.fromtimestamp(mtime)
+
+            self.meta.upsert(
+                fid=fid,
+                target=sync_target,
+                title=sync_ctx.get("title", "") if sync_ctx else "",
+                status=final_status,
+                kind=final_kind,
+                timestamp=final_ts,
+                supersedes=final_supersedes,
+                superseded_by=final_superseded,
+                converted_to=final_converted_to,
+                merge_status=final_merge_status,
+                namespace=sync_ns,
+                content=data.get("content", "")[:8000],
+                keywords=sync_keywords,
+                confidence=sync_ctx.get("confidence", 0.0) if sync_ctx else 0.0,
+                content_hash=current_hash,
+                compressive_rationale=sync_ctx.get("compressive_rationale"),
+                context_json=json.dumps(sync_ctx or {}),
+                phase=sync_ctx.get("phase", existing.get('phase', 'pattern') if existing else 'pattern'),
+                vitality=sync_ctx.get("vitality", existing.get('vitality', 'active') if existing else 'active'),
+                reinforcement_density=sync_ctx.get("reinforcement_density", 0.0),
+                stability_score=sync_ctx.get("stability_score", 0.0),
+                coverage=sync_ctx.get("coverage", 0.0),
+                link_count=link_c,
+                enrichment_status=final_enrichment_status
+            )
         except Exception as e:
             logger.error(f"Failed to index {fid}: {e}")
 
@@ -253,28 +267,25 @@ class SemanticStore:
             meta_files = self._get_meta_files()
 
             # 3. Handle Mismatches and Updates
-            if disk_files != meta_files or force:
-                if disk_files != meta_files:
-                    logger.info(f"Syncing semantic meta index ({len(disk_files)} on disk, {len(meta_files)} in meta)...")
+            # Remove orphans from meta
+            self._remove_orphans(meta_files - disk_files)
 
-                # Remove orphans from meta
-                self._remove_orphans(meta_files - disk_files)
+            # Add/Update missing or changed files
+            # Pre-fetch link counts for all disk_files to avoid N+1 queries
+            link_counts = None
+            if hasattr(self, 'episodic') and self.episodic is not None:
+                try:
+                    link_counts = self.episodic.count_links_for_semantic_batch(list(disk_files))
+                except Exception as e:
+                    logger.warning(f"Failed to batch fetch link counts: {e}")
 
-                # Add/Update missing or changed files
-                # Pre-fetch link counts for all disk_files to avoid N+1 queries
-                link_counts = None
-                if hasattr(self, 'episodic') and self.episodic is not None:
-                    try:
-                        link_counts = self.episodic.count_links_for_semantic_batch(list(disk_files))
-                    except Exception as e:
-                        logger.warning(f"Failed to batch fetch link counts: {e}")
+            # Use batch_update if not already in a transaction
+            cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
 
-                # Use batch_update if not already in a transaction
-                cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
-
-                with cm:
-                    for f in disk_files:
-                        self._update_meta_for_file(f, force=force, link_counts=link_counts)
+            with cm:
+                # Always update all files - _update_meta_for_file will skip if hash matches
+                for f in disk_files:
+                    self._update_meta_for_file(f, force=force, link_counts=link_counts)
         finally:
             if should_lock: self._fs_lock.release()
 

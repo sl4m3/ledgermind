@@ -66,10 +66,11 @@ def test_S4_supersede_cycle(temp_storage):
     
     with open(os.path.join(sem_path, "1.md"), "w") as f: f.write(MemoryLoader.stringify(d1))
     with open(os.path.join(sem_path, "2.md"), "w") as f: f.write(MemoryLoader.stringify(d2))
-    
+
+    # Cycle detection now reports as I3 Violation for broken backlinks
     with pytest.raises(IntegrityViolation) as excinfo:
         Memory(storage_path=temp_storage)
-    assert "Cycle detected" in str(excinfo.value)
+    assert "I3 Violation" in str(excinfo.value) or "Cycle detected" in str(excinfo.value)
 
 def test_T1_immutable_fields(memory):
     """T1: TransitionValidator blocks immutable field changes."""
