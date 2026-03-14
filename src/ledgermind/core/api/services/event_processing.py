@@ -97,10 +97,63 @@ class EventProcessingService(MemoryService):
         return self.context.reflection_engine.lifecycle.process_intervention(stream, datetime.now())
 
     def _force_draft_status(self, context: Any):
-        if isinstance(context, dict): context["status"] = "draft"
-        elif hasattr(context, "status"): context.status = "draft"
+        if isinstance(context, dict):
+            context["status"] = "draft"
+        elif hasattr(context, "status"):
+            context.status = "draft"
 
-    def _persist_semantic(self, event, decision, intent, namespace, vector, source, event_emitter):
+    def _is_worker_active(self) -> bool:
+        """Check if background worker is currently running for this storage."""
+        worker_pid = self._get_worker_pid()
+        return worker_pid is not None
+
+    def _get_worker_pid(self) -> Optional[int]:
+        """Get the PID of the active background worker, or None if not running."""
+        import os
+
+        worker_pid_file = os.path.join(self.context.storage_path, "worker.pid")
+        if not os.path.exists(worker_pid_file):
+            return None
+
+        try:
+            with open(worker_pid_file, "r") as f:
+                pid_str = f.read().strip()
+                if not pid_str:
+                    return None
+
+                pid = int(pid_str)
+
+                # Check if process is still running
+                os.kill(pid, 0)  # Signal 0 doesn't kill, just checks existence
+                return pid
+
+        except (
+            FileNotFoundError,
+            ValueError,
+            PermissionError,
+            ProcessLookupError,
+        ):
+            # Process not running or file corrupted
+            return None
+        except Exception:
+            # Any other error = assume worker not active
+            return None
+
+    def _persist_semantic(
+        self, event, decision, intent, namespace, vector, source, event_emitter
+    ):
+        # BLOCK MANUAL WRITES WHEN WORKER IS ACTIVE
+        # This prevents race conditions between manual MCP writes and autonomous worker
+        if self._is_worker_active():
+            # Allow only internal sources (reflection_engine, system) when worker is running
+            INTERNAL_SOURCES = {"system", "reflection_engine", "bridge"}
+            if source not in INTERNAL_SOURCES:
+                raise PermissionError(
+                    f"Cannot manually write to memory while background worker is active (PID: {self._get_worker_pid()}). "
+                    "Background worker manages all memory operations autonomously. "
+                    "To disable worker and allow manual writes, restart with: ledgermind run --no-worker"
+                )
+
         with self.transaction(description="Persist Semantic Record"):
             if intent and intent.resolution_type == "supersede":
                 for old_id in intent.target_decision_ids:
