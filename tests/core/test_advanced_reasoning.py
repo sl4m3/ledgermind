@@ -165,11 +165,33 @@ def test_hybrid_search_rrf_and_grounding_boost(temp_memory_path, monkeypatch):
     Ensures that RRF correctly fuses Keyword and Vector results, 
     and that 'Evidence Boost' elevates grounded decisions.
     """
+    from unittest.mock import MagicMock
     from ledgermind.core.stores import vector
     from ledgermind.core.stores.vector import _MODEL_CACHE
-    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", False)
+    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", True)
+    monkeypatch.setattr(vector, "LLAMA_AVAILABLE", False)
     
-    memory = Memory(storage_path=temp_memory_path, vector_model=None)
+    import numpy as np
+    import re
+    mock_model = MagicMock()
+    # We need realistic vectors that have differing similarity scores.
+    def mock_encode(text, **kwargs):
+        def get_vec(t):
+            v = np.zeros(384)
+            words = re.findall(r'\w+', t.lower())
+            for w in words:
+                v[hash(w) % 384] += 1.0
+            norm = np.linalg.norm(v)
+            if norm > 0:
+                return v / norm
+            return v
+        if isinstance(text, list):
+            return np.array([get_vec(t) for t in text])
+        return get_vec(text)
+    mock_model.encode.side_effect = mock_encode
+    monkeypatch.setitem(_MODEL_CACHE, "mock_model", mock_model)
+
+    memory = Memory(storage_path=temp_memory_path, vector_model="mock_model")
     
     # 1. Record Decision A (Vector match + Grounding boost)
     res_a = memory.record_decision(
