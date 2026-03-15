@@ -2,7 +2,8 @@ import os
 import logging
 import shutil
 import subprocess
-from typing import Dict, Any, Optional
+import collections
+from typing import Dict, Any
 from ..base_service import MemoryService
 from ledgermind.core.core.schemas import TrustBoundary
 
@@ -103,10 +104,8 @@ class HealthService(MemoryService):
     def get_statistics(self) -> Dict[str, Any]:
         """Returns diagnostic statistics."""
         all_meta = self.semantic.meta.list_all()
-        phases, vitality = {}, {}
-        for m in all_meta:
-            p = m.get('phase', 'pattern'); phases[p] = phases.get(p, 0) + 1
-            v = m.get('vitality', 'active'); vitality[v] = vitality.get(v, 0) + 1
+        phases = dict(collections.Counter(m.get('phase', 'pattern') for m in all_meta))
+        vitality = dict(collections.Counter(m.get('vitality', 'active') for m in all_meta))
 
         return {
             "semantic_total": len(all_meta),

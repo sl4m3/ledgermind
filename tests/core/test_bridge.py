@@ -12,6 +12,24 @@ def temp_memory_path(tmp_path_factory):
 def bridge(temp_memory_path):
     return IntegrationBridge(memory_path=temp_memory_path, relevance_threshold=0.01)
 
+@pytest.fixture(autouse=True)
+def mock_vector(monkeypatch):
+    from unittest.mock import MagicMock
+    from ledgermind.core.stores import vector
+    from ledgermind.core.stores.vector import _MODEL_CACHE
+    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", True)
+    monkeypatch.setattr(vector, "LLAMA_AVAILABLE", False)
+
+    import numpy as np
+    mock_model = MagicMock()
+    # Return different vectors so similarity isn't always 1.0 or identical
+    def mock_encode(text, **kwargs):
+        if isinstance(text, list):
+            return np.random.rand(len(text), 384)
+        return np.random.rand(1, 384)[0]
+    mock_model.encode.side_effect = mock_encode
+    monkeypatch.setitem(_MODEL_CACHE, "all-MiniLM-L6-v2", mock_model)
+
 def test_bridge_initialization(bridge, temp_memory_path):
     assert bridge.memory_path == os.path.abspath(temp_memory_path)
     assert os.path.exists(temp_memory_path)
