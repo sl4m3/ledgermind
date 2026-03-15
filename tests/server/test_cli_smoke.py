@@ -87,3 +87,41 @@ def test_cli_verbose_logging(tmp_path):
     assert result.returncode == 0
     # Should see some DEBUG logs in stderr due to setup_logging
     assert "DEBUG" in result.stderr
+
+def test_cli_settings(tmp_path):
+    memory_path = str(tmp_path / "ledgermind")
+    # Initialize first
+    with patch('ledgermind.server.cli.questionary.text') as mock_text, \
+         patch('ledgermind.server.cli.questionary.select') as mock_select:
+        mock_text.return_value.ask.side_effect = [str(tmp_path), memory_path]
+        mock_select.return_value.ask.side_effect = ["jina-v5-4bit", "none", "rich"]
+        run_cli(["init", "--path", memory_path])
+    
+    # Test settings show
+    result = run_cli(["settings", "show", "--storage", memory_path])
+    assert result.returncode == 0
+    assert "LedgerMind Settings" in result.stdout
+    assert "enrichment_mode" in result.stdout
+    
+    # Test settings get
+    result = run_cli(["settings", "get", "enrichment_mode", "--storage", memory_path])
+    assert result.returncode == 0
+    assert "rich" in result.stdout
+    
+    # Test settings set
+    result = run_cli(["settings", "set", "merge_threshold", "0.9", "--storage", memory_path])
+    assert result.returncode == 0
+    assert "updated to '0.9'" in result.stdout
+    
+    # Verify change
+    result = run_cli(["settings", "get", "merge_threshold", "--storage", memory_path])
+    assert result.returncode == 0
+    assert "0.9" in result.stdout
+
+    # Test settings (no subcommand) - should not raise AttributeError
+    # We patch cmd_settings_interactive since it's interactive
+    with patch('ledgermind.server.settings.cmd_settings_interactive') as mock_interactive:
+        result = run_cli(["settings", "--storage", memory_path])
+        assert result.returncode == 0
+        mock_interactive.assert_called_once()
+
