@@ -6,11 +6,11 @@ from contextlib import contextmanager
 import time
 from ledgermind.core.core.schemas import MemoryEvent
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 from sqlalchemy.pool import QueuePool, Pool
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 
-from ledgermind.core.utils.result import Result, ErrorCode, safe_execute, unwrap_result
+from ledgermind.core.utils.result import Result, safe_execute
 
 class EpisodicStore:
     def __init__(self, db_path: str, pool_size: int = 3):
@@ -294,7 +294,8 @@ class EpisodicStore:
         return results
 
     def mark_archived(self, event_ids: List[int]):
-        if not event_ids: return
+        if not event_ids:
+            return
         placeholders = ','.join(['?'] * len(event_ids))
         sql_template = "UPDATE events SET status = 'archived' WHERE id IN ({})"
         with self._get_conn() as conn:
@@ -325,7 +326,8 @@ class EpisodicStore:
         return safe_execute(_do_find)
 
     def physical_prune(self, event_ids: List[int]):
-        if not event_ids: return
+        if not event_ids:
+            return
         # I2 Protection: Only prune if NOT linked
         placeholders = ','.join(['?'] * len(event_ids))
         sql_template = "DELETE FROM events WHERE id IN ({}) AND linked_id IS NULL"
