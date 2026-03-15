@@ -171,6 +171,101 @@ def reset_setting(storage_path: str, key: str) -> bool:
     return save_setting(storage_path, key, default_value)
 
 
+def cmd_settings_interactive(storage_path: str):
+    """Interactive mode for managing settings."""
+    from rich.console import Console
+    from rich.table import Table
+    from rich.panel import Panel
+    from rich.prompt import Prompt, Confirm, FloatPrompt
+    
+    console = Console()
+    
+    while True:
+        settings = load_settings(storage_path)
+        
+        console.clear()
+        console.print(Panel("[bold cyan]LedgerMind Settings - Interactive Mode[/]", expand=False))
+        
+        table = Table(show_header=True, header_style="bold cyan")
+        table.add_column("#", style="dim")
+        table.add_column("Setting", style="green")
+        table.add_column("Value", style="yellow")
+        table.add_column("Description", style="dim")
+        
+        keys = list(DEFAULT_SETTINGS.keys())
+        for idx, key in enumerate(keys, 1):
+            config = DEFAULT_SETTINGS[key]
+            current = settings.get(key, config['default'])
+            default = config['default']
+            is_changed = str(current) != str(default)
+            
+            row = [
+                str(idx),
+                key,
+                f"[bold green]{current}[/]" if is_changed else str(current),
+                config['description'],
+            ]
+            table.add_row(*row)
+            
+        console.print(table)
+        console.print("\n[dim]Commands: <number> to change, 'r <number>' to reset, 'q' to quit[/]")
+        
+        choice = Prompt.ask("Choose action", default="q")
+        
+        if choice.lower() == 'q':
+            break
+            
+        # Handle reset
+        if choice.lower().startswith('r '):
+            try:
+                idx = int(choice[2:].strip()) - 1
+                if 0 <= idx < len(keys):
+                    key = keys[idx]
+                    if reset_setting(storage_path, key):
+                        console.print(f"[green]✓[/] Reset {key} to default")
+                else:
+                    console.print("[red]Error:[/] Invalid number")
+            except ValueError:
+                console.print("[red]Error:[/] Invalid input")
+            import time
+            time.sleep(1)
+            continue
+            
+        # Handle change
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(keys):
+                key = keys[idx]
+                config = DEFAULT_SETTINGS[key]
+                
+                console.print(f"\n[bold cyan]Changing {key}[/]")
+                console.print(f"Description: {config['description']}")
+                
+                if config['choices']:
+                    new_val = Prompt.ask("Choose new value", choices=config['choices'], default=str(settings.get(key, config['default'])))
+                elif isinstance(config['default'], float):
+                    new_val = FloatPrompt.ask("Enter new number")
+                    if key == "merge_threshold" and not (0.5 <= new_val <= 0.95):
+                        console.print("[red]Error:[/] merge_threshold must be between 0.5 and 0.95")
+                        import time
+                        time.sleep(1)
+                        continue
+                else:
+                    new_val = Prompt.ask("Enter new value", default=str(settings.get(key, config['default'])))
+                
+                if save_setting(storage_path, key, new_val):
+                    console.print(f"[green]✓[/] Updated {key} to {new_val}")
+                    if key in ['enrichment_mode', 'embedder', 'enrichment_model']:
+                        console.print("⚠ Restart required: Run 'pkill -f background.py' and restart worker")
+                        import time
+                        time.sleep(1.5)
+            else:
+                console.print("[red]Error:[/] Invalid number")
+        except ValueError:
+            console.print("[red]Error:[/] Invalid input")
+            import time
+            time.sleep(1)
+
 def cmd_settings_show(storage_path: str, verbose: bool = False):
     """Show all current settings."""
     from rich.console import Console
@@ -190,7 +285,7 @@ def cmd_settings_show(storage_path: str, verbose: bool = False):
     for key, config in DEFAULT_SETTINGS.items():
         current = settings.get(key, config['default'])
         default = config['default']
-        is_changed = current != default
+        is_changed = str(current) != str(default)
         
         row = [
             key,
@@ -206,6 +301,7 @@ def cmd_settings_show(storage_path: str, verbose: bool = False):
     console.print(table)
     console.print(f"\nTotal: {len(settings)} settings configured")
     console.print("Use 'ledgermind settings set <key> <value>' to change a setting")
+    console.print("Use 'ledgermind settings interactive' for UI mode")
 
 
 def cmd_settings_get(storage_path: str, key: str):
@@ -307,6 +403,12 @@ def create_settings_parser(subparsers):
         help="Settings command to run"
     )
     
+    # interactive command (default)
+    interactive_parser = settings_subparsers.add_parser(
+        "interactive",
+        help="Interactive settings manager (default)"
+    )
+    
     # show command
     show_parser = settings_subparsers.add_parser(
         "show",
@@ -359,7 +461,7 @@ def create_settings_parser(subparsers):
     )
     
     # Common storage path argument
-    for parser in [show_parser, get_parser, set_parser, reset_parser, reset_all_parser]:
+    for parser in [settings_parser, interactive_parser, show_parser, get_parser, set_parser, reset_parser, reset_all_parser]:
         parser.add_argument(
             "--storage",
             type=str,
@@ -372,14 +474,16 @@ def create_settings_parser(subparsers):
 
 def handle_settings_command(args):
     """Handle settings subcommand."""
-    if not args.settings_command:
-        print("Error: No settings command specified", file=sys.stderr)
-        print("Use 'ledgermind settings --help' for available commands", file=sys.stderr)
-        sys.exit(1)
-    
     storage_path = get_storage_path(args.storage)
     
-    if args.settings_command == "show":
+    if not args.settings_command:
+        # Default to interactive mode
+        cmd_settings_interactive(storage_path)
+        return
+    
+    if args.settings_command == "interactive":
+        cmd_settings_interactive(storage_path)
+    elif args.settings_command == "show":
         cmd_settings_show(storage_path, verbose=args.verbose)
     elif args.settings_command == "get":
         cmd_settings_get(storage_path, args.key)
@@ -392,3 +496,4 @@ def handle_settings_command(args):
     else:
         print(f"Error: Unknown settings command '{args.settings_command}'", file=sys.stderr)
         sys.exit(1)
+
