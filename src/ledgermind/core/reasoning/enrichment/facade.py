@@ -35,12 +35,13 @@ class LLMEnricher:
     }
     
     PHASE_ORDER = [DecisionPhase.PATTERN, DecisionPhase.EMERGENT, DecisionPhase.CANONICAL]
-    
+
     def __init__(self, mode: Optional[str] = None, enrichment_language: Optional[str] = None):
         self.mode = mode
         self.enrichment_language = enrichment_language
         self._cloud_client = None
         self._local_client = None
+        self._openrouter_client = None
     
     def _inherit_phase_with_validation(
         self,
@@ -820,11 +821,24 @@ class LLMEnricher:
         return self._apply_mapping(proposal, data, used_event_ids, memory) if data else proposal
 
     def _get_client(self, config: EnrichmentConfig, memory: Any):
+        """Get appropriate LLM client based on provider configuration."""
+        # OpenRouter provider
+        if config.provider == "openrouter":
+            if not self._openrouter_client:
+                from .openrouter_client import OpenRouterClient
+                self._openrouter_client = OpenRouterClient(config, memory)
+            return self._openrouter_client
+        
+        # Cloud provider (Gemini CLI/SDK)
         if config.mode == "rich":
-            if not self._cloud_client: self._cloud_client = CloudLLMClient(config, memory)
+            if not self._cloud_client:
+                self._cloud_client = CloudLLMClient(config, memory)
             return self._cloud_client
+        
+        # Local provider (llama-cpp)
         else:
-            if not self._local_client: self._local_client = LocalLLMClient(config, memory)
+            if not self._local_client:
+                self._local_client = LocalLLMClient(config, memory)
             return self._local_client
 
     def _apply_mapping(self, proposal: Any, data: Dict[str, Any], used_ids: Optional[List[int]], memory: Any) -> Any:

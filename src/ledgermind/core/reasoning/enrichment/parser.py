@@ -26,33 +26,28 @@ class ResponseParser:
             try:
                 return json.loads(text)
             except json.JSONDecodeError as e:
-                # 3. Попытка исправить "Invalid \escape" (частая проблема с путями или LaTeX)
-                # Заменяем одиночные обратные слэши на двойные, если они не являются частью легальной последовательности
-                fixed_text = re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', text)
+                # 3. Попытка исправить распространенные проблемы (ТОЛЬКО если json.loads упал)
                 try:
-                    return json.loads(fixed_text)
+                    # Исправление 1: Обратные слэши
+                    fixed = re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', text)
+                    
+                    # Исправление 2: Неэкранированные кавычки внутри текста
+                    # Ищем " внутри слов или между кириллицей
+                    fixed = re.sub(r'(?<=[а-яА-Яa-zA-Z0-9])"(?=[а-яА-Яa-zA-Z0-9\s])', r'\\"', fixed)
+                    
+                    # Исправление 3: Реальные переносы строк внутри JSON-значений
+                    # Ищем текст между кавычками в значениях и заменяем \n на \\n
+                    fixed = re.sub(r'":\s*"([^"]*)"', lambda m: '": "' + m.group(1).replace('\n', '\\n') + '"', fixed, flags=re.DOTALL)
+                    
+                    return json.loads(fixed)
                 except Exception:
-                    # 4. Попытка исправить неэкранированные кавычки внутри строк
-                    # Это происходит, когда LLM генерирует "text "quoted" more" вместо "text \"quoted\" more"
+                    # Последний шанс: убираем все управляющие символы и надеемся на лучшее
                     try:
-                        # Простая эвристика: заменяем " внутри строк на \"
-                        # Ищем паттерны вроде: "key": "value "nested" continue"
-                        fixed_text2 = re.sub(r'"(?=[^",\[\]{}]*\s+\w+)', r'\\"', text)
-                        return json.loads(fixed_text2)
-                    except Exception as e2:
-                        # V7.7: Additional fix - remove markdown formatting inside JSON strings
-                        try:
-                            # Remove **bold** and *italic* markers that break JSON
-                            cleaned = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
-                            cleaned = re.sub(r'\*([^*]+)\*', r'\1', cleaned)
-                            cleaned = re.sub(r'__([^_]+)__', r'\1', cleaned)
-                            cleaned = re.sub(r'_([^_]+)_', r'\1', cleaned)
-                            # Remove newlines within strings (replace \n with space)
-                            cleaned = re.sub(r'(?<!\\)\\n', ' ', cleaned)
-                            return json.loads(cleaned)
-                        except Exception as e3:
-                            logger.warning(f"JSON Parse error after all fixes: {e}. Snippet: {text[:500]}...")
-                            return None
+                        cleaned = re.sub(r'[\x00-\x1F\x7F]', ' ', text)
+                        return json.loads(cleaned)
+                    except Exception as e3:
+                        logger.warning(f"JSON Parse error after all fixes: {e}. Snippet: {text[:200]}...")
+                        return None
         except Exception as e:
             logger.error(f"Unexpected parsing error: {e}")
             return None

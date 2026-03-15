@@ -78,7 +78,19 @@ def init_project(path: str):
         default="none"
     ).ask()
     if client is None: return
-    
+
+    # 4.5. Enrichment Provider (NEW)
+    console.print("\n[bold yellow]Step 4.5: Enrichment Provider[/bold yellow]")
+    console.print("Which LLM provider should LedgerMind use for enrichment?")
+    console.print("  [bold]cli[/bold]       - Use Gemini/Claude CLI (existing behavior)")
+    console.print("  [bold]openrouter[/bold] - Use OpenRouter API (100+ models, pay-per-use)")
+    provider = questionary.select(
+        "Select provider:",
+        choices=["cli", "openrouter"],
+        default="cli"
+    ).ask()
+    if provider is None: return
+
     # 5. Enrichment Mode
     console.print("\n[bold yellow]Step 5: Enrichment Mode[/bold yellow]")
     console.print("How should LedgerMind resolve memory conflicts and summarize knowledge?")
@@ -100,13 +112,60 @@ def init_project(path: str):
     ).ask()
     if language is None: return
     language = language.strip().lower()
-    
-    # 7. Gemini Specific Setup
+
+    # 7. OpenRouter Specific Setup
+    openrouter_api_key = None
+
+    if provider == "openrouter":
+        console.print("\n[bold yellow]Step 7: OpenRouter Configuration[/bold yellow]")
+        
+        # Check if API key is set in environment
+        env_api_key = os.environ.get("OPENROUTER_API_KEY")
+        
+        if not env_api_key:
+            console.print("[bold red]✗ OPENROUTER_API_KEY is not set in environment.[/bold red]")
+            console.print("\nTo set it, run one of these commands:")
+            console.print("  [cyan]export OPENROUTER_API_KEY=sk-or-v1-xxxxx[/cyan]")
+            console.print("\nGet your API key from: [underline]https://openrouter.ai/keys[/underline]")
+            console.print("\n[bold yellow]Waiting for you to set the API key...[/bold yellow]")
+            
+            # Give user a chance to export and retry
+            retry_count = 0
+            while retry_count < 3:
+                retry = questionary.confirm(
+                    f"Have you exported OPENROUTER_API_KEY? (Attempt {retry_count + 1}/3)",
+                    default=False
+                ).ask()
+                
+                if retry is None:
+                    return  # User cancelled
+                
+                if retry:
+                    # Re-check environment
+                    env_api_key = os.environ.get("OPENROUTER_API_KEY")
+                    if env_api_key:
+                        openrouter_api_key = env_api_key
+                        console.print(f"[green]✓ OPENROUTER_API_KEY found![/green]")
+                        break
+                    else:
+                        console.print("[yellow]! Still not found. Please export the variable and try again.[/yellow]")
+                
+                retry_count += 1
+            
+            if not openrouter_api_key:
+                console.print("\n[bold red]✗ OpenRouter setup cancelled. API key required.[/bold red]")
+                console.print("You can re-run 'ledgermind init' after setting OPENROUTER_API_KEY")
+                return
+        else:
+            openrouter_api_key = env_api_key
+            console.print(f"[green]✓ OPENROUTER_API_KEY found in environment.[/green]")
+
+    # 8. Gemini Specific Setup (only for CLI provider)
     gemini_binary = None
     gemini_config_mode = "global"
-    
-    if client == "gemini":
-        console.print("\n[bold yellow]Step 7: Gemini Configuration[/bold yellow]")
+
+    if provider == "cli" and client == "gemini":
+        console.print("\n[bold yellow]Step 8: Gemini Configuration[/bold yellow]")
         gemini_binary = GeminiConfigManager.discover_binary()
         if gemini_binary:
             console.print(f"[green]✓ Found gemini binary at: {gemini_binary}[/green]")
@@ -123,13 +182,104 @@ def init_project(path: str):
             default="global"
         ).ask()
         if gemini_config_mode is None: return
-        
+
         config_path = GeminiConfigManager.get_config_path(mode=gemini_config_mode, project_path=project_path)
         GeminiConfigManager.ensure_config_exists(config_path)
         console.print(f"[green]✓ Gemini config ensured at: {config_path}[/green]")
-    
+
     enrichment_model = None
-    if mode == "rich" and client in ["gemini", "claude"]:
+
+    # Model selection for OpenRouter provider
+    if provider == "openrouter" and mode == "rich":
+        console.print(f"\n[bold yellow]Step 7.5: OpenRouter Model Selection[/bold yellow]")
+        console.print("Choose a model from OpenRouter (https://openrouter.ai/models):")
+        console.print("Popular options: stepfun/step-3.5-flash:free, minimax/minimax-m2.5:free")
+
+        while True:
+            enrichment_model = questionary.text(
+                "Model Name:",
+                default=""
+            ).ask()
+
+            if enrichment_model is None: break
+            if not enrichment_model.strip():
+                enrichment_model = "openrouter/free"
+                break
+
+            # Basic validation
+            if "/" not in enrichment_model:
+                console.print("[yellow]! Model name should be in format 'provider/model-name' (e.g., 'openai/gpt-4')[/yellow]")
+                retry = questionary.confirm("Continue anyway?").ask()
+                if retry is None or not retry:
+                    continue
+
+            # Test model availability via API call
+            console.print(f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via OpenRouter API...")
+            try:
+                import httpx
+                
+                # Simple test: make a minimal completion request
+                test_payload = {
+                    "model": enrichment_model,
+                    "messages": [{"role": "user", "content": "Hi, respond with 'OK' if you can hear me."}],
+                    "max_tokens": 10
+                }
+                
+                response = httpx.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {openrouter_api_key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://github.com/sl4m3/ledgermind",
+                        "X-Title": "LedgerMind Setup"
+                    },
+                    json=test_payload,
+                    timeout=60
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    if result.get("choices") and len(result["choices"]) > 0:
+                        console.print(f"[green]✓ Model {enrichment_model} is available and responsive.[/green]")
+                        break
+                    else:
+                        console.print(f"[yellow]! Model returned empty response.[/yellow]")
+                elif response.status_code == 401:
+                    console.print(f"[bold red]✗ Authentication failed. Check your OPENROUTER_API_KEY.[/bold red]")
+                    retry = questionary.confirm("Try another model name?").ask()
+                    if not retry:
+                        enrichment_model = None
+                        break
+                elif response.status_code == 404:
+                    console.print(f"[bold red]✗ Model {enrichment_model} not found on OpenRouter.[/bold red]")
+                    retry = questionary.confirm("Try another model name?").ask()
+                    if not retry:
+                        enrichment_model = None
+                        break
+                else:
+                    console.print(f"[bold red]✗ API returned status {response.status_code}[/bold red]")
+                    if response.text:
+                        console.print(f"[red]Error: {response.text[:200]}[/red]")
+                    retry = questionary.confirm("Try another model name?").ask()
+                    if not retry:
+                        enrichment_model = None
+                        break
+                        
+            except httpx.TimeoutException:
+                console.print(f"[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]")
+                retry = questionary.confirm("Try another model name?").ask()
+                if not retry:
+                    enrichment_model = None
+                    break
+            except Exception as e:
+                console.print(f"[bold red]✗ Error during validation: {e}[/bold red]")
+                retry = questionary.confirm("Try another model name?").ask()
+                if not retry:
+                    enrichment_model = None
+                    break
+
+    # Model selection for CLI provider
+    if mode == "rich" and provider == "cli" and client in ["gemini", "claude"]:
         console.print(f"\n[bold yellow]Step 5b: Specific Model for {client.capitalize()}[/bold yellow]")
         console.print("You can specify a model name to override the default client model.")
         console.print("Examples: gemini-3-flash, gemini-2.5-flash-lite, claude-4-5-haiku")
@@ -230,6 +380,7 @@ def init_project(path: str):
         memory.semantic.meta.set_config("enrichment_mode", mode)
         memory.semantic.meta.set_config("enrichment_language", language)
         memory.semantic.meta.set_config("client", client)
+        memory.semantic.meta.set_config("enrichment_provider", provider)  # V7.9: New provider setting
         if enrichment_model:
             memory.semantic.meta.set_config("enrichment_model", enrichment_model)
 
@@ -238,10 +389,16 @@ def init_project(path: str):
             memory.semantic.meta.set_config("gemini_config_mode", gemini_config_mode)
             # Paths are derived automatically in V5.0 from the mode
 
+        # V7.9: Save OpenRouter settings (API key only - loaded from env)
+        if provider == "openrouter":
+            memory.semantic.meta.set_config("openrouter_api_key", openrouter_api_key)
+            # Note: site_url and site_name removed in v3.3.1 - use env vars if needed
+
         console.print(f"[green]✓ Created memory structure at {custom_path}[/green]")
         console.print(f"[green]✓ Configured vector model: {model_name}[/green]")
         console.print(f"[green]✓ Set enrichment mode: {mode}[/green]")
         console.print(f"[green]✓ Set enrichment language: {language}[/green]")
+        console.print(f"[green]✓ Set enrichment provider: {provider}[/green]")
         console.print(f"[green]✓ Registered client: {client}[/green]")
         if enrichment_model:
             console.print(f"[green]✓ Configured enrichment model: {enrichment_model}[/green]")
