@@ -1,19 +1,14 @@
-# Latest Release: v3.3.2
+# Latest Release: v3.3.3
 
-## March 14, 2026
+**Release Date:** March 15, 2026
 
-LedgerMind v3.3.2 is a maintenance release that automates Gemini CLI hook configuration and refines default settings for better compatibility.
+LedgerMind v3.3.3 is a maintenance release that introduces an interactive settings manager, improves OpenRouter integration, and enhances JSON parsing robustness for LLM outputs.
 
-### Highlights
+## 🚀 Key Improvements
 
-- **Installer:** Zero-touch hook configuration for Gemini CLI in `settings.json`.
-- **Config:** Removed hardcoded model defaults to favor system/environment settings.
-- **Portability:** Relative paths for project-level hooks.
+- **Interactive Settings** — Enter `ledgermind settings` to manage your configuration through a new terminal UI.
+- **OpenRouter Fixes** — Resolved stability issues with the OpenRouter cloud provider.
+- **Robust JSON Parsing** — Added "auto-healing" for malformed LLM responses, improving enrichment reliability.
+- **Enhanced Testing** — Added comprehensive smoke tests for CLI settings and OpenRouter integration.
 
-### Metrics
-
-- Record Decision: **10.31 OPS** (stable)
-- Search Fast Path: **4,179 OPS** (stable)
-- Tests: **300 passed** (all green)
-
-[View full v3.3.2 changelog](./v3.3.2.md)
+[View full v3.3.3 changelog](./v3.3.3.md)

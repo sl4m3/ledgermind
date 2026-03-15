@@ -4,6 +4,12 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.3.3] - 2026-03-15
+
+- **Settings UI:** New interactive manager for `ledgermind settings` command.
+- **OpenRouter:** Fixed stability issues and improved cloud enrichment reliability.
+- **Knowledge Processing:** Enhanced JSON parsing robustness for LLM outputs.
+
 ## [v3.3.2] - 2026-03-14
 
 - **Installer Automation:** Zero-touch Gemini CLI hook registration in `settings.json`

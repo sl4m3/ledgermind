@@ -40,14 +40,17 @@ def test_cli_help():
 
 def test_cli_init_and_check(tmp_path):
     memory_path = str(tmp_path / "ledgermind")
-    
+
     # Test init
     with patch('ledgermind.server.cli.questionary.text') as mock_text, \
-         patch('ledgermind.server.cli.questionary.select') as mock_select:
+         patch('ledgermind.server.cli.questionary.select') as mock_select, \
+         patch('ledgermind.server.cli.questionary.confirm') as mock_confirm:
         # Mock answers: Project Path, Memory Path, Language
-        mock_text.return_value.ask.side_effect = [str(tmp_path), memory_path, "russian"]
-        # Mock answers: Embedder, Client, Mode
-        mock_select.return_value.ask.side_effect = ["jina-v5-4bit", "none", "lite"]
+        mock_text.return_value.ask.side_effect = [str(tmp_path), memory_path, "russian", "openai/gpt-4"]
+        # Mock answers: Embedder, Provider, Client, Mode
+        mock_select.return_value.ask.side_effect = ["jina-v5-4bit", "cli", "none", "lite"]
+        # Mock confirm (for OpenRouter retry)
+        mock_confirm.return_value.ask.side_effect = [False]  # Skip OpenRouter retry
         result = run_cli(["init", "--path", memory_path])
 
     assert result.returncode == 0, f"init failed: {result.stderr}"
