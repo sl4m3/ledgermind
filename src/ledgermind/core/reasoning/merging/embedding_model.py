@@ -41,18 +41,9 @@ class JinaEmbeddingModel:
     def __init__(self, model_name: str = "jina-v5-small-4bit", cache_size: int = 10000, model_instance: Any = None):
         self.model_name = model_name
         self.cache = EmbeddingCache(max_size=cache_size)
-        # Use provided instance or load a new one
-        self._model = model_instance if model_instance is not None else self._load_model()
-
-    def _load_model(self):
-        """Загрузка модели (ленивая)."""
-        try:
-            # TODO: интегрировать с ledgermind.init
-            from ledgermind.models.jina import JinaEncoder
-            return JinaEncoder(model_name=self.model_name)
-        except ImportError as e:
-            logger.warning(f"Не удалось загрузить Jina модель: {e}. Используем fallback.")
-            return None
+        self._model = model_instance
+        if self._model is None:
+            logger.warning("No model_instance provided to JinaEmbeddingModel. Falling back to pseudo-embeddings.")
 
     def _text_hash(self, text: str) -> str:
         """Хэш для кэширования."""
