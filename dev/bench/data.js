@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773606255462,
+  "lastUpdate": 1773612496840,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -225,6 +225,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009464495934886708",
             "extra": "mean: 966.7780000029325 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cbc478e252b5380c1d1193ef0550213854a7420d",
+          "message": "Remove dead _load_model code in JinaEmbeddingModel",
+          "timestamp": "2026-03-16T01:05:49+03:00",
+          "tree_id": "9f2f342adb992bdc2f4c8d78518ea2e3cedab28d",
+          "url": "https://github.com/sl4m3/ledgermind/commit/cbc478e252b5380c1d1193ef0550213854a7420d"
+        },
+        "date": 1773612496352,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 90.29755808492062,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001102555111956049",
+            "extra": "mean: 11.074496600002703 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10530.106628848027,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000025428935579390996",
+            "extra": "mean: 94.9657999910869 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1034.0951512340148,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009556087896985419",
+            "extra": "mean: 967.0289999974102 usec\nrounds: 5"
           }
         ]
       }
