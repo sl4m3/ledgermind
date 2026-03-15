@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773573589493,
+  "lastUpdate": 1773591998754,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -90,6 +90,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000125479672352568",
             "extra": "mean: 983.9591999991626 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav Zotov",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav Zotov",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "44060cd58106f6f48ccd43f85da36e3369d2be61",
+          "message": "release: version 3.3.3 - interactive settings, openrouter fixes, and robust parsing",
+          "timestamp": "2026-03-15T19:24:02+03:00",
+          "tree_id": "9fbac3e7389b8b9af3e7078bc0c49aac15944cb4",
+          "url": "https://github.com/sl4m3/ledgermind/commit/44060cd58106f6f48ccd43f85da36e3369d2be61"
+        },
+        "date": 1773591997858,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 94.55223136176677,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001521816203320454",
+            "extra": "mean: 10.576164999997673 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10549.302163081946,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015357309991794846",
+            "extra": "mean: 94.79300000521107 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1041.7916816565626,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008681671688635798",
+            "extra": "mean: 959.8848000109683 usec\nrounds: 5"
           }
         ]
       }
