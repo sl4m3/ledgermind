@@ -16,7 +16,23 @@ def test_bridge_initialization(bridge, temp_memory_path):
     assert bridge.memory_path == os.path.abspath(temp_memory_path)
     assert os.path.exists(temp_memory_path)
 
-def test_record_and_get_context(bridge):
+def test_record_and_get_context(bridge, monkeypatch):
+    from unittest.mock import MagicMock
+    from ledgermind.core.stores import vector
+    from ledgermind.core.stores.vector import _MODEL_CACHE
+    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", True)
+    monkeypatch.setattr(vector, "LLAMA_AVAILABLE", False)
+
+    import numpy as np
+    mock_model = MagicMock()
+    mock_model.encode.return_value = np.array([[0.5] * 384], dtype='float32')
+    mock_model.get_sentence_embedding_dimension.return_value = 384
+    # The tests try to instantiate the gguf model if available, but since we set LLAMA=False it falls back.
+    # But wait, we need to bypass the gguf logic completely.
+    bridge.memory.vector.model_name = "mock-model"
+    _MODEL_CACHE["mock-model"] = mock_model
+    bridge.memory.vector._model = mock_model
+
     # Record a decision directly into memory to have context
     dec = bridge.record_decision(
         title="Database Choice",
