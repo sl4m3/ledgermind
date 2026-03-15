@@ -16,11 +16,19 @@ def test_deep_grounding_inheritance(temp_memory_path, monkeypatch):
     Ensures that a new decision version inherits links to all episodic events 
     associated with its predecessors.
     """
+    from unittest.mock import MagicMock
     from ledgermind.core.stores import vector
     from ledgermind.core.stores.vector import _MODEL_CACHE
-    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", False)
+    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", True)
+    monkeypatch.setattr(vector, "LLAMA_AVAILABLE", False)
+
+    import numpy as np
+    mock_model = MagicMock()
+    mock_model.encode.return_value = np.array([[0.5] * 384], dtype='float32')
+    mock_model.get_sentence_embedding_dimension.return_value = 384
+    _MODEL_CACHE["mock-hybrid-model"] = mock_model
     
-    memory = Memory(storage_path=temp_memory_path, vector_model=None)
+    memory = Memory(storage_path=temp_memory_path, vector_model="mock-hybrid-model")
     target = "Inheritance-Test"
     
     # 1. Record an event with UNIQUE content
@@ -165,11 +173,35 @@ def test_hybrid_search_rrf_and_grounding_boost(temp_memory_path, monkeypatch):
     Ensures that RRF correctly fuses Keyword and Vector results, 
     and that 'Evidence Boost' elevates grounded decisions.
     """
+    from unittest.mock import MagicMock
     from ledgermind.core.stores import vector
     from ledgermind.core.stores.vector import _MODEL_CACHE
-    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", False)
+    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", True)
+    monkeypatch.setattr(vector, "LLAMA_AVAILABLE", False)
+
+    import numpy as np
+    mock_model = MagicMock()
+
+    # Return distinct vectors for distinct inputs
+    def _mock_encode(texts, **kwargs):
+        is_list = isinstance(texts, list)
+        texts_list = texts if is_list else [texts]
+        out = []
+        for t in texts_list:
+            if "Performance latency optimization" in t:
+                out.append([1.0] * 384)
+            elif "System Availability Rules" in t:
+                    # distinct vectors
+                    out.append([-1.0] * 384)
+            else:
+                out.append([1.0] * 384) # Match query to A
+        return np.array(out, dtype='float32')
+
+    mock_model.encode.side_effect = _mock_encode
+    mock_model.get_sentence_embedding_dimension.return_value = 384
+    _MODEL_CACHE["mock-hybrid-model2"] = mock_model
     
-    memory = Memory(storage_path=temp_memory_path, vector_model=None)
+    memory = Memory(storage_path=temp_memory_path, vector_model="mock-hybrid-model2")
     
     # 1. Record Decision A (Vector match + Grounding boost)
     res_a = memory.record_decision(
