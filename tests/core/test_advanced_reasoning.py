@@ -172,16 +172,22 @@ def test_hybrid_search_rrf_and_grounding_boost(temp_memory_path, monkeypatch):
     monkeypatch.setattr(vector, "LLAMA_AVAILABLE", False)
     
     import numpy as np
+    import re
     mock_model = MagicMock()
-    # Sentence transformers encode returns a 2D array if batch, 1D if single. We should return 1D array.
-    # Wait, the error is `numpy.exceptions.AxisError: axis 1 is out of bounds for array of dimension 1`
-    # That means it expects a 2D array or something. Let's return a 1D array of floats.
-    # Actually wait, `encode()` returns a 1D array for single string, 2D array for list of strings.
-    # Let's handle both.
+    # We need realistic vectors that have differing similarity scores.
     def mock_encode(text, **kwargs):
+        def get_vec(t):
+            v = np.zeros(384)
+            words = re.findall(r'\w+', t.lower())
+            for w in words:
+                v[hash(w) % 384] += 1.0
+            norm = np.linalg.norm(v)
+            if norm > 0:
+                return v / norm
+            return v
         if isinstance(text, list):
-            return np.random.rand(len(text), 384)
-        return np.random.rand(1, 384)[0]
+            return np.array([get_vec(t) for t in text])
+        return get_vec(text)
     mock_model.encode.side_effect = mock_encode
     monkeypatch.setitem(_MODEL_CACHE, "mock_model", mock_model)
 
