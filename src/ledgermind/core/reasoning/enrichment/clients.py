@@ -13,6 +13,8 @@ class LLMClient(Protocol):
     """Protocol for LLM execution strategies."""
     def call(self, instructions: str, data: str, fid: str = "unknown") -> Optional[str]:
         ...
+    def is_available(self) -> bool:
+        ...
 
 class CloudLLMClient:
     """Strategy for Gemini (Cloud) using CLI/SDK."""
@@ -81,6 +83,26 @@ class CloudLLMClient:
             return resp.text if resp else None
         except Exception: return None
 
+    def is_available(self) -> bool:
+        """Check if Cloud LLM is properly configured."""
+        # Check if CLI is available
+        try:
+            result = subprocess.run([self._bin, "--version"], capture_output=True, timeout=5)
+            if result.returncode == 0:
+                return True
+        except Exception:
+            pass
+        
+        # Check if SDK is available
+        try:
+            import google.generativeai as genai
+            key = os.environ.get("GEMINI_API_KEY")
+            return bool(key)
+        except Exception:
+            pass
+        
+        return False
+
 
 class LocalLLMClient:
     """Strategy for llama-cpp (Local)."""
@@ -92,12 +114,12 @@ class LocalLLMClient:
     def call(self, instructions: str, data: str, fid: str = "unknown") -> Optional[str]:
         try:
             from llama_cpp import Llama
-            
+
             if not self._client:
                 path = os.environ.get("LEDGERMIND_LOCAL_LLM_PATH")
                 if not path and self.memory and hasattr(self.memory, 'vector'):
                     path = getattr(self.memory.vector, 'model_path', None)
-                
+
                 if not path or not os.path.exists(path):
                     return None
                 self._client = Llama(model_path=path, n_ctx=2048, verbose=False)
@@ -109,3 +131,14 @@ class LocalLLMClient:
         except Exception as e:
             logger.error(f"Local LLM failed: {e}")
             return None
+
+    def is_available(self) -> bool:
+        """Check if Local LLM is properly configured."""
+        try:
+            from llama_cpp import Llama
+            path = os.environ.get("LEDGERMIND_LOCAL_LLM_PATH")
+            if not path and self.memory and hasattr(self.memory, 'vector'):
+                path = getattr(self.memory.vector, 'model_path', None)
+            return bool(path and os.path.exists(path))
+        except Exception:
+            return False

@@ -5,6 +5,7 @@ from typing import Any
 class EnrichmentConfig:
     """Settings for the enrichment process."""
     mode: str = "rich"  # "optimal" (local) or "rich" (cloud)
+    provider: str = "cli"  # "cli" or "openrouter"
     max_tokens: int = 100000
     retry_attempts: int = 3
     retry_delay: int = 5
@@ -25,5 +26,9 @@ class EnrichmentConfig:
             config.mode = meta.get_config("enrichment_mode") or config.mode
             config.model_name = meta.get_config("enrichment_model") or config.model_name
             config.enrichment_language = meta.get_config("enrichment_language") or config.enrichment_language
+            # V7.9: Only use provider if explicitly set
+            provider = meta.get_config("enrichment_provider")
+            if provider:
+                config.provider = provider
 
         return config

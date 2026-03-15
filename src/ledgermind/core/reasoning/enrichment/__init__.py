@@ -4,6 +4,7 @@ from .processor import LogProcessor
 from .builder import PromptBuilder
 from .parser import ResponseParser
 from .clients import CloudLLMClient, LocalLLMClient
+from .openrouter_client import OpenRouterClient
 
 __all__ = [
     "LLMEnricher",
@@ -12,5 +13,6 @@ __all__ = [
     "PromptBuilder",
     "ResponseParser",
     "CloudLLMClient",
-    "LocalLLMClient"
+    "LocalLLMClient",
+    "OpenRouterClient"
 ]
