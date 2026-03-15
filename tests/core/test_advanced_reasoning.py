@@ -165,11 +165,27 @@ def test_hybrid_search_rrf_and_grounding_boost(temp_memory_path, monkeypatch):
     Ensures that RRF correctly fuses Keyword and Vector results, 
     and that 'Evidence Boost' elevates grounded decisions.
     """
+    from unittest.mock import MagicMock
     from ledgermind.core.stores import vector
     from ledgermind.core.stores.vector import _MODEL_CACHE
-    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", False)
+    monkeypatch.setattr(vector, "EMBEDDING_AVAILABLE", True)
+    monkeypatch.setattr(vector, "LLAMA_AVAILABLE", False)
     
-    memory = Memory(storage_path=temp_memory_path, vector_model=None)
+    import numpy as np
+    mock_model = MagicMock()
+    # Sentence transformers encode returns a 2D array if batch, 1D if single. We should return 1D array.
+    # Wait, the error is `numpy.exceptions.AxisError: axis 1 is out of bounds for array of dimension 1`
+    # That means it expects a 2D array or something. Let's return a 1D array of floats.
+    # Actually wait, `encode()` returns a 1D array for single string, 2D array for list of strings.
+    # Let's handle both.
+    def mock_encode(text, **kwargs):
+        if isinstance(text, list):
+            return np.random.rand(len(text), 384)
+        return np.random.rand(1, 384)[0]
+    mock_model.encode.side_effect = mock_encode
+    monkeypatch.setitem(_MODEL_CACHE, "mock_model", mock_model)
+
+    memory = Memory(storage_path=temp_memory_path, vector_model="mock_model")
     
     # 1. Record Decision A (Vector match + Grounding boost)
     res_a = memory.record_decision(
