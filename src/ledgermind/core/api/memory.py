@@ -2,7 +2,6 @@ import os
 import yaml
 import json
 import logging
-import shutil
 import subprocess
 import uuid
 import threading
