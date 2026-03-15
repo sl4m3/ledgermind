@@ -1,8 +1,6 @@
 import re
-import os
-import uuid
 import logging
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from datetime import datetime, timedelta
 
 from ledgermind.core.core.schemas import MemoryEvent, TrajectoryAtom, TrajectoryChain
@@ -34,8 +32,10 @@ class TrajectoryBuilder:
                 ctx = e.get('context', {})
                 if isinstance(ctx, str) and ctx.strip():
                     import json
-                    try: ctx = json.loads(ctx)
-                    except: ctx = {}
+                    try:
+                        ctx = json.loads(ctx)
+                    except Exception:
+                        ctx = {}
                 elif not ctx:
                     ctx = {}
                     
