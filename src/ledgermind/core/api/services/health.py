@@ -95,7 +95,7 @@ class HealthService(MemoryService):
             except Exception as e: results["errors"].append(f"Git repo failed: {e}")
                 
         if results["errors"] and self.context.trust_boundary == TrustBoundary.AGENT_WITH_INTENT:
-             for error in results["errors"]: logger.error(f"Environment check failed: {error}")
+             logger.error(f"Environment check failed: {', '.join(results['errors'])}")
         
         results["healthy"] = len(results["errors"]) == 0
         return results
