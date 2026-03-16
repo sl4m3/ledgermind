@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773612496840,
+  "lastUpdate": 1773623828534,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -270,6 +270,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009556087896985419",
             "extra": "mean: 967.0289999974102 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav Zotov",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav Zotov",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "14514c6dbf3a9e00a6a378bde71e6d5ffe483ca2",
+          "message": "feat: implement namespace isolation for multi-client support\n\n- Add namespace parameter to Bridge API for client isolation\n- Use --cli flag as namespace in bridge-context/sync/record commands\n- Hooks automatically pass --cli (claude/gemini/cursor) as namespace\n- Each client works with isolated namespace in shared memory\n- Add comprehensive test coverage for namespace isolation\n\nChanges:\n- src/ledgermind/core/api/bridge.py: Add namespace parameter\n- src/ledgermind/server/cli.py: Use --cli as namespace\n- src/ledgermind/server/server.py: Pass client to background worker\n- src/ledgermind/server/background.py: Support client parameter\n- src/ledgermind/server/installers.py: Include --cli in hooks\n- tests/core/test_bridge_namespace.py: Bridge namespace tests (5 tests)\n- tests/server/test_cli_namespace.py: CLI namespace tests (4 tests)\n- tests/server/test_hooks_namespace.py: Hook namespace tests (7 tests)\n- tests/core/test_multi_client_namespace.py: Multi-client tests (4 tests)\n\nTesting:\n- All 321 tests passing\n- Namespace isolation verified for claude/gemini/cursor\n- Concurrent clients with different namespaces don't interfere",
+          "timestamp": "2026-03-16T03:59:54+03:00",
+          "tree_id": "fa981faec504ec0bbfca46b9db517e10f2a42518",
+          "url": "https://github.com/sl4m3/ledgermind/commit/14514c6dbf3a9e00a6a378bde71e6d5ffe483ca2"
+        },
+        "date": 1773623827624,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 92.42067985907875,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00037337628445395553",
+            "extra": "mean: 10.820089200001348 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11251.403612733053,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012048500366411772",
+            "extra": "mean: 88.87779999895429 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1033.3364677895372,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009066293190457951",
+            "extra": "mean: 967.7389999978914 usec\nrounds: 5"
           }
         ]
       }
