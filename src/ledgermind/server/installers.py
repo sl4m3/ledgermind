@@ -148,17 +148,21 @@ cat | {cli_entry} bridge-sync --path "{memory_path}" --cli "claude" --stdin 2>> 
         """Install MCP server configuration for Claude via claude mcp add."""
         try:
             import subprocess
+            import shutil
+            claude_path = shutil.which("claude")
+            if not claude_path:
+                raise FileNotFoundError("Claude CLI not found")
             # Try to add with client parameter
-            result = subprocess.run(
-                ["claude", "mcp", "add", "ledgermind", "ledgermind-mcp", "--", "--path", os.path.abspath(memory_path), "--client", client],
+            result = subprocess.run(  # nosec B603
+                [claude_path, "mcp", "add", "ledgermind", "ledgermind-mcp", "--", "--path", os.path.abspath(memory_path), "--client", client],
                 capture_output=True, text=True, timeout=30
             )
 
             # If it fails because it already exists, remove it and try again to update the path
             if result.returncode != 0 and "already exists" in (result.stderr or result.stdout):
-                subprocess.run(["claude", "mcp", "remove", "ledgermind"], capture_output=True, timeout=10)
-                result = subprocess.run(
-                    ["claude", "mcp", "add", "ledgermind", "ledgermind-mcp", "--", "--path", os.path.abspath(memory_path), "--client", client],
+                subprocess.run([claude_path, "mcp", "remove", "ledgermind"], capture_output=True, timeout=10)  # nosec B603
+                result = subprocess.run(  # nosec B603
+                    [claude_path, "mcp", "add", "ledgermind", "ledgermind-mcp", "--", "--path", os.path.abspath(memory_path), "--client", client],
                     capture_output=True, text=True, timeout=30
                 )
 
