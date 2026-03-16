@@ -95,16 +95,16 @@ class QueryService(MemoryService):
         candidates_meta = self.semantic.meta.get_batch_by_fids(sorted_fids)
         request_cache = {m['fid']: m for m in candidates_meta}
 
-        current_layer_ids = [m['superseded_by'] for m in candidates_meta if m.get('superseded_by')]
-        current_layer_ids = [fid for fid in current_layer_ids if fid and fid not in request_cache]
+        # ⚡ Bolt: Use single-pass list comprehension with dict.fromkeys to concurrently filter, check caches, and deduplicate IDs while preserving order
+        current_layer_ids = list(dict.fromkeys(m['superseded_by'] for m in candidates_meta if m.get('superseded_by') and m['superseded_by'] not in request_cache))
 
         iteration = 0
         while current_layer_ids and iteration < 5:
             new_batch = self.semantic.meta.get_batch_by_fids(current_layer_ids)
             for m in new_batch:
                 request_cache[m['fid']] = m
-            current_layer_ids = [m['superseded_by'] for m in new_batch if m.get('superseded_by')]
-            current_layer_ids = [fid for fid in current_layer_ids if fid and fid not in request_cache]
+            # ⚡ Bolt: Use single-pass list comprehension with dict.fromkeys to concurrently filter, check caches, and deduplicate IDs while preserving order
+            current_layer_ids = list(dict.fromkeys(m['superseded_by'] for m in new_batch if m.get('superseded_by') and m['superseded_by'] not in request_cache))
             iteration += 1
 
         resolved_records = []
