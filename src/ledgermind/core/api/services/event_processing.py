@@ -145,8 +145,8 @@ class EventProcessingService(MemoryService):
         # BLOCK MANUAL WRITES WHEN WORKER IS ACTIVE
         # This prevents race conditions between manual MCP writes and autonomous worker
         if self._is_worker_active():
-            # Allow only internal sources (reflection_engine, system) when worker is running
-            INTERNAL_SOURCES = {"system", "reflection_engine", "bridge"}
+            # Allow only internal sources (reflection_engine, system, enrichment, bridge) when worker is running
+            INTERNAL_SOURCES = {"system", "reflection_engine", "enrichment", "bridge"}
             if source not in INTERNAL_SOURCES:
                 raise PermissionError(
                     f"Cannot manually write to memory while background worker is active (PID: {self._get_worker_pid()}). "

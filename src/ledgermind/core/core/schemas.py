@@ -122,7 +122,7 @@ class DecisionContent(BaseSemanticContent):
 
 class MemoryEvent(BaseModel):
     schema_version: int = Field(default=1)
-    source: Literal["user", "agent", "system", "reflection_engine", "bridge"]
+    source: Literal["user", "agent", "system", "reflection_engine", "bridge", "enrichment"]
     kind: Literal["decision", "error", "config_change", "assumption", "constraint", "result", "proposal", "context_snapshot", "context_injection", "task", "call", "commit_change", "prompt", "intervention", "reflection_summary"]
     content: StrictStr
     context: Any = Field(default_factory=dict)

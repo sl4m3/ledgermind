@@ -737,9 +737,10 @@ class LLMEnricher:
                 all_supersedes = fids
 
             # Create new decision WITH inherited phase (decisions don't have direct event links)
+            # Use source="enrichment" to allow writes when background worker is active
             new_decision = memory.supersede_decision(
                 title=title, target=final_target, rationale=_clean_text(res_data.get("rationale", "Synthesized content.")),
-                old_decision_ids=all_supersedes, evidence_ids=[], phase=inherited_phase
+                old_decision_ids=all_supersedes, evidence_ids=[], phase=inherited_phase, source="enrichment"
             )
 
             new_fid = new_decision.metadata.get('file_id')

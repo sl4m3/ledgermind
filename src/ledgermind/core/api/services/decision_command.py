@@ -116,7 +116,8 @@ class DecisionCommandService(MemoryService):
                            vector: Optional[Any] = None,
                            phase: Optional[Any] = None,  # DecisionPhase or None
                            enrichment_status: str = "pending",
-                           memory_facade: Any = None) -> MemoryDecision:
+                           memory_facade: Any = None,
+                           source: str = "agent") -> MemoryDecision:
         """Helper to evolve knowledge."""
         effective_namespace = namespace or self.context.namespace
         for oid in old_decision_ids:
@@ -135,7 +136,7 @@ class DecisionCommandService(MemoryService):
             first_seen=datetime.now(), last_seen=datetime.now()
         )
         decision = memory_facade.process_event(
-            source="agent", kind=KIND_DECISION, content=title, context=ctx,
+            source=source, kind=KIND_DECISION, content=title, context=ctx,
             intent=intent, namespace=effective_namespace, vector=vector
         )
         if not decision.should_persist:

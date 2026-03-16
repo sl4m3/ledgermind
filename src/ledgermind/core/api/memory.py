@@ -276,14 +276,14 @@ class Memory:
             memory_facade=self
         )
 
-    def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None, namespace: Optional[str] = None, vector: Optional[Any] = None, phase: Optional[Any] = None, enrichment_status: str = "pending") -> MemoryDecision:
+    def supersede_decision(self, title: str, target: str, rationale: str, old_decision_ids: List[str], consequences: Optional[List[str]] = None, evidence_ids: Optional[List[int]] = None, namespace: Optional[str] = None, vector: Optional[Any] = None, phase: Optional[Any] = None, enrichment_status: str = "pending", source: str = "agent") -> MemoryDecision:
         """
         Helper to evolve knowledge by superseding existing decisions.
         """
         return self._decision_command.supersede_decision(
             title, target, rationale, old_decision_ids, consequences, evidence_ids, namespace, vector, phase,
             enrichment_status=enrichment_status or "pending",
-            memory_facade=self
+            memory_facade=self, source=source
         )
 
     def accept_proposal(self, proposal_id: str) -> MemoryDecision:
