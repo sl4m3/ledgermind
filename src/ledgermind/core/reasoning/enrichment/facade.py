@@ -92,11 +92,11 @@ class LLMEnricher:
                 self.enrichment_language = meta.get_config("enrichment_language") or "russian"
 
         logger.info(f"Auto-Enrichment Triggered: Language={self.enrichment_language}, Mode={self.mode}")
-        
+
         # 1. Discover all records where enrichment is still needed
         all_metas = memory.semantic.meta.list_all()
         pending_metas = [m for m in all_metas if m.get('enrichment_status') == 'pending']
-        
+
         if not pending_metas:
             logger.info("No records found with enrichment_status='pending'.")
             return
@@ -110,22 +110,25 @@ class LLMEnricher:
 
         # Sort by priority first, then by timestamp (ASC - oldest first)
         pending_metas.sort(key=lambda m: (get_priority(m), m.get('timestamp', '')))
-        
+
         if limit: pending_metas = pending_metas[:limit]
 
-        # 3. Process sequentially
+        # 3. Process sequentially with client-specific models
         proposals_objs = []
         for m in pending_metas:
             try:
+                # Get namespace from proposal (set by client via --cli flag)
+                proposal_namespace = m.get('namespace', 'default')
+                
                 # Simple object wrapper to satisfy 'getattr' calls
                 class ProposalWrapper:
                     def __init__(self, data):
                         self._data = data
                         # Blacklist technical fields from being part of the primary object attributes
                         blacklist = {'context_json', 'content_hash', 'last_hit_at', 'hit_count'}
-                        for k, v in data.items(): 
+                        for k, v in data.items():
                             if k not in blacklist: setattr(self, k, v)
-                        
+
                         if 'context_json' in data and data['context_json']:
                             try:
                                 ctx = json.loads(data['context_json'])
@@ -157,7 +160,7 @@ class LLMEnricher:
         logger.info(f"Synthesizing merged rationale for {len(rationales)} items...")
         
         combined_text = "\n\n--- SOURCE RATIONALE ---\n\n".join(rationales)
-        config = EnrichmentConfig.from_memory(memory, mode=self.mode or "rich", enrichment_language=self.enrichment_language or "russian")
+        config = EnrichmentConfig.from_memory(memory, mode=self.mode or "rich", enrichment_language=self.enrichment_language or "russian", client=None)
         
         # Use existing prompts from builder.py
         instructions = PromptBuilder.build_consolidation_prompt(config)
@@ -249,7 +252,9 @@ class LLMEnricher:
         fid = getattr(prop, 'fid', 'unknown')
         current_obj = prop
         iteration = 1
-        config = EnrichmentConfig.from_memory(memory, mode=self.mode, enrichment_language=self.enrichment_language)
+        # Get namespace from proposal for client-specific model
+        proposal_namespace = getattr(prop, 'namespace', None)
+        config = EnrichmentConfig.from_memory(memory, mode=self.mode, enrichment_language=self.enrichment_language, client=proposal_namespace)
 
         while True:
             eids = getattr(current_obj, 'evidence_event_ids', [])
@@ -326,8 +331,8 @@ class LLMEnricher:
         if len(docs_meta) < 2: return
 
         docs_summary = "\n\n".join([f"FID: {d['fid']}\nTitle: {d['title']}\nTarget: {d.get('target', 'unknown')}\nKeywords: {d.get('keywords', [])}\nRationale: {d.get('rationale', '')[:300]}\nContent: {d['content'][:500]}" for d in docs_meta])
-        
-        config = EnrichmentConfig.from_memory(memory, mode="rich", enrichment_language=self.enrichment_language)
+
+        config = EnrichmentConfig.from_memory(memory, mode="rich", enrichment_language=self.enrichment_language, client=None)
         instructions = PromptBuilder.build_clustering_prompt(config)
         full_prompt = PromptBuilder.wrap_with_data(instructions, docs_summary, config)
         
@@ -507,7 +512,7 @@ class LLMEnricher:
                 })
         
         # V7.8: Use PromptBuilder for consistent prompt formatting
-        config = EnrichmentConfig.from_memory(memory, mode="rich", enrichment_language=self.enrichment_language)
+        config = EnrichmentConfig.from_memory(memory, mode="rich", enrichment_language=self.enrichment_language, client=None)
         prompt = PromptBuilder.build_target_conflict_resolution_prompt(
             config=config,
             proposed_target=proposed_target,
@@ -635,7 +640,7 @@ class LLMEnricher:
         if len(docs_full) < 2: return
         
         docs_summary = "\n\n--- DOCUMENT BOUNDARY ---\n\n".join(docs_full)
-        config = EnrichmentConfig.from_memory(memory, mode="rich", enrichment_language=self.enrichment_language)
+        config = EnrichmentConfig.from_memory(memory, mode="rich", enrichment_language=self.enrichment_language, client=None)
         instructions = PromptBuilder.build_consolidation_prompt(config)
         full_prompt = PromptBuilder.wrap_with_data(instructions, docs_summary, config)
         
@@ -812,7 +817,9 @@ class LLMEnricher:
     def enrich_proposal(self, proposal: Any, cluster_logs: Optional[str] = None, memory: Any = None, used_event_ids: Optional[List[int]] = None) -> Any:
         fid = getattr(proposal, 'fid', 'unknown')
         target = getattr(proposal, 'target', 'general')
-        config = EnrichmentConfig.from_memory(memory, self.mode, self.enrichment_language)
+        # Get namespace from proposal for client-specific model
+        proposal_namespace = getattr(proposal, 'namespace', None)
+        config = EnrichmentConfig.from_memory(memory, self.mode, self.enrichment_language, client=proposal_namespace)
         instructions = PromptBuilder.build_system_prompt(target, getattr(proposal, 'rationale', ''), config)
         client = self._get_client(config, memory)
         response = client.call(instructions, cluster_logs or "", fid=fid)

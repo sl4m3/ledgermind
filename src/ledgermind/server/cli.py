@@ -282,7 +282,10 @@ def init_project(path: str):
     if mode == "rich" and provider == "cli" and client in ["gemini", "claude"]:
         console.print(f"\n[bold yellow]Step 5b: Specific Model for {client.capitalize()}[/bold yellow]")
         console.print("You can specify a model name to override the default client model.")
-        console.print("Examples: gemini-3-flash, gemini-2.5-flash-lite, claude-4-5-haiku")
+        if client == "claude":
+            console.print("Examples: claude-sonnet-4-6, claude-haiku-4-5")
+        else:
+            console.print("Examples: gemini-2.5-flash-lite, gemini-2.0-flash")
         
         while True:
             enrichment_model = questionary.text(
@@ -303,8 +306,18 @@ def init_project(path: str):
                 if client == "gemini":
                     cmd = ["gemini", "--model", enrichment_model, "--prompt", test_prompt]
                 else: # claude
-                    cmd = ["claude", "-m", enrichment_model, test_prompt]
-                
+                    # V7.10: Use flags to disable tools, MCP, session persistence, and slash commands
+                    cmd = [
+                        "claude",
+                        "--model", enrichment_model,
+                        "-p",  # Print response and exit (non-interactive mode)
+                        "--tools", "",  # Disable tool calls
+                        "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',  # Disable MCP connections
+                        "--no-session-persistence",  # Don't save to memory
+                        "--disable-slash-commands",  # Disable slash commands
+                        test_prompt
+                    ]
+
                 # We use a longer timeout for validation because APIs can be slow
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
                 if result.returncode == 0:
@@ -381,7 +394,12 @@ def init_project(path: str):
         memory.semantic.meta.set_config("enrichment_language", language)
         memory.semantic.meta.set_config("client", client)
         memory.semantic.meta.set_config("enrichment_provider", provider)  # V7.9: New provider setting
+        
+        # V7.10: Save client-specific enrichment model
         if enrichment_model:
+            # Save for specific client (claude, gemini, cursor, vscode)
+            memory.semantic.meta.set_config(f"enrichment_model_{client}", enrichment_model)
+            # Also save as default for backward compatibility
             memory.semantic.meta.set_config("enrichment_model", enrichment_model)
 
         if client == "gemini":
@@ -401,7 +419,7 @@ def init_project(path: str):
         console.print(f"[green]✓ Set enrichment provider: {provider}[/green]")
         console.print(f"[green]✓ Registered client: {client}[/green]")
         if enrichment_model:
-            console.print(f"[green]✓ Configured enrichment model: {enrichment_model}[/green]")
+            console.print(f"[green]✓ Configured enrichment model for {client}: {enrichment_model}[/green]")
 
         if client != "none":
             console.print(f"\nInstalling hooks for {client} in {project_path}...")

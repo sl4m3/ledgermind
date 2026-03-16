@@ -53,7 +53,7 @@ class CloudLLMClient:
                 try:
                     proc = subprocess.Popen(
                         [self._bin, "--extensions", "", "--allowed-mcp-server-names", "", 
-                         "-m", self.config.model_name, "Analyze logs and return JSON."],
+                         "--model", self.config.model_name, "Analyze logs and return JSON."],
                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
                         text=True, env=env
                     )

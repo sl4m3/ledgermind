@@ -4,6 +4,12 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.3.4] - 2026-03-16
+
+- **Namespace Isolation:** Multi-client support for Claude, Gemini, and Cursor sharing same storage.
+- **Security (Sentinel):** Fixed subprocess command injection risks and improved path validation.
+- **Optimization (Bolt):** Optimized hierarchical ID resolution for faster memory access.
+
 ## [v3.3.3] - 2026-03-15
 
 - **Settings UI:** New interactive manager for `ledgermind settings` command.
