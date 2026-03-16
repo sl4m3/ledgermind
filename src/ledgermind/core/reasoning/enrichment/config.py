@@ -5,7 +5,7 @@ from typing import Any
 class EnrichmentConfig:
     """Settings for the enrichment process."""
     mode: str = "rich"  # "optimal" (local) or "rich" (cloud)
-    provider: str = "cli"  # "cli" or "openrouter"
+    provider: str = "cli"  # "cli", "openrouter", "aistudio"
     max_tokens: int = 100000
     retry_attempts: int = 3
     retry_delay: int = 5
@@ -38,17 +38,24 @@ class EnrichmentConfig:
             if provider:
                 config.provider = provider
             
-            # V7.10: Use client-specific model if available, fallback to global
-            if client:
-                # Try client-specific model first (e.g., enrichment_model_claude)
+            # V7.11: Model selection priority (NO global enrichment_model to avoid duplication)
+            # Priority: provider-specific > client-specific > default
+            if provider == "aistudio":
+                # AI Studio provider: use aistudio_model
+                config.model_name = meta.get_config("aistudio_model") or "gemma-3-27b-it"
+            elif provider == "openrouter":
+                # OpenRouter provider: use enrichment_model (global for OpenRouter)
+                config.model_name = meta.get_config("enrichment_model") or "openrouter/free"
+            elif client:
+                # CLI provider: use client-specific model (enrichment_model_{client})
                 client_model = meta.get_config(f"enrichment_model_{client}")
                 if client_model:
                     config.model_name = client_model
                 else:
-                    # Fallback to global enrichment_model
-                    config.model_name = meta.get_config("enrichment_model") or config.model_name
+                    # Fallback to default if client-specific not set
+                    config.model_name = "gemini-2.5-flash-lite"
             else:
-                # No client specified, use global model
-                config.model_name = meta.get_config("enrichment_model") or config.model_name
+                # No client specified: use default
+                config.model_name = "gemini-2.5-flash-lite"
 
         return config

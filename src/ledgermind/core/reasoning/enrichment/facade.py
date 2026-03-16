@@ -42,6 +42,7 @@ class LLMEnricher:
         self._cloud_client = None
         self._local_client = None
         self._openrouter_client = None
+        self._aistudio_client = None  # V7.11: AI Studio client
     
     def _inherit_phase_with_validation(
         self,
@@ -836,12 +837,19 @@ class LLMEnricher:
                 self._openrouter_client = OpenRouterClient(config, memory)
             return self._openrouter_client
         
+        # AI Studio provider (V7.11)
+        if config.provider == "aistudio":
+            if not self._aistudio_client:
+                from .aistudio_client import AIStudioClient
+                self._aistudio_client = AIStudioClient(config, memory)
+            return self._aistudio_client
+
         # Cloud provider (Gemini CLI/SDK)
         if config.mode == "rich":
             if not self._cloud_client:
                 self._cloud_client = CloudLLMClient(config, memory)
             return self._cloud_client
-        
+
         # Local provider (llama-cpp)
         else:
             if not self._local_client:

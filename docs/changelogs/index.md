@@ -4,6 +4,13 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.3.5] - 2026-03-17
+
+- **Google AI Studio:** Native integration with model validation and API key discovery.
+- **Claude CLI Support:** Optimized non-interactive flags and recursive call protection.
+- **API Key Management:** Automated search for keys in shell configuration files.
+- **Client-Specific Models:** Improved routing for per-client enrichment models.
+
 ## [v3.3.4] - 2026-03-16
 
 - **Namespace Isolation:** Multi-client support for Claude, Gemini, and Cursor sharing same storage.

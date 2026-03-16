@@ -430,7 +430,7 @@ class DecayReport:
         self.semantic_forgotten = semantic_forgotten
 ```
 
-#### 3.3.4 ReflectionEngine
+#### 3.3.5 ReflectionEngine
 
 **Location**: `src/ledgermind/core/reasoning/reflection.py`
 

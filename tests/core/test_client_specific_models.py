@@ -39,7 +39,7 @@ class TestClientSpecificModels:
         # Save client-specific models
         memory.semantic.meta.set_config("enrichment_model_claude", "claude-3.5-sonnet")
         memory.semantic.meta.set_config("enrichment_model_gemini", "gemini-2.5-flash-lite")
-        memory.semantic.meta.set_config("enrichment_model", "default-model")  # Global fallback
+        memory.semantic.meta.set_config("enrichment_provider", "cli")
         
         # Get config for claude client
         claude_config = EnrichmentConfig.from_memory(memory, client="claude")
@@ -49,24 +49,21 @@ class TestClientSpecificModels:
         gemini_config = EnrichmentConfig.from_memory(memory, client="gemini")
         assert gemini_config.model_name == "gemini-2.5-flash-lite"
         
-        # Get config for cursor client (should fallback to global since not set)
+        # Get config for cursor client (should fallback to default since not set)
         cursor_config = EnrichmentConfig.from_memory(memory, client="cursor")
-        assert cursor_config.model_name == "default-model"
+        assert cursor_config.model_name == "gemini-2.5-flash-lite"  # Default
     
     def test_default_model_fallback(self, tmp_path):
         """Verify fallback to default model when client model not set."""
         memory = Memory(storage_path=str(tmp_path))
         
-        # Save only global model
-        memory.semantic.meta.set_config("enrichment_model", "global-default-model")
-        
-        # Get config for client without specific model
+        # No models configured - should use default
         config = EnrichmentConfig.from_memory(memory, client="unknown_client")
-        assert config.model_name == "global-default-model"
+        assert config.model_name == "gemini-2.5-flash-lite"  # Default from config
         
-        # Get config without client (should use global)
+        # No client specified
         config_no_client = EnrichmentConfig.from_memory(memory)
-        assert config_no_client.model_name == "global-default-model"
+        assert config_no_client.model_name == "gemini-2.5-flash-lite"  # Default
     
     def test_no_model_fallback(self, tmp_path):
         """Verify default model when no models configured."""
@@ -84,19 +81,19 @@ class TestClientSpecificModels:
         """Verify mixed client and global models work correctly."""
         memory = Memory(storage_path=str(tmp_path))
         
-        # Save some client-specific and global model
+        # Save client-specific model for claude only
         memory.semantic.meta.set_config("enrichment_model_claude", "claude-3.5-sonnet")
-        memory.semantic.meta.set_config("enrichment_model", "global-fallback")
+        memory.semantic.meta.set_config("enrichment_provider", "cli")
         # Note: gemini model not set
         
         # Claude should use client-specific
         claude_config = EnrichmentConfig.from_memory(memory, client="claude")
         assert claude_config.model_name == "claude-3.5-sonnet"
         
-        # Gemini should fallback to global
+        # Gemini should fallback to default (no global enrichment_model anymore)
         gemini_config = EnrichmentConfig.from_memory(memory, client="gemini")
-        assert gemini_config.model_name == "global-fallback"
+        assert gemini_config.model_name == "gemini-2.5-flash-lite"  # Default
         
-        # Unknown client should also fallback to global
+        # Unknown client should also fallback to default
         unknown_config = EnrichmentConfig.from_memory(memory, client="unknown")
-        assert unknown_config.model_name == "global-fallback"
+        assert unknown_config.model_name == "gemini-2.5-flash-lite"  # Default

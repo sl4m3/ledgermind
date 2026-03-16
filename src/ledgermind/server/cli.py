@@ -7,6 +7,7 @@ import sys
 from typing import Optional, List, Dict, Any
 from ledgermind.server.server import MCPServer
 from ledgermind.core.utils.logging import setup_logging
+from ledgermind.core.utils.api_keys import get_api_key
 
 def export_schemas():
     """Outputs the formal industrial-grade API specification."""
@@ -84,9 +85,10 @@ def init_project(path: str):
     console.print("Which LLM provider should LedgerMind use for enrichment?")
     console.print("  [bold]cli[/bold]       - Use Gemini/Claude CLI (existing behavior)")
     console.print("  [bold]openrouter[/bold] - Use OpenRouter API (100+ models, pay-per-use)")
+    console.print("  [bold]aistudio[/bold] - Use Google AI Studio API (Gemini models)")
     provider = questionary.select(
         "Select provider:",
-        choices=["cli", "openrouter"],
+        choices=["cli", "openrouter", "aistudio"],
         default="cli"
     ).ask()
     if provider is None: return
@@ -119,16 +121,23 @@ def init_project(path: str):
     if provider == "openrouter":
         console.print("\n[bold yellow]Step 7: OpenRouter Configuration[/bold yellow]")
         
-        # Check if API key is set in environment
-        env_api_key = os.environ.get("OPENROUTER_API_KEY")
+        # Check if API key is available in env or config files
+        env_api_key, key_source = get_api_key("OPENROUTER_API_KEY", search_configs=True)
         
-        if not env_api_key:
-            console.print("[bold red]✗ OPENROUTER_API_KEY is not set in environment.[/bold red]")
+        if key_source == "env":
+            console.print("[green]✓ Found OPENROUTER_API_KEY in environment variables.[/green]")
+            openrouter_api_key = env_api_key
+        elif key_source == "config":
+            console.print("[green]✓ Found OPENROUTER_API_KEY in shell configuration file.[/green]")
+            console.print("  Tip: Run 'source ~/.bashrc' to load it into current session.")
+            openrouter_api_key = env_api_key
+        else:
+            console.print("[bold red]✗ OPENROUTER_API_KEY is not set.[/bold red]")
             console.print("\nTo set it, run one of these commands:")
             console.print("  [cyan]export OPENROUTER_API_KEY=sk-or-v1-xxxxx[/cyan]")
             console.print("\nGet your API key from: [underline]https://openrouter.ai/keys[/underline]")
             console.print("\n[bold yellow]Waiting for you to set the API key...[/bold yellow]")
-            
+
             # Give user a chance to export and retry
             retry_count = 0
             while retry_count < 3:
@@ -136,29 +145,29 @@ def init_project(path: str):
                     f"Have you exported OPENROUTER_API_KEY? (Attempt {retry_count + 1}/3)",
                     default=False
                 ).ask()
-                
+
                 if retry is None:
                     return  # User cancelled
-                
+
                 if retry:
-                    # Re-check environment
-                    env_api_key = os.environ.get("OPENROUTER_API_KEY")
+                    # Re-check environment and config files
+                    env_api_key, key_source = get_api_key("OPENROUTER_API_KEY", search_configs=True)
                     if env_api_key:
                         openrouter_api_key = env_api_key
-                        console.print(f"[green]✓ OPENROUTER_API_KEY found![/green]")
+                        if key_source == "env":
+                            console.print(f"[green]✓ OPENROUTER_API_KEY found in environment![/green]")
+                        else:
+                            console.print(f"[green]✓ OPENROUTER_API_KEY found in config file![/green]")
                         break
                     else:
                         console.print("[yellow]! Still not found. Please export the variable and try again.[/yellow]")
-                
+
                 retry_count += 1
-            
+
             if not openrouter_api_key:
                 console.print("\n[bold red]✗ OpenRouter setup cancelled. API key required.[/bold red]")
                 console.print("You can re-run 'ledgermind init' after setting OPENROUTER_API_KEY")
                 return
-        else:
-            openrouter_api_key = env_api_key
-            console.print(f"[green]✓ OPENROUTER_API_KEY found in environment.[/green]")
 
     # 8. Gemini Specific Setup (only for CLI provider)
     gemini_binary = None
@@ -339,6 +348,107 @@ def init_project(path: str):
                     enrichment_model = None
                     break
 
+    # Model selection for AI Studio provider
+    if provider == "aistudio":
+        console.print(f"\n[bold yellow]Step 6: Google AI Studio Configuration[/bold yellow]")
+        
+        # First check if API key is available in env or config files
+        api_key, key_source = get_api_key("GOOGLE_API_KEY", search_configs=True)
+        
+        if key_source == "env":
+            console.print("[green]✓ Found GOOGLE_API_KEY in environment variables.[/green]")
+        elif key_source == "config":
+            console.print("[green]✓ Found GOOGLE_API_KEY in shell configuration file.[/green]")
+            console.print("  Tip: Run 'source ~/.bashrc' to load it into current session.")
+        else:
+            console.print("[bold yellow]Enter your Google AI Studio API key:[/bold yellow]")
+            console.print("Get it from: https://aistudio.google.com/app/apikey")
+            api_key = questionary.text(
+                "API Key:",
+                default=""
+            ).ask()
+        
+        if not api_key:
+            console.print("[bold red]✗ API key is required for AI Studio.[/bold red]")
+            console.print("You can re-run 'ledgermind init' after setting GOOGLE_API_KEY")
+            return
+        
+        # Save API key to environment for validation
+        os.environ["GOOGLE_API_KEY"] = api_key
+        
+        # Model selection with validation
+        while True:
+            aistudio_model = questionary.text(
+                "Model Name (for example gemma-3-27b-it):",
+                default=""
+            ).ask()
+            
+            if aistudio_model is None:
+                enrichment_model = None
+                break
+            
+            # Validate model with test request
+            console.print(f"Validating model [bold cyan]{aistudio_model}[/bold cyan] via Google AI Studio...")
+            try:
+                import requests
+                
+                api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{aistudio_model}:generateContent"
+                test_body = {
+                    "contents": [
+                        {
+                            "role": "user",
+                            "parts": [{"text": "Say OK"}]
+                        }
+                    ],
+                    "generationConfig": {
+                        "temperature": 0.1,
+                        "maxOutputTokens": 10,
+                    }
+                }
+                
+                response = requests.post(
+                    api_url,
+                    params={"key": api_key},
+                    json=test_body,
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    candidates = result.get("candidates", [])
+                    if candidates and len(candidates) > 0:
+                        content = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                        if content:
+                            console.print(f"[green]✓ Model {aistudio_model} is available and responsive.[/green]")
+                            enrichment_model = aistudio_model
+                            break
+                
+                # If we get here, validation failed
+                if response.status_code != 200:
+                    console.print(f"[bold red]✗ API returned status {response.status_code}[/bold red]")
+                    if response.text:
+                        console.print(f"[red]Error: {response.text[:200]}[/red]")
+                else:
+                    console.print(f"[bold red]✗ Model validation failed (empty response).[/bold red]")
+                
+                retry = questionary.confirm("Try another model?").ask()
+                if not retry:
+                    enrichment_model = None
+                    break
+                    
+            except requests.exceptions.Timeout:
+                console.print(f"[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]")
+                retry = questionary.confirm("Try another model?").ask()
+                if not retry:
+                    enrichment_model = None
+                    break
+            except Exception as e:
+                console.print(f"[bold red]✗ Error during validation: {e}[/bold red]")
+                retry = questionary.confirm("Try another model?").ask()
+                if not retry:
+                    enrichment_model = None
+                    break
+
     # Initialize
     console.print("\n[bold green]Initializing system...[/bold green]")
     try:
@@ -394,13 +504,13 @@ def init_project(path: str):
         memory.semantic.meta.set_config("enrichment_language", language)
         memory.semantic.meta.set_config("client", client)
         memory.semantic.meta.set_config("enrichment_provider", provider)  # V7.9: New provider setting
-        
-        # V7.10: Save client-specific enrichment model
+
+        # V7.10: Save client-specific enrichment model (NO global enrichment_model to avoid duplication)
         if enrichment_model:
-            # Save for specific client (claude, gemini, cursor, vscode)
-            memory.semantic.meta.set_config(f"enrichment_model_{client}", enrichment_model)
-            # Also save as default for backward compatibility
-            memory.semantic.meta.set_config("enrichment_model", enrichment_model)
+            if provider == "cli" and client:
+                # Save only for specific client (claude, gemini, cursor, vscode)
+                memory.semantic.meta.set_config(f"enrichment_model_{client}", enrichment_model)
+            # For openrouter/aistudio, model is saved in their specific sections below
 
         if client == "gemini":
             memory.semantic.meta.set_config("gemini_binary_path", gemini_binary)
@@ -411,6 +521,12 @@ def init_project(path: str):
         if provider == "openrouter":
             memory.semantic.meta.set_config("openrouter_api_key", openrouter_api_key)
             # Note: site_url and site_name removed in v3.3.1 - use env vars if needed
+        
+        # V7.11: Save AI Studio settings
+        if provider == "aistudio":
+            memory.semantic.meta.set_config("aistudio_api_key", api_key)
+            memory.semantic.meta.set_config("aistudio_model", enrichment_model or "gemma-3-27b-it")
+            console.print(f"[green]✓ Configured AI Studio API key and model: {enrichment_model or 'gemma-3-27b-it'}[/green]")
 
         console.print(f"[green]✓ Created memory structure at {custom_path}[/green]")
         console.print(f"[green]✓ Configured vector model: {model_name}[/green]")

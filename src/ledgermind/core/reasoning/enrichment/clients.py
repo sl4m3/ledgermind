@@ -17,17 +17,35 @@ class LLMClient(Protocol):
         ...
 
 class CloudLLMClient:
-    """Strategy for Gemini (Cloud) using CLI/SDK."""
+    """Strategy for Gemini/Claude (Cloud) using CLI/SDK."""
     def __init__(self, config: EnrichmentConfig, memory: Any = None):
         self.config = config
         self.memory = memory
         self._bin = "gemini"
         self._mode = "global"
-        
+        self._client = "gemini"  # Default client
+        self._cli_flags = ["--extensions", "", "--allowed-mcp-server-names", ""]  # Gemini flags
+
         if memory and hasattr(memory, 'semantic') and hasattr(memory.semantic, 'meta'):
             meta = memory.semantic.meta
             self._bin = meta.get_config("gemini_binary_path") or self._bin
             self._mode = meta.get_config("gemini_config_mode") or self._mode
+            # V7.10: Detect client for CLI flags
+            self._client = meta.get_config("client") or "gemini"
+            
+            # Set CLI flags based on client
+            if self._client == "claude":
+                # Claude CLI flags: disable tools, MCP, session persistence, slash commands
+                self._cli_flags = [
+                    "-p",  # Print response and exit (non-interactive mode)
+                    "--tools", "",  # Disable tool calls
+                    "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',  # Disable MCP connections
+                    "--no-session-persistence",  # Don't save to memory
+                    "--disable-slash-commands",  # Disable slash commands
+                ]
+            else:
+                # Gemini CLI flags
+                self._cli_flags = ["--extensions", "", "--allowed-mcp-server-names", ""]
 
     def call(self, instructions: str, data: str, fid: str = "unknown") -> Optional[str]:
         # Try CLI first
@@ -40,31 +58,33 @@ class CloudLLMClient:
     def _call_cli(self, instructions: str, data: str, fid: str) -> Optional[str]:
         try:
             full_prompt = PromptBuilder.wrap_with_data(instructions, data, self.config)
-            
+
             # Лаконичное подтверждение отправки
-            logger.info(f"Gemini CLI: Calling model {self.config.model_name} for {fid}...")
-            
+            logger.info(f"{self._client.capitalize()} CLI: Calling model {self.config.model_name} for {fid}...")
+
             config_path = GeminiConfigManager.get_config_path(mode=self._mode)
             env = GeminiConfigManager.get_environment(config_path)
             env["NODE_OPTIONS"] = "--max-old-space-size=2048"
-            
+
             for attempt in range(1, self.config.retry_attempts + 1):
-                logger.info(f"Attempt {attempt}/{self.config.retry_attempts}: Gemini CLI call...")
+                logger.info(f"Attempt {attempt}/{self.config.retry_attempts}: {self._client.capitalize()} CLI call...")
                 try:
+                    # V7.10: Use client-specific CLI flags
+                    cmd = [self._bin] + self._cli_flags + ["--model", self.config.model_name, "Analyze logs and return JSON."]
+                    
                     proc = subprocess.Popen(
-                        [self._bin, "--extensions", "", "--allowed-mcp-server-names", "", 
-                         "--model", self.config.model_name, "Analyze logs and return JSON."],
-                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
+                        cmd,
+                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                         text=True, env=env
                     )
                     stdout, stderr = proc.communicate(input=full_prompt, timeout=self.config.timeout)
                     if proc.returncode == 0 and stdout:
                         return stdout.strip()
-                    
+
                     logger.error(f"CLI failed: {stderr[:500]}")
                 except Exception as e:
                     logger.error(f"Internal CLI error: {e}")
-                
+
                 if attempt < self.config.retry_attempts:
                     time.sleep(self.config.retry_delay)
             return None
@@ -85,21 +105,25 @@ class CloudLLMClient:
 
     def is_available(self) -> bool:
         """Check if Cloud LLM is properly configured."""
+        # Set binary based on client
+        bin_name = "claude" if self._client == "claude" else "gemini"
+        
         # Check if CLI is available
         try:
-            result = subprocess.run([self._bin, "--version"], capture_output=True, timeout=5)
+            result = subprocess.run([bin_name, "--version"], capture_output=True, timeout=5)
             if result.returncode == 0:
                 return True
         except Exception:
             pass
-        
-        # Check if SDK is available
-        try:
-            import google.generativeai as genai
-            key = os.environ.get("GEMINI_API_KEY")
-            return bool(key)
-        except Exception:
-            pass
+
+        # Check if SDK is available (Gemini only)
+        if self._client == "gemini":
+            try:
+                import google.generativeai as genai
+                key = os.environ.get("GEMINI_API_KEY")
+                return bool(key)
+            except Exception:
+                pass
         
         return False
 
