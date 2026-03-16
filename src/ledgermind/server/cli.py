@@ -420,10 +420,10 @@ def init_project(path: str):
             try:
                 if client == "claude":
                     claude_installer = ClaudeInstaller()
-                    mcp_success = claude_installer.install_mcp_server(project_path, custom_path)
+                    mcp_success = claude_installer.install_mcp_server(project_path, custom_path, client=client)
                 elif client == "gemini":
                     gemini_installer = GeminiInstaller(config_mode=gemini_config_mode)
-                    mcp_success = gemini_installer.install_mcp_server(project_path, custom_path)
+                    mcp_success = gemini_installer.install_mcp_server(project_path, custom_path, client=client)
                 if mcp_success:
                     console.print(f"[green]✓ MCP server configured for {client}[/green]")
                 else:
@@ -621,7 +621,8 @@ def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold:
                 pass
 
         default_cli = [cli] if cli else None
-        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, relevance_threshold=threshold if threshold is not None else 0.7)
+        # Use cli as namespace for isolation between clients
+        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, relevance_threshold=threshold if threshold is not None else 0.7, namespace=cli)
 
         # 4. Robust History Sync (Hybrid Deduplication)
         # We only sync if transcript_path is a FILE
@@ -659,7 +660,8 @@ def bridge_sync(path: str, cli: Optional[str] = None):
                     pass
 
         default_cli = [cli] if cli else None
-        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli)
+        # Use cli as namespace for isolation between clients
+        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, namespace=cli)
         sync_transcript_history(bridge, transcript_path)
     except Exception as e:
         sys.stderr.write(f"✗ Sync Error: {e}\n")
@@ -702,7 +704,8 @@ def bridge_record(path: str, prompt: str, response: str, success: bool, metadata
                     pass
 
         default_cli = [cli] if cli else None
-        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli)
+        # Use cli as namespace for isolation between clients
+        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, namespace=cli)
         bridge.record_interaction(prompt=real_prompt, response=real_response, success=real_success, metadata=real_meta)
     except Exception as e:
         print(f"✗ Error: {e}")
@@ -747,6 +750,7 @@ def main():
     run_parser.add_argument("--metrics-port", type=int, help="Port for Prometheus metrics")
     run_parser.add_argument("--rest-port", type=int, help="Port for REST Gateway")
     run_parser.add_argument("--vector-workers", type=int, default=0, help="Number of workers for multi-process encoding (0=auto)")
+    run_parser.add_argument("--client", choices=["claude", "gemini", "cursor", "vscode", "none"], help="Client that started this MCP server")
     
     # Init command
     init_parser = subparsers.add_parser("init", help="Initialize a new memory project")
@@ -879,12 +883,13 @@ def main():
         try:
             memory = Memory(storage_path=args.path, trust_boundary=TrustBoundary.AGENT_WITH_INTENT, vector_workers=args.vector_workers)
             server = MCPServer(
-                memory, 
-                server_name=args.name, 
+                memory,
+                server_name=args.name,
                 storage_path=args.path,
                 capabilities=capabilities,
                 metrics_port=args.metrics_port,
-                rest_port=args.rest_port
+                rest_port=args.rest_port,
+                client=args.client
             )
             MCPServer.current_instance = server
             server.run()

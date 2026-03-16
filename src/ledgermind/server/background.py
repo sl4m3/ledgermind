@@ -42,9 +42,10 @@ class BackgroundWorker:
       - WatchdogThread: Every 10 seconds (lock file monitoring)
     - Main thread acts as manager and session monitor
     """
-    def __init__(self, memory: Memory, interval_seconds: int = 300, log_path: Optional[str] = None):
+    def __init__(self, memory: Memory, interval_seconds: int = 300, log_path: Optional[str] = None, client: Optional[str] = None):
         self.memory = memory
         self.memory.storage_path = os.path.abspath(self.memory.storage_path)
+        self.client = client or os.environ.get("LEDGERMIND_CLIENT")
 
         self.interval = interval_seconds  # Maintenance interval (5 min default)
 
@@ -53,7 +54,7 @@ class BackgroundWorker:
             log_dir = os.path.join(self.memory.storage_path, "logs")
             os.makedirs(log_dir, exist_ok=True)
             log_path = os.path.join(log_dir, "worker.log")
-        
+
         self._setup_logging(os.path.abspath(log_path))
 
         self.running = False
@@ -75,6 +76,11 @@ class BackgroundWorker:
         self._signal_received = False
         self._setup_signal_handlers()
         atexit.register(self._cleanup_on_exit)
+        
+        # Update client config if provided
+        if self.client:
+            self.memory.semantic.meta.set_config("client", self.client)
+            logger.info(f"Background Worker configured for client: {self.client}")
 
     def _setup_logging(self, log_path: str):
         """Configure root logger with file and (optional) console handlers."""
@@ -353,10 +359,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="LedgerMind Standalone Worker")
     parser.add_argument("--storage", required=True, help="Absolute path to storage")
     parser.add_argument("--log", help="Absolute path to log file")
+    parser.add_argument("--client", help="Client that started this worker (claude, gemini, cursor, vscode)")
     args = parser.parse_args()
 
     storage_abs = os.path.abspath(args.storage)
     memory = Memory(storage_path=storage_abs, trust_boundary=TrustBoundary.AGENT_WITH_INTENT)
     log_abs = os.path.abspath(args.log) if args.log else None
-    worker = BackgroundWorker(memory, log_path=log_abs)
+    worker = BackgroundWorker(memory, log_path=log_abs, client=args.client)
     worker.run_forever()

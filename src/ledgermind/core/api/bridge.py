@@ -17,7 +17,7 @@ class Bridge:
     High-level bridge for integrating LedgerMind into CLI tools.
     """
     
-    def __init__(self, memory_path: str = "../.ledgermind", relevance_threshold: float = 0.85, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None, memory_instance: Optional['Memory'] = None):
+    def __init__(self, memory_path: str = "../.ledgermind", relevance_threshold: float = 0.85, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None, memory_instance: Optional['Memory'] = None, namespace: Optional[str] = None):
         self.memory_path = os.path.abspath(memory_path)
         if memory_instance:
             self._memory = memory_instance
@@ -25,14 +25,15 @@ class Bridge:
             # Lazy import to break circular dependency
             from ledgermind.core.api.memory import Memory
             try:
-                self._memory = Memory(storage_path=self.memory_path, vector_model=vector_model)
+                self._memory = Memory(storage_path=self.memory_path, vector_model=vector_model, namespace=namespace)
             except Exception as e:
                 logger.critical(f"Failed to initialize LedgerMind Core: {e}")
                 raise RuntimeError(f"Memory initialization failed. Check permissions for {memory_path}")
-            
+
         self.relevance_threshold = relevance_threshold
         self.retention_turns = retention_turns
         self.default_cli = default_cli or ["gemini"]
+        self.namespace = namespace  # Namespace for isolation between clients
         self._active_context_ids: Dict[str, int] = {}
         self._turn_counter = 0
 
@@ -46,18 +47,19 @@ class Bridge:
 
     def _find_relevant_memories(self, prompt: str, limit: int = 3, exclude_ids: Optional[set[str]] = None) -> List[Dict[str, Any]]:
         try:
-            results = self._memory.search_decisions(prompt, limit=limit, mode="balanced")
+            # Use namespace if set for isolation
+            results = self._memory.search_decisions(prompt, limit=limit, mode="balanced", namespace=self.namespace)
             memories = []
             exclude = exclude_ids or set()
-            
+
             for item in results:
                 fid = item.get('id')
                 if fid in exclude: continue
-                    
+
                 score = item.get('score', 0)
                 if score >= self.relevance_threshold:
                     path = os.path.join(self.memory_path, "semantic", fid)
-                    
+
                     # Core fields we want to return
                     # We only return: target, title, compressive_rationale, strengths, objections, consequences
                     memory_item = {
@@ -69,11 +71,11 @@ class Bridge:
                         "objections": item.get('objections', []),
                         "consequences": item.get('consequences', [])
                     }
-                    
+
                     # Check for "..." placeholders and load from file if found
                     placeholders = ["...", "…"]
                     needs_load = any(
-                        (isinstance(v, str) and v in placeholders) or 
+                        (isinstance(v, str) and v in placeholders) or
                         (isinstance(v, list) and any(x in placeholders for x in v))
                         for v in memory_item.values()
                     )
@@ -213,10 +215,10 @@ class Bridge:
         try:
             ctx = {"layer": "cli_integration", "success": success}
             if metadata: ctx.update(metadata)
-            # Record prompt first
-            self._memory.process_event(source="agent", kind="prompt", content=prompt or "[NO PROMPT]")
-            # Then record result
-            self._memory.process_event(source="agent", kind="result", content=response or "[NO RESPONSE]", context=ctx)
+            # Record prompt first with namespace
+            self._memory.process_event(source="agent", kind="prompt", content=prompt or "[NO PROMPT]", namespace=self.namespace)
+            # Then record result with namespace
+            self._memory.process_event(source="agent", kind="result", content=response or "[NO RESPONSE]", context=ctx, namespace=self.namespace)
         except Exception as e:
             logger.error(f"Error recording interaction: {e}")
 
