@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773623828534,
+  "lastUpdate": 1773663275234,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -315,6 +315,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009066293190457951",
             "extra": "mean: 967.7389999978914 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dc2bac16424b2ba49cd5b9a1aa31936272777008",
+          "message": "⚡ Bolt: Optimize hierarchical ID resolution (#93)\n\n* ⚡ Bolt: Optimize hierarchical ID resolution\n\n💡 **What:** Optimized `current_layer_ids` resolution by replacing two-pass list comprehensions with single-pass `list(dict.fromkeys(...))`.\n🎯 **Why:** To eliminate redundant intermediate list allocations, speed up iterative layer fetching, and cleanly deduplicate database inputs while preserving deterministic fetching order.\n📊 **Impact:** Reduces redundant memory allocations per layer resolution and safely prevents duplicate DB fetches during recursive truth resolution.\n🔬 **Measurement:** Search queries spanning deep `superseded_by` chains.\n\n* Delete .jules/bolt.md",
+          "timestamp": "2026-03-16T15:12:10+03:00",
+          "tree_id": "581af15ca4e532728fd7744c7e16546d13bebdb5",
+          "url": "https://github.com/sl4m3/ledgermind/commit/dc2bac16424b2ba49cd5b9a1aa31936272777008"
+        },
+        "date": 1773663274750,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 95.4891626198021,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008625236826863113",
+            "extra": "mean: 10.472392600001967 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10563.521624388854,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000017118938649488815",
+            "extra": "mean: 94.66540000175883 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1024.4331401651623,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010134362480431214",
+            "extra": "mean: 976.1496000010084 usec\nrounds: 5"
           }
         ]
       }
