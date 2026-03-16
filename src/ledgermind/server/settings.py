@@ -32,6 +32,16 @@ DEFAULT_SETTINGS = {
         "choices": None,
         "description": "LLM model for enrichment (when using rich mode)"
     },
+    "enrichment_provider": {
+        "default": "cli",
+        "choices": ["cli", "openrouter", "aistudio"],
+        "description": "LLM provider for enrichment (cli=openrouter/aistudio)"
+    },
+    "aistudio_model": {
+        "default": "gemini-1.5-pro",
+        "choices": ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash-exp"],
+        "description": "Google AI Studio model for enrichment (when using aistudio provider)"
+    },
     "merge_threshold": {
         "default": 0.85,
         "choices": None,

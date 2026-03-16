@@ -1,14 +1,14 @@
-# Latest Release: v3.3.4
+# Latest Release: v3.3.5
 
-**Release Date:** March 16, 2026
+**Release Date:** March 17, 2026
 
-LedgerMind v3.3.4 is a major security and infrastructure update that introduces multi-client namespace isolation and hardens the system against command injection.
+LedgerMind v3.3.5 is a major integration update that introduces native Google AI Studio support and optimizes the Claude CLI enrichment bridge.
 
 ## 🚀 Key Improvements
 
-- **Multi-Client Isolation** — Use the same memory store across Claude, Gemini, and Cursor without context leakage thanks to new namespace support.
-- **Project Sentinel** — Critical security fixes for subprocess management and path validation.
-- **Project Bolt** — Optimized hierarchical ID resolution for faster knowledge retrieval.
-- **Automated Hooks** — Improved installers that transparently handle client-specific configurations.
+- **Google AI Studio** — Direct API integration for Gemini models with built-in validation during setup.
+- **Optimized Claude Bridge** — Advanced CLI flags ensure Claude enrichment is fast, non-interactive, and safe from recursive MCP calls.
+- **Smart API Key Discovery** — LedgerMind can now automatically find your API keys in `.bashrc`, `.zshrc`, and other shell config files.
+- **Per-Client Models** — Configure different LLM models for Claude, Gemini, and Cursor independently.
 
-[View full v3.3.4 changelog](./v3.3.4.md)
+[View full v3.3.5 changelog](./v3.3.5.md)
