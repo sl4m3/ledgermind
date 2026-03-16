@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773699783293,
+  "lastUpdate": 1773702846601,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -495,6 +495,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009525679458842473",
             "extra": "mean: 996.0429999921415 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav Zotov",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav Zotov",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "3ca06b7e1ccdd43b9b4465653e400fb8ccaca583",
+          "message": "feat: add \"enrichment\" as a valid memory event source\n\n- Update MemoryEvent schema to include \"enrichment\" source.\n- Allow memory writes from \"enrichment\" source while background worker is active.\n- Add optional \"source\" parameter to supersede_decision method.\n- Use source=\"enrichment\" in LLMEnricher when creating new decisions.",
+          "timestamp": "2026-03-17T02:10:38+03:00",
+          "tree_id": "25a7e6a5ba06915907b0ae629b1b6ae627b9c8a1",
+          "url": "https://github.com/sl4m3/ledgermind/commit/3ca06b7e1ccdd43b9b4465653e400fb8ccaca583"
+        },
+        "date": 1773702845576,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 93.23902566412029,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009655623177524715",
+            "extra": "mean: 10.725122799999554 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10332.200922119187,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000017541676273309918",
+            "extra": "mean: 96.78480001866774 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1030.7943631247033,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009053826195801288",
+            "extra": "mean: 970.1255999971181 usec\nrounds: 5"
           }
         ]
       }
