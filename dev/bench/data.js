@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773663275234,
+  "lastUpdate": 1773663287047,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -360,6 +360,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010134362480431214",
             "extra": "mean: 976.1496000010084 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9e3ab96b1ebb650bf6f45cf60f0d1b409d236a7f",
+          "message": "🛡️ Sentinel: [Low] Fix subprocess command injection risks (#94)",
+          "timestamp": "2026-03-16T15:12:27+03:00",
+          "tree_id": "5a55ac3256d74fef35cc0492689eed6c6b8dd684",
+          "url": "https://github.com/sl4m3/ledgermind/commit/9e3ab96b1ebb650bf6f45cf60f0d1b409d236a7f"
+        },
+        "date": 1773663286681,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 90.1323776031285,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007380933377430042",
+            "extra": "mean: 11.094792200015036 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 12073.736726725676,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011403857577847332",
+            "extra": "mean: 82.82439998765767 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1104.562528088434,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008750016614998276",
+            "extra": "mean: 905.3357999846412 usec\nrounds: 5"
           }
         ]
       }
