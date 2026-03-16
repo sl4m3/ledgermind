@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773686971033,
+  "lastUpdate": 1773699783293,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -450,6 +450,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010450286478214682",
             "extra": "mean: 980.2051999940886 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav Zotov",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav Zotov",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "f03afb1258891f80715e95c0545f3c98355efedb",
+          "message": "release: version 3.3.5 - Google AI Studio integration, Claude CLI optimization, and robust API key management",
+          "timestamp": "2026-03-17T01:20:04+03:00",
+          "tree_id": "d4341ae5326b1398456256219a962ca4231c8288",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f03afb1258891f80715e95c0545f3c98355efedb"
+        },
+        "date": 1773699782776,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 86.10391033671019,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00019598277318422978",
+            "extra": "mean: 11.613874400006807 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10253.465670439575,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001516086296720346",
+            "extra": "mean: 97.52800000910611 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1003.9727200611717,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009525679458842473",
+            "extra": "mean: 996.0429999921415 usec\nrounds: 5"
           }
         ]
       }
