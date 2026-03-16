@@ -1,14 +1,14 @@
-# Latest Release: v3.3.3
+# Latest Release: v3.3.4
 
-**Release Date:** March 15, 2026
+**Release Date:** March 16, 2026
 
-LedgerMind v3.3.3 is a maintenance release that introduces an interactive settings manager, improves OpenRouter integration, and enhances JSON parsing robustness for LLM outputs.
+LedgerMind v3.3.4 is a major security and infrastructure update that introduces multi-client namespace isolation and hardens the system against command injection.
 
 ## 🚀 Key Improvements
 
-- **Interactive Settings** — Enter `ledgermind settings` to manage your configuration through a new terminal UI.
-- **OpenRouter Fixes** — Resolved stability issues with the OpenRouter cloud provider.
-- **Robust JSON Parsing** — Added "auto-healing" for malformed LLM responses, improving enrichment reliability.
-- **Enhanced Testing** — Added comprehensive smoke tests for CLI settings and OpenRouter integration.
+- **Multi-Client Isolation** — Use the same memory store across Claude, Gemini, and Cursor without context leakage thanks to new namespace support.
+- **Project Sentinel** — Critical security fixes for subprocess management and path validation.
+- **Project Bolt** — Optimized hierarchical ID resolution for faster knowledge retrieval.
+- **Automated Hooks** — Improved installers that transparently handle client-specific configurations.
 
-[View full v3.3.3 changelog](./v3.3.3.md)
+[View full v3.3.4 changelog](./v3.3.4.md)
