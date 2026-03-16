@@ -98,19 +98,20 @@ class MCPServer:
 
     def __init__(self, 
                  memory: Memory, 
-                 server_name: str = "Ledgermind", 
+                 server_name: str = "Ledgermind",
                  storage_path: str = "ledgermind",
                  capabilities: Optional[Dict[str, bool]] = None,
                  metrics_port: Optional[int] = None,
                  rest_port: Optional[int] = None,
                  default_role: MCPRole = MCPRole.AGENT,
                  start_worker: bool = True,
-                 webhooks: Optional[List[str]] = None):
+                 webhooks: Optional[List[str]] = None,
+                 client: Optional[str] = None):
 
         self.memory = memory
         self.default_role = default_role
         self.capabilities = capabilities if capabilities is not None else {
-            "read": True, "propose": True, "supersede": True, 
+            "read": True, "propose": True, "supersede": True,
             "accept": True, "sync": True, "purge": False,
             "maintenance": True
         }
@@ -120,6 +121,7 @@ class MCPServer:
         self._webhook_semaphore = asyncio.Semaphore(5) # Limit concurrent webhooks
         self._active_tasks: List[asyncio.Task] = []
         self._rest_stop_event: Optional[asyncio.Event] = None
+        self.client = client  # Track which client started this MCP server
 
         self.mcp = FastMCP(f"{server_name} (v{MCP_API_VERSION})")
 
@@ -129,17 +131,22 @@ class MCPServer:
         # Initialize shared Bridge for context/telemetry
         from ledgermind.core.api.bridge import IntegrationBridge
         self.bridge = IntegrationBridge(memory_path=storage_path, memory_instance=self.memory)
-        
+
         # Security Configuration
         self.api_key = os.environ.get("LEDGERMIND_API_KEY")
         if self.api_key:
             logger.info("API Key authentication enabled.")
-        
+
+        # Update client config if provided
+        if client:
+            self.memory.semantic.meta.set_config("client", client)
+            logger.info(f"Client configured: {client}")
+
         self._last_write_time = 0
-        self._write_cooldown = 1.0 
+        self._write_cooldown = 1.0
         self._register_tools()
         self._register_session()
-        
+
         # Subscribe to events for webhooks
         if self.webhooks:
             # Memory class has an 'events' object (EventEmitter)
@@ -149,12 +156,12 @@ class MCPServer:
         # Initialize Background Worker (Active Loop)
         self.storage_path = os.path.abspath(storage_path)
         self._worker_process: Optional[subprocess.Popen] = None
-        
+
         # Start orphan monitor thread
         self._stop_event = threading.Event()
         self._orphan_thread = threading.Thread(target=self._orphan_monitor, name="OrphanMonitor", daemon=True)
         self._orphan_thread.start()
-        
+
         if start_worker:
             self._start_background_worker()
 
@@ -210,7 +217,7 @@ class MCPServer:
 
         log_abs = os.path.abspath(os.path.join(os.getcwd(), "logs/background_worker.log"))
         err_log_abs = os.path.abspath(os.path.join(os.getcwd(), "logs/worker_error.log"))
-        
+
         # Ensure log directory exists
         os.makedirs(os.path.dirname(log_abs), exist_ok=True)
 
@@ -223,10 +230,18 @@ class MCPServer:
             "--storage", self.storage_path,
             "--log", log_abs
         ]
+        
+        # Pass client to background worker if set
+        if self.client:
+            cmd.extend(["--client", self.client])
 
         try:
             base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
             env = {**os.environ, "PYTHONPATH": base_dir}
+            
+            # Pass client via environment variable as well
+            if self.client:
+                env["LEDGERMIND_CLIENT"] = self.client
 
             # We use a persistent file handle that stays open for the child process.
             # buffering=1 ensures lines are flushed quickly.
@@ -241,7 +256,7 @@ class MCPServer:
                 env=env,
                 close_fds=True
             )
-            logger.info(f"Background Worker started (PID: {self._worker_process.pid}, ErrorLog: {err_log_abs})")
+            logger.info(f"Background Worker started (PID: {self._worker_process.pid}, Client: {self.client or 'unknown'})")
         except Exception as e:
             logger.error(f"Failed to start background worker: {e}")
 

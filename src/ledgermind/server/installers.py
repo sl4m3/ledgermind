@@ -144,26 +144,26 @@ cat | {cli_entry} bridge-sync --path "{memory_path}" --cli "claude" --stdin 2>> 
 
         print(f"✓ Installed Claude hooks locally in {project_hooks_dir}")
 
-    def install_mcp_server(self, project_path: str, memory_path: str):
+    def install_mcp_server(self, project_path: str, memory_path: str, client: str = "claude"):
         """Install MCP server configuration for Claude via claude mcp add."""
         try:
             import subprocess
-            # Try to add first
+            # Try to add with client parameter
             result = subprocess.run(
-                ["claude", "mcp", "add", "ledgermind", "ledgermind-mcp", "--", "--path", os.path.abspath(memory_path)],
+                ["claude", "mcp", "add", "ledgermind", "ledgermind-mcp", "--", "--path", os.path.abspath(memory_path), "--client", client],
                 capture_output=True, text=True, timeout=30
             )
-            
+
             # If it fails because it already exists, remove it and try again to update the path
             if result.returncode != 0 and "already exists" in (result.stderr or result.stdout):
                 subprocess.run(["claude", "mcp", "remove", "ledgermind"], capture_output=True, timeout=10)
                 result = subprocess.run(
-                    ["claude", "mcp", "add", "ledgermind", "ledgermind-mcp", "--", "--path", os.path.abspath(memory_path)],
+                    ["claude", "mcp", "add", "ledgermind", "ledgermind-mcp", "--", "--path", os.path.abspath(memory_path), "--client", client],
                     capture_output=True, text=True, timeout=30
                 )
 
             if result.returncode == 0:
-                print(f"✓ Added LedgerMind MCP server to Claude Desktop")
+                print(f"✓ Added LedgerMind MCP server to Claude Desktop (client: {client})")
                 return True
             else:
                 print(f"! Failed to add MCP to Claude: {result.stderr.strip() if result.stderr else result.stdout.strip()}")
@@ -445,7 +445,7 @@ if __name__ == '__main__':
 
         print(f"✓ Installed Gemini CLI hooks successfully.")
 
-    def install_mcp_server(self, project_path: str, memory_path: str):
+    def install_mcp_server(self, project_path: str, memory_path: str, client: str = "gemini"):
         """Install MCP server configuration for Gemini."""
         try:
             from ledgermind.core.utils.gemini_config import GeminiConfigManager
@@ -470,19 +470,20 @@ if __name__ == '__main__':
             if "mcpServers" not in config:
                 config["mcpServers"] = {}
 
-            # Add LedgerMind MCP server
+            # Add LedgerMind MCP server with client parameter
             config["mcpServers"]["ledgermind"] = {
                 "command": "ledgermind-mcp",
-                "args": ["run", "--path", os.path.abspath(memory_path)]
+                "args": ["run", "--path", os.path.abspath(memory_path), "--client", client]
             }
 
             with open(settings_path, "w") as f:
                 json.dump(config, f, indent=2)
 
-            print(f"✓ Added LedgerMind MCP server to Gemini settings ({self.config_mode}): {settings_path}")
+            print(f"✓ Added LedgerMind MCP server to Gemini settings ({self.config_mode}): {settings_path} (client: {client})")
             return True
         except Exception as e:
             print(f"! Failed to add MCP to Gemini settings: {e}")
+            return False
             return False
 
 
