@@ -16,7 +16,16 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
 
+    // Create Output Channel for silent logging
+    const outputChannel = vscode.window.createOutputChannel('LedgerMind');
+    context.subscriptions.push(outputChannel);
+
+    let isBusy = false;
+
+
     const setBusy = (busy: boolean) => {
+        if (isBusy === busy) return;
+        isBusy = busy;
         if (busy) {
             statusBarItem.text = '$(sync~spin) LedgerMind';
             statusBarItem.tooltip = 'LedgerMind: Syncing Context...';
@@ -48,7 +57,7 @@ export function activate(context: vscode.ExtensionContext) {
                     '--cli', 'vscode-chat'
                 ], (err) => {
                     setBusy(false);
-                    if (err) vscode.window.showErrorMessage(`LedgerMind Chat Record Error: ${err.message}`);
+                    if (err) outputChannel.appendLine(`LedgerMind Chat Record Error: ${err.message}`);
                 });
             })
         );
@@ -82,7 +91,7 @@ export function activate(context: vscode.ExtensionContext) {
                             '--success',
                             '--cli', 'vscode-terminal'
                         ], (err) => {
-                            if (err) vscode.window.showErrorMessage(`LedgerMind Terminal Record Error: ${err.message}`);
+                            if (err) outputChannel.appendLine(`LedgerMind Terminal Record Error: ${err.message}`);
                         });
                     }
                     terminalBuffer = '';
@@ -108,7 +117,7 @@ export function activate(context: vscode.ExtensionContext) {
         ], (err, stdout) => {
             setBusy(false);
             if (err) {
-                vscode.window.showErrorMessage(`LedgerMind Context Sync Error: ${err.message}`);
+                outputChannel.appendLine(`LedgerMind Context Sync Error: ${err.message}`);
             } else if (stdout) {
                 const content = `<!-- LEDGERMIND AUTONOMOUS CONTEXT - DO NOT EDIT -->\n${stdout}`;
                 vscode.workspace.fs.writeFile(
@@ -132,7 +141,7 @@ export function activate(context: vscode.ExtensionContext) {
                 '--response', `Updated ${doc.fileName}`,
                 '--success'
             ], (err) => {
-                if (err) vscode.window.showErrorMessage(`LedgerMind File Record Error: ${err.message}`);
+                if (err) outputChannel.appendLine(`LedgerMind File Record Error: ${err.message}`);
             });
         }),
         vscode.window.onDidChangeActiveTextEditor(() => updateShadowContext())
