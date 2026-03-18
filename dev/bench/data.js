@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773702846601,
+  "lastUpdate": 1773835036668,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -540,6 +540,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009053826195801288",
             "extra": "mean: 970.1255999971181 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6988b2a15dda2531cee15f1ddf4d26efeb9dd820",
+          "message": "🎨 Palette: fix accessibility spam and replace error popups with output channel (#95)",
+          "timestamp": "2026-03-18T06:54:52-05:00",
+          "tree_id": "9e127d9851556bb682f860870460f5c35d8f28ad",
+          "url": "https://github.com/sl4m3/ledgermind/commit/6988b2a15dda2531cee15f1ddf4d26efeb9dd820"
+        },
+        "date": 1773835036189,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 94.63688781981823,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00017523437477474704",
+            "extra": "mean: 10.566704199993637 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10651.873346816103,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000027828890554307325",
+            "extra": "mean: 93.88019998368691 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1037.8111980688009,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000977235690709999",
+            "extra": "mean: 963.5663999972621 usec\nrounds: 5"
           }
         ]
       }
