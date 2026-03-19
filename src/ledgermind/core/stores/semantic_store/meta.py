@@ -243,9 +243,17 @@ class SemanticMetaStore:
     def get_batch_by_fids(self, fids: List[str]) -> List[Dict[str, Any]]:
         """Fetch multiple metadata records in a single query."""
         if not fids: return []
-        placeholders = ', '.join(['?'] * len(fids))
-        cursor = self._execute_with_retry(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", tuple(fids)) # nosec B608
-        return [dict(row) for row in cursor.fetchall()]
+
+        results = []
+        # ⚡ Bolt: Chunk the query to avoid hitting SQLite's parameter limits (SQLITE_MAX_VARIABLE_NUMBER, typically 999)
+        chunk_size = 900
+        for i in range(0, len(fids), chunk_size):
+            chunk = fids[i:i + chunk_size]
+            placeholders = ', '.join(['?'] * len(chunk))
+            cursor = self._execute_with_retry(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", tuple(chunk)) # nosec B608
+            results.extend([dict(row) for row in cursor.fetchall()])
+
+        return results
 
     def resolve_to_truth(self, fid: str, depth: int = 0) -> Optional[Dict[str, Any]]:
         """Recursively follows 'superseded_by' links to find the active truth."""
