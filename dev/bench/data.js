@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773835036668,
+  "lastUpdate": 1773926021124,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -585,6 +585,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000977235690709999",
             "extra": "mean: 963.5663999972621 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0a44df74adb398d5976315946ef5e1305b28a4ef",
+          "message": "⚡ Bolt: Chunk SQLite batch operations (#96)\n\nOptimizes `SemanticMetaStore.get_batch_by_fids` by chunking `IN (...)` queries to prevent `OperationalError` from SQLite's host parameter limit (typically 999).",
+          "timestamp": "2026-03-19T16:11:11+03:00",
+          "tree_id": "fc79fd9ec7ed4e9b9d351c41ba9a8bcc2430f4cf",
+          "url": "https://github.com/sl4m3/ledgermind/commit/0a44df74adb398d5976315946ef5e1305b28a4ef"
+        },
+        "date": 1773926020097,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 122.88691042037689,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00018816574590420557",
+            "extra": "mean: 8.137563200011755 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 13297.483317798393,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007703865180793589",
+            "extra": "mean: 75.20220000287736 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1067.1073962367038,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010757686328602901",
+            "extra": "mean: 937.1128000111639 usec\nrounds: 5"
           }
         ]
       }
