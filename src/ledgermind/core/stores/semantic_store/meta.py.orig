@@ -122,19 +122,19 @@ class SemanticMetaStore:
         """Executes a query with retry logic for locked databases."""
         max_retries = 15
         retry_delay = 0.1
-        
+
         for attempt in range(max_retries):
             try:
                 if is_write and not self._conn.in_transaction:
                     self._conn.execute("BEGIN IMMEDIATE")
-                
+
                 cursor = self._conn.execute(sql, params)
-                
+
                 if is_write and not self._conn.in_transaction:
                     self._conn.execute("COMMIT")
                 elif commit:
                     self._conn.commit()
-                    
+
                 return cursor
             except sqlite3.OperationalError as e:
                 if "locked" in str(e).lower() and attempt < max_retries - 1:
@@ -154,12 +154,12 @@ class SemanticMetaStore:
     def set_config(self, key: str, value: str):
         self._execute_with_retry("INSERT OR REPLACE INTO semantic_config (key, value) VALUES (?, ?)", (key, str(value)), commit=True, is_write=True)
 
-    def upsert(self, fid: str, target: str, title: str, status: str, kind: str, 
-               timestamp: datetime, content: str, context_json: str, namespace: str = "default", 
+    def upsert(self, fid: str, target: str, title: str, status: str, kind: str,
+               timestamp: datetime, content: str, context_json: str, namespace: str = "default",
                **kwargs):
         """Inserts or updates metadata record. No internal commit to support external transactions."""
         ts_str = timestamp.isoformat() if isinstance(timestamp, datetime) else str(timestamp)
-        
+
         fields = {
             'phase': kwargs.get('phase', 'pattern'),
             'vitality': kwargs.get('vitality', 'active'),
@@ -184,7 +184,7 @@ class SemanticMetaStore:
         sql = """
             INSERT INTO semantic_meta (
                 fid, target, title, status, kind, timestamp, content, context_json, namespace, phase, vitality, enrichment_status,
-                supersedes, superseded_by, converted_to, merge_status, keywords, confidence, last_hit_at, link_count, reinforcement_density, stability_score, coverage, 
+                supersedes, superseded_by, converted_to, merge_status, keywords, confidence, last_hit_at, link_count, reinforcement_density, stability_score, coverage,
                 estimated_removal_cost, estimated_utility, content_hash, compressive_rationale
             ) VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
@@ -218,14 +218,14 @@ class SemanticMetaStore:
         """
         params = (
             fid, target, title, status, kind, ts_str, content, context_json, namespace,
-            fields['phase'], fields['vitality'], fields['enrichment_status'], 
-            fields['supersedes'], fields['superseded_by'], fields['converted_to'], fields['merge_status'], 
-            fields['keywords'], fields['confidence'], fields['last_hit_at'], 
-            fields['link_count'], fields['reinforcement_density'], fields['stability_score'], 
-            fields['coverage'], fields['estimated_removal_cost'], fields['estimated_utility'], 
+            fields['phase'], fields['vitality'], fields['enrichment_status'],
+            fields['supersedes'], fields['superseded_by'], fields['converted_to'], fields['merge_status'],
+            fields['keywords'], fields['confidence'], fields['last_hit_at'],
+            fields['link_count'], fields['reinforcement_density'], fields['stability_score'],
+            fields['coverage'], fields['estimated_removal_cost'], fields['estimated_utility'],
             fields['content_hash'], fields['compressive_rationale']
         )
-        
+
         if self._conn.in_transaction:
             self._conn.execute(sql, params)
         else:
@@ -242,27 +242,30 @@ class SemanticMetaStore:
 
     def get_batch_by_fids(self, fids: List[str]) -> List[Dict[str, Any]]:
         """Fetch multiple metadata records in a single query."""
-        if not fids:
-            return []
+        if not fids: return []
 
-        # ⚡ Bolt: Use json_each to bypass SQLite's parameter limits (SQLITE_MAX_VARIABLE_NUMBER) natively and avoid chunking overhead
-        cursor = self._execute_with_retry(
-            "SELECT * FROM semantic_meta WHERE fid IN (SELECT value FROM json_each(?))",
-            (json.dumps(fids),)
-        )
-        return [dict(row) for row in cursor.fetchall()]
+        results = []
+        # ⚡ Bolt: Chunk the query to avoid hitting SQLite's parameter limits (SQLITE_MAX_VARIABLE_NUMBER, typically 999)
+        chunk_size = 900
+        for i in range(0, len(fids), chunk_size):
+            chunk = fids[i:i + chunk_size]
+            placeholders = ', '.join(['?'] * len(chunk))
+            cursor = self._execute_with_retry(f"SELECT * FROM semantic_meta WHERE fid IN ({placeholders})", tuple(chunk)) # nosec B608
+            results.extend([dict(row) for row in cursor.fetchall()])
+
+        return results
 
     def resolve_to_truth(self, fid: str, depth: int = 0) -> Optional[Dict[str, Any]]:
         """Recursively follows 'superseded_by' links to find the active truth."""
         if depth >= 20: return None
-        
+
         meta = self.get_by_fid(fid)
         if not meta: return None
-        
+
         next_fid = meta.get('superseded_by')
         if meta.get('status') == 'active' or not next_fid:
             return meta
-            
+
         truth = self.resolve_to_truth(next_fid, depth + 1)
         if truth is None:
             if depth > 0 and depth >= 19: return None # Depth limit hit down the chain
@@ -286,7 +289,7 @@ class SemanticMetaStore:
         """Performs full-text search using FTS5 with fallback to LIKE."""
         sanitized = query.replace('"', '""').strip()
         if not sanitized: return []
-        
+
         # 1. Try FTS5 if available
         results = []
         try:
@@ -304,10 +307,10 @@ class SemanticMetaStore:
                 params.append(status)
             sql += " LIMIT ?"
             params.append(limit)
-            
+
             cursor = self._conn.execute(sql, params)
             results = [dict(row) for row in cursor.fetchall()]
-            
+
             if not results:
                 # Try prefix search for each word
                 words = [w for w in sanitized.split() if len(w) > 1]
@@ -318,12 +321,12 @@ class SemanticMetaStore:
                     results = [dict(row) for row in cursor.fetchall()]
         except sqlite3.OperationalError:
             pass
-            
+
         # 2. If no FTS results, or FTS failed, use robust LIKE
         if not results:
             sql_fallback = """
-                SELECT * FROM semantic_meta 
-                WHERE (title LIKE ? OR content LIKE ? OR target LIKE ? OR keywords LIKE ?) 
+                SELECT * FROM semantic_meta
+                WHERE (title LIKE ? OR content LIKE ? OR target LIKE ? OR keywords LIKE ?)
                 AND namespace = ?
             """
             term = f"%{sanitized}%"
@@ -333,16 +336,16 @@ class SemanticMetaStore:
                 params_fallback.append(status)
             sql_fallback += " LIMIT ?"
             params_fallback.append(limit)
-            
+
             cursor = self._conn.execute(sql_fallback, params_fallback)
             results = [dict(row) for row in cursor.fetchall()]
-            
+
         return results
 
     def list_all(self, target: Optional[str] = None, namespace: str = "default") -> List[Dict[str, Any]]:
         if target:
             cursor = self._conn.execute(
-                "SELECT * FROM semantic_meta WHERE target = ? AND namespace = ? ORDER BY timestamp DESC", 
+                "SELECT * FROM semantic_meta WHERE target = ? AND namespace = ? ORDER BY timestamp DESC",
                 (target, namespace)
             )
         else:
@@ -352,7 +355,7 @@ class SemanticMetaStore:
     def increment_hit(self, fid: str):
         now = datetime.now().isoformat()
         self._conn.execute(
-            "UPDATE semantic_meta SET hit_count = hit_count + 1, last_hit_at = ? WHERE fid = ?", 
+            "UPDATE semantic_meta SET hit_count = hit_count + 1, last_hit_at = ? WHERE fid = ?",
             (now, fid)
         )
 

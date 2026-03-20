@@ -83,12 +83,12 @@ class EpisodicStore:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.execute("PRAGMA synchronous=NORMAL")
             conn.execute("PRAGMA busy_timeout=10000")
-            
+
             # FAST PATH: If the table already exists, skip DDL to avoid write-lock contention
             cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='events'")
             if cursor.fetchone():
                 return
-                
+
             with conn:
                 conn.execute("""
                     CREATE TABLE IF NOT EXISTS events (
@@ -108,7 +108,7 @@ class EpisodicStore:
                     conn.execute("ALTER TABLE events ADD COLUMN link_strength REAL DEFAULT 1.0")
                 except sqlite3.OperationalError:
                     pass
-                
+
                 # Performance: Add index for duplicate detection
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_events_duplicate ON events (source, kind, content, timestamp)")
                 # Performance: Add index for linked_id to prevent O(N) full table scans during batch fetch operations
@@ -122,7 +122,7 @@ class EpisodicStore:
             data = context_data.model_dump(mode='json')
         else:
             data = context_data
-            
+
         # Ensure stable serialization with sort_keys=True for duplicate detection
         return json.dumps(data, sort_keys=True, default=str)
 
@@ -163,17 +163,17 @@ class EpisodicStore:
         """Fetches multiple events by their IDs."""
         if not ids:
             return []
-        
+
         # ⚡ Bolt: Use json_each to bypass parameter limits natively
         query = "SELECT * FROM events WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id ASC"
-        
+
         with self._get_conn() as conn:
             cursor = conn.execute(query, (json.dumps(ids),))
             rows = cursor.fetchall()
-            
+
             # Ensure we can return a list of dicts regardless of row factory behavior
             cols = [col[0] for col in cursor.description] if cursor.description else ["id", "source", "kind", "content", "context", "timestamp", "status", "linked_id", "link_strength"]
-            
+
             result = []
             for row in rows:
                 if isinstance(row, dict):
@@ -191,24 +191,24 @@ class EpisodicStore:
         with self._get_conn() as conn:
             query_parts = []
             params = []
-            
+
             if status:
                 query_parts.append("status = ?")
                 params.append(status)
-            
+
             if after_id is not None:
                 query_parts.append("id > ?")
                 params.append(after_id)
-            
+
             where_clause = ""
             if query_parts:
                 where_clause = "WHERE " + " AND ".join(query_parts)
-            
+
             direction = 'ASC' if order.upper() == 'ASC' else 'DESC'
             sql_template = "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events {} ORDER BY id {} LIMIT ?"
             sql = sql_template.format(where_clause, direction)
             params.append(limit)
-            
+
             cursor = conn.execute(sql, params)
             return [
                 {
@@ -237,9 +237,18 @@ class EpisodicStore:
 
         results = {sid: [] for sid in semantic_ids}
 
-        # ⚡ Bolt: Use json_each to bypass variable limits and avoid Python-level chunking
-        sql_template = "SELECT linked_id, id FROM events WHERE linked_id IN (SELECT value FROM json_each(?))"
+        # Optimization: Chunk the query to avoid hitting SQLite's parameter limits (SQLITE_MAX_VARIABLE_NUMBER)
+        chunk_size = 900
+        sql_template = "SELECT linked_id, id FROM events WHERE linked_id IN ({})"
         with self._get_conn() as conn:
+            for i in range(0, len(semantic_ids), chunk_size):
+                chunk = semantic_ids[i:i + chunk_size]
+                placeholders = ','.join('?' for _ in chunk)
+                cursor = conn.execute(
+                    sql_template.format(placeholders),
+                    chunk
+                )
+
                 for row in cursor.fetchall():
                     results[row[0]].append(row[1])
 
@@ -260,13 +269,21 @@ class EpisodicStore:
             return {}
 
         results = {}
-        # ⚡ Bolt: Use json_each to bypass variable limits and avoid Python-level chunking
-        sql_template = "SELECT linked_id, COUNT(*), SUM(link_strength) FROM events WHERE linked_id IN (SELECT value FROM json_each(?)) GROUP BY linked_id"
+        # Optimization: Chunk the query to avoid hitting SQLite's parameter limits (SQLITE_MAX_VARIABLE_NUMBER)
+        chunk_size = 900
+        sql_template = "SELECT linked_id, COUNT(*), SUM(link_strength) FROM events WHERE linked_id IN ({}) GROUP BY linked_id"
 
         with self._get_conn() as conn:
-            cursor = conn.execute(sql_template, (json.dumps(semantic_ids),))
-            chunk_results = {row[0]: (row[1] or 0, row[2] or 0.0) for row in cursor.fetchall()}
-            results.update(chunk_results)
+            for i in range(0, len(semantic_ids), chunk_size):
+                chunk = semantic_ids[i:i + chunk_size]
+                placeholders = ','.join('?' for _ in chunk)
+                cursor = conn.execute(
+                    sql_template.format(placeholders),
+                    chunk
+                )
+
+                chunk_results = {row[0]: (row[1] or 0, row[2] or 0.0) for row in cursor.fetchall()}
+                results.update(chunk_results)
 
         # Ensure all requested IDs are in the result
         for sid in semantic_ids:
@@ -275,12 +292,11 @@ class EpisodicStore:
         return results
 
     def mark_archived(self, event_ids: List[int]):
-        if not event_ids:
-            return
-        # ⚡ Bolt: Use json_each to bypass variable limits
-        sql_template = "UPDATE events SET status = 'archived' WHERE id IN (SELECT value FROM json_each(?))"
+        if not event_ids: return
+        placeholders = ','.join(['?'] * len(event_ids))
+        sql_template = "UPDATE events SET status = 'archived' WHERE id IN ({})"
         with self._get_conn() as conn:
-            conn.execute(sql_template, (json.dumps(event_ids),))
+            conn.execute(sql_template.format(placeholders), event_ids)
 
     def find_duplicate(self, event: MemoryEvent, linked_id: Optional[str] = None, ignore_links: bool = False) -> Result[int]:
         """Checks if an identical event (source, kind, content, context, timestamp) already exists."""
@@ -292,14 +308,14 @@ class EpisodicStore:
                 # Use the indexed columns first
                 base_sql = "SELECT id FROM events WHERE source = ? AND kind = ? AND content = ? AND context = ? AND timestamp = ?"
                 params = [event.source, event.kind, event.content, context_json, timestamp_str]
-                
+
                 if not ignore_links:
                     if linked_id is not None:
                         base_sql += " AND linked_id = ?"
                         params.append(linked_id)
                     else:
                         base_sql += " AND linked_id IS NULL"
-                
+
                 base_sql += " LIMIT 1"
                 cursor = conn.execute(base_sql, params)
                 row = cursor.fetchone()
@@ -307,13 +323,12 @@ class EpisodicStore:
         return safe_execute(_do_find)
 
     def physical_prune(self, event_ids: List[int]):
-        if not event_ids:
-            return
+        if not event_ids: return
         # I2 Protection: Only prune if NOT linked
-        # ⚡ Bolt: Use json_each to bypass variable limits
-        sql_template = "DELETE FROM events WHERE id IN (SELECT value FROM json_each(?)) AND linked_id IS NULL"
+        placeholders = ','.join(['?'] * len(event_ids))
+        sql_template = "DELETE FROM events WHERE id IN ({}) AND linked_id IS NULL"
         with self._get_conn() as conn:
-            conn.execute(sql_template, (json.dumps(event_ids),))
+            conn.execute(sql_template.format(placeholders), event_ids)
 
     def count_events(self, status: Optional[str] = 'active') -> int:
         """Returns the number of events with the given status."""
