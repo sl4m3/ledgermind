@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774010835817,
+  "lastUpdate": 1774010846851,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -675,6 +675,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009602619915861379",
             "extra": "mean: 997.1623999945223 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c4b07595e54e091f8dab6dd49bf1d687e2f8286b",
+          "message": "🛡️ Sentinel: Fix Bandit B607 in EnvironmentContext (#98)",
+          "timestamp": "2026-03-20T07:45:11-05:00",
+          "tree_id": "247731da4a2afed51331c6a64ddac22f22015fad",
+          "url": "https://github.com/sl4m3/ledgermind/commit/c4b07595e54e091f8dab6dd49bf1d687e2f8286b"
+        },
+        "date": 1774010846360,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 88.34702400037831,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00013502061456663176",
+            "extra": "mean: 11.319000400010282 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10473.222065314016,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001670392574164512",
+            "extra": "mean: 95.48160000463213 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1024.5826055375314,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008470691930093865",
+            "extra": "mean: 976.0072000005948 usec\nrounds: 5"
           }
         ]
       }
