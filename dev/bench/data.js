@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1773926021124,
+  "lastUpdate": 1774010835817,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -630,6 +630,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010757686328602901",
             "extra": "mean: 937.1128000111639 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dc20aa9cc4b5e6fca86ecd045e6486bb466f1777",
+          "message": "⚡ Bolt: Optimize SQLite batch queries using json_each (#97)",
+          "timestamp": "2026-03-20T07:44:55-05:00",
+          "tree_id": "d61a96b284c9e446acfa2437dac16841df12e565",
+          "url": "https://github.com/sl4m3/ledgermind/commit/dc20aa9cc4b5e6fca86ecd045e6486bb466f1777"
+        },
+        "date": 1774010835477,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 92.98917938851969,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00023389602624118998",
+            "extra": "mean: 10.7539394000014 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11396.063340357785,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009619035548180096",
+            "extra": "mean: 87.74960002710941 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1002.8456748925685,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009602619915861379",
+            "extra": "mean: 997.1623999945223 usec\nrounds: 5"
           }
         ]
       }
