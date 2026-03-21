@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774010846851,
+  "lastUpdate": 1774094766353,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -720,6 +720,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008470691930093865",
             "extra": "mean: 976.0072000005948 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d8c7961246c44d3a8c8c2aab08ae25d2258fadf4",
+          "message": "Optimize batch database operations by deduplicating input IDs (#99)",
+          "timestamp": "2026-03-21T07:03:52-05:00",
+          "tree_id": "075ccb5176d231d1d73f85d76f39053351de7287",
+          "url": "https://github.com/sl4m3/ledgermind/commit/d8c7961246c44d3a8c8c2aab08ae25d2258fadf4"
+        },
+        "date": 1774094766048,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 95.87219944364236,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007877073135725441",
+            "extra": "mean: 10.430552399998305 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10713.956641969564,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000016484263637333237",
+            "extra": "mean: 93.33620000688825 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 936.8678484232423,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010051138346787926",
+            "extra": "mean: 1.0673863999954847 msec\nrounds: 5"
           }
         ]
       }
