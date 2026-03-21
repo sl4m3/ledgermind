@@ -246,6 +246,7 @@ class SemanticMetaStore:
             return []
 
         # ⚡ Bolt: Use json_each to bypass SQLite's parameter limits (SQLITE_MAX_VARIABLE_NUMBER) natively and avoid chunking overhead
+        fids = list(dict.fromkeys(fids))  # Deduplicate while preserving order
         cursor = self._execute_with_retry(
             "SELECT * FROM semantic_meta WHERE fid IN (SELECT value FROM json_each(?))",
             (json.dumps(fids),)

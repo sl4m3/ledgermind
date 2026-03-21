@@ -238,9 +238,11 @@ class EpisodicStore:
         results = {sid: [] for sid in semantic_ids}
 
         # ⚡ Bolt: Use json_each to bypass variable limits and avoid Python-level chunking
+        semantic_ids = list(dict.fromkeys(semantic_ids))  # Deduplicate while preserving order
         sql_template = "SELECT linked_id, id FROM events WHERE linked_id IN (SELECT value FROM json_each(?))"
         with self._get_conn() as conn:
-                for row in cursor.fetchall():
+            cursor = conn.execute(sql_template, (json.dumps(semantic_ids),))
+            for row in cursor.fetchall():
                     results[row[0]].append(row[1])
 
         return results
@@ -261,6 +263,7 @@ class EpisodicStore:
 
         results = {}
         # ⚡ Bolt: Use json_each to bypass variable limits and avoid Python-level chunking
+        semantic_ids = list(dict.fromkeys(semantic_ids))  # Deduplicate while preserving order
         sql_template = "SELECT linked_id, COUNT(*), SUM(link_strength) FROM events WHERE linked_id IN (SELECT value FROM json_each(?)) GROUP BY linked_id"
 
         with self._get_conn() as conn:
