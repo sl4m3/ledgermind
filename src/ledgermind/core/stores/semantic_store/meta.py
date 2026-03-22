@@ -287,7 +287,7 @@ class SemanticMetaStore:
         """Performs full-text search using FTS5 with fallback to LIKE."""
         sanitized = query.replace('"', '""').strip()
         if not sanitized: return []
-        
+
         # 1. Try FTS5 if available
         results = []
         try:
@@ -296,7 +296,7 @@ class SemanticMetaStore:
             sql = """
                 SELECT m.* FROM semantic_meta m
                 JOIN semantic_fts f ON m.rowid = f.rowid
-                WHERE semantic_fts MATCH ?
+                WHERE f.semantic_fts MATCH ?
                 AND m.namespace = ?
             """
             params = [fts_query, namespace]
@@ -305,21 +305,21 @@ class SemanticMetaStore:
                 params.append(status)
             sql += " LIMIT ?"
             params.append(limit)
-            
-            cursor = self._conn.execute(sql, params)
+
+            cursor = self._execute_with_retry(sql, params)
             results = [dict(row) for row in cursor.fetchall()]
-            
+
             if not results:
                 # Try prefix search for each word
                 words = [w for w in sanitized.split() if len(w) > 1]
                 if words:
                     fts_query = " ".join([f"{w}*" for w in words])
                     params[0] = fts_query
-                    cursor = self._conn.execute(sql, params)
+                    cursor = self._execute_with_retry(sql, params)
                     results = [dict(row) for row in cursor.fetchall()]
         except sqlite3.OperationalError:
             pass
-            
+
         # 2. If no FTS results, or FTS failed, use robust LIKE
         if not results:
             sql_fallback = """
@@ -334,12 +334,11 @@ class SemanticMetaStore:
                 params_fallback.append(status)
             sql_fallback += " LIMIT ?"
             params_fallback.append(limit)
-            
-            cursor = self._conn.execute(sql_fallback, params_fallback)
-            results = [dict(row) for row in cursor.fetchall()]
-            
-        return results
 
+            cursor = self._execute_with_retry(sql_fallback, params_fallback)
+            results = [dict(row) for row in cursor.fetchall()]
+
+        return results
     def list_all(self, target: Optional[str] = None, namespace: str = "default") -> List[Dict[str, Any]]:
         if target:
             cursor = self._conn.execute(
