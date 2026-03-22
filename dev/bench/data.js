@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774178675576,
+  "lastUpdate": 1774184869054,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -855,6 +855,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00013199228715844664",
             "extra": "mean: 1.073640599997816 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav Zotov",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav Zotov",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "f84758b51c26117b99dfcf1ec964cff6f52c5672",
+          "message": "⚡ Bolt: Ensure keyword_search uses retry logic to maintain Fast Path performance (#102)",
+          "timestamp": "2026-03-22T16:05:14+03:00",
+          "tree_id": "cd28af410f83b6dc82ea386f98e88587b4efc7f4",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f84758b51c26117b99dfcf1ec964cff6f52c5672"
+        },
+        "date": 1774184868549,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 86.67733780267159,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00032390577846716533",
+            "extra": "mean: 11.537040999996862 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10295.331890340549,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000014849415332875922",
+            "extra": "mean: 97.13140000258136 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1005.5937156441029,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009410246574902397",
+            "extra": "mean: 994.4373999587696 usec\nrounds: 5"
           }
         ]
       }
