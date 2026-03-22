@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774178671578,
+  "lastUpdate": 1774178675576,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -810,6 +810,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009491050097991681",
             "extra": "mean: 945.4284000184998 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4f074e1489b6b266f1f333375e231ddb8d877e32",
+          "message": "⚡ Bolt: Resolve N+1 query bottleneck by using batch updates during event processing (#100)",
+          "timestamp": "2026-03-22T06:22:07-05:00",
+          "tree_id": "9717f138cb771f5795b4403a21331c2b4f5f40f4",
+          "url": "https://github.com/sl4m3/ledgermind/commit/4f074e1489b6b266f1f333375e231ddb8d877e32"
+        },
+        "date": 1774178675268,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 88.87517762143176,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002630740233321003",
+            "extra": "mean: 11.251735600006896 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 6196.631511275932,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000024231545762108695",
+            "extra": "mean: 161.37799999569324 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 931.4103807196134,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00013199228715844664",
+            "extra": "mean: 1.073640599997816 msec\nrounds: 5"
           }
         ]
       }
