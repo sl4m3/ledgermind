@@ -205,15 +205,13 @@ class EventProcessingService(MemoryService):
             # Evidence & Inheritance
             # 1. Link explicit evidence from context
             ctx_dict = event.context if isinstance(event.context, dict) else {}
-            for eid in ctx_dict.get('evidence_event_ids', []):
-                self.episodic.link_to_semantic(eid, new_fid)
+            self.episodic.link_to_semantic_batch(ctx_dict.get('evidence_event_ids', []), new_fid)
 
             # 2. Inherit links from predecessors
             if intent and intent.resolution_type == "supersede":
                 for old_id in intent.target_decision_ids:
                     old_links = self.episodic.get_linked_event_ids(old_id)
-                    for eid in old_links:
-                        self.episodic.link_to_semantic(eid, new_fid)
+                    self.episodic.link_to_semantic_batch(old_links, new_fid)
                 logger.info(f"Inherited grounding from predecessors to {new_fid}")
         
         INTERNAL_SOURCES = {"system", "reflection_engine", "bridge"}

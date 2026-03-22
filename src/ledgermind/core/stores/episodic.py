@@ -154,6 +154,12 @@ class EpisodicStore:
         with self._get_conn() as conn:
             conn.execute("UPDATE events SET linked_id = ?, link_strength = ? WHERE id = ?", (semantic_id, strength, event_id))
 
+    def link_to_semantic_batch(self, event_ids: List[int], semantic_id: str, strength: float = 1.0):
+        """Efficiently link multiple events to a semantic decision in a single batch."""
+        if not event_ids: return
+        with self._get_conn() as conn:
+            conn.execute("UPDATE events SET linked_id = ?, link_strength = ? WHERE id IN (SELECT value FROM json_each(?))", (semantic_id, strength, json.dumps(event_ids)))
+
     def unlink_all_for_semantic(self, semantic_id: str):
         """Clears linked_id for all events pointing to this semantic decision."""
         with self._get_conn() as conn:

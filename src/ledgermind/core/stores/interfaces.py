@@ -14,6 +14,10 @@ class EpisodicProvider(ABC):
         pass
 
     @abstractmethod
+    def link_to_semantic_batch(self, event_ids: List[int], semantic_id: str, strength: float = 1.0):
+        pass
+
+    @abstractmethod
     def query(self, limit: int = 100, status: Optional[str] = 'active') -> List[Dict[str, Any]]:
         pass
 
