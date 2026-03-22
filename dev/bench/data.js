@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774094766353,
+  "lastUpdate": 1774178671578,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -765,6 +765,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010051138346787926",
             "extra": "mean: 1.0673863999954847 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d82cf00eb9acf351fd77cd6b10464a28169e6a9d",
+          "message": "🛡️ Sentinel: [MEDIUM] Fix Path Hijacking in Subprocess calls (#101)",
+          "timestamp": "2026-03-22T06:22:18-05:00",
+          "tree_id": "8705fca6af453a40b34acaa9001bd6337ddecffe",
+          "url": "https://github.com/sl4m3/ledgermind/commit/d82cf00eb9acf351fd77cd6b10464a28169e6a9d"
+        },
+        "date": 1774178671113,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 111.9307175720496,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009162470233703653",
+            "extra": "mean: 8.934098000008817 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 13170.71885791739,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007871057708524503",
+            "extra": "mean: 75.92599999952654 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1057.7215577408424,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009491050097991681",
+            "extra": "mean: 945.4284000184998 usec\nrounds: 5"
           }
         ]
       }
