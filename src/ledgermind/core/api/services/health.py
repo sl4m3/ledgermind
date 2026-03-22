@@ -57,14 +57,18 @@ class HealthService(MemoryService):
 
         # 1. Check Git
         try:
-            subprocess.run(["git", "--version"], capture_output=True, check=True)
-            results["git_available"] = True
-            try:
-                name = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True).stdout.strip()
-                email = subprocess.run(["git", "config", "user.email"], capture_output=True, text=True).stdout.strip()
-                if name and email: results["git_configured"] = True
-                else: results["warnings"].append("Git user.name or user.email not configured.")
-            except Exception: pass
+            git_path = shutil.which("git")
+            if git_path:
+                subprocess.run([git_path, "--version"], capture_output=True, check=True) # nosec B603 B607
+                results["git_available"] = True
+                try:
+                    name = subprocess.run([git_path, "config", "user.name"], capture_output=True, text=True).stdout.strip() # nosec B603 B607
+                    email = subprocess.run([git_path, "config", "user.email"], capture_output=True, text=True).stdout.strip() # nosec B603 B607
+                    if name and email: results["git_configured"] = True
+                    else: results["warnings"].append("Git user.name or user.email not configured.")
+                except Exception: pass
+            else:
+                results["errors"].append("Git executable not found in PATH.")
         except Exception:
             results["errors"].append("Git is not installed or not in PATH.")
         
