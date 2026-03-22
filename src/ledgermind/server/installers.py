@@ -549,8 +549,12 @@ class VSCodeInstaller(BaseInstaller):
         # 2. Попытка сборки (нужен npm и tsc)
         try:
             print("  → Compiling extension (npm install & tsc)...")
-            subprocess.run(["npm", "install"], cwd=ext_src, check=True, capture_output=True) # nosec B603 B607
-            subprocess.run(["npm", "run", "compile"], cwd=ext_src, check=True, capture_output=True) # nosec B603 B607
+            npm_path = shutil.which("npm")
+            if npm_path:
+                subprocess.run([npm_path, "install"], cwd=ext_src, check=True, capture_output=True) # nosec B603 B607
+                subprocess.run([npm_path, "run", "compile"], cwd=ext_src, check=True, capture_output=True) # nosec B603 B607
+            else:
+                print("! npm not found in PATH. Skipping compilation.")
         except Exception as e:
             print(f"! Compilation failed: {e}. You may need to run 'npm install && npm run compile' in {ext_src} manually.")
 
