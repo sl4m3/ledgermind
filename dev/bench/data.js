@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774184869054,
+  "lastUpdate": 1774267385220,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -900,6 +900,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009410246574902397",
             "extra": "mean: 994.4373999587696 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8d2b5f79b3c74998b34bb8cdc15622a690eb7f56",
+          "message": "⚡ Bolt: Batch metadata lookups in enrichment validation (#102)",
+          "timestamp": "2026-03-23T06:59:13-05:00",
+          "tree_id": "ff8a1de682b40a539a4907f8a579bef3188626a3",
+          "url": "https://github.com/sl4m3/ledgermind/commit/8d2b5f79b3c74998b34bb8cdc15622a690eb7f56"
+        },
+        "date": 1774267384320,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 90.87135286238048,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00015424663644887358",
+            "extra": "mean: 11.004568199996356 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11244.470532432759,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011553907420360002",
+            "extra": "mean: 88.93259999354086 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 972.0612110815351,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009610445881737054",
+            "extra": "mean: 1.0287418000018533 msec\nrounds: 5"
           }
         ]
       }
