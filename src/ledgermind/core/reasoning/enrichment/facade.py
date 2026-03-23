@@ -328,7 +328,8 @@ class LLMEnricher:
 
         logger.info(f"  - Analyzing cluster of {len(target_ids)} items. Searching for semantic boundaries...")
         
-        docs_meta = [memory.semantic.meta.get_by_fid(tid) for tid in target_ids if memory.semantic.meta.get_by_fid(tid)]
+        # ⚡ Bolt: Optimized N+1 query and duplicate execution into a single batch fetch
+        docs_meta = [m for m in memory.semantic.meta.get_batch_by_fids(target_ids) if m]
         if len(docs_meta) < 2: return
 
         docs_summary = "\n\n".join([f"FID: {d['fid']}\nTitle: {d['title']}\nTarget: {d.get('target', 'unknown')}\nKeywords: {d.get('keywords', [])}\nRationale: {d.get('rationale', '')[:300]}\nContent: {d['content'][:500]}" for d in docs_meta])
