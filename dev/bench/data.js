@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774267385220,
+  "lastUpdate": 1774352039842,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -945,6 +945,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009610445881737054",
             "extra": "mean: 1.0287418000018533 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0d8296ee0ee6423c671709b7573ef1f46f178393",
+          "message": "⚡ Bolt: [performance improvement] fix N+1 query issue during grounding links inheritance (#103)",
+          "timestamp": "2026-03-24T06:30:23-05:00",
+          "tree_id": "7b3a7fcb7d28217d8d356cdfe6e7da74224b921b",
+          "url": "https://github.com/sl4m3/ledgermind/commit/0d8296ee0ee6423c671709b7573ef1f46f178393"
+        },
+        "date": 1774352038898,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 92.89199553591818,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00023171483442140813",
+            "extra": "mean: 10.765190199981589 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11298.311581536524,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009670906613430035",
+            "extra": "mean: 88.50879999044992 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 998.6715670753614,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009028683582540328",
+            "extra": "mean: 1.001330200006123 msec\nrounds: 5"
           }
         ]
       }
