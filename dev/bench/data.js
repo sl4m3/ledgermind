@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774352039842,
+  "lastUpdate": 1774610371585,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -990,6 +990,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009028683582540328",
             "extra": "mean: 1.001330200006123 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5cdc5393ca503d69021ac627798081f864057c21",
+          "message": "🛡️ Sentinel: [CRITICAL] Add authentication to admin endpoint (#106)",
+          "timestamp": "2026-03-27T06:15:55-05:00",
+          "tree_id": "41cb2def5bba6111bf2ec4f3383eb54176c36831",
+          "url": "https://github.com/sl4m3/ledgermind/commit/5cdc5393ca503d69021ac627798081f864057c21"
+        },
+        "date": 1774610371070,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 99.56480621462079,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009135177167400391",
+            "extra": "mean: 10.043709600000739 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11361.13175063157,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012651314701667057",
+            "extra": "mean: 88.01939999898423 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 993.249676548863,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009882642068825327",
+            "extra": "mean: 1.0067961999993713 msec\nrounds: 5"
           }
         ]
       }
