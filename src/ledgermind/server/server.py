@@ -379,6 +379,7 @@ class MCPServer:
 
     @measure_and_log("accept_proposal", include_commit_hash=True)
     def handle_accept_proposal(self, request: AcceptProposalRequest) -> BaseResponse:
+        self._validate_auth()
         self._check_capability("accept")
         self.memory.accept_proposal(request.proposal_id)
         return BaseResponse(status="success", message="Accepted")

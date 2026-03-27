@@ -1,0 +1,4 @@
+## 2024-05-24 - Missing authentication on admin endpoint in fastMCP handler
+**Vulnerability:** The `handle_accept_proposal` tool handler in the MCP server lacked the `self._validate_auth()` check that was present in all other handlers (record, supersede, search). This allowed unauthenticated actors to bypass authorization and accept arbitrary proposals.
+**Learning:** Even when using higher-level abstractions like FastMCP, if authentication logic is implemented via manual checks within handlers instead of middleware or decorators, it is easy to forget the check when adding new endpoints or tools.
+**Prevention:** Consider refactoring authentication checks into decorators (e.g., `@require_auth`) or using standard FastMCP middleware instead of manually calling `self._validate_auth()` inside every method to enforce a secure-by-default posture.
