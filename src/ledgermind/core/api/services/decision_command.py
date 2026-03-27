@@ -3,11 +3,11 @@ import json
 import logging
 import uuid
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional
 from ..base_service import MemoryService
 from ledgermind.core.core.schemas import (
     MemoryDecision, ResolutionIntent, DecisionStream, DecisionPhase, 
-    DecisionVitality, KIND_DECISION, KIND_PROPOSAL
+    DecisionVitality, KIND_DECISION
 )
 from ledgermind.core.core.exceptions import InvariantViolation, ConflictError
 
@@ -120,8 +120,10 @@ class DecisionCommandService(MemoryService):
                            source: str = "agent") -> MemoryDecision:
         """Helper to evolve knowledge."""
         effective_namespace = namespace or self.context.namespace
+        # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata instead of fetching one-by-one in a loop
+        meta_batch = {m['fid']: m for m in self.semantic.meta.get_batch_by_fids(old_decision_ids) if m}
         for oid in old_decision_ids:
-            meta = self.semantic.meta.get_by_fid(oid)
+            meta = meta_batch.get(oid)
             if not meta: raise ConflictError(f"Cannot supersede {oid}: missing.")
             if meta.get('status') not in ('active', 'pending_merge', 'accepted', 'draft'):
                 raise ConflictError(f"Cannot supersede {oid}: status {meta.get('status')}.")
@@ -195,12 +197,15 @@ class DecisionCommandService(MemoryService):
 
                 grounding_ids = set(ctx.get("evidence_event_ids", []))
                 if supersedes:
-                    for sid in supersedes:
-                        try:
-                            old_data = self.semantic.meta.get_by_fid(sid)
-                            if old_data and old_data.get('context_json'):
-                                grounding_ids.update(json.loads(old_data['context_json']).get('evidence_event_ids', []))
-                        except Exception: pass
+                    # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata
+                    try:
+                        old_data_batch = self.semantic.meta.get_batch_by_fids(supersedes)
+                        for old_data in old_data_batch:
+                            try:
+                                if old_data and old_data.get('context_json'):
+                                    grounding_ids.update(json.loads(old_data['context_json']).get('evidence_event_ids', []))
+                            except Exception: pass
+                    except Exception: pass
 
                 try: grounding_ids.update(self.episodic.get_linked_event_ids(proposal_id))
                 except Exception: pass
@@ -214,7 +219,7 @@ class DecisionCommandService(MemoryService):
                 )
 
                 if decision.should_persist:
-                    self.semantic.update_decision(proposal_id, {"status": "accepted", "converted_to": decision.metadata.get("file_id")}, commit_msg=f"Accepted and converted")
+                    self.semantic.update_decision(proposal_id, {"status": "accepted", "converted_to": decision.metadata.get("file_id")}, commit_msg="Accepted and converted")
         except Exception as e:
             logger.warning(f"Proposal conversion failed: {e}")
             try: self.semantic.update_decision(proposal_id, {"status": "draft"}, f"Conversion failed: {str(e)}")
