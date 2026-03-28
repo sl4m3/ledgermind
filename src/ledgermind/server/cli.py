@@ -311,13 +311,20 @@ def init_project(path: str):
             console.print(f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via {client}...")
             try:
                 import subprocess
+                import shutil
                 test_prompt = "Hi, respond with 'OK' if you can hear me."
                 if client == "gemini":
-                    cmd = ["gemini", "--model", enrichment_model, "--prompt", test_prompt]
+                    gemini_path = shutil.which("gemini")
+                    if not gemini_path:
+                        raise FileNotFoundError("gemini CLI not found")
+                    cmd = [gemini_path, "--model", enrichment_model, "--prompt", test_prompt]
                 else: # claude
+                    claude_path = shutil.which("claude")
+                    if not claude_path:
+                        raise FileNotFoundError("claude CLI not found")
                     # V7.10: Use flags to disable tools, MCP, session persistence, and slash commands
                     cmd = [
-                        "claude",
+                        claude_path,
                         "--model", enrichment_model,
                         "-p",  # Print response and exit (non-interactive mode)
                         "--tools", "",  # Disable tool calls
@@ -328,7 +335,7 @@ def init_project(path: str):
                     ]
 
                 # We use a longer timeout for validation because APIs can be slow
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60) # nosec B603
                 if result.returncode == 0:
                     console.print(f"[green]✓ Model {enrichment_model} is available and responsive.[/green]")
                     break
