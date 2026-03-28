@@ -5,8 +5,7 @@ import json
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 
-from ledgermind.core.core.schemas import DecisionStream, ProceduralContent, ProceduralStep, DecisionPhase
-from ledgermind.core.stores.semantic_store.loader import MemoryLoader
+from ledgermind.core.core.schemas import ProceduralContent, ProceduralStep, DecisionPhase
 from .clients import CloudLLMClient, LocalLLMClient
 from .config import EnrichmentConfig
 from .parser import ResponseParser
@@ -280,7 +279,7 @@ class LLMEnricher:
                 current_obj.evidence_event_ids = [eid for eid in eids if eid not in missing_ids]
                 with memory.semantic.transaction():
                     memory.semantic.update_decision(fid, {"evidence_event_ids": current_obj.evidence_event_ids}, 
-                                                   commit_msg=f"Enrichment: removed missing ids")
+                                                   commit_msg="Enrichment: removed missing ids")
                 continue
 
             logger.info(f"  - Calling LLM for distillation (Iter {iteration}, {len(used_ids)} events)...")
@@ -348,6 +347,11 @@ class LLMEnricher:
             logger.info(f"  - LLM Result: {len(clusters)} groups identified.")
             
             handled_fids = set()
+
+            # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata for all groups
+            all_u_fids = [g[0] if g[0].endswith(".md") else f"{g[0]}.md" for g in clusters if isinstance(g, list) and len(g) == 1]
+            u_fids_meta_batch = {m['fid']: m for m in memory.semantic.meta.get_batch_by_fids(all_u_fids)} if all_u_fids else {}
+
             for group in clusters:
                 if not isinstance(group, list) or not group: continue
                 group_fids = [f if f.endswith(".md") else f"{f}.md" for f in group]
@@ -358,7 +362,7 @@ class LLMEnricher:
                     for g_fid in group_fids: handled_fids.add(g_fid)
                 else:
                     u_fid = group_fids[0]
-                    meta = memory.semantic.meta.get_by_fid(u_fid)
+                    meta = u_fids_meta_batch.get(u_fid)
                     if meta:
                         kind = meta.get('kind', 'proposal')
                         
@@ -398,47 +402,52 @@ class LLMEnricher:
                         handled_fids.add(u_fid)
 
             # Safety rollbacks
-            for tid in target_ids:
-                if tid not in handled_fids:
-                    meta = memory.semantic.meta.get_by_fid(tid)
-                    if meta:
-                        kind = meta.get('kind', 'proposal')
+            # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata for safety rollbacks
+            rollback_tids = [tid for tid in target_ids if tid not in handled_fids]
+            rollback_meta_batch = {m['fid']: m for m in memory.semantic.meta.get_batch_by_fids(rollback_tids)} if rollback_tids else {}
 
-                        # V7.6: Decision/Constraint/Assumption always stay active
-                        if kind in ('decision', 'constraint', 'assumption'):
-                            restore_status = 'active'
-                        else:
-                            restore_status = meta.get('metadata', {}).get('previous_status', 'draft')
+            for tid in rollback_tids:
+                meta = rollback_meta_batch.get(tid)
+                if meta:
+                    kind = meta.get('kind', 'proposal')
 
-                        # V7.6: Read existing fields from context_json
-                        ctx_raw = meta.get('context_json')
-                        ctx = json.loads(ctx_raw) if ctx_raw else {}
-                        existing_title = ctx.get('title') or meta.get('title')
-                        existing_rationale = ctx.get('rationale') or meta.get('rationale')
+                    # V7.6: Decision/Constraint/Assumption always stay active
+                    if kind in ('decision', 'constraint', 'assumption'):
+                        restore_status = 'active'
+                    else:
+                        restore_status = meta.get('metadata', {}).get('previous_status', 'draft')
 
-                        # V7.6: Ensure mandatory fields exist
-                        update_data = {
-                            "status": restore_status,
-                            "merge_status": "idle",
-                            "superseded_by": None
-                        }
-                        if not existing_title:
-                            update_data['title'] = f"Hypothesis: {meta.get('target', 'unknown')}"
-                        if not existing_rationale:
-                            update_data['rationale'] = f"Unique hypothesis for {meta.get('target', 'unknown')}"
-                        if not meta.get('first_seen'):
-                            update_data['first_seen'] = meta.get('timestamp', datetime.now().isoformat())
-                        if not meta.get('last_seen'):
-                            update_data['last_seen'] = meta.get('timestamp', datetime.now().isoformat())
+                    # V7.6: Read existing fields from context_json
+                    ctx_raw = meta.get('context_json')
+                    ctx = json.loads(ctx_raw) if ctx_raw else {}
+                    existing_title = ctx.get('title') or meta.get('title')
+                    existing_rationale = ctx.get('rationale') or meta.get('rationale')
 
-                        memory.semantic.update_decision(tid, update_data, "Safety rollback.")
+                    # V7.6: Ensure mandatory fields exist
+                    update_data = {
+                        "status": restore_status,
+                        "merge_status": "idle",
+                        "superseded_by": None
+                    }
+                    if not existing_title:
+                        update_data['title'] = f"Hypothesis: {meta.get('target', 'unknown')}"
+                    if not existing_rationale:
+                        update_data['rationale'] = f"Unique hypothesis for {meta.get('target', 'unknown')}"
+                    if not meta.get('first_seen'):
+                        update_data['first_seen'] = meta.get('timestamp', datetime.now().isoformat())
+                    if not meta.get('last_seen'):
+                        update_data['last_seen'] = meta.get('timestamp', datetime.now().isoformat())
+
+                    memory.semantic.update_decision(tid, update_data, "Safety rollback.")
 
             memory.semantic.update_decision(fid, {"status": "fulfilled", "enrichment_status": "completed"}, f"Done: {res_data.get('reasoning', 'N/A')}")
 
         except Exception as e:
             logger.error(f"  - Validation failure: {e}")
+            # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata for safety rollbacks
+            rollback_meta_batch = {m['fid']: m for m in memory.semantic.meta.get_batch_by_fids(target_ids) if m} if target_ids else {}
             for tid in target_ids:
-                meta = memory.semantic.meta.get_by_fid(tid)
+                meta = rollback_meta_batch.get(tid)
                 if meta:
                     kind = meta.get('kind', 'proposal')
 
@@ -487,31 +496,34 @@ class LLMEnricher:
         """
         logger.info(f"  - Target conflict detected: {proposed_target} has {len(conflict_fids)} active decision(s)")
         
-        # Collect conflict document info for LLM
+        # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata
         conflict_docs = []
-        for fid in conflict_fids:
-            meta = memory.semantic.meta.get_by_fid(fid)
-            if meta:
-                ctx = json.loads(meta.get('context_json', '{}')) if meta.get('context_json') else {}
-                conflict_docs.append({
-                    "fid": fid,
-                    "title": meta.get('title', ''),
-                    "target": meta.get('target', ''),
-                    "rationale": meta.get('rationale', '')[:500]  # Truncate for token limit
-                })
+        if conflict_fids:
+            meta_batch = {m['fid']: m for m in memory.semantic.meta.get_batch_by_fids(conflict_fids) if m}
+            for fid in conflict_fids:
+                meta = meta_batch.get(fid)
+                if meta:
+                    ctx = json.loads(meta.get('context_json', '{}')) if meta.get('context_json') else {}
+                    conflict_docs.append({
+                        "fid": fid,
+                        "title": meta.get('title', ''),
+                        "target": meta.get('target', ''),
+                        "rationale": meta.get('rationale', '')[:500]  # Truncate for token limit
+                    })
         
-        # Collect consolidated doc info
         consolidated_docs = []
-        for fid in consolidated_fids:
-            meta = memory.semantic.meta.get_by_fid(fid)
-            if meta:
-                ctx = json.loads(meta.get('context_json', '{}')) if meta.get('context_json') else {}
-                consolidated_docs.append({
-                    "fid": fid,
-                    "title": meta.get('title', ''),
-                    "target": meta.get('target', ''),
-                    "rationale": meta.get('rationale', '')[:500]
-                })
+        if consolidated_fids:
+            meta_batch = {m['fid']: m for m in memory.semantic.meta.get_batch_by_fids(consolidated_fids) if m}
+            for fid in consolidated_fids:
+                meta = meta_batch.get(fid)
+                if meta:
+                    ctx = json.loads(meta.get('context_json', '{}')) if meta.get('context_json') else {}
+                    consolidated_docs.append({
+                        "fid": fid,
+                        "title": meta.get('title', ''),
+                        "target": meta.get('target', ''),
+                        "rationale": meta.get('rationale', '')[:500]
+                    })
         
         # V7.8: Use PromptBuilder for consistent prompt formatting
         config = EnrichmentConfig.from_memory(memory, mode="rich", enrichment_language=self.enrichment_language, client=None)
@@ -562,7 +574,7 @@ class LLMEnricher:
                 continue
         
         # Fallback after 3 failed attempts
-        logger.warning(f"  - LLM failed to resolve conflict after 3 attempts. Using fallback.")
+        logger.warning("  - LLM failed to resolve conflict after 3 attempts. Using fallback.")
         fallback_target = self._get_fallback_target(consolidated_fids, memory)
         return fallback_target, consolidated_fids
 
@@ -571,13 +583,16 @@ class LLMEnricher:
         V7.8: Fallback target selection when LLM fails.
         Uses longest + most common target from source documents.
         """
+        # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata
         targets = []
-        for fid in fids:
-            meta = memory.semantic.meta.get_by_fid(fid)
-            if meta:
-                target = meta.get('target', '')
-                if target:
-                    targets.append(target)
+        if fids:
+            meta_batch = {m['fid']: m for m in memory.semantic.meta.get_batch_by_fids(fids) if m}
+            for fid in fids:
+                meta = meta_batch.get(fid)
+                if meta:
+                    target = meta.get('target', '')
+                    if target:
+                        targets.append(target)
         
         if not targets:
             return "consolidated"
@@ -606,9 +621,11 @@ class LLMEnricher:
         if len(fids) < 2: return
         
         # V7.7: Filter out proposals that cannot be superseded (fulfilled, superseded, etc.)
+        # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata
         valid_fids = []
+        meta_batch = {m['fid']: m for m in memory.semantic.meta.get_batch_by_fids(fids) if m} if fids else {}
         for fid in fids:
-            meta = memory.semantic.meta.get_by_fid(fid)
+            meta = meta_batch.get(fid)
             if meta:
                 status = meta.get('status', 'draft')
                 # Can only supersede: draft, active, deprecated
@@ -678,8 +695,10 @@ class LLMEnricher:
             total_evidence_count = 0
             stability_scores = []
 
+            # ⚡ Bolt: Use batch fetching for phase/evidence extraction
+            meta_batch = {m['fid']: m for m in memory.semantic.meta.get_batch_by_fids(fids) if m} if fids else {}
             for g_fid in fids:
-                meta = memory.semantic.meta.get_by_fid(g_fid)
+                meta = meta_batch.get(g_fid)
                 if meta:
                     ctx = json.loads(meta.get('context_json', '{}')) if meta.get('context_json') else {}
 
