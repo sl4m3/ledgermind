@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774610387498,
+  "lastUpdate": 1774704711695,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1080,6 +1080,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009233367236628183",
             "extra": "mean: 1.0067148000075576 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f27a83e1faf6ba027474e0cd1b524e571e0a0929",
+          "message": "⚡ Bolt: Resolve N+1 query bottlenecks in enrichment facade (#107)",
+          "timestamp": "2026-03-28T08:28:12-05:00",
+          "tree_id": "83a7df259ea2ef7a0c0a97644458cec2e1c5a88e",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f27a83e1faf6ba027474e0cd1b524e571e0a0929"
+        },
+        "date": 1774704711405,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 99.61576406717124,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00014241252307322006",
+            "extra": "mean: 10.038571799998408 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10920.511779108108,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001000465709882566",
+            "extra": "mean: 91.57079999795315 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 955.6563964185137,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001182469755735628",
+            "extra": "mean: 1.0464011999999911 msec\nrounds: 5"
           }
         ]
       }
