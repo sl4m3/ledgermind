@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774704741836,
+  "lastUpdate": 1774784053990,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1170,6 +1170,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009539032418703366",
             "extra": "mean: 1.0563595999997233 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6e9f815be99694a7b640242b7f084b5086a56739",
+          "message": "🛡️ Sentinel: [HIGH] Fix insecure subprocess execution (#109)",
+          "timestamp": "2026-03-29T06:30:30-05:00",
+          "tree_id": "0e3b03a09e22cbf23ca289f5ac07a24731a29d51",
+          "url": "https://github.com/sl4m3/ledgermind/commit/6e9f815be99694a7b640242b7f084b5086a56739"
+        },
+        "date": 1774784053681,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 93.45225294508354,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008488059346116775",
+            "extra": "mean: 10.700651599995581 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 9753.261980073386,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000021222302181958405",
+            "extra": "mean: 102.52979998313094 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 950.5134198261023,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011494079516671869",
+            "extra": "mean: 1.0520629999973607 msec\nrounds: 5"
           }
         ]
       }
