@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+import shutil
 import subprocess
 from typing import Optional, Any, Protocol
 from .config import EnrichmentConfig
@@ -72,7 +73,11 @@ class CloudLLMClient:
                     # V7.10: Use client-specific CLI flags
                     cmd = [self._bin] + self._cli_flags + ["--model", self.config.model_name, "Analyze logs and return JSON."]
                     
-                    proc = subprocess.Popen(
+                    bin_path = shutil.which(self._bin)
+                    if not bin_path:
+                        raise FileNotFoundError(f"{self._bin} executable not found in PATH")
+                    cmd[0] = bin_path
+                    proc = subprocess.Popen( # nosec B603
                         cmd,
                         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                         text=True, env=env
@@ -110,7 +115,10 @@ class CloudLLMClient:
         
         # Check if CLI is available
         try:
-            result = subprocess.run([bin_name, "--version"], capture_output=True, timeout=5)
+            bin_path = shutil.which(bin_name)
+            if not bin_path:
+                raise FileNotFoundError(f"{bin_name} executable not found in PATH")
+            result = subprocess.run([bin_path, "--version"], capture_output=True, timeout=5) # nosec B603
             if result.returncode == 0:
                 return True
         except Exception:
