@@ -350,8 +350,7 @@ class BackgroundWorker:
         try:
             pkill_path = shutil.which('pkill')
             if pkill_path:
-                # nosec B603
-                subprocess.run([pkill_path, '-f', 'gemini --extensions "" -m'], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+                subprocess.run([pkill_path, '-f', 'gemini --extensions "" -m'], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL) # nosec B603
         except Exception: pass
 
 if __name__ == "__main__":
