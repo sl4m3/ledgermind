@@ -16,7 +16,7 @@ class Bridge:
     """
     High-level bridge for integrating LedgerMind into CLI tools.
     """
-    
+
     def __init__(self, memory_path: str = "../.ledgermind", relevance_threshold: float = 0.85, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None, memory_instance: Optional['Memory'] = None, namespace: Optional[str] = None):
         self.memory_path = os.path.abspath(memory_path)
         if memory_instance:
@@ -79,7 +79,7 @@ class Bridge:
                         (isinstance(v, list) and any(x in placeholders for x in v))
                         for v in memory_item.values()
                     )
-                    
+
                     if needs_load and os.path.exists(path):
                         try:
                             with open(path, 'r', encoding='utf-8') as f:
@@ -131,7 +131,6 @@ class Bridge:
         """
         import subprocess
         import sys
-        import shutil
 
         self._turn_counter += 1
 
@@ -161,13 +160,8 @@ class Bridge:
 
         # 3. Execute CLI with Streaming
         cmd = command_args + [augmented_prompt]
-
-        bin_path = shutil.which(cmd[0])
-        if not bin_path:
-            raise FileNotFoundError(f"{cmd[0]} executable not found in PATH")
-        cmd[0] = bin_path
         if stream:
-            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) # nosec B603
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             output = []
             try:
                 for line in proc.stdout:
@@ -186,7 +180,7 @@ class Bridge:
                 if proc.returncode is None:
                     proc.terminate()
         else:
-            result = subprocess.run(cmd, capture_output=True, text=True).stdout # nosec B603
+            result = subprocess.run(cmd, capture_output=True, text=True).stdout
             self.record_interaction(user_prompt, result, success=True)
             return result
 

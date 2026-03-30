@@ -10,3 +10,7 @@
 **Vulnerability:** Found `subprocess.Popen` and `subprocess.run` executing external commands like `gemini` and `claude` without explicitly resolving their full path, creating a CWE-78 (insecure subprocess execution) B603 bandit vulnerability.
 **Learning:** Hardcoded binary names like `gemini` and `claude` passed to `subprocess.run/Popen` are susceptible to local privilege escalation or malicious binary interception if the `PATH` environment variable is manipulated or insecure.
 **Prevention:** Always use `shutil.which('binary_name')` to reliably determine the absolute path of an executable before executing it via `subprocess.run` or `subprocess.Popen`. Add `if not path:` checks to explicitly handle when the executable is missing and raise `FileNotFoundError`. Finally, apply `# nosec B603` to properly inform security scanners like Bandit that the execution is secured.
+## 2024-05-24 - Unresolved paths in subprocess execution
+**Vulnerability:** Unresolved paths in subprocess execution (B603) via command injection risk.
+**Learning:** Executing subprocesses via string or unverified list paths exposes the system to command injection.
+**Prevention:** Always use `shutil.which` to resolve executable paths and suppress false positives with `# nosec B603`.
