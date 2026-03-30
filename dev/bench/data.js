@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774784053990,
+  "lastUpdate": 1774870984217,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1215,6 +1215,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00011494079516671869",
             "extra": "mean: 1.0520629999973607 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "697d103c0d443675828d439d5dc343a6273930e9",
+          "message": "🛡️ Sentinel: [CRITICAL] Fix insecure subprocess execution in bridge API (#110)\n\n🚨 Severity: CRITICAL\n💡 Vulnerability: Unresolved paths in subprocess execution (B603)\n🎯 Impact: Command injection risk and unintended binary execution\n🔧 Fix: Added `shutil.which` resolution and `# nosec B603`\n✅ Verification: `make test` and `make lint` pass",
+          "timestamp": "2026-03-30T06:39:20-05:00",
+          "tree_id": "317ba6c5bd5f0d8e138794f2921d71a1a6f70400",
+          "url": "https://github.com/sl4m3/ledgermind/commit/697d103c0d443675828d439d5dc343a6273930e9"
+        },
+        "date": 1774870983595,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 94.96685903538176,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00019730903999551304",
+            "extra": "mean: 10.529989199994816 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10478.621516164609,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000023789234848728194",
+            "extra": "mean: 95.43240000198239 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1004.4291306966924,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009681482272272466",
+            "extra": "mean: 995.5903999980364 usec\nrounds: 5"
           }
         ]
       }
