@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1774870984217,
+  "lastUpdate": 1775043484430,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1260,6 +1260,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009681482272272466",
             "extra": "mean: 995.5903999980364 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0c9dc6bbc917d1cf45659eea0006ebb2e78a44fe",
+          "message": "⚡ Bolt: Prevent N+1 queries during metadata fetching in background processing loops (#111)",
+          "timestamp": "2026-04-01T06:34:24-05:00",
+          "tree_id": "854dd866620695ea7f200d09285082c44f068fed",
+          "url": "https://github.com/sl4m3/ledgermind/commit/0c9dc6bbc917d1cf45659eea0006ebb2e78a44fe"
+        },
+        "date": 1775043483916,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 100.23279869354955,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000054842259185792214",
+            "extra": "mean: 9.976774200004002 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10404.268247297421,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000029399846373122155",
+            "extra": "mean: 96.11439999730464 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1006.6444574004377,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009331305771507806",
+            "extra": "mean: 993.3994000050461 usec\nrounds: 5"
           }
         ]
       }
