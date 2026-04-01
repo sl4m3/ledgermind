@@ -155,8 +155,10 @@ class EventProcessingService(MemoryService):
 
         with self.transaction(description="Persist Semantic Record"):
             if intent and intent.resolution_type == "supersede":
+                # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata instead of looping over individual IDs
+                meta_batch = {m['fid']: m for m in self.semantic.meta.get_batch_by_fids(intent.target_decision_ids) if m}
                 for old_id in intent.target_decision_ids:
-                    old_meta = self.semantic.meta.get_by_fid(old_id)
+                    old_meta = meta_batch.get(old_id)
                     if old_meta and old_meta.get('status') in ('active', 'pending_merge', 'accepted', 'draft'):
                         self.semantic.update_decision(old_id, {"status": "superseded"}, commit_msg="Deactivating for transition")
 

@@ -52,8 +52,10 @@ class DecisionCommandService(MemoryService):
                     new_norm = np.linalg.norm(new_vec)
 
             if active_conflicts:
+                # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata instead of looping over individual IDs
+                meta_batch = {m['fid']: m for m in self.semantic.meta.get_batch_by_fids(active_conflicts) if m}
                 for old_fid in active_conflicts:
-                    old_meta = self.semantic.meta.get_by_fid(old_fid)
+                    old_meta = meta_batch.get(old_fid)
                     if not old_meta: continue
 
                     sim = 0.0

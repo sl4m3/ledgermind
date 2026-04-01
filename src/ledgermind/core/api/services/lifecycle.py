@@ -124,13 +124,19 @@ class LifecycleManagementService(MemoryService):
                 self.episodic.mark_archived(to_archive)
                 self.episodic.physical_prune(to_prune)
                 
+                # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata instead of looping over individual IDs
+                # Need to convert semantic_results to a list first if it is an iterator so it doesn't get exhausted
+                semantic_results = list(semantic_results)
+                fids_to_fetch = [fid for fid, _, _ in semantic_results]
+                meta_batch = {m['fid']: m for m in self.semantic.meta.get_batch_by_fids(fids_to_fetch) if m}
+
                 for fid, new_conf, should_forget in semantic_results:
                     if stop_event and stop_event.is_set():
                         logger.info("Decay: Interrupted by stop event.")
                         break
 
                     if should_forget:
-                        meta = self.semantic.meta.get_by_fid(fid)
+                        meta = meta_batch.get(fid)
                         kind = meta.get('kind') if meta else None
 
                         if kind in ('decision', 'constraint', 'intervention', 'proposal'):
@@ -168,7 +174,7 @@ class LifecycleManagementService(MemoryService):
                              forgotten_count += 1
                     else:
                         updates = {"confidence": new_conf}
-                        meta = self.semantic.meta.get_by_fid(fid)
+                        meta = meta_batch.get(fid)
                         if meta:
                             # V7.8: Gradual vitality transition
                             current_vitality = meta.get('vitality', 'active')
