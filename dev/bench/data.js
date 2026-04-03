@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775043484430,
+  "lastUpdate": 1775216835224,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1305,6 +1305,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009331305771507806",
             "extra": "mean: 993.3994000050461 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1121bae12897ee947f2f27ca0ea075a429d50842",
+          "message": "⚡ Bolt: Prevent N+1 queries in server isolation validation (#112)",
+          "timestamp": "2026-04-03T06:43:37-05:00",
+          "tree_id": "5c1fc6e9bc7dc2645c17cfc02d141d96f1b0f588",
+          "url": "https://github.com/sl4m3/ledgermind/commit/1121bae12897ee947f2f27ca0ea075a429d50842"
+        },
+        "date": 1775216834876,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 96.52230893095535,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00025606164672704803",
+            "extra": "mean: 10.360299200004874 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11567.08562612064,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000988204071383993",
+            "extra": "mean: 86.45220000289555 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 966.5920650961141,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00014799248363911536",
+            "extra": "mean: 1.034562599994615 msec\nrounds: 5"
           }
         ]
       }
