@@ -11,14 +11,20 @@ export function activate(context: vscode.ExtensionContext) {
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     statusBarItem.name = 'LedgerMind Status'; // Static identifier for context menu
     statusBarItem.text = '$(database) LedgerMind';
-    statusBarItem.tooltip = 'LedgerMind Zero-Touch Bridge Active';
-    statusBarItem.accessibilityInformation = { label: 'LedgerMind Zero-Touch Bridge Active', role: 'button' };
+    statusBarItem.tooltip = 'LedgerMind Zero-Touch Bridge Active (Click to view logs)';
+    statusBarItem.accessibilityInformation = { label: 'LedgerMind Zero-Touch Bridge Active, click to view logs', role: 'button' };
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
 
     // Create Output Channel for silent logging
     const outputChannel = vscode.window.createOutputChannel('LedgerMind');
     context.subscriptions.push(outputChannel);
+
+    const showOutputCommandId = 'ledgermind.showOutput';
+    context.subscriptions.push(vscode.commands.registerCommand(showOutputCommandId, () => {
+        outputChannel.show();
+    }));
+    statusBarItem.command = showOutputCommandId;
 
     let isBusy = false;
 
@@ -28,12 +34,12 @@ export function activate(context: vscode.ExtensionContext) {
         isBusy = busy;
         if (busy) {
             statusBarItem.text = '$(sync~spin) LedgerMind';
-            statusBarItem.tooltip = 'LedgerMind: Syncing Context...';
-            statusBarItem.accessibilityInformation = { label: 'LedgerMind Syncing Context', role: 'button' };
+            statusBarItem.tooltip = 'LedgerMind: Syncing Context... (Click to view logs)';
+            statusBarItem.accessibilityInformation = { label: 'LedgerMind Syncing Context, click to view logs', role: 'button' };
         } else {
             statusBarItem.text = '$(database) LedgerMind';
-            statusBarItem.tooltip = 'LedgerMind Zero-Touch Bridge Active';
-            statusBarItem.accessibilityInformation = { label: 'LedgerMind Zero-Touch Bridge Active', role: 'button' };
+            statusBarItem.tooltip = 'LedgerMind Zero-Touch Bridge Active (Click to view logs)';
+            statusBarItem.accessibilityInformation = { label: 'LedgerMind Zero-Touch Bridge Active, click to view logs', role: 'button' };
         }
     };
 
