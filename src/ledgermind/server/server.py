@@ -300,9 +300,11 @@ class MCPServer:
         if self.default_role == MCPRole.ADMIN:
             return
 
+        # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata instead of fetching one-by-one in a loop
+        meta_batch = {m['fid']: m for m in self.memory.semantic.meta.get_batch_by_fids(decision_ids) if m}
         for d_id in decision_ids:
             # Fetch metadata from the database
-            meta = self.memory.semantic.meta.get_by_fid(d_id)
+            meta = meta_batch.get(d_id)
             if meta:
                 # Check source in context (stored as JSON in meta)
                 try:
