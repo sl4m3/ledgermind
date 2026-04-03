@@ -47,6 +47,17 @@ def mock_memory():
         return None
         
     mock_meta.get_by_fid.side_effect = get_meta_side_effect
+
+    def get_batch_side_effect(fids):
+        res = []
+        for fid in fids:
+            meta = get_meta_side_effect(fid)
+            if meta:
+                meta['fid'] = fid
+                res.append(meta)
+        return res
+
+    mock_meta.get_batch_by_fids.side_effect = get_batch_side_effect
     return mem
 
 def test_isolation_rule_enforcement(mock_memory):
