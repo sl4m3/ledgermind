@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775216835224,
+  "lastUpdate": 1775216835706,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1350,6 +1350,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00014799248363911536",
             "extra": "mean: 1.034562599994615 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4773286d1119449e88aed4d6de564d1acee1c6bb",
+          "message": "🎨 Palette: Make status bar clickable to show logs (#113)\n\n- Registered `ledgermind.showOutput` command to display the logging channel.\n- Assigned the new command to `statusBarItem.command` so the item acts as a button.\n- Updated the tooltips to explicitly say \"(Click to view logs)\".\n- Updated `accessibilityInformation.label` to provide screen reader users the same contextual action hint.",
+          "timestamp": "2026-04-03T06:43:45-05:00",
+          "tree_id": "ca52f37dac7fca4486376d358cb46417644e118c",
+          "url": "https://github.com/sl4m3/ledgermind/commit/4773286d1119449e88aed4d6de564d1acee1c6bb"
+        },
+        "date": 1775216835368,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 102.3322648821504,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009640137475974783",
+            "extra": "mean: 9.772089000000506 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11543.531812571604,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011910687653895299",
+            "extra": "mean: 86.62860000185901 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 996.7086686441409,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010460555143040049",
+            "extra": "mean: 1.0033021999902303 msec\nrounds: 5"
           }
         ]
       }
