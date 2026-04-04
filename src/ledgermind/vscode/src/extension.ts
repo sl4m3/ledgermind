@@ -29,18 +29,30 @@ export function activate(context: vscode.ExtensionContext) {
     let isBusy = false;
 
 
+    const setError = (hasError: boolean) => {
+        if (hasError) {
+            statusBarItem.text = '$(error) LedgerMind';
+            statusBarItem.tooltip = 'LedgerMind: Sync Error (Click to view logs)';
+            statusBarItem.accessibilityInformation = { label: 'LedgerMind Sync Error, click to view logs', role: 'button' };
+            statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+        } else {
+            statusBarItem.backgroundColor = undefined;
+            if (isBusy) {
+                statusBarItem.text = '$(sync~spin) LedgerMind';
+                statusBarItem.tooltip = 'LedgerMind: Syncing Context... (Click to view logs)';
+                statusBarItem.accessibilityInformation = { label: 'LedgerMind Syncing Context, click to view logs', role: 'button' };
+            } else {
+                statusBarItem.text = '$(database) LedgerMind';
+                statusBarItem.tooltip = 'LedgerMind Zero-Touch Bridge Active (Click to view logs)';
+                statusBarItem.accessibilityInformation = { label: 'LedgerMind Zero-Touch Bridge Active, click to view logs', role: 'button' };
+            }
+        }
+    };
+
     const setBusy = (busy: boolean) => {
         if (isBusy === busy) return;
         isBusy = busy;
-        if (busy) {
-            statusBarItem.text = '$(sync~spin) LedgerMind';
-            statusBarItem.tooltip = 'LedgerMind: Syncing Context... (Click to view logs)';
-            statusBarItem.accessibilityInformation = { label: 'LedgerMind Syncing Context, click to view logs', role: 'button' };
-        } else {
-            statusBarItem.text = '$(database) LedgerMind';
-            statusBarItem.tooltip = 'LedgerMind Zero-Touch Bridge Active (Click to view logs)';
-            statusBarItem.accessibilityInformation = { label: 'LedgerMind Zero-Touch Bridge Active, click to view logs', role: 'button' };
-        }
+        setError(false);
     };
 
     // 1. HARDCORE RECORDING: Слушаем ВСЕ чат-взаимодействия (VS Code Native Chat)
@@ -63,7 +75,10 @@ export function activate(context: vscode.ExtensionContext) {
                     '--cli', 'vscode-chat'
                 ], (err) => {
                     setBusy(false);
-                    if (err) outputChannel.appendLine(`LedgerMind Chat Record Error: ${err.message}`);
+                    if (err) {
+                        outputChannel.appendLine(`LedgerMind Chat Record Error: ${err.message}`);
+                        setError(true);
+                    }
                 });
             })
         );
@@ -97,7 +112,10 @@ export function activate(context: vscode.ExtensionContext) {
                             '--success',
                             '--cli', 'vscode-terminal'
                         ], (err) => {
-                            if (err) outputChannel.appendLine(`LedgerMind Terminal Record Error: ${err.message}`);
+                            if (err) {
+                                outputChannel.appendLine(`LedgerMind Terminal Record Error: ${err.message}`);
+                                setError(true);
+                            }
                         });
                     }
                     terminalBuffer = '';
@@ -124,6 +142,7 @@ export function activate(context: vscode.ExtensionContext) {
             setBusy(false);
             if (err) {
                 outputChannel.appendLine(`LedgerMind Context Sync Error: ${err.message}`);
+                setError(true);
             } else if (stdout) {
                 const content = `<!-- LEDGERMIND AUTONOMOUS CONTEXT - DO NOT EDIT -->\n${stdout}`;
                 vscode.workspace.fs.writeFile(
@@ -147,7 +166,10 @@ export function activate(context: vscode.ExtensionContext) {
                 '--response', `Updated ${doc.fileName}`,
                 '--success'
             ], (err) => {
-                if (err) outputChannel.appendLine(`LedgerMind File Record Error: ${err.message}`);
+                if (err) {
+                    outputChannel.appendLine(`LedgerMind File Record Error: ${err.message}`);
+                    setError(true);
+                }
             });
         }),
         vscode.window.onDidChangeActiveTextEditor(() => updateShadowContext())
