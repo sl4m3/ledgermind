@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775302863445,
+  "lastUpdate": 1775302885528,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1440,6 +1440,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008636673538151453",
             "extra": "mean: 991.9754000065951 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "174638218f914599e356085425da09c546448bec",
+          "message": "fix: mark secure sys.executable subprocess call as false positive for Bandit B603 (#115)",
+          "timestamp": "2026-04-04T06:37:39-05:00",
+          "tree_id": "3113d7b51564b17460f14befb6a6c38381bb550f",
+          "url": "https://github.com/sl4m3/ledgermind/commit/174638218f914599e356085425da09c546448bec"
+        },
+        "date": 1775302884739,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 100.00475622625005,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001010482834829921",
+            "extra": "mean: 9.999524399995607 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10396.674728831516,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000014146158756647385",
+            "extra": "mean: 96.18459998819162 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 985.976456850059,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008727598078959412",
+            "extra": "mean: 1.0142230000042218 msec\nrounds: 5"
           }
         ]
       }
