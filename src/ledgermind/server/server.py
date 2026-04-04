@@ -248,7 +248,7 @@ class MCPServer:
             # Using 'w' mode to start fresh on every server restart.
             err_file = open(err_log_abs, 'w', buffering=1)
 
-            self._worker_process = subprocess.Popen(
+            self._worker_process = subprocess.Popen( # nosec B603
                 cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=err_file,

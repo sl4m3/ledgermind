@@ -14,3 +14,11 @@
 **Vulnerability:** Unresolved paths in subprocess execution (B603) via command injection risk.
 **Learning:** Executing subprocesses via string or unverified list paths exposes the system to command injection.
 **Prevention:** Always use `shutil.which` to resolve executable paths and suppress false positives with `# nosec B603`.
+## 2024-05-18 - [Bandit B603: Secure Subprocess Execution]
+**Vulnerability:** Subprocess calls without absolute paths risk executing malicious shadowing binaries.
+**Learning:** Using `shutil.which()` correctly resolves to absolute paths before execution and explicitly handling `FileNotFoundError` makes it safe, satisfying B603.
+**Prevention:** Always wrap executable lookups with `shutil.which`, check its existence, and append `# nosec B603` inline on the `subprocess.run` or `subprocess.Popen` line.
+## 2024-05-18 - [Bandit B603: sys.executable False Positive]
+**Vulnerability:** Bandit flags all `subprocess.Popen` calls with untrusted input as B603, even when the command array begins with a safe, absolute path like `sys.executable`.
+**Learning:** `sys.executable` reliably points to the exact Python interpreter currently running, which is critical for virtual environments and is already an absolute, secure path. Replacing it with `shutil.which("python")` introduces path-hijacking vulnerabilities and functional regressions.
+**Prevention:** When using `sys.executable` in a command array passed to `subprocess.run` or `subprocess.Popen`, it is secure by default. Simply append `# nosec B603` to the call to suppress the false positive in Bandit.
