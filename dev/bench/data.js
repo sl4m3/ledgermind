@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775302885528,
+  "lastUpdate": 1775302891690,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1485,6 +1485,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008727598078959412",
             "extra": "mean: 1.0142230000042218 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7c10c361dfafc84fcd4ee01a62e31ddd60b9dfb3",
+          "message": "🎨 Palette: Add visual error state to status bar (#116)",
+          "timestamp": "2026-04-04T06:37:46-05:00",
+          "tree_id": "cead93153243d1ece180d80d786689f77be690dd",
+          "url": "https://github.com/sl4m3/ledgermind/commit/7c10c361dfafc84fcd4ee01a62e31ddd60b9dfb3"
+        },
+        "date": 1775302891083,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 99.98483030150493,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002870092530585627",
+            "extra": "mean: 10.001517200004173 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10288.446898097543,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012425973632522103",
+            "extra": "mean: 97.196399991617 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1024.7652979988918,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008761929897288688",
+            "extra": "mean: 975.8332000046721 usec\nrounds: 5"
           }
         ]
       }
