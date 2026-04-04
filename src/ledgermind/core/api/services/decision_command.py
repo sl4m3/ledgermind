@@ -254,15 +254,20 @@ class DecisionCommandService(MemoryService):
 
         with self.transaction(description=f"Update Decision {decision_id}"):
             self.semantic.update_decision(decision_id, updates, commit_msg)
-            if "content" in updates or "rationale" in updates:
+
+            # ⚡ Bolt: Lazily fetch updated meta to avoid redundant DB queries and avoid unconditionally fetching it
+            meta = None
+            needs_meta_for_vector = "content" in updates or "rationale" in updates
+
+            if needs_meta_for_vector or not skip_episodic:
                 meta = self.semantic.meta.get_by_fid(decision_id)
-                if meta:
+
+            if meta:
+                if needs_meta_for_vector:
                     try: self.vector.add_documents([{"id": decision_id, "content": meta.get('content', '')}])
                     except Exception: pass
-            
-            if not skip_episodic:
-                meta = self.semantic.meta.get_by_fid(decision_id)
-                if meta:
+
+                if not skip_episodic:
                     old_phase, new_phase = current_ctx.get('phase'), updates.get('phase')
                     if new_phase and old_phase != new_phase:
                         from ledgermind.core.core.schemas import MemoryEvent
