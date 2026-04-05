@@ -181,11 +181,18 @@ class DecisionCommandService(MemoryService):
                 if target == "knowledge_merge" and supersedes:
                     if enrichment_status != "completed":
                         original_rationales = []
-                        for sid in supersedes:
+                        if supersedes:
+                            # ⚡ Bolt: Prevent N+1 query and missing get_decision method by batch fetching metadata
                             try:
-                                s_data = self.semantic.get_decision(sid)
-                                if s_data and s_data.rationale: original_rationales.append(s_data.rationale)
-                            except Exception: continue
+                                meta_batch = self.semantic.meta.get_batch_by_fids(supersedes)
+                                for s_meta in meta_batch:
+                                    try:
+                                        if not s_meta: continue
+                                        ctx = json.loads(s_meta.get('context_json', '{}'))
+                                        rationale = ctx.get('rationale')
+                                        if rationale: original_rationales.append(rationale)
+                                    except Exception: continue
+                            except Exception: pass
                         if original_rationales:
                             from ledgermind.core.reasoning.enrichment import LLMEnricher
                             # V7.8: Use enrichment_mode setting (default to rich)
