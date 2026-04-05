@@ -43,6 +43,7 @@ class LedgerMindTools:
         """Syncs Git commit history into episodic memory."""
         start_time = time.time()
         try:
+            self.server._validate_auth()
             self.server._check_capability("sync")
             count = self.server.memory.sync_git(repo_path=repo_path, limit=limit)
             self.server.audit_logger.log_access("agent", "sync_git_history", {"repo_path": repo_path, "limit": limit}, True)
@@ -59,6 +60,7 @@ class LedgerMindTools:
         """Hard-deletes a memory from filesystem and metadata (GDPR purge)."""
         start_time = time.time()
         try:
+            self.server._validate_auth()
             self.server._check_capability("purge")
             self.server.memory.forget(decision_id)
             self.server.audit_logger.log_access("admin", "forget_memory", {"id": decision_id}, True)
@@ -75,6 +77,7 @@ class LedgerMindTools:
         """Generates a Mermaid diagram of the knowledge evolution graph. Optional 'target' to filter."""
         start_time = time.time()
         try:
+            self.server._validate_auth()
             self.server._check_capability("read")
             mermaid_code = self.server.memory.generate_knowledge_graph(target=target)
             self.server.audit_logger.log_access("agent", "visualize_graph", {"target": target}, True)
@@ -91,6 +94,7 @@ class LedgerMindTools:
         """Returns memory usage statistics."""
         start_time = time.time()
         try:
+            self.server._validate_auth()
             self.server._check_capability("read")
             stats = self.server.memory.get_stats()
             self.server.audit_logger.log_access("agent", "get_memory_stats", {}, True)
@@ -112,6 +116,7 @@ class LedgerMindTools:
         """
         start_time = time.time()
         try:
+            self.server._validate_auth()
             self.server._check_capability("read")
             self.server._check_capability("propose")
             from ledgermind.server.tools.scanner import ProjectScanner
@@ -131,6 +136,7 @@ class LedgerMindTools:
         """Returns diagnostic information about the system environment (disk, git, python)."""
         start_time = time.time()
         try:
+            self.server._validate_auth()
             self.server._check_capability("read")
             health = self.server.env_context.get_context()
             TOOL_CALLS.labels("get_environment_health", "success").inc()
@@ -145,6 +151,7 @@ class LedgerMindTools:
         """Returns the last N lines of the MCP audit log."""
         start_time = time.time()
         try:
+            self.server._validate_auth()
             self.server._check_capability("read")
             logs = self.server.audit_logger.get_logs(limit=limit)
             return json.dumps({"status": "success", "logs": logs})
@@ -157,6 +164,7 @@ class LedgerMindTools:
         """Creates a full backup of the memory storage in a .tar.gz file."""
         start_time = time.time()
         try:
+            self.server._validate_auth()
             self.server._check_capability("purge") # Exporting full data is a sensitive operation
             from ledgermind.core.api.transfer import MemoryTransferManager
             transfer = MemoryTransferManager(self.server.memory.storage_path)
@@ -170,16 +178,19 @@ class LedgerMindTools:
 
     def get_api_specification(self) -> str:
         """Returns the formal JSON specification (OpenRPC-like) of the Ledgermind API."""
+        self.server._validate_auth()
         from ledgermind.server.specification import MCPApiSpecification
         spec = MCPApiSpecification.generate_full_spec()
         return json.dumps(spec, indent=2)
 
     def get_relevant_context(self, prompt: str, limit: int = 3) -> str:
         """Retrieves and formats relevant context for a given user prompt (Bridge Tool)."""
+        self.server._validate_auth()
         return self.server.bridge.get_context_for_prompt(prompt, limit=limit)
 
     def record_interaction(self, prompt: str, response: str, success: bool = True) -> str:
         """Records a completed interaction (prompt and response) into episodic memory (Bridge Tool)."""
+        self.server._validate_auth()
         self.server.bridge.record_interaction(prompt, response, success=success)
         return json.dumps({"status": "success"})
 
@@ -187,6 +198,7 @@ class LedgerMindTools:
         """Links a specific episodic event (e.g., from search) to a semantic decision as evidence."""
         start_time = time.time()
         try:
+            self.server._validate_auth()
             self.server._check_capability("supersede")
             self.server.memory.link_evidence(event_id, decision_id)
             return json.dumps({"status": "success", "message": f"Linked event {event_id} to {decision_id}"})
@@ -199,6 +211,7 @@ class LedgerMindTools:
         """Scans enriched decisions and resets status for records that don't match the preferred language."""
         start_time = time.time()
         try:
+            self.server._validate_auth()
             self.server._check_capability("maintenance")
             
             # V7.7: Use enrichment_language setting (legacy preferred_language removed)

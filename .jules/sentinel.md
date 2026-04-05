@@ -22,3 +22,7 @@
 **Vulnerability:** Bandit flags all `subprocess.Popen` calls with untrusted input as B603, even when the command array begins with a safe, absolute path like `sys.executable`.
 **Learning:** `sys.executable` reliably points to the exact Python interpreter currently running, which is critical for virtual environments and is already an absolute, secure path. Replacing it with `shutil.which("python")` introduces path-hijacking vulnerabilities and functional regressions.
 **Prevention:** When using `sys.executable` in a command array passed to `subprocess.run` or `subprocess.Popen`, it is secure by default. Simply append `# nosec B603` to the call to suppress the false positive in Bandit.
+## 2024-05-24 - Missing authentication on admin endpoint in fastMCP handler
+**Vulnerability:** Direct MCP tools like `forget_memory` and `export_memory_bundle` in `LedgerMindTools` lacked the `self.server._validate_auth()` check, allowing unauthenticated API access.
+**Learning:** Even when using higher-level abstractions like FastMCP, if authentication logic is implemented via manual checks within handlers instead of middleware or decorators, it is easy to forget the check when adding new endpoints or tools.
+**Prevention:** Consider refactoring authentication checks into decorators (e.g., `@require_auth`) or using standard FastMCP middleware instead of manually calling `self._validate_auth()` inside every method to enforce a secure-by-default posture.
