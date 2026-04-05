@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775390770100,
+  "lastUpdate": 1775390776473,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1575,6 +1575,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008731282953657752",
             "extra": "mean: 1.0002641999960815 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "482ecbf587c9130965b8dd3c81aa7ec2d758bbea",
+          "message": "⚡ Bolt: Fix N+1 query in proposal acceptance by batch fetching metadata (#117)\n\nReplaced iterative loop calls to the non-existent `SemanticStore.get_decision`\nwith a single batch query using `SemanticMetaStore.get_batch_by_fids` to resolve\nthe N+1 database performance bottleneck. Additionally, individual parsing logic\nwas isolated within try...except blocks to prevent failure cascades.",
+          "timestamp": "2026-04-05T07:02:23-05:00",
+          "tree_id": "c20589c224c754e6eb49e6d4ea9ceeab6abb3a26",
+          "url": "https://github.com/sl4m3/ledgermind/commit/482ecbf587c9130965b8dd3c81aa7ec2d758bbea"
+        },
+        "date": 1775390775845,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 94.3775677658907,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00018216530270985602",
+            "extra": "mean: 10.59573819999855 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10672.836989364567,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001678410793618799",
+            "extra": "mean: 93.69580000111455 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 997.9294958887912,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000668304214620226",
+            "extra": "mean: 1.0020747999931245 msec\nrounds: 5"
           }
         ]
       }
