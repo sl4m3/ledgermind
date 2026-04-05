@@ -16,6 +16,13 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "ledgermind.showOutput",
+        "title": "LedgerMind: Show Logs",
+        "category": "LedgerMind"
+      }
+    ],
     "chatVariables": [
       {
         "name": "ledgermind",
