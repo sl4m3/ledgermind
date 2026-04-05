@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775390776473,
+  "lastUpdate": 1775390782102,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1620,6 +1620,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000668304214620226",
             "extra": "mean: 1.0020747999931245 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68c5e0d6c898c20ec0f5df87f27772115f83866f",
+          "message": "feat: add show output command to command palette (#119)\n\nExplicitly declared the ledgermind.showOutput command in package.json to make it accessible via the Command Palette, improving keyboard accessibility.",
+          "timestamp": "2026-04-05T07:02:41-05:00",
+          "tree_id": "9b17d6a0292e2cd7e45b0302ce1439578858eef9",
+          "url": "https://github.com/sl4m3/ledgermind/commit/68c5e0d6c898c20ec0f5df87f27772115f83866f"
+        },
+        "date": 1775390781136,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 100.26868799771978,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00012058517968179541",
+            "extra": "mean: 9.973203200013359 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11810.83762467264,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009717881519203216",
+            "extra": "mean: 84.66799999951036 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1013.4213469573722,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008500340163482861",
+            "extra": "mean: 986.7563999932827 usec\nrounds: 5"
           }
         ]
       }
