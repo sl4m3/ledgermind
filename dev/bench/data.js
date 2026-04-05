@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775302891690,
+  "lastUpdate": 1775390770100,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1530,6 +1530,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008761929897288688",
             "extra": "mean: 975.8332000046721 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "08a50c6a304625e2d96bdd2b0f85873f0809f580",
+          "message": "fix: Add missing authentication to direct MCP tools (#118)\n\nExplicitly added `self.server._validate_auth()` to all methods in `LedgerMindTools` before capability checks to prevent unauthenticated API access.",
+          "timestamp": "2026-04-05T07:02:32-05:00",
+          "tree_id": "8ceb4c6b9ab44f4b6b67bd1e1c4f42a968d3e081",
+          "url": "https://github.com/sl4m3/ledgermind/commit/08a50c6a304625e2d96bdd2b0f85873f0809f580"
+        },
+        "date": 1775390769761,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 100.012123469628,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007307467809627494",
+            "extra": "mean: 9.9987877999979 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10693.654599532212,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000024390848258606628",
+            "extra": "mean: 93.51339999739139 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 999.7358697871197,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008731282953657752",
+            "extra": "mean: 1.0002641999960815 msec\nrounds: 5"
           }
         ]
       }
