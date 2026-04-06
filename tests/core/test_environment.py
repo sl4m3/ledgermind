@@ -50,8 +50,12 @@ def test_check_environment_not_writable(tmp_path):
     os.makedirs(storage)
     
     with patch('ledgermind.core.api.memory.VectorStore'), \
+         patch('shutil.which', return_value="/usr/bin/git"), \
+         patch('subprocess.run') as mock_run, \
          patch('os.access', return_value=False):
         
+        mock_run.return_value.stdout = "config"
+
         memory = Memory(str(storage))
         results = memory.check_environment()
         
