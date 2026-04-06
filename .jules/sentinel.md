@@ -26,3 +26,7 @@
 **Vulnerability:** Direct MCP tools like `forget_memory` and `export_memory_bundle` in `LedgerMindTools` lacked the `self.server._validate_auth()` check, allowing unauthenticated API access.
 **Learning:** Even when using higher-level abstractions like FastMCP, if authentication logic is implemented via manual checks within handlers instead of middleware or decorators, it is easy to forget the check when adding new endpoints or tools.
 **Prevention:** Consider refactoring authentication checks into decorators (e.g., `@require_auth`) or using standard FastMCP middleware instead of manually calling `self._validate_auth()` inside every method to enforce a secure-by-default posture.
+## 2025-01-20 - [Fix Path Hijacking in GitAuditProvider]
+**Vulnerability:** Insecure Subprocess Call (Path Hijacking risk via unqualified `git` command)
+**Learning:** Subprocess calls without absolute paths allow malicious binaries injected into the PATH to be executed.
+**Prevention:** Always use `shutil.which` to resolve absolute paths of binaries and explicitly handle execution failure if the executable cannot be found before executing `subprocess.run` or `subprocess.Popen`.
