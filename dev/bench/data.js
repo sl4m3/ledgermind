@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775474842047,
+  "lastUpdate": 1775474852097,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1710,6 +1710,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010361174932193796",
             "extra": "mean: 990.7323999982509 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "89372e11dc759f719a56fb74f24b4bd6397944cc",
+          "message": "perf(semantic): prevent N+1 queries during meta index sync (#120)\n\nOptimizes `sync_meta_index` by pre-fetching metadata for all disk files\nusing `get_batch_by_fids`, rather than executing a separate query for\neach file during the `_update_meta_for_file` loop.",
+          "timestamp": "2026-04-06T06:23:42-05:00",
+          "tree_id": "262865f02198089fef294272a1bbb9b545cb2a31",
+          "url": "https://github.com/sl4m3/ledgermind/commit/89372e11dc759f719a56fb74f24b4bd6397944cc"
+        },
+        "date": 1775474851124,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 90.60613200918449,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002058064124758558",
+            "extra": "mean: 11.036780599999929 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11449.927178641636,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000997033940759107",
+            "extra": "mean: 87.33679999863853 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 890.8282814510218,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009993287736892318",
+            "extra": "mean: 1.12255079999386 msec\nrounds: 5"
           }
         ]
       }
