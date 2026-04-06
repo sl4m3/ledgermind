@@ -169,12 +169,12 @@ class SemanticStore:
         for orphaned_fid in orphans:
             self.meta.delete(orphaned_fid)
 
-    def _update_meta_for_file(self, fid: str, force: bool = False, link_counts: Optional[Dict[str, Tuple[int, float]]] = None):
+    def _update_meta_for_file(self, fid: str, force: bool = False, link_counts: Optional[Dict[str, Tuple[int, float]]] = None, pre_fetched_metas: Optional[Dict[str, Any]] = None):
         import json
         try:
             full_path = os.path.join(self.repo_path, fid)
             mtime = os.path.getmtime(full_path)
-            existing = self.meta.get_by_fid(fid)
+            existing = pre_fetched_metas.get(fid) if pre_fetched_metas is not None else self.meta.get_by_fid(fid)
             with open(full_path, 'r', encoding='utf-8') as stream:
                 raw_content = stream.read()
 
@@ -279,13 +279,19 @@ class SemanticStore:
                 except Exception as e:
                     logger.warning(f"Failed to batch fetch link counts: {e}")
 
+            # ⚡ Bolt: Prevent N+1 query problem by batch fetching existing metadata
+            disk_files_list = list(disk_files)
+            existing_metas = {}
+            if disk_files_list:
+                existing_metas = {m['fid']: m for m in self.meta.get_batch_by_fids(disk_files_list) if m}
+
             # Use batch_update if not already in a transaction
             cm = self.meta.batch_update() if not self._in_transaction else nullcontext()
 
             with cm:
                 # Always update all files - _update_meta_for_file will skip if hash matches
                 for f in disk_files:
-                    self._update_meta_for_file(f, force=force, link_counts=link_counts)
+                    self._update_meta_for_file(f, force=force, link_counts=link_counts, pre_fetched_metas=existing_metas)
         finally:
             if should_lock: self._fs_lock.release()
 
