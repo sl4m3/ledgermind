@@ -2,6 +2,7 @@ import subprocess
 import os
 import time
 import logging
+import shutil
 from typing import List, Optional
 from ledgermind.core.stores.interfaces import AuditProvider
 
@@ -14,11 +15,14 @@ class GitAuditProvider(AuditProvider):
 
     def run(self, args: List[str], max_retries: int = 15):
         last_error = ""
+        git_path = shutil.which("git")
+        if not git_path:
+            raise FileNotFoundError("git executable not found in PATH")
         # Ensure we always use --no-pager to avoid hanging in interactive environments
-        cmd = ["git", "--no-pager"] + args
+        cmd = [git_path, "--no-pager"] + args
         for i in range(max_retries):
             try:
-                return subprocess.run(cmd, cwd=self.repo_path, check=True, capture_output=True) # nosec B603 B607
+                return subprocess.run(cmd, cwd=self.repo_path, check=True, capture_output=True) # nosec B603
             except subprocess.CalledProcessError as e:
                 last_error = e.stderr.decode()
                 combined = last_error + "\n" + e.stdout.decode()
@@ -85,7 +89,10 @@ class GitAuditProvider(AuditProvider):
 
     def get_head_hash(self) -> Optional[str]:
         try:
-            res = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.repo_path, capture_output=True, text=True) # nosec B603 B607
+            git_path = shutil.which("git")
+            if not git_path:
+                return None
+            res = subprocess.run([git_path, "rev-parse", "HEAD"], cwd=self.repo_path, capture_output=True, text=True) # nosec B603
             if res.returncode == 0:
                 return res.stdout.strip()
         except Exception: 
