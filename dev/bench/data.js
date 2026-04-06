@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775390782102,
+  "lastUpdate": 1775474842047,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1665,6 +1665,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008500340163482861",
             "extra": "mean: 986.7563999932827 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "06fede07ee3315243ea7eff4a0779bc6aca69864",
+          "message": "Fix path hijacking vulnerability in git subprocess calls using shutil.which (#121)",
+          "timestamp": "2026-04-06T06:23:52-05:00",
+          "tree_id": "2af486caae008e9a0782b77f72db4c1aed78c7ff",
+          "url": "https://github.com/sl4m3/ledgermind/commit/06fede07ee3315243ea7eff4a0779bc6aca69864"
+        },
+        "date": 1775474841556,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 118.09611304140513,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00014372835142482073",
+            "extra": "mean: 8.467679199986833 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 12926.008936100154,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008093584736515327",
+            "extra": "mean: 77.3634000211132 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1009.3542918367921,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010361174932193796",
+            "extra": "mean: 990.7323999982509 usec\nrounds: 5"
           }
         ]
       }
