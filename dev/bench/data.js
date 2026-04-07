@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775474852097,
+  "lastUpdate": 1775560838647,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1755,6 +1755,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009993287736892318",
             "extra": "mean: 1.12255079999386 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "614d83a3f1e3d394834e05adfae7d3a8c8361719",
+          "message": "Fix path traversal vulnerability in purge_memory (#123)\n\nAdded _validate_fid call to sanitize incoming file IDs before\nexecuting file system operations like os.remove and os.path.join.",
+          "timestamp": "2026-04-07T06:16:52-05:00",
+          "tree_id": "b0f243fe7389df6b5e35fa8636b4096a6e86aedd",
+          "url": "https://github.com/sl4m3/ledgermind/commit/614d83a3f1e3d394834e05adfae7d3a8c8361719"
+        },
+        "date": 1775560838291,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 95.96327416406223,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00015913795225172835",
+            "extra": "mean: 10.420653199997787 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11409.35156098255,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011473069210810404",
+            "extra": "mean: 87.64739999946869 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 986.389599039803,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008794242981674869",
+            "extra": "mean: 1.0137981999946533 msec\nrounds: 5"
           }
         ]
       }
