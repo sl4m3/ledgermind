@@ -4,6 +4,8 @@ import json
 import logging
 import questionary
 import sys
+
+logger = logging.getLogger("ledgermind.cli")
 from typing import Optional, List, Dict, Any
 from ledgermind.server.server import MCPServer
 from ledgermind.core.utils.logging import setup_logging
@@ -749,7 +751,8 @@ def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold:
                             transcript_path = data.get("transcript_path")
                         else:
                             real_prompt = raw_input
-                    except json.JSONDecodeError:
+                    except json.JSONDecodeError as e:
+                        logger.warning("Failed to parse stdin as JSON: %s", e)
                         real_prompt = raw_input
         # 2. Handle JSON in prompt argument
         else:
@@ -758,8 +761,8 @@ def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold:
                 if isinstance(data, dict):
                     real_prompt = data.get("prompt", data.get("userInput", prompt))
                     transcript_path = data.get("transcript_path")
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as e:
+                logger.warning("Failed to parse prompt as JSON: %s", e)
 
         default_cli = [cli] if cli else None
         # Use cli as namespace for isolation between clients
@@ -797,8 +800,8 @@ def bridge_sync(path: str, cli: Optional[str] = None):
                     data = json.loads(raw_input)
                     if isinstance(data, dict):
                         transcript_path = data.get("transcript_path")
-                except json.JSONDecodeError:
-                    pass
+                except json.JSONDecodeError as e:
+                    logger.warning("Failed to parse stdin as JSON: %s", e)
 
         default_cli = [cli] if cli else None
         # Use cli as namespace for isolation between clients
