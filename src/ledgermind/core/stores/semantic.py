@@ -558,6 +558,7 @@ class SemanticStore:
             if should_lock: self._fs_lock.release()
 
     def purge_memory(self, fid: str):
+        fid = self._validate_fid(fid)
         should_lock = not self._in_transaction
         if should_lock: self._fs_lock.acquire(exclusive=True)
         try:
