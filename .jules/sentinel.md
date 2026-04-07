@@ -30,3 +30,7 @@
 **Vulnerability:** Insecure Subprocess Call (Path Hijacking risk via unqualified `git` command)
 **Learning:** Subprocess calls without absolute paths allow malicious binaries injected into the PATH to be executed.
 **Prevention:** Always use `shutil.which` to resolve absolute paths of binaries and explicitly handle execution failure if the executable cannot be found before executing `subprocess.run` or `subprocess.Popen`.
+## 2024-05-30 - Fix Path Traversal in purge_memory
+**Vulnerability:** The `purge_memory` function in `src/ledgermind/core/stores/semantic.py` concatenated the `fid` parameter directly with `self.repo_path` without validation, allowing a potential path traversal risk.
+**Learning:** File identifiers (fids) should always be validated, even for deletion endpoints, as untrusted input can result in arbitrary file deletion outside the intended directory scope.
+**Prevention:** Always sanitize or canonicalize identifiers against the base directory by calling `_validate_fid` (or similar mechanisms) before passing them to file system operations like `os.path.join` and `os.remove`.
