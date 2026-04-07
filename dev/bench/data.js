@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775560838647,
+  "lastUpdate": 1775560840352,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1800,6 +1800,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008794242981674869",
             "extra": "mean: 1.0137981999946533 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f0bad2913002d07aa5135fbd957dec79fa448f6e",
+          "message": "Improve CLI output feedback for JSON parse errors (#124)\n\n- Add module-level logger to `cli.py`\n- Catch and log `json.JSONDecodeError` instead of silently ignoring it\n- Helps users identify malformed JSON inputs when piping data or invoking the CLI",
+          "timestamp": "2026-04-07T06:17:00-05:00",
+          "tree_id": "35eb63552d0f668b408cd66bfe2fb9bd35bf2862",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f0bad2913002d07aa5135fbd957dec79fa448f6e"
+        },
+        "date": 1775560840008,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 94.44779387803788,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00024741531649992925",
+            "extra": "mean: 10.587859800000388 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10598.5420637514,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000013209310059064573",
+            "extra": "mean: 94.35260000714152 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 942.2605357905068,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009970827478691185",
+            "extra": "mean: 1.061277600001631 msec\nrounds: 5"
           }
         ]
       }
