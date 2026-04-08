@@ -650,8 +650,10 @@ class LLMEnricher:
         logger.info(f"  - Starting Deep Architectural Synthesis for {len(fids)} documents...")
         
         docs_full = []
+        # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata instead of looping over individual IDs
+        meta_batch = {m['fid']: m for m in memory.semantic.meta.get_batch_by_fids(fids) if m}
         for fid in fids:
-            meta = memory.semantic.meta.get_by_fid(fid)
+            meta = meta_batch.get(fid)
             if meta:
                 full_body = f"FID: {fid}\nTITLE: {meta.get('title')}\nRATIONALE: {meta.get('rationale', '')}\nCONTENT: {meta.get('content', '')}"
                 docs_full.append(full_body)
