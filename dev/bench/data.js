@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775560840352,
+  "lastUpdate": 1775657923755,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1845,6 +1845,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009970827478691185",
             "extra": "mean: 1.061277600001631 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "23fa11b179e43531d69336835e9d46dccfd47354",
+          "message": "⚡ Bolt: Fix N+1 query in Deep Architectural Synthesis (#125)",
+          "timestamp": "2026-04-08T09:14:50-05:00",
+          "tree_id": "45241c0e87b9faefb6b62c10d36ed97e3a3d1cd5",
+          "url": "https://github.com/sl4m3/ledgermind/commit/23fa11b179e43531d69336835e9d46dccfd47354"
+        },
+        "date": 1775657922669,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 100.529593921945,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008521812588317003",
+            "extra": "mean: 9.947319600001947 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10013.75890575596,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015110870648007116",
+            "extra": "mean: 99.8625999898195 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1006.6337161829681,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009436811814061813",
+            "extra": "mean: 993.4100000066337 usec\nrounds: 5"
           }
         ]
       }
