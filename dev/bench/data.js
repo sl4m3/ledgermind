@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775657923755,
+  "lastUpdate": 1775742445491,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1890,6 +1890,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009436811814061813",
             "extra": "mean: 993.4100000066337 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5cd1bb0ee3f9ddd727cc68710fea2bc748156a8d",
+          "message": "feat(cli): standardize output formatting with rich (#127)\n\n- Upgrade `check_project` to use `Console` for colored diagnostics.\n- Upgrade `show_stats` to use `Table` for structured metrics.\n- Add `rich` as a dependency in `pyproject.toml`.",
+          "timestamp": "2026-04-09T08:43:40-05:00",
+          "tree_id": "6109be5dfc2714ad19a5fd9a489e2501853838ca",
+          "url": "https://github.com/sl4m3/ledgermind/commit/5cd1bb0ee3f9ddd727cc68710fea2bc748156a8d"
+        },
+        "date": 1775742445129,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 92.45344844058664,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0005082403094802671",
+            "extra": "mean: 10.81625420000023 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 12322.221154173354,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009568479614918009",
+            "extra": "mean: 81.1542000008103 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1043.9285117734678,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009836310459668494",
+            "extra": "mean: 957.9200000018773 usec\nrounds: 5"
           }
         ]
       }
