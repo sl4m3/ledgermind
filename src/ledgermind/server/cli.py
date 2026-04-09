@@ -588,43 +588,56 @@ def init_project(path: str):
 def check_project(path: str):
     """Runs diagnostics on an existing project."""
     from ledgermind.core.api.bridge import IntegrationBridge
-    print(f"Running diagnostics for project at {path}...")
+    from rich.console import Console
+
+    console = Console()
+    console.print(f"Running diagnostics for project at {path}...")
     try:
         bridge = IntegrationBridge(memory_path=path)
         health = bridge.check_health()
         
-        print(f"Git Available: {'✓' if health['git_available'] else '✗'}")
-        print(f"Storage Writable: {'✓' if health['storage_writable'] else '✗'}")
-        print(f"Repo Healthy: {'✓' if health['repo_healthy'] else '✗'}")
-        print(f"Vector Search: {'✓' if health['vector_available'] else '(!) Disabled'}")
+        console.print(f"Git Available: {'[green]✓[/green]' if health['git_available'] else '[bold red]✗[/bold red]'}")
+        console.print(f"Storage Writable: {'[green]✓[/green]' if health['storage_writable'] else '[bold red]✗[/bold red]'}")
+        console.print(f"Repo Healthy: {'[green]✓[/green]' if health['repo_healthy'] else '[bold red]✗[/bold red]'}")
+        console.print(f"Vector Search: {'[green]✓[/green]' if health['vector_available'] else '[yellow](!) Disabled[/yellow]'}")
         
         if health["errors"]:
-            print("\nErrors Found:")
+            console.print("\n[bold red]Errors Found:[/bold red]")
             for err in health["errors"]:
-                print(f"  - {err}")
+                console.print(f"  [red]- {err}[/red]")
         
         if health["warnings"]:
-            print("\nWarnings:")
+            console.print("\n[bold yellow]Warnings:[/bold yellow]")
             for warn in health["warnings"]:
-                print(f"  - {warn}")
+                console.print(f"  [yellow]- {warn}[/yellow]")
                 
         if not health["errors"]:
-             print("\n✓ Environment is healthy.")
+             console.print("\n[green]✓ Environment is healthy.[/green]")
     except Exception as e:
-        print(f"✗ Fatal error during check: {e}")
+        console.print(f"[bold red]✗ Fatal error during check: {e}[/bold red]")
 
 def show_stats(path: str):
     """Displays memory statistics."""
     from ledgermind.core.api.bridge import IntegrationBridge
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
     try:
         bridge = IntegrationBridge(memory_path=path)
         stats = bridge.get_stats()
-        print(f"Memory Statistics for {path}:")
-        print(f"  Episodic Events: {stats['episodic_count']}")
-        print(f"  Semantic Decisions: {stats['semantic_count']}")
-        print(f"  Vector Embeddings: {stats['vector_count']}")
+
+        table = Table(title=f"Memory Statistics for {path}")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="magenta")
+
+        table.add_row("Episodic Events", str(stats.get('episodic_count', 'unknown')))
+        table.add_row("Semantic Decisions", str(stats.get('semantic_count', 0)))
+        table.add_row("Vector Embeddings", str(stats.get('vector_count', 'unknown')))
+
+        console.print(table)
     except Exception as e:
-        print(f"✗ Error fetching stats: {e}")
+        console.print(f"[bold red]✗ Error fetching stats: {e}[/bold red]")
 
 def sync_transcript_history(bridge, transcript_path: str) -> set:
     """Synchronizes history from a transcript file, returning the set of newly synced user prompts."""
