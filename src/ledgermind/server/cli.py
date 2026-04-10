@@ -10,6 +10,9 @@ from typing import Optional, List, Dict, Any
 from ledgermind.server.server import MCPServer
 from ledgermind.core.utils.logging import setup_logging
 from ledgermind.core.utils.api_keys import get_api_key
+from rich.console import Console
+
+global_console = Console()
 
 def export_schemas():
     """Outputs the formal industrial-grade API specification."""
@@ -865,7 +868,7 @@ def bridge_record(path: str, prompt: str, response: str, success: bool, metadata
         bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, namespace=cli)
         bridge.record_interaction(prompt=real_prompt, response=real_response, success=real_success, metadata=real_meta)
     except Exception as e:
-        print(f"✗ Error: {e}")
+        global_console.print(f"[bold red]✗ Error: {e}[/bold red]")
 
 def cleanup_orphans():
     """Finds and terminates all Ledgermind processes that are orphaned (PPID=1)."""
@@ -1009,14 +1012,15 @@ def main():
                 if os.path.exists(pid_file): os.remove(pid_file)
             atexit.register(cleanup_pid)
         except Exception as e:
-            print(f"Warning: Could not create server.pid: {e}")
+            global_console.print(f"[yellow]Warning: Could not create server.pid: {e}[/yellow]")
 
         capabilities = None
         if args.capabilities:
             try:
                 capabilities = json.loads(args.capabilities)
-            except json.JSONDecodeError:
-                print(f"Error: Invalid JSON for capabilities: {args.capabilities}")
+            except json.JSONDecodeError as e:
+                logger.warning("Failed to parse capabilities as JSON: %s", e)
+                global_console.print(f"[bold red]Error: Invalid JSON for capabilities: {args.capabilities}[/bold red]")
                 return
 
         from ledgermind.core.core.schemas import TrustBoundary
