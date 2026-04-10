@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775820693634,
+  "lastUpdate": 1775820702315,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1980,6 +1980,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008969685311497434",
             "extra": "mean: 994.6086000013564 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a9538cb3ea8ced2b3f7db7bed1f35a6731a6a0f1",
+          "message": "feat(cli): enhance CLI feedback with rich console formatting and proper error logging (#129)",
+          "timestamp": "2026-04-10T06:28:02-05:00",
+          "tree_id": "49a4703984fa4a0867fb71c258159f7805061fce",
+          "url": "https://github.com/sl4m3/ledgermind/commit/a9538cb3ea8ced2b3f7db7bed1f35a6731a6a0f1"
+        },
+        "date": 1775820701326,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 90.92550544262345,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00019346945040945356",
+            "extra": "mean: 10.998014199998352 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10310.95786778005,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000031023259294154234",
+            "extra": "mean: 96.98419999608632 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 936.1569073912693,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00010528025116869417",
+            "extra": "mean: 1.0681969999950525 msec\nrounds: 5"
           }
         ]
       }
