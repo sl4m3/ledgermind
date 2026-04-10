@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775742445491,
+  "lastUpdate": 1775820693634,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -1935,6 +1935,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009836310459668494",
             "extra": "mean: 957.9200000018773 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "843e21d0964e6ddf02ba9ce0d3acd0def0dafec5",
+          "message": "⚡ Bolt: [Performance Improvement] Memoize lifecycle weight calculation in search queries (#128)",
+          "timestamp": "2026-04-10T06:27:51-05:00",
+          "tree_id": "fee23987f6c1391a1c9e2c36607a57cfad9ef579",
+          "url": "https://github.com/sl4m3/ledgermind/commit/843e21d0964e6ddf02ba9ce0d3acd0def0dafec5"
+        },
+        "date": 1775820692638,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 100.74263643362845,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004421859770504755",
+            "extra": "mean: 9.926283799995872 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 9796.103893965557,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015754606993245853",
+            "extra": "mean: 102.08139999576815 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1005.4206247549399,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008969685311497434",
+            "extra": "mean: 994.6086000013564 usec\nrounds: 5"
           }
         ]
       }
