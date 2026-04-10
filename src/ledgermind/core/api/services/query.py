@@ -77,17 +77,30 @@ class QueryService(MemoryService):
         meta_cache = {m['fid']: m for m in self.semantic.meta.get_batch_by_fids(all_initial_fids)}
 
         scores = {}
+        # ⚡ Bolt: Memoize weight calculation dynamically to avoid redundant function calls and dictionary lookups
+        weight_cache = {}
+
         for rank, item in enumerate(vec_results):
             fid = item['id']
-            meta = meta_cache.get(fid)
-            weight = self._get_lifecycle_weight(meta)
-            scores[fid] = scores.get(fid, 0.0) + (weight / (k + rank + 1))
+            if fid not in weight_cache:
+                weight_cache[fid] = self._get_lifecycle_weight(meta_cache.get(fid))
+
+            weight = weight_cache[fid]
+            if fid in scores:
+                scores[fid] += (weight / (k + rank + 1))
+            else:
+                scores[fid] = (weight / (k + rank + 1))
             
         for rank, r in enumerate(kw_results):
             fid = r['fid']
-            meta = meta_cache.get(fid)
-            weight = self._get_lifecycle_weight(meta)
-            scores[fid] = scores.get(fid, 0.0) + (weight / (k + rank + 1))
+            if fid not in weight_cache:
+                weight_cache[fid] = self._get_lifecycle_weight(meta_cache.get(fid))
+
+            weight = weight_cache[fid]
+            if fid in scores:
+                scores[fid] += (weight / (k + rank + 1))
+            else:
+                scores[fid] = (weight / (k + rank + 1))
 
         max_rrf = 3.0 / (k + 1.0)
         sorted_fids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
