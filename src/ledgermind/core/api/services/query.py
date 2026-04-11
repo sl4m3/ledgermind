@@ -10,6 +10,11 @@ class QueryService(MemoryService):
     Service responsible for searching and retrieving knowledge from memory.
     """
     
+    # ⚡ Bolt: Global constants for lifecycle multiplier to avoid redundant dictionary instantiation
+    _PHASE_WEIGHTS = {"canonical": 1.5, "emergent": 1.2, "pattern": 1.0}
+    _VITALITY_WEIGHTS = {"active": 1.0, "decaying": 0.5, "dormant": 0.2}
+    _KIND_WEIGHTS = {"decision": 1.35, "proposal": 1.0}
+
     def list_decisions(self) -> List[str]:
         """List all active decision identifiers."""
         return self.semantic.list_decisions()
@@ -189,6 +194,11 @@ class QueryService(MemoryService):
         seen_ids = set()
         skipped = 0
         
+        # ⚡ Bolt: Move json.loads and math.log10 to local variables outside the loop to avoid continuous global lookups
+        _loads = json.loads
+        import math
+        _log10 = math.log10
+
         for cand in all_candidates:
             if cand['id'] in seen_ids: continue
             if skipped < offset:
@@ -196,25 +206,25 @@ class QueryService(MemoryService):
                 continue
 
             try:
-                ctx = json.loads(cand.pop('context_json'))
+                ctx = _loads(cand.pop('context_json'))
             except Exception: ctx = {}
 
-            cand["rationale"] = ctx.get("rationale")
-            cand["consequences"] = ctx.get("consequences", [])
-            cand["compressive_rationale"] = ctx.get("compressive_rationale")
-            cand["strengths"] = ctx.get("strengths", [])
-            cand["objections"] = ctx.get("objections", [])
+            _get = ctx.get
+            cand["rationale"] = _get("rationale")
+            cand["consequences"] = _get("consequences", [])
+            cand["compressive_rationale"] = _get("compressive_rationale")
+            cand["strengths"] = _get("strengths", [])
+            cand["objections"] = _get("objections", [])
             
-            evidence_count = ctx.get("total_evidence_count", 0)
+            evidence_count = _get("total_evidence_count", 0)
             if evidence_count > 0:
-                import math
-                reliability_boost = min(0.2, math.log10(evidence_count + 1) * 0.05)
+                reliability_boost = min(0.2, _log10(evidence_count + 1) * 0.05)
                 cand["base_score"] = cand.get("base_score", 0.0) + reliability_boost
 
             cand["similarity_score"] = min(1.0, cand.get("base_score", 0.0))
             
             # Extract confidence from context
-            cand["confidence"] = ctx.get("confidence", 0.0)
+            cand["confidence"] = _get("confidence", 0.0)
             
             # Filter by min_confidence threshold
             if cand["confidence"] < min_confidence:
@@ -275,14 +285,10 @@ class QueryService(MemoryService):
         return weight
 
     def _get_lifecycle_multiplier(self, phase: str, vitality: str, kind: str, status: Optional[str]) -> float:
-        phase_weights = {"canonical": 1.5, "emergent": 1.2, "pattern": 1.0}
-        vitality_weights = {"active": 1.0, "decaying": 0.5, "dormant": 0.2}
-        kind_weights = {"decision": 1.35, "proposal": 1.0}
-        
         multiplier = (
-            phase_weights.get(phase, 1.0) * 
-            vitality_weights.get(vitality, 1.0) * 
-            kind_weights.get(kind, 1.0)
+            self._PHASE_WEIGHTS.get(phase, 1.0) *
+            self._VITALITY_WEIGHTS.get(vitality, 1.0) *
+            self._KIND_WEIGHTS.get(kind, 1.0)
         )
         if status in ("rejected", "falsified"): multiplier *= 0.2
         elif status in ("superseded", "deprecated"): multiplier *= 0.3
