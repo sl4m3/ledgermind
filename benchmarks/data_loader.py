@@ -20,10 +20,11 @@ class DatasetManager:
     def load_locomo(self):
         path = self.data_dir / "locomo/data.jsonl"
         if not path.exists(): return None
-        with open(path, 'r') as f:
-            raw_data = json.load(f)
-            data = []
-            for i, item in enumerate(raw_data[:200]):
+        data = []
+        with open(path, 'r', encoding='utf-8') as f:
+            for i, line in enumerate(f):
+                if i >= 1000: break
+                item = json.loads(line)
                 conversation = item.get("conversation", "")
                 if isinstance(conversation, list):
                     text = "\n".join([str(m) for m in conversation])
@@ -47,7 +48,7 @@ class DatasetManager:
         with open(path, 'r') as f:
             raw_data = json.load(f)
             data = []
-            for i, item in enumerate(raw_data[:200]):
+            for i, item in enumerate(raw_data[:1000]):
                 sessions = item.get("haystack_sessions", [])
                 if isinstance(sessions, list):
                     text = "\n".join([str(s.get("text", s)) if isinstance(s, dict) else str(s) for s in sessions])

@@ -30,9 +30,9 @@ def run_benchmark():
 
     store = VectorStore(storage_path=base_dir, model_name="v5-small-text-matching-Q4_K_M.gguf")
 
-    # Mock the internal vectors to avoid using the model for 20k items (which would be slow)
+    # Mock the internal vectors to avoid using the model for 100k items (which would be slow)
     dim = 384
-    count = 20000
+    count = 100000
     logger.info(f"Generating {count} random vectors of dimension {dim}...")
 
     vectors = np.random.rand(count, dim).astype('float32')
@@ -64,7 +64,7 @@ def run_benchmark():
 
     logger.info("Starting benchmark...")
     start_time = time.time()
-    iterations = 100
+    iterations = 1000
 
     for i in range(iterations):
         results = store.search("test query", limit=10)

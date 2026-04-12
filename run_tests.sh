@@ -2,6 +2,12 @@
 # Exit on error
 set -e
 
+# Activate virtual environment if it exists
+if [ -f ".venv/bin/activate" ]; then
+    source .venv/bin/activate
+    echo "✅ Activated virtual environment: .venv"
+fi
+
 # Set PYTHONPATH to include the src directory
 export PYTHONPATH=$(pwd)/src:$PYTHONPATH
 
