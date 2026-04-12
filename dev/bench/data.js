@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775999299500,
+  "lastUpdate": 1775999313390,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2070,6 +2070,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008880598442417656",
             "extra": "mean: 963.3712000095329 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c05b986f37d82f82fb69217f5e215e9757a46302",
+          "message": "🎨 Palette: Consistent CLI Visual Feedback and Logging (#131)",
+          "timestamp": "2026-04-12T08:04:49-05:00",
+          "tree_id": "7f068d19f77d2661228aa486bc57aeb377b2f2cf",
+          "url": "https://github.com/sl4m3/ledgermind/commit/c05b986f37d82f82fb69217f5e215e9757a46302"
+        },
+        "date": 1775999312488,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 99.33131154397748,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00013117137269691065",
+            "extra": "mean: 10.067318999983854 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10271.580589263005,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000014429710319897147",
+            "extra": "mean: 97.35600001476996 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 995.1153766527509,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008889181566610254",
+            "extra": "mean: 1.0049086000094576 msec\nrounds: 5"
           }
         ]
       }
