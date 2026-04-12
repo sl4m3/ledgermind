@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775820702315,
+  "lastUpdate": 1775999299500,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2025,6 +2025,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010528025116869417",
             "extra": "mean: 1.0681969999950525 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "142fc9cc3c8b43ca5f298e3ca52795f39a97be7b",
+          "message": "⚡ Bolt: Optimize search loop extraction and lifecycle multiplier lookup (#130)",
+          "timestamp": "2026-04-12T08:04:39-05:00",
+          "tree_id": "281ab7561860b23c4d24c34499bf35a6f50d0ea1",
+          "url": "https://github.com/sl4m3/ledgermind/commit/142fc9cc3c8b43ca5f298e3ca52795f39a97be7b"
+        },
+        "date": 1775999298544,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 109.72575036212072,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001910727188919758",
+            "extra": "mean: 9.113631000013811 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 12684.495994894647,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008735979043541251",
+            "extra": "mean: 78.83639999590741 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1038.0214812214697,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008880598442417656",
+            "extra": "mean: 963.3712000095329 usec\nrounds: 5"
           }
         ]
       }
