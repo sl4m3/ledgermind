@@ -288,7 +288,7 @@ def main():
 
     try:
         from ledgermind.core.api.bridge import IntegrationBridge
-        bridge = IntegrationBridge(memory_path=MEMORY_PATH)
+        bridge = IntegrationBridge(memory_path=MEMORY_PATH, namespace='gemini')
 
         action = sys.argv[1] if len(sys.argv) > 1 else 'unknown'
 

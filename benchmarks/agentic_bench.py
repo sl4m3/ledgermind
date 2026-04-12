@@ -1,12 +1,21 @@
 import os
+import sys
 import time
 import shutil
 import csv
 from pathlib import Path
 from datetime import datetime
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeRemainingColumn
+from rich.console import Console
+
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from benchmarks.data_loader import DatasetManager
 from benchmarks.evaluator import MetricsCalculator, EvaluationReport
 from benchmarks.configs import get_config_factory
+
+console = Console()
 
 class AgenticBenchmark:
     """Evaluates IR metrics (Recall, Precision, MRR) and QA Accuracy."""
@@ -17,8 +26,8 @@ class AgenticBenchmark:
         self.mc = MetricsCalculator()
         self.results = []
 
-    def evaluate_retrieval(self, dataset_name="synthetic", scale=200):
-        print(f"\n--- Evaluation ({self.mode.upper()}) on {dataset_name.upper()} (Scale: {scale}) ---")
+    def evaluate_retrieval(self, dataset_name="synthetic", scale=1000):
+        console.print(f"\n[bold magenta]--- Evaluation ({self.mode.upper()}) on {dataset_name.upper()} ---[/bold magenta]")
         
         # 1. Setup
         config = get_config_factory(self.mode)
@@ -30,60 +39,70 @@ class AgenticBenchmark:
         else: data = self.dm.get_synthetic_data(scale)
             
         if not data:
-            print(f"  Warning: No data for {dataset_name}.")
+            console.print(f"  [yellow]Warning: No data for {dataset_name}.[/yellow]")
             config.teardown(); return
 
-        print(f"  Ingesting {min(len(data), scale)} items...")
-        doc_ids = []
-        for item in data[:scale]:
-            try:
-                # Use faster path if baseline
-                if hasattr(config, "record_direct"):
-                    config.record_direct(item['title'], item['target'], item['rationale'])
-                    # For baselines, we manually manage doc IDs if we need them
-                else:
-                    res = config.memory.record_decision(item['title'], item['target'], item['rationale'])
-                    doc_ids.append(res.metadata.get("file_id"))
-            except Exception: pass
+        actual_scale = min(len(data), scale)
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            console=console
+        ) as progress:
+            task = progress.add_task(f"Ingesting {actual_scale} items...", total=actual_scale)
+            for item in data[:actual_scale]:
+                try:
+                    if hasattr(config, "record_direct"):
+                        config.record_direct(item['title'], item['target'], item['rationale'])
+                    else:
+                        config.memory.record_decision(item['title'], item['target'], item['rationale'])
+                except: pass
+                progress.advance(task)
         
-        # For evaluation, we need to map our synthetic items to the stored IDs
-        # To simplify, we'll re-query by target for mapping
-        print(f"  Mapping and Querying...")
+        # 3. Evaluation
+        sample_count = min(len(data), 200)
+        samples = data[:sample_count]
         report = EvaluationReport(self.mode)
-        samples = data[:50] # Evaluate 50 samples
         
-        for item in samples:
-            # Gold target and query
-            target = item['target']
-            # Find the true doc_id for this item in our memory
-            # We assume unique target titles for evaluation mapping
-            true_id_res = config.memory.search_decisions(target, limit=1, mode='strict')
-            if not true_id_res: continue
-            gold_id = true_id_res[0]['id']
-            
-            # Formulate query from rationale (the "haystack")
-            text = item['rationale']
-            query = text[len(text)//4 : len(text)//4 + 100] if len(text) > 120 else text[:100]
-            
-            # EXECUTE SEARCH
-            retrieved_ids = config.search(query, limit=5)
-            
-            # CALCULATE METRICS
-            m = {
-                "recall@1": self.mc.recall_at_k(retrieved_ids, gold_id, 1),
-                "recall@5": self.mc.recall_at_k(retrieved_ids, gold_id, 5),
-                "precision@5": self.mc.precision_at_k(retrieved_ids, gold_id, 5),
-                "mrr": self.mc.reciprocal_rank(retrieved_ids, gold_id)
-            }
-            report.add_point(m)
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console
+        ) as progress:
+            task = progress.add_task(f"Mapping and Querying...", total=sample_count)
+            for item in samples:
+                target = item['target']
+                true_id_res = config.memory.search_decisions(target, limit=1, mode='strict')
+                if not true_id_res: 
+                    progress.advance(task)
+                    continue
+                gold_id = true_id_res[0]['id']
+                
+                text = item['rationale']
+                query = text[len(text)//4 : len(text)//4 + 100] if len(text) > 120 else text[:100]
+                
+                retrieved_ids = config.search(query, limit=5)
+                
+                m = {
+                    "recall@1": self.mc.recall_at_k(retrieved_ids, gold_id, 1),
+                    "recall@5": self.mc.recall_at_k(retrieved_ids, gold_id, 5),
+                    "precision@5": self.mc.precision_at_k(retrieved_ids, gold_id, 5),
+                    "mrr": self.mc.reciprocal_rank(retrieved_ids, gold_id)
+                }
+                report.add_point(m)
+                progress.advance(task)
 
         summary = report.summarize()
         summary["dataset"] = dataset_name
-        summary["scale"] = scale
+        summary["scale"] = actual_scale
         summary["mode"] = self.mode
         self.results.append(summary)
         
-        print(f"  Recall@5: {summary['recall@5']:.2%}, MRR: {summary['mrr']:.4f}")
+        console.print(f"  [bold green]Results:[/bold green] Recall@5: [bold]{summary['recall@5']:.2%}[/bold], MRR: [bold]{summary['mrr']:.4f}[/bold]")
         config.teardown()
 
     def run_suite(self):
@@ -103,15 +122,28 @@ class AgenticBenchmark:
             writer = csv.DictWriter(f, fieldnames=keys)
             writer.writeheader()
             writer.writerows(self.results)
-        print(f"Report saved to {path}")
+        console.print(f"Report saved to [blue]{path}[/blue]")
+
+    def _save_json_report(self, timestamp):
+        import json
+        path = self.output_dir / f"agentic_metrics_{self.mode}_{timestamp}.json"
+        if not self.results: return
+        with open(path, 'w') as f:
+            json.dump(self.results, f, indent=2, default=str)
+        console.print(f"JSON report saved to [blue]{path}[/blue]")
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", default="full", choices=["full", "keyword", "baseline_flat", "baseline_sql"])
-    parser.add_argument("--scale", type=int, default=100)
+    parser.add_argument("--scale", type=int, default=1000)
+    parser.add_argument("--dataset", default="locomo", choices=["synthetic", "locomo", "longmemeval"])
+    parser.add_argument("--output-json", action="store_true",
+                        help="Also save results in JSON format for machine reading")
     args = parser.parse_args()
-    
+
     bench = AgenticBenchmark(mode=args.mode)
-    bench.evaluate_retrieval(dataset_name="locomo", scale=args.scale)
-    bench.evaluate_retrieval(dataset_name="longmemeval", scale=args.scale)
+    bench.evaluate_retrieval(dataset_name=args.dataset, scale=args.scale)
+    
+    if args.output_json and bench.results:
+        bench._save_json_report(datetime.now().strftime("%Y%m%d_%H%M%S"))

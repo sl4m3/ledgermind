@@ -20,9 +20,14 @@ class GitAuditProvider(AuditProvider):
             raise FileNotFoundError("git executable not found in PATH")
         # Ensure we always use --no-pager to avoid hanging in interactive environments
         cmd = [git_path, "--no-pager"] + args
+        
+        # Force English locale for consistent error message parsing
+        env = os.environ.copy()
+        env["LC_ALL"] = "C"
+        
         for i in range(max_retries):
             try:
-                return subprocess.run(cmd, cwd=self.repo_path, check=True, capture_output=True) # nosec B603
+                return subprocess.run(cmd, cwd=self.repo_path, check=True, capture_output=True, env=env) # nosec B603
             except subprocess.CalledProcessError as e:
                 last_error = e.stderr.decode()
                 combined = last_error + "\n" + e.stdout.decode()

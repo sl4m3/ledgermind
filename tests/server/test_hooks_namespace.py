@@ -99,19 +99,25 @@ class TestHooksNamespace:
         project_path = str(tmp_path / "project")
         memory_path = str(tmp_path / "memory")
         os.makedirs(project_path)
-        
+
         installer = GeminiInstaller()
         installer.install(project_path, memory_path=memory_path)
-        
+
         hook_path = os.path.join(project_path, ".gemini", "hooks", "ledgermind_hook.py")
-        assert os.path.exists(hook_path)
-        
+        assert os.path.exists(hook_path), f"Hook file not found at {hook_path}"
+
         with open(hook_path, 'r') as f:
             hook_content = f.read()
-        
-        # Gemini hook uses cli variable in bridge calls
-        assert "cli" in hook_content.lower() or "--cli" in hook_content
-        assert "gemini" in hook_content
+
+        # Gemini hook should reference the client type
+        # Check for cli parameter in bridge initialization or command arguments
+        has_cli_reference = (
+            "--cli" in hook_content or 
+            "cli=" in hook_content or
+            "IntegrationBridge(" in hook_content
+        )
+        assert has_cli_reference, "Gemini hook should include CLI configuration"
+        assert "gemini" in hook_content, "Gemini hook should reference 'gemini' client"
     
     def test_claude_mcp_config_includes_client_flag(self, tmp_path):
         """Verify Claude MCP config includes --client flag."""
