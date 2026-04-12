@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775999313390,
+  "lastUpdate": 1776025396611,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2115,6 +2115,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00008889181566610254",
             "extra": "mean: 1.0049086000094576 msec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "dc4b87257ae343fd0a2685b9ce387acba897af23",
+          "message": "feat(benchmarks): comprehensive overhaul and real-world metrics\n\n- Update README with new comparative benchmarks (LoCoMo/LongMemEval)\n- Enhance benchmark CLI with 'rich' progress bars and better visualization\n- Improve data loading performance and scale vector search tests to 100k\n- Fix git audit provider locale issues for consistent error parsing\n- Cleanup temporary patch files and optimize test runner\n- Add namespace defaults to integration bridge",
+          "timestamp": "2026-04-12T15:19:43-05:00",
+          "tree_id": "25e53e697fac6089d21351463d0061e29db37d19",
+          "url": "https://github.com/sl4m3/ledgermind/commit/dc4b87257ae343fd0a2685b9ce387acba897af23"
+        },
+        "date": 1776025396252,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 99.41621407277863,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00023162384540548463",
+            "extra": "mean: 10.058721399991555 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11449.900959557706,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010905981800735319",
+            "extra": "mean: 87.3369999908391 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1021.6270268572098,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009229627697180755",
+            "extra": "mean: 978.8307999997413 usec\nrounds: 5"
           }
         ]
       }
