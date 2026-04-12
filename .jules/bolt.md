@@ -1,0 +1,3 @@
+## YYYY-MM-DD - Optimize lifecycle multipliers and loop metadata extraction
+**Learning:** `json.loads`, dictionary instantiations (for weights) and global/module-level lookups (like `math.log10` or `json.loads`) inside heavily iterated extraction loops (`all_candidates`) create significant performance bottlenecks in the codebase.
+**Action:** Extract heavily accessed properties, caching their values via constants (e.g., `_PHASE_WEIGHTS`) instead of re-instantiating them on every function call. Move `json.loads` and other global methods to local variables within functions before large loops, and use `dict.pop` or `dict.get` iteratively to drastically reduce parsing and lookup latency.
