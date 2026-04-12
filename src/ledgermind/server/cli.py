@@ -10,8 +10,9 @@ from typing import Optional, List, Dict, Any
 from ledgermind.server.server import MCPServer
 from ledgermind.core.utils.logging import setup_logging
 from ledgermind.core.utils.api_keys import get_api_key
-from rich.console import Console
 
+
+from rich.console import Console
 global_console = Console()
 
 def export_schemas():
@@ -24,33 +25,33 @@ from ledgermind.core.utils.gemini_config import GeminiConfigManager
 
 def init_project(path: str):
     """Interactive initialization of Ledgermind."""
-    from rich.console import Console
+
     from rich.panel import Panel
     from ledgermind.core.api.memory import Memory
     from ledgermind.server.installers import install_client, ClaudeInstaller, GeminiInstaller
 
-    console = Console()
-    console.print(Panel("[bold cyan]Welcome to LedgerMind Setup[/bold cyan]", expand=False))
+
+    global_console.print(Panel("[bold cyan]Welcome to LedgerMind Setup[/bold cyan]", expand=False))
 
     # 1. Project Path
-    console.print("\n[bold yellow]Step 1: Project Location[/bold yellow]")
-    console.print("Where is the codebase for this agent? (Hooks will be installed here)")
+    global_console.print("\n[bold yellow]Step 1: Project Location[/bold yellow]")
+    global_console.print("Where is the codebase for this agent? (Hooks will be installed here)")
     project_path = questionary.text("Project Path:", default=os.getcwd()).ask()
     if project_path is None: return
     project_path = os.path.abspath(project_path)
 
     # 2. Memory Path
-    console.print("\n[bold yellow]Step 2: Knowledge Core Location[/bold yellow]")
-    console.print("Where should the memory database be stored?")
-    console.print("We recommend placing it outside the project root (e.g., ../.ledgermind)")
+    global_console.print("\n[bold yellow]Step 2: Knowledge Core Location[/bold yellow]")
+    global_console.print("Where should the memory database be stored?")
+    global_console.print("We recommend placing it outside the project root (e.g., ../.ledgermind)")
     default_mem_path = os.path.abspath(os.path.join(project_path, "..", ".ledgermind"))
     custom_path = questionary.text("Memory Path:", default=default_mem_path).ask()
     if custom_path is None: return
     
     # 3. Embedder
-    console.print("\n[bold yellow]Step 3: Embedding Model[/bold yellow]")
-    console.print("LedgerMind uses a vector engine to semantically search your memory.")
-    console.print("By default, we recommend the lightweight Jina v5 4-bit model (~60MB).")
+    global_console.print("\n[bold yellow]Step 3: Embedding Model[/bold yellow]")
+    global_console.print("LedgerMind uses a vector engine to semantically search your memory.")
+    global_console.print("By default, we recommend the lightweight Jina v5 4-bit model (~60MB).")
     embedder = questionary.select(
         "Choose embedder:",
         choices=["jina-v5-4bit", "custom"],
@@ -62,8 +63,8 @@ def init_project(path: str):
     custom_url = None
     
     if embedder == "custom":
-        console.print("You can provide a direct URL to a .gguf file to download it now,")
-        console.print("OR provide an absolute path to an already downloaded .gguf file.")
+        global_console.print("You can provide a direct URL to a .gguf file to download it now,")
+        global_console.print("OR provide an absolute path to an already downloaded .gguf file.")
         user_input = questionary.text("Enter URL or absolute path:").ask()
         if user_input is None: return
         
@@ -76,8 +77,8 @@ def init_project(path: str):
             model_name = user_input # Treat as absolute path or standard HF name
 
     # 4. Client
-    console.print("\n[bold yellow]Step 4: Client Hooks[/bold yellow]")
-    console.print(f"We can install hooks to seamlessly capture context for your preferred client in {project_path}.")
+    global_console.print("\n[bold yellow]Step 4: Client Hooks[/bold yellow]")
+    global_console.print(f"We can install hooks to seamlessly capture context for your preferred client in {project_path}.")
     client = questionary.select(
         "Which client do you use?",
         choices=["cursor", "claude", "gemini", "vscode", "none"],
@@ -86,11 +87,11 @@ def init_project(path: str):
     if client is None: return
 
     # 4.5. Enrichment Provider (NEW)
-    console.print("\n[bold yellow]Step 4.5: Enrichment Provider[/bold yellow]")
-    console.print("Which LLM provider should LedgerMind use for enrichment?")
-    console.print("  [bold]cli[/bold]       - Use Gemini/Claude CLI (existing behavior)")
-    console.print("  [bold]openrouter[/bold] - Use OpenRouter API (100+ models, pay-per-use)")
-    console.print("  [bold]aistudio[/bold] - Use Google AI Studio API (Gemini models)")
+    global_console.print("\n[bold yellow]Step 4.5: Enrichment Provider[/bold yellow]")
+    global_console.print("Which LLM provider should LedgerMind use for enrichment?")
+    global_console.print("  [bold]cli[/bold]       - Use Gemini/Claude CLI (existing behavior)")
+    global_console.print("  [bold]openrouter[/bold] - Use OpenRouter API (100+ models, pay-per-use)")
+    global_console.print("  [bold]aistudio[/bold] - Use Google AI Studio API (Gemini models)")
     provider = questionary.select(
         "Select provider:",
         choices=["cli", "openrouter", "aistudio"],
@@ -99,10 +100,10 @@ def init_project(path: str):
     if provider is None: return
 
     # 5. Enrichment Mode
-    console.print("\n[bold yellow]Step 5: Enrichment Mode[/bold yellow]")
-    console.print("How should LedgerMind resolve memory conflicts and summarize knowledge?")
-    console.print("  [bold]optimal[/bold] - Local LLM via Ollama/DeepSeek (Private, medium speed)")
-    console.print("  [bold]rich[/bold]    - Cloud LLM via client (Highest quality, uses API)")
+    global_console.print("\n[bold yellow]Step 5: Enrichment Mode[/bold yellow]")
+    global_console.print("How should LedgerMind resolve memory conflicts and summarize knowledge?")
+    global_console.print("  [bold]optimal[/bold] - Local LLM via Ollama/DeepSeek (Private, medium speed)")
+    global_console.print("  [bold]rich[/bold]    - Cloud LLM via client (Highest quality, uses API)")
     mode = questionary.select(
         "Select mode:",
         choices=["optimal", "rich"],
@@ -111,8 +112,8 @@ def init_project(path: str):
     if mode is None: return
 
     # 6. Language Preference
-    console.print("\n[bold yellow]Step 6: Language Preference[/bold yellow]")
-    console.print("Enter preferred language for records (e.g., 'russian', 'english', 'german'):")
+    global_console.print("\n[bold yellow]Step 6: Language Preference[/bold yellow]")
+    global_console.print("Enter preferred language for records (e.g., 'russian', 'english', 'german'):")
     language = questionary.text(
         "Preferred language:",
         default="russian"
@@ -124,24 +125,24 @@ def init_project(path: str):
     openrouter_api_key = None
 
     if provider == "openrouter":
-        console.print("\n[bold yellow]Step 7: OpenRouter Configuration[/bold yellow]")
+        global_console.print("\n[bold yellow]Step 7: OpenRouter Configuration[/bold yellow]")
         
         # Check if API key is available in env or config files
         env_api_key, key_source = get_api_key("OPENROUTER_API_KEY", search_configs=True)
         
         if key_source == "env":
-            console.print("[green]✓ Found OPENROUTER_API_KEY in environment variables.[/green]")
+            global_console.print("[green]✓ Found OPENROUTER_API_KEY in environment variables.[/green]")
             openrouter_api_key = env_api_key
         elif key_source == "config":
-            console.print("[green]✓ Found OPENROUTER_API_KEY in shell configuration file.[/green]")
-            console.print("  Tip: Run 'source ~/.bashrc' to load it into current session.")
+            global_console.print("[green]✓ Found OPENROUTER_API_KEY in shell configuration file.[/green]")
+            global_console.print("  Tip: Run 'source ~/.bashrc' to load it into current session.")
             openrouter_api_key = env_api_key
         else:
-            console.print("[bold red]✗ OPENROUTER_API_KEY is not set.[/bold red]")
-            console.print("\nTo set it, run one of these commands:")
-            console.print("  [cyan]export OPENROUTER_API_KEY=sk-or-v1-xxxxx[/cyan]")
-            console.print("\nGet your API key from: [underline]https://openrouter.ai/keys[/underline]")
-            console.print("\n[bold yellow]Waiting for you to set the API key...[/bold yellow]")
+            global_console.print("[bold red]✗ OPENROUTER_API_KEY is not set.[/bold red]")
+            global_console.print("\nTo set it, run one of these commands:")
+            global_console.print("  [cyan]export OPENROUTER_API_KEY=sk-or-v1-xxxxx[/cyan]")
+            global_console.print("\nGet your API key from: [underline]https://openrouter.ai/keys[/underline]")
+            global_console.print("\n[bold yellow]Waiting for you to set the API key...[/bold yellow]")
 
             # Give user a chance to export and retry
             retry_count = 0
@@ -160,18 +161,18 @@ def init_project(path: str):
                     if env_api_key:
                         openrouter_api_key = env_api_key
                         if key_source == "env":
-                            console.print(f"[green]✓ OPENROUTER_API_KEY found in environment![/green]")
+                            global_console.print(f"[green]✓ OPENROUTER_API_KEY found in environment![/green]")
                         else:
-                            console.print(f"[green]✓ OPENROUTER_API_KEY found in config file![/green]")
+                            global_console.print(f"[green]✓ OPENROUTER_API_KEY found in config file![/green]")
                         break
                     else:
-                        console.print("[yellow]! Still not found. Please export the variable and try again.[/yellow]")
+                        global_console.print("[yellow]! Still not found. Please export the variable and try again.[/yellow]")
 
                 retry_count += 1
 
             if not openrouter_api_key:
-                console.print("\n[bold red]✗ OpenRouter setup cancelled. API key required.[/bold red]")
-                console.print("You can re-run 'ledgermind init' after setting OPENROUTER_API_KEY")
+                global_console.print("\n[bold red]✗ OpenRouter setup cancelled. API key required.[/bold red]")
+                global_console.print("You can re-run 'ledgermind init' after setting OPENROUTER_API_KEY")
                 return
 
     # 8. Gemini Specific Setup (only for CLI provider)
@@ -179,12 +180,12 @@ def init_project(path: str):
     gemini_config_mode = "global"
 
     if provider == "cli" and client == "gemini":
-        console.print("\n[bold yellow]Step 8: Gemini Configuration[/bold yellow]")
+        global_console.print("\n[bold yellow]Step 8: Gemini Configuration[/bold yellow]")
         gemini_binary = GeminiConfigManager.discover_binary()
         if gemini_binary:
-            console.print(f"[green]✓ Found gemini binary at: {gemini_binary}[/green]")
+            global_console.print(f"[green]✓ Found gemini binary at: {gemini_binary}[/green]")
         else:
-            console.print("[yellow]! Gemini binary not found in standard paths. Falling back to 'gemini' in PATH.[/yellow]")
+            global_console.print("[yellow]! Gemini binary not found in standard paths. Falling back to 'gemini' in PATH.[/yellow]")
             gemini_binary = "gemini"
 
         gemini_config_mode = questionary.select(
@@ -199,15 +200,15 @@ def init_project(path: str):
 
         config_path = GeminiConfigManager.get_config_path(mode=gemini_config_mode, project_path=project_path)
         GeminiConfigManager.ensure_config_exists(config_path)
-        console.print(f"[green]✓ Gemini config ensured at: {config_path}[/green]")
+        global_console.print(f"[green]✓ Gemini config ensured at: {config_path}[/green]")
 
     enrichment_model = None
 
     # Model selection for OpenRouter provider
     if provider == "openrouter" and mode == "rich":
-        console.print(f"\n[bold yellow]Step 7.5: OpenRouter Model Selection[/bold yellow]")
-        console.print("Choose a model from OpenRouter (https://openrouter.ai/models):")
-        console.print("Popular options: stepfun/step-3.5-flash:free, minimax/minimax-m2.5:free")
+        global_console.print(f"\n[bold yellow]Step 7.5: OpenRouter Model Selection[/bold yellow]")
+        global_console.print("Choose a model from OpenRouter (https://openrouter.ai/models):")
+        global_console.print("Popular options: stepfun/step-3.5-flash:free, minimax/minimax-m2.5:free")
 
         while True:
             enrichment_model = questionary.text(
@@ -222,13 +223,13 @@ def init_project(path: str):
 
             # Basic validation
             if "/" not in enrichment_model:
-                console.print("[yellow]! Model name should be in format 'provider/model-name' (e.g., 'openai/gpt-4')[/yellow]")
+                global_console.print("[yellow]! Model name should be in format 'provider/model-name' (e.g., 'openai/gpt-4')[/yellow]")
                 retry = questionary.confirm("Continue anyway?").ask()
                 if retry is None or not retry:
                     continue
 
             # Test model availability via API call
-            console.print(f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via OpenRouter API...")
+            global_console.print(f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via OpenRouter API...")
             try:
                 import httpx
                 
@@ -254,39 +255,39 @@ def init_project(path: str):
                 if response.status_code == 200:
                     result = response.json()
                     if result.get("choices") and len(result["choices"]) > 0:
-                        console.print(f"[green]✓ Model {enrichment_model} is available and responsive.[/green]")
+                        global_console.print(f"[green]✓ Model {enrichment_model} is available and responsive.[/green]")
                         break
                     else:
-                        console.print(f"[yellow]! Model returned empty response.[/yellow]")
+                        global_console.print(f"[yellow]! Model returned empty response.[/yellow]")
                 elif response.status_code == 401:
-                    console.print(f"[bold red]✗ Authentication failed. Check your OPENROUTER_API_KEY.[/bold red]")
+                    global_console.print(f"[bold red]✗ Authentication failed. Check your OPENROUTER_API_KEY.[/bold red]")
                     retry = questionary.confirm("Try another model name?").ask()
                     if not retry:
                         enrichment_model = None
                         break
                 elif response.status_code == 404:
-                    console.print(f"[bold red]✗ Model {enrichment_model} not found on OpenRouter.[/bold red]")
+                    global_console.print(f"[bold red]✗ Model {enrichment_model} not found on OpenRouter.[/bold red]")
                     retry = questionary.confirm("Try another model name?").ask()
                     if not retry:
                         enrichment_model = None
                         break
                 else:
-                    console.print(f"[bold red]✗ API returned status {response.status_code}[/bold red]")
+                    global_console.print(f"[bold red]✗ API returned status {response.status_code}[/bold red]")
                     if response.text:
-                        console.print(f"[red]Error: {response.text[:200]}[/red]")
+                        global_console.print(f"[red]Error: {response.text[:200]}[/red]")
                     retry = questionary.confirm("Try another model name?").ask()
                     if not retry:
                         enrichment_model = None
                         break
                         
             except httpx.TimeoutException:
-                console.print(f"[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]")
+                global_console.print(f"[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]")
                 retry = questionary.confirm("Try another model name?").ask()
                 if not retry:
                     enrichment_model = None
                     break
             except Exception as e:
-                console.print(f"[bold red]✗ Error during validation: {e}[/bold red]")
+                global_console.print(f"[bold red]✗ Error during validation: {e}[/bold red]")
                 retry = questionary.confirm("Try another model name?").ask()
                 if not retry:
                     enrichment_model = None
@@ -294,12 +295,12 @@ def init_project(path: str):
 
     # Model selection for CLI provider
     if mode == "rich" and provider == "cli" and client in ["gemini", "claude"]:
-        console.print(f"\n[bold yellow]Step 5b: Specific Model for {client.capitalize()}[/bold yellow]")
-        console.print("You can specify a model name to override the default client model.")
+        global_console.print(f"\n[bold yellow]Step 5b: Specific Model for {client.capitalize()}[/bold yellow]")
+        global_console.print("You can specify a model name to override the default client model.")
         if client == "claude":
-            console.print("Examples: claude-sonnet-4-6, claude-haiku-4-5")
+            global_console.print("Examples: claude-sonnet-4-6, claude-haiku-4-5")
         else:
-            console.print("Examples: gemini-2.5-flash-lite, gemini-2.0-flash")
+            global_console.print("Examples: gemini-2.5-flash-lite, gemini-2.0-flash")
         
         while True:
             enrichment_model = questionary.text(
@@ -313,7 +314,7 @@ def init_project(path: str):
                 break
             
             # Validation
-            console.print(f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via {client}...")
+            global_console.print(f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via {client}...")
             try:
                 import subprocess
                 import shutil
@@ -342,19 +343,19 @@ def init_project(path: str):
                 # We use a longer timeout for validation because APIs can be slow
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=60) # nosec B603
                 if result.returncode == 0:
-                    console.print(f"[green]✓ Model {enrichment_model} is available and responsive.[/green]")
+                    global_console.print(f"[green]✓ Model {enrichment_model} is available and responsive.[/green]")
                     break
                 else:
-                    console.print(f"[bold red]✗ Model validation failed.[/bold red]")
+                    global_console.print(f"[bold red]✗ Model validation failed.[/bold red]")
                     if result.stderr:
-                        console.print(f"[red]Error: {result.stderr.strip()}[/red]")
+                        global_console.print(f"[red]Error: {result.stderr.strip()}[/red]")
                     
                     retry = questionary.confirm("Try another model name?").ask()
                     if not retry:
                         enrichment_model = None
                         break
             except Exception as e:
-                console.print(f"[bold red]✗ Error during validation:[/bold red] {e}")
+                global_console.print(f"[bold red]✗ Error during validation:[/bold red] {e}")
                 retry = questionary.confirm("Try another model name?").ask()
                 if not retry:
                     enrichment_model = None
@@ -362,27 +363,27 @@ def init_project(path: str):
 
     # Model selection for AI Studio provider
     if provider == "aistudio":
-        console.print(f"\n[bold yellow]Step 6: Google AI Studio Configuration[/bold yellow]")
+        global_console.print(f"\n[bold yellow]Step 6: Google AI Studio Configuration[/bold yellow]")
         
         # First check if API key is available in env or config files
         api_key, key_source = get_api_key("GOOGLE_API_KEY", search_configs=True)
         
         if key_source == "env":
-            console.print("[green]✓ Found GOOGLE_API_KEY in environment variables.[/green]")
+            global_console.print("[green]✓ Found GOOGLE_API_KEY in environment variables.[/green]")
         elif key_source == "config":
-            console.print("[green]✓ Found GOOGLE_API_KEY in shell configuration file.[/green]")
-            console.print("  Tip: Run 'source ~/.bashrc' to load it into current session.")
+            global_console.print("[green]✓ Found GOOGLE_API_KEY in shell configuration file.[/green]")
+            global_console.print("  Tip: Run 'source ~/.bashrc' to load it into current session.")
         else:
-            console.print("[bold yellow]Enter your Google AI Studio API key:[/bold yellow]")
-            console.print("Get it from: https://aistudio.google.com/app/apikey")
+            global_console.print("[bold yellow]Enter your Google AI Studio API key:[/bold yellow]")
+            global_console.print("Get it from: https://aistudio.google.com/app/apikey")
             api_key = questionary.text(
                 "API Key:",
                 default=""
             ).ask()
         
         if not api_key:
-            console.print("[bold red]✗ API key is required for AI Studio.[/bold red]")
-            console.print("You can re-run 'ledgermind init' after setting GOOGLE_API_KEY")
+            global_console.print("[bold red]✗ API key is required for AI Studio.[/bold red]")
+            global_console.print("You can re-run 'ledgermind init' after setting GOOGLE_API_KEY")
             return
         
         # Save API key to environment for validation
@@ -400,7 +401,7 @@ def init_project(path: str):
                 break
             
             # Validate model with test request
-            console.print(f"Validating model [bold cyan]{aistudio_model}[/bold cyan] via Google AI Studio...")
+            global_console.print(f"Validating model [bold cyan]{aistudio_model}[/bold cyan] via Google AI Studio...")
             try:
                 import requests
                 
@@ -431,17 +432,17 @@ def init_project(path: str):
                     if candidates and len(candidates) > 0:
                         content = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
                         if content:
-                            console.print(f"[green]✓ Model {aistudio_model} is available and responsive.[/green]")
+                            global_console.print(f"[green]✓ Model {aistudio_model} is available and responsive.[/green]")
                             enrichment_model = aistudio_model
                             break
                 
                 # If we get here, validation failed
                 if response.status_code != 200:
-                    console.print(f"[bold red]✗ API returned status {response.status_code}[/bold red]")
+                    global_console.print(f"[bold red]✗ API returned status {response.status_code}[/bold red]")
                     if response.text:
-                        console.print(f"[red]Error: {response.text[:200]}[/red]")
+                        global_console.print(f"[red]Error: {response.text[:200]}[/red]")
                 else:
-                    console.print(f"[bold red]✗ Model validation failed (empty response).[/bold red]")
+                    global_console.print(f"[bold red]✗ Model validation failed (empty response).[/bold red]")
                 
                 retry = questionary.confirm("Try another model?").ask()
                 if not retry:
@@ -449,25 +450,25 @@ def init_project(path: str):
                     break
                     
             except requests.exceptions.Timeout:
-                console.print(f"[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]")
+                global_console.print(f"[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]")
                 retry = questionary.confirm("Try another model?").ask()
                 if not retry:
                     enrichment_model = None
                     break
             except Exception as e:
-                console.print(f"[bold red]✗ Error during validation: {e}[/bold red]")
+                global_console.print(f"[bold red]✗ Error during validation: {e}[/bold red]")
                 retry = questionary.confirm("Try another model?").ask()
                 if not retry:
                     enrichment_model = None
                     break
 
     # Initialize
-    console.print("\n[bold green]Initializing system...[/bold green]")
+    global_console.print("\n[bold green]Initializing system...[/bold green]")
     try:
         if os.path.isabs(model_name):
             model_path = model_name
             if not os.path.exists(model_path):
-                 console.print(f"[yellow]Warning: Custom model path does not exist yet: {model_path}[/yellow]")
+                 global_console.print(f"[yellow]Warning: Custom model path does not exist yet: {model_path}[/yellow]")
         else:
             model_path = os.path.join(custom_path, "models", model_name) if model_name.endswith(".gguf") else model_name
         
@@ -476,7 +477,7 @@ def init_project(path: str):
         os.makedirs(os.path.join(custom_path, "models"), exist_ok=True)
 
         if custom_url:
-            console.print(f"Downloading custom model from {custom_url}...")
+            global_console.print(f"Downloading custom model from {custom_url}...")
             import httpx
             import time
             try:
@@ -492,11 +493,11 @@ def init_project(path: str):
                             downloaded += len(chunk)
                             if time.time() - last_log > 2.0:
                                 pct = (downloaded / total * 100) if total > 0 else 0
-                                console.print(f"  Downloading... {pct:.1f}% ({downloaded/(1024*1024):.1f}MB)")
+                                global_console.print(f"  Downloading... {pct:.1f}% ({downloaded/(1024*1024):.1f}MB)")
                                 last_log = time.time()
-                console.print(f"[green]✓ Downloaded to {model_path}[/green]")
+                global_console.print(f"[green]✓ Downloaded to {model_path}[/green]")
             except Exception as e:
-                console.print(f"[bold red]✗ Failed to download custom model: {e}[/bold red]")
+                global_console.print(f"[bold red]✗ Failed to download custom model: {e}[/bold red]")
                 if os.path.exists(model_path): os.remove(model_path)
                 return
 
@@ -504,7 +505,7 @@ def init_project(path: str):
             try:
                 from ledgermind.core.stores.vector import _is_llama_available
                 if not _is_llama_available():
-                    console.print("[red]Warning: llama-cpp-python is not installed. GGUF model might not work optimally until it's installed.[/red]")
+                    global_console.print("[red]Warning: llama-cpp-python is not installed. GGUF model might not work optimally until it's installed.[/red]")
             except ImportError:
                 pass
 
@@ -538,31 +539,31 @@ def init_project(path: str):
         if provider == "aistudio":
             memory.semantic.meta.set_config("aistudio_api_key", api_key)
             memory.semantic.meta.set_config("aistudio_model", enrichment_model or "gemma-3-27b-it")
-            console.print(f"[green]✓ Configured AI Studio API key and model: {enrichment_model or 'gemma-3-27b-it'}[/green]")
+            global_console.print(f"[green]✓ Configured AI Studio API key and model: {enrichment_model or 'gemma-3-27b-it'}[/green]")
 
-        console.print(f"[green]✓ Created memory structure at {custom_path}[/green]")
-        console.print(f"[green]✓ Configured vector model: {model_name}[/green]")
-        console.print(f"[green]✓ Set enrichment mode: {mode}[/green]")
-        console.print(f"[green]✓ Set enrichment language: {language}[/green]")
-        console.print(f"[green]✓ Set enrichment provider: {provider}[/green]")
-        console.print(f"[green]✓ Registered client: {client}[/green]")
+        global_console.print(f"[green]✓ Created memory structure at {custom_path}[/green]")
+        global_console.print(f"[green]✓ Configured vector model: {model_name}[/green]")
+        global_console.print(f"[green]✓ Set enrichment mode: {mode}[/green]")
+        global_console.print(f"[green]✓ Set enrichment language: {language}[/green]")
+        global_console.print(f"[green]✓ Set enrichment provider: {provider}[/green]")
+        global_console.print(f"[green]✓ Registered client: {client}[/green]")
         if enrichment_model:
-            console.print(f"[green]✓ Configured enrichment model for {client}: {enrichment_model}[/green]")
+            global_console.print(f"[green]✓ Configured enrichment model for {client}: {enrichment_model}[/green]")
 
         if client != "none":
-            console.print(f"\nInstalling hooks for {client} in {project_path}...")
+            global_console.print(f"\nInstalling hooks for {client} in {project_path}...")
             try:
                 success = install_client(client, project_path, memory_path=custom_path, gemini_config_mode=gemini_config_mode)
                 if success:
-                    console.print(f"[green]✓ Hooks installed for {client}[/green]")
+                    global_console.print(f"[green]✓ Hooks installed for {client}[/green]")
                 else:
-                    console.print(f"[bold red]✗ Failed to install hooks for {client}[/bold red]")
+                    global_console.print(f"[bold red]✗ Failed to install hooks for {client}[/bold red]")
             except Exception as e:
-                console.print(f"[yellow]Hook installer for '{client}' failed: {e}[/yellow]")
+                global_console.print(f"[yellow]Hook installer for '{client}' failed: {e}[/yellow]")
 
         # Install MCP server (mandatory for supported clients)
         if client in ["claude", "gemini"]:
-            console.print(f"\n[bold yellow]Installing MCP server for {client}...[/bold yellow]")
+            global_console.print(f"\n[bold yellow]Installing MCP server for {client}...[/bold yellow]")
             try:
                 if client == "claude":
                     claude_installer = ClaudeInstaller()
@@ -571,61 +572,61 @@ def init_project(path: str):
                     gemini_installer = GeminiInstaller(config_mode=gemini_config_mode)
                     mcp_success = gemini_installer.install_mcp_server(project_path, custom_path, client=client)
                 if mcp_success:
-                    console.print(f"[green]✓ MCP server configured for {client}[/green]")
+                    global_console.print(f"[green]✓ MCP server configured for {client}[/green]")
                 else:
-                    console.print(f"[yellow]! MCP server configuration failed for {client}[/yellow]")
+                    global_console.print(f"[yellow]! MCP server configuration failed for {client}[/yellow]")
             except Exception as e:
-                console.print(f"[yellow]! Error installing MCP server for {client}: {e}[/yellow]")
+                global_console.print(f"[yellow]! Error installing MCP server for {client}: {e}[/yellow]")
 
     except Exception as e:
-        console.print(f"[bold red]✗ Error during initialization:[/bold red] {e}")
+        global_console.print(f"[bold red]✗ Error during initialization:[/bold red] {e}")
         import traceback
-        console.print(traceback.format_exc())
+        global_console.print(traceback.format_exc())
         return
 
-    console.print("\n[bold cyan]Initialization complete![/bold cyan]")
-    console.print("You can now start the server with:")
-    console.print(f"  ledgermind run --path {custom_path}")
+    global_console.print("\n[bold cyan]Initialization complete![/bold cyan]")
+    global_console.print("You can now start the server with:")
+    global_console.print(f"  ledgermind run --path {custom_path}")
 
 
 def check_project(path: str):
     """Runs diagnostics on an existing project."""
     from ledgermind.core.api.bridge import IntegrationBridge
-    from rich.console import Console
 
-    console = Console()
-    console.print(f"Running diagnostics for project at {path}...")
+
+
+    global_console.print(f"Running diagnostics for project at {path}...")
     try:
         bridge = IntegrationBridge(memory_path=path)
         health = bridge.check_health()
         
-        console.print(f"Git Available: {'[green]✓[/green]' if health['git_available'] else '[bold red]✗[/bold red]'}")
-        console.print(f"Storage Writable: {'[green]✓[/green]' if health['storage_writable'] else '[bold red]✗[/bold red]'}")
-        console.print(f"Repo Healthy: {'[green]✓[/green]' if health['repo_healthy'] else '[bold red]✗[/bold red]'}")
-        console.print(f"Vector Search: {'[green]✓[/green]' if health['vector_available'] else '[yellow](!) Disabled[/yellow]'}")
+        global_console.print(f"Git Available: {'[green]✓[/green]' if health['git_available'] else '[bold red]✗[/bold red]'}")
+        global_console.print(f"Storage Writable: {'[green]✓[/green]' if health['storage_writable'] else '[bold red]✗[/bold red]'}")
+        global_console.print(f"Repo Healthy: {'[green]✓[/green]' if health['repo_healthy'] else '[bold red]✗[/bold red]'}")
+        global_console.print(f"Vector Search: {'[green]✓[/green]' if health['vector_available'] else '[yellow](!) Disabled[/yellow]'}")
         
         if health["errors"]:
-            console.print("\n[bold red]Errors Found:[/bold red]")
+            global_console.print("\n[bold red]Errors Found:[/bold red]")
             for err in health["errors"]:
-                console.print(f"  [red]- {err}[/red]")
+                global_console.print(f"  [red]- {err}[/red]")
         
         if health["warnings"]:
-            console.print("\n[bold yellow]Warnings:[/bold yellow]")
+            global_console.print("\n[bold yellow]Warnings:[/bold yellow]")
             for warn in health["warnings"]:
-                console.print(f"  [yellow]- {warn}[/yellow]")
+                global_console.print(f"  [yellow]- {warn}[/yellow]")
                 
         if not health["errors"]:
-             console.print("\n[green]✓ Environment is healthy.[/green]")
+             global_console.print("\n[green]✓ Environment is healthy.[/green]")
     except Exception as e:
-        console.print(f"[bold red]✗ Fatal error during check: {e}[/bold red]")
+        global_console.print(f"[bold red]✗ Fatal error during check: {e}[/bold red]")
 
 def show_stats(path: str):
     """Displays memory statistics."""
     from ledgermind.core.api.bridge import IntegrationBridge
-    from rich.console import Console
+
     from rich.table import Table
 
-    console = Console()
+
     try:
         bridge = IntegrationBridge(memory_path=path)
         stats = bridge.get_stats()
@@ -638,9 +639,9 @@ def show_stats(path: str):
         table.add_row("Semantic Decisions", str(stats.get('semantic_count', 0)))
         table.add_row("Vector Embeddings", str(stats.get('vector_count', 'unknown')))
 
-        console.print(table)
+        global_console.print(table)
     except Exception as e:
-        console.print(f"[bold red]✗ Error fetching stats: {e}[/bold red]")
+        global_console.print(f"[bold red]✗ Error fetching stats: {e}[/bold red]")
 
 def sync_transcript_history(bridge, transcript_path: str) -> set:
     """Synchronizes history from a transcript file, returning the set of newly synced user prompts."""
@@ -648,7 +649,7 @@ def sync_transcript_history(bridge, transcript_path: str) -> set:
     if not transcript_path or not os.path.exists(transcript_path):
         return synced_content_this_turn
 
-    sys.stderr.write(f"* Syncing history from {transcript_path}...\n")
+    error_console.print(f"* Syncing history from {transcript_path}...", style="cyan")
     try:
         # Pre-fetch recent events to build a deduplication map
         recent_events = bridge.memory.episodic.query(limit=1000)
@@ -738,9 +739,9 @@ def sync_transcript_history(bridge, transcript_path: str) -> set:
                             if source == "user": synced_content_this_turn.add(c_strip)
             
             if sync_count > 0:
-                sys.stderr.write(f"* Successfully synced {sync_count} new events from history.\n")
+                error_console.print(f"* Successfully synced {sync_count} new events from history.", style="green")
     except Exception as e:
-        sys.stderr.write(f"Transcript sync error: {e}\n")
+        error_console.print(f"Transcript sync error: {e}", style="bold red")
 
     return synced_content_this_turn
 
@@ -790,7 +791,7 @@ def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold:
         if transcript_path and os.path.isfile(transcript_path):
             synced_content_this_turn = sync_transcript_history(bridge, transcript_path)
         elif transcript_path:
-            sys.stderr.write(f"* Skipping sync: {transcript_path} is not a file\n")
+            error_console.print(f"* Skipping sync: {transcript_path} is not a file", style="yellow")
 
         # 5. Record the CURRENT prompt (REMOVED - handled by Stop hook transcript sync)
         # Manual recording here causes duplicates with Stop hook sync due to TZ/precision diffs.
@@ -799,7 +800,7 @@ def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold:
         ctx = bridge.get_context_for_prompt(real_prompt)
         sys.stdout.write(ctx)
     except Exception as e:
-        sys.stderr.write(f"✗ Error: {e}\n")
+        error_console.print(f"✗ Error: {e}", style="bold red")
 
 def bridge_sync(path: str, cli: Optional[str] = None):
     """Bridge API: Dedicated sync command for the Stop hook."""
@@ -824,7 +825,7 @@ def bridge_sync(path: str, cli: Optional[str] = None):
         bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, namespace=cli)
         sync_transcript_history(bridge, transcript_path)
     except Exception as e:
-        sys.stderr.write(f"✗ Sync Error: {e}\n")
+        error_console.print(f"✗ Sync Error: {e}", style="bold red")
 
 def bridge_record(path: str, prompt: str, response: str, success: bool, metadata: str, cli: Optional[str] = None, read_stdin: bool = False):
     """Bridge API: Records interaction into episodic memory."""
@@ -896,7 +897,7 @@ def cleanup_orphans():
             continue
             
     if count > 0:
-        sys.stderr.write(f"* Cleaned up {count} orphaned Ledgermind processes.\n")
+        error_console.print(f"* Cleaned up {count} orphaned Ledgermind processes.", style="yellow")
 
 def main():
     parser = argparse.ArgumentParser(description="Ledgermind MCP Server Launcher")
@@ -1055,7 +1056,7 @@ def main():
             MCPServer.current_instance = server
             server.run()
         except Exception as e:
-            sys.stderr.write(f"✗ Server Critical Failure: {e}\n")
+            error_console.print(f"✗ Server Critical Failure: {e}", style="bold red")
             sys.exit(1)
     else:
         parser.print_help()
