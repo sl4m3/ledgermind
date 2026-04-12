@@ -10,6 +10,11 @@ class QueryService(MemoryService):
     Service responsible for searching and retrieving knowledge from memory.
     """
     
+    # ⚡ Bolt: Extract dictionaries to class constants to avoid redundant memory allocations during frequent calls
+    _PHASE_WEIGHTS = {"canonical": 1.5, "emergent": 1.2, "pattern": 1.0}
+    _VITALITY_WEIGHTS = {"active": 1.0, "decaying": 0.5, "dormant": 0.2}
+    _KIND_WEIGHTS = {"decision": 1.35, "proposal": 1.0}
+
     def list_decisions(self) -> List[str]:
         """List all active decision identifiers."""
         return self.semantic.list_decisions()
@@ -189,6 +194,9 @@ class QueryService(MemoryService):
         seen_ids = set()
         skipped = 0
         
+        # ⚡ Bolt: Bind json.loads to a local variable to minimize global attribute lookup overhead in loop
+        _json_loads = json.loads
+
         for cand in all_candidates:
             if cand['id'] in seen_ids: continue
             if skipped < offset:
@@ -196,7 +204,7 @@ class QueryService(MemoryService):
                 continue
 
             try:
-                ctx = json.loads(cand.pop('context_json'))
+                ctx = _json_loads(cand.pop('context_json'))
             except Exception: ctx = {}
 
             cand["rationale"] = ctx.get("rationale")
@@ -275,14 +283,10 @@ class QueryService(MemoryService):
         return weight
 
     def _get_lifecycle_multiplier(self, phase: str, vitality: str, kind: str, status: Optional[str]) -> float:
-        phase_weights = {"canonical": 1.5, "emergent": 1.2, "pattern": 1.0}
-        vitality_weights = {"active": 1.0, "decaying": 0.5, "dormant": 0.2}
-        kind_weights = {"decision": 1.35, "proposal": 1.0}
-        
         multiplier = (
-            phase_weights.get(phase, 1.0) * 
-            vitality_weights.get(vitality, 1.0) * 
-            kind_weights.get(kind, 1.0)
+            self._PHASE_WEIGHTS.get(phase, 1.0) *
+            self._VITALITY_WEIGHTS.get(vitality, 1.0) *
+            self._KIND_WEIGHTS.get(kind, 1.0)
         )
         if status in ("rejected", "falsified"): multiplier *= 0.2
         elif status in ("superseded", "deprecated"): multiplier *= 0.3
