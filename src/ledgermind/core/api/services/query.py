@@ -110,8 +110,9 @@ class QueryService(MemoryService):
         max_rrf = 3.0 / (k + 1.0)
         sorted_fids = sorted(scores.keys(), key=lambda x: scores[x], reverse=True)
         
-        candidates_meta = self.semantic.meta.get_batch_by_fids(sorted_fids)
-        request_cache = {m['fid']: m for m in candidates_meta}
+        # ⚡ Bolt: Reuse the meta_cache we already fetched instead of querying the DB again for the same FIDs
+        candidates_meta = [meta_cache[fid] for fid in sorted_fids if fid in meta_cache]
+        request_cache = meta_cache.copy()
 
         # ⚡ Bolt: Use single-pass list comprehension with dict.fromkeys to concurrently filter, check caches, and deduplicate IDs while preserving order
         current_layer_ids = list(dict.fromkeys(m['superseded_by'] for m in candidates_meta if m.get('superseded_by') and m['superseded_by'] not in request_cache))
