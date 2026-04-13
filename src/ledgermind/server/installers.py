@@ -492,6 +492,16 @@ if __name__ == '__main__':
 
 
 class VSCodeInstaller(BaseInstaller):
+    """
+    Полный установщик для VS Code (расширение + хуки для AI-чатов).
+    
+    Устанавливает:
+    1. LedgerMind VS Code extension (dual-hook: кэш + bridge-record + bridge-context)
+    2. Shadow file (ledgermind_context.md) для инъекции контекста
+    3. Custom instructions для Roo Code/Cline
+    4. Hooks для Qwen Code CLI (.qwen/settings.json)
+    5. File watchers для истории Roo Code/Cline
+    """
     def __init__(self):
         super().__init__("vscode")
         if platform.system() == "Darwin": # macOS
@@ -508,25 +518,36 @@ class VSCodeInstaller(BaseInstaller):
         project_path = os.path.abspath(project_path)
         if memory_path is None:
             memory_path = os.path.join(os.path.dirname(project_path), ".ledgermind")
-        
+
         # 1. Физическая установка расширения LedgerMind
         self._install_extension_files(project_path)
 
-        # 2. Roo Code (Cline) - settings path
-        roo_path = os.path.join(self.global_storage, "saoudrizwan.claude-dev", "settings", "cline_mcp_settings.json")
-        self._inject_mcp_config(roo_path, memory_path, "Roo Code (Cline)")
+        # 2. Создаём shadow file с инструкцией
+        self._create_shadow_context_file(project_path, memory_path)
 
-        # 3. Hardcore Zero-Touch: Добавляем системную инструкцию для автоматического чтения контекста
-        # Путь к кастомным инструкциям Roo Code
+        # 3. Roo Code (Cline) - custom instructions для чтения shadow file + хуки
         roo_instructions_path = os.path.join(self.global_storage, "saoudrizwan.claude-dev", "settings", "custom_instructions.json")
         self._inject_custom_instructions(roo_instructions_path)
+        self._inject_roo_chat_instructions(roo_instructions_path)
 
-        # 4. Continue.dev
+        # 4. Roo Code MCP settings (опционально, не основной механизм)
+        roo_mcp_path = os.path.join(self.global_storage, "saoudrizwan.claude-dev", "settings", "cline_mcp_settings.json")
+        self._inject_mcp_config(roo_mcp_path, memory_path, "Roo Code (Cline)")
+
+        # 5. Qwen Code extension - hooks для CLI версии
+        self._configure_qwen_code_hooks(project_path, memory_path)
+
+        # 6. VS Code Agent Hooks (.github/hooks/)
+        self._setup_vs_code_agent_hooks(project_path, memory_path)
+
+        # 7. Continue.dev
         continue_config = os.path.expanduser("~/.continue/config.json")
         if os.path.exists(continue_config):
             print(f"! Continue.dev detected. Manual integration recommended in {continue_config}")
 
-        print(f"✓ VS Code environment prepared for Hardcore Zero-Touch.")
+        print(f"✓ Installed VS Code Chat hooks (dual-hook via cache + shadow file)")
+        print(f"  → Shadow file: {os.path.join(project_path, 'ledgermind_context.md')}")
+        print(f"  → VS Code Agent hooks: {os.path.join(project_path, '.github', 'hooks', 'ledgermind.json')}")
 
     def _install_extension_files(self, project_path: str):
         import shutil
@@ -540,7 +561,7 @@ class VSCodeInstaller(BaseInstaller):
             return
 
         print(f"  → Installing LedgerMind VS Code extension to {ext_dest}...")
-        
+
         # 1. Подготовка папки
         if os.path.exists(ext_dest):
             shutil.rmtree(ext_dest)
@@ -571,25 +592,75 @@ class VSCodeInstaller(BaseInstaller):
         except Exception as e:
             print(f"✗ Failed to copy extension files: {e}")
 
+    def _create_shadow_context_file(self, project_path: str, memory_path: str):
+        """Создаёт ledgermind_context.md с инструкцией для AI-агентов."""
+        shadow_file = os.path.join(project_path, "ledgermind_context.md")
+        os.makedirs(project_path, exist_ok=True)
+        if not os.path.exists(shadow_file):
+            content = f"""<!-- LEDGERMIND AUTONOMOUS CONTEXT - DO NOT EDIT MANUALLY -->
+<!-- This file is automatically updated by LedgerMind VS Code extension -->
+<!-- AI agents should read this file at the start of every task -->
+
+# LedgerMind Context
+
+This file contains relevant context for the current task.
+It is updated automatically based on your previous interactions.
+
+Memory path: `{memory_path}`
+
+---
+
+*No context available yet. Start by exploring the project structure.*
+"""
+            with open(shadow_file, "w", encoding="utf-8") as f:
+                f.write(content)
+            print(f"  → Created shadow context file: {shadow_file}")
+
     def _inject_custom_instructions(self, path: str):
         instructions = "Always check for the existence of 'ledgermind_context.md' in the project root. If it exists, read it at the beginning of every task to synchronize with the autonomous memory and previous decisions."
-        
+
         data = {}
         if os.path.exists(path):
             try:
                 with open(path, "r") as f: data = json.load(f)
-            except Exception: 
+            except Exception:
                 data = {}
 
-        # Добавляем или обновляем инструкцию
         if "global" not in data: data["global"] = ""
         if instructions not in data["global"]:
             data["global"] = (data["global"] + "\n\n" + instructions).strip()
-            
+
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
         print(f"  → Injected Hardcore Memory Policy into Custom Instructions.")
+
+    def _inject_roo_chat_instructions(self, path: str):
+        """Добавляет инструкцию для Roo Code читать shadow file И использовать хуки."""
+        instructions = (
+            "## LEDGERMIND INTEGRATION\n"
+            "1. ALWAYS read 'ledgermind_context.md' at the start of every task.\n"
+            "2. This file contains context from previous interactions stored in LedgerMind memory.\n"
+            "3. Your interactions are automatically recorded via LedgerMind hooks.\n"
+        )
+
+        data = {}
+        if os.path.exists(path):
+            try:
+                with open(path, "r") as f:
+                    data = json.load(f)
+            except Exception:
+                data = {}
+
+        if "global" not in data:
+            data["global"] = ""
+        if instructions not in data["global"]:
+            data["global"] = (data["global"] + "\n\n" + instructions).strip()
+
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(data, f, indent=2)
+        print(f"  → Injected LedgerMind Chat Hooks into Roo Code Custom Instructions.")
 
     def _inject_mcp_config(self, config_path: str, memory_path: str, ext_name: str):
         config_dir = os.path.dirname(config_path)
@@ -616,6 +687,119 @@ class VSCodeInstaller(BaseInstaller):
         with open(config_path, "w") as f:
             json.dump(config, f, indent=2)
         print(f"  → Injected LedgerMind MCP into {ext_name} settings.")
+
+    def _configure_qwen_code_hooks(self, project_path: str, memory_path: str):
+        """
+        Настраивает hooks для Qwen Code CLI (если используется как CLI).
+        Для Qwen Code extension в VS Code — работает через VS Code Chat API.
+        """
+        try:
+            qwen_settings_paths = [
+                os.path.join(self.home_dir, ".qwen", "settings.json"),
+                os.path.join(project_path, ".qwen", "settings.json"),
+            ]
+
+            for settings_path in qwen_settings_paths:
+                if not os.path.exists(os.path.dirname(settings_path)):
+                    continue
+
+                config = {}
+                if os.path.exists(settings_path):
+                    try:
+                        with open(settings_path, "r") as f:
+                            config = json.load(f)
+                    except json.JSONDecodeError:
+                        config = {}
+
+                if "hooks" not in config:
+                    config["hooks"] = {}
+
+                config["hooks"]["BeforeAgent"] = [
+                    {
+                        "matcher": "*",
+                        "hooks": [
+                            {
+                                "name": "ledgermind-context",
+                                "type": "command",
+                                "command": f"ledgermind-mcp bridge-context --path {memory_path} --prompt \"{{prompt}}\" --cli vscode-chat"
+                            }
+                        ]
+                    }
+                ]
+
+                config["hooks"]["AfterAgent"] = [
+                    {
+                        "matcher": "*",
+                        "hooks": [
+                            {
+                                "name": "ledgermind-record",
+                                "type": "command",
+                                "command": f"ledgermind-mcp bridge-record --path {memory_path} --prompt \"{{prompt}}\" --response \"{{response}}\" --cli vscode-chat"
+                            }
+                        ]
+                    }
+                ]
+
+                os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+                with open(settings_path, "w") as f:
+                    json.dump(config, f, indent=2)
+
+                print(f"  → Configured Qwen Code CLI hooks in: {settings_path}")
+
+        except Exception as e:
+            print(f"  ! Failed to configure Qwen Code hooks: {e}")
+
+    def _setup_vs_code_agent_hooks(self, project_path: str, memory_path: str):
+        """
+        Настраивает VS Code Agent Hooks в проекте (.github/hooks/ledgermind.json).
+        VS Code автоматически подхватывает *.json из .github/hooks/ при запуске агента.
+        """
+        hooks_dir = os.path.join(project_path, ".github", "hooks")
+        os.makedirs(hooks_dir, exist_ok=True)
+
+        before_script = os.path.join(hooks_dir, "ledgermind_before.sh")
+        stop_script = os.path.join(hooks_dir, "ledgermind_stop.sh")
+
+        # Создаём скрипты
+        self._create_hook_script(before_script, f"""#!/bin/bash
+# LedgerMind UserPromptSubmit Hook (VS Code Agent)
+if [ "$LEDGERMIND_BYPASS_HOOKS" = "1" ]; then exit 0; fi
+export PYTHONPATH="{project_path}/src":$PYTHONPATH
+cat | ledgermind-mcp bridge-context --path "{memory_path}" --prompt "-" --cli vscode-agent --stdin
+""")
+
+        self._create_hook_script(stop_script, f"""#!/bin/bash
+# LedgerMind Stop Hook (VS Code Agent)
+if [ "$LEDGERMIND_BYPASS_HOOKS" = "1" ]; then exit 0; fi
+export PYTHONPATH="{project_path}/src":$PYTHONPATH
+cat | ledgermind-mcp bridge-sync --path "{memory_path}" --cli vscode-agent --stdin
+""")
+
+        # Создаём JSON с хуками
+        hooks_config = {
+            "hooks": {
+                "UserPromptSubmit": [
+                    {
+                        "type": "command",
+                        "command": os.path.abspath(before_script),
+                        "timeout": 15
+                    }
+                ],
+                "Stop": [
+                    {
+                        "type": "command",
+                        "command": os.path.abspath(stop_script),
+                        "timeout": 30
+                    }
+                ]
+            }
+        }
+
+        hooks_file = os.path.join(hooks_dir, "ledgermind.json")
+        with open(hooks_file, "w") as f:
+            json.dump(hooks_config, f, indent=2)
+
+        print(f"  → Created VS Code Agent hooks in {hooks_file}")
 
 
 def install_client(client_name: str, project_path: str, memory_path: str = None, **kwargs):

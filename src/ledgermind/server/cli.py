@@ -14,7 +14,8 @@ from ledgermind.core.utils.api_keys import get_api_key
 
 from rich.console import Console
 
-global_console = Console()
+# Redirect all CLI info/errors to stderr so we don't corrupt stdout for bridge hooks
+global_console = Console(stderr=True)
 
 
 def export_schemas():
@@ -107,7 +108,13 @@ def init_project(path: str):
     )
     client = questionary.select(
         "Which client do you use?",
-        choices=["cursor", "claude", "gemini", "vscode", "none"],
+        choices=[
+            questionary.Choice(title="cursor - Cursor AI Editor", value="cursor"),
+            questionary.Choice(title="claude - Claude Code CLI", value="claude"),
+            questionary.Choice(title="gemini - Gemini CLI / Qwen Code CLI", value="gemini"),
+            questionary.Choice(title="vscode - VS Code (extension + hooks for AI chats)", value="vscode"),
+            questionary.Choice(title="none - No client hooks", value="none"),
+        ],
         default="none",
     ).ask()
     if client is None:

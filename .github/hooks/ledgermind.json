@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "/home/stanislav/\u041f\u0440\u043e\u0435\u043a\u0442\u044b/ledgermind/.github/hooks/ledgermind_before.sh",
+        "timeout": 15
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "/home/stanislav/\u041f\u0440\u043e\u0435\u043a\u0442\u044b/ledgermind/.github/hooks/ledgermind_stop.sh",
+        "timeout": 30
+      }
+    ]
+  }
+}
