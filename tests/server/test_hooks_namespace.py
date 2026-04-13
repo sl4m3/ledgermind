@@ -100,7 +100,7 @@ class TestHooksNamespace:
         memory_path = str(tmp_path / "memory")
         os.makedirs(project_path)
 
-        installer = GeminiInstaller()
+        installer = GeminiInstaller(config_mode="project")
         installer.install(project_path, memory_path=memory_path)
 
         hook_path = os.path.join(project_path, ".gemini", "hooks", "ledgermind_hook.py")
@@ -137,8 +137,8 @@ class TestHooksNamespace:
         project_path = str(tmp_path / "project")
         memory_path = str(tmp_path / "memory")
         os.makedirs(project_path)
-        
-        installer = GeminiInstaller()
+
+        installer = GeminiInstaller(config_mode="project")
         result = installer.install_mcp_server(project_path, memory_path, client="gemini")
         
         # Check settings file was created with --client flag
