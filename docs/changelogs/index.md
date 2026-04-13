@@ -4,6 +4,13 @@ All notable changes to the LedgerMind project since version 2.0.0.
 
 ---
 
+## [v3.3.6] - 2026-04-12
+
+- **Performance Optimization:** Eliminated critical N+1 query bottlenecks across enrichment, search, and metadata subsystems.
+- **SQLite Batch Operations:** Chunked queries with json_each optimization and input deduplication for faster database operations.
+- **Security Hardening:** Fixed multiple CRITICAL, HIGH, and MEDIUM severity subprocess vulnerabilities and added missing authentication.
+- **CLI Enhancements:** Rich console formatting, clickable status bar, and output channel replacing error popups.
+
 ## [v3.3.5] - 2026-03-17
 
 - **Google AI Studio:** Native integration with model validation and API key discovery.
