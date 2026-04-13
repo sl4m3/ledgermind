@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776082807661,
+  "lastUpdate": 1776115556016,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2250,6 +2250,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010648435054428088",
             "extra": "mean: 996.5645999955087 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "e224c4a6078473bcf6b3aa46301b70a3117177f5",
+          "message": "feat(vscode): implement dual-hook mechanism and enhanced agent integration",
+          "timestamp": "2026-04-13T16:22:11-05:00",
+          "tree_id": "47acfb7b16f65034dd14efc558f6eea8c4887c1b",
+          "url": "https://github.com/sl4m3/ledgermind/commit/e224c4a6078473bcf6b3aa46301b70a3117177f5"
+        },
+        "date": 1776115555043,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 96.27273186931008,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008278916365401784",
+            "extra": "mean: 10.387157200000274 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 12566.097672559332,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012520795807859967",
+            "extra": "mean: 79.57920000762897 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1080.071768608986,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009244501958176969",
+            "extra": "mean: 925.8643999999094 usec\nrounds: 5"
           }
         ]
       }
