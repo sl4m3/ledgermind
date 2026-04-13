@@ -13,143 +13,196 @@ from ledgermind.core.utils.api_keys import get_api_key
 
 
 from rich.console import Console
+
 global_console = Console()
+
 
 def export_schemas():
     """Outputs the formal industrial-grade API specification."""
     from ledgermind.server.specification import MCPApiSpecification
+
     spec = MCPApiSpecification.generate_full_spec()
     print(json.dumps(spec, indent=2))
 
+
 from ledgermind.core.utils.gemini_config import GeminiConfigManager
+
 
 def init_project(path: str):
     """Interactive initialization of Ledgermind."""
 
     from rich.panel import Panel
     from ledgermind.core.api.memory import Memory
-    from ledgermind.server.installers import install_client, ClaudeInstaller, GeminiInstaller
+    from ledgermind.server.installers import (
+        install_client,
+        ClaudeInstaller,
+        GeminiInstaller,
+    )
 
-
-    global_console.print(Panel("[bold cyan]Welcome to LedgerMind Setup[/bold cyan]", expand=False))
+    global_console.print(
+        Panel("[bold cyan]Welcome to LedgerMind Setup[/bold cyan]", expand=False)
+    )
 
     # 1. Project Path
     global_console.print("\n[bold yellow]Step 1: Project Location[/bold yellow]")
-    global_console.print("Where is the codebase for this agent? (Hooks will be installed here)")
+    global_console.print(
+        "Where is the codebase for this agent? (Hooks will be installed here)"
+    )
     project_path = questionary.text("Project Path:", default=os.getcwd()).ask()
-    if project_path is None: return
+    if project_path is None:
+        return
     project_path = os.path.abspath(project_path)
 
     # 2. Memory Path
     global_console.print("\n[bold yellow]Step 2: Knowledge Core Location[/bold yellow]")
     global_console.print("Where should the memory database be stored?")
-    global_console.print("We recommend placing it outside the project root (e.g., ../.ledgermind)")
+    global_console.print(
+        "We recommend placing it outside the project root (e.g., ../.ledgermind)"
+    )
     default_mem_path = os.path.abspath(os.path.join(project_path, "..", ".ledgermind"))
     custom_path = questionary.text("Memory Path:", default=default_mem_path).ask()
-    if custom_path is None: return
-    
+    if custom_path is None:
+        return
+
     # 3. Embedder
     global_console.print("\n[bold yellow]Step 3: Embedding Model[/bold yellow]")
-    global_console.print("LedgerMind uses a vector engine to semantically search your memory.")
-    global_console.print("By default, we recommend the lightweight Jina v5 4-bit model (~60MB).")
+    global_console.print(
+        "LedgerMind uses a vector engine to semantically search your memory."
+    )
+    global_console.print(
+        "By default, we recommend the lightweight Jina v5 4-bit model (~60MB)."
+    )
     embedder = questionary.select(
-        "Choose embedder:",
-        choices=["jina-v5-4bit", "custom"],
-        default="jina-v5-4bit"
+        "Choose embedder:", choices=["jina-v5-4bit", "custom"], default="jina-v5-4bit"
     ).ask()
-    if embedder is None: return
-    
+    if embedder is None:
+        return
+
     model_name = "v5-small-text-matching-Q4_K_M.gguf"
     custom_url = None
-    
+
     if embedder == "custom":
-        global_console.print("You can provide a direct URL to a .gguf file to download it now,")
-        global_console.print("OR provide an absolute path to an already downloaded .gguf file.")
+        global_console.print(
+            "You can provide a direct URL to a .gguf file to download it now,"
+        )
+        global_console.print(
+            "OR provide an absolute path to an already downloaded .gguf file."
+        )
         user_input = questionary.text("Enter URL or absolute path:").ask()
-        if user_input is None: return
-        
+        if user_input is None:
+            return
+
         if user_input.startswith("http://") or user_input.startswith("https://"):
             custom_url = user_input
             model_name = os.path.basename(custom_url.split("?")[0])
             if not model_name.endswith(".gguf"):
                 model_name += ".gguf"
         else:
-            model_name = user_input # Treat as absolute path or standard HF name
+            model_name = user_input  # Treat as absolute path or standard HF name
 
     # 4. Client
     global_console.print("\n[bold yellow]Step 4: Client Hooks[/bold yellow]")
-    global_console.print(f"We can install hooks to seamlessly capture context for your preferred client in {project_path}.")
+    global_console.print(
+        f"We can install hooks to seamlessly capture context for your preferred client in {project_path}."
+    )
     client = questionary.select(
         "Which client do you use?",
         choices=["cursor", "claude", "gemini", "vscode", "none"],
-        default="none"
+        default="none",
     ).ask()
-    if client is None: return
+    if client is None:
+        return
 
     # 4.5. Enrichment Provider (NEW)
     global_console.print("\n[bold yellow]Step 4.5: Enrichment Provider[/bold yellow]")
     global_console.print("Which LLM provider should LedgerMind use for enrichment?")
-    global_console.print("  [bold]cli[/bold]       - Use Gemini/Claude CLI (existing behavior)")
-    global_console.print("  [bold]openrouter[/bold] - Use OpenRouter API (100+ models, pay-per-use)")
-    global_console.print("  [bold]aistudio[/bold] - Use Google AI Studio API (Gemini models)")
+    global_console.print(
+        "  [bold]cli[/bold]       - Use Gemini/Claude CLI (existing behavior)"
+    )
+    global_console.print(
+        "  [bold]openrouter[/bold] - Use OpenRouter API (100+ models, pay-per-use)"
+    )
+    global_console.print(
+        "  [bold]aistudio[/bold] - Use Google AI Studio API (Gemini models)"
+    )
     provider = questionary.select(
-        "Select provider:",
-        choices=["cli", "openrouter", "aistudio"],
-        default="cli"
+        "Select provider:", choices=["cli", "openrouter", "aistudio"], default="cli"
     ).ask()
-    if provider is None: return
+    if provider is None:
+        return
 
     # 5. Enrichment Mode
     global_console.print("\n[bold yellow]Step 5: Enrichment Mode[/bold yellow]")
-    global_console.print("How should LedgerMind resolve memory conflicts and summarize knowledge?")
-    global_console.print("  [bold]optimal[/bold] - Local LLM via Ollama/DeepSeek (Private, medium speed)")
-    global_console.print("  [bold]rich[/bold]    - Cloud LLM via client (Highest quality, uses API)")
+    global_console.print(
+        "How should LedgerMind resolve memory conflicts and summarize knowledge?"
+    )
+    global_console.print(
+        "  [bold]optimal[/bold] - Local LLM via Ollama/DeepSeek (Private, medium speed)"
+    )
+    global_console.print(
+        "  [bold]rich[/bold]    - Cloud LLM via client (Highest quality, uses API)"
+    )
     mode = questionary.select(
-        "Select mode:",
-        choices=["optimal", "rich"],
-        default="optimal"
+        "Select mode:", choices=["optimal", "rich"], default="optimal"
     ).ask()
-    if mode is None: return
+    if mode is None:
+        return
 
     # 6. Language Preference
     global_console.print("\n[bold yellow]Step 6: Language Preference[/bold yellow]")
-    global_console.print("Enter preferred language for records (e.g., 'russian', 'english', 'german'):")
-    language = questionary.text(
-        "Preferred language:",
-        default="russian"
-    ).ask()
-    if language is None: return
+    global_console.print(
+        "Enter preferred language for records (e.g., 'russian', 'english', 'german'):"
+    )
+    language = questionary.text("Preferred language:", default="russian").ask()
+    if language is None:
+        return
     language = language.strip().lower()
 
     # 7. OpenRouter Specific Setup
     openrouter_api_key = None
 
     if provider == "openrouter":
-        global_console.print("\n[bold yellow]Step 7: OpenRouter Configuration[/bold yellow]")
-        
+        global_console.print(
+            "\n[bold yellow]Step 7: OpenRouter Configuration[/bold yellow]"
+        )
+
         # Check if API key is available in env or config files
         env_api_key, key_source = get_api_key("OPENROUTER_API_KEY", search_configs=True)
-        
+
         if key_source == "env":
-            global_console.print("[green]✓ Found OPENROUTER_API_KEY in environment variables.[/green]")
+            global_console.print(
+                "[green]✓ Found OPENROUTER_API_KEY in environment variables.[/green]"
+            )
             openrouter_api_key = env_api_key
         elif key_source == "config":
-            global_console.print("[green]✓ Found OPENROUTER_API_KEY in shell configuration file.[/green]")
-            global_console.print("  Tip: Run 'source ~/.bashrc' to load it into current session.")
+            global_console.print(
+                "[green]✓ Found OPENROUTER_API_KEY in shell configuration file.[/green]"
+            )
+            global_console.print(
+                "  Tip: Run 'source ~/.bashrc' to load it into current session."
+            )
             openrouter_api_key = env_api_key
         else:
-            global_console.print("[bold red]✗ OPENROUTER_API_KEY is not set.[/bold red]")
+            global_console.print(
+                "[bold red]✗ OPENROUTER_API_KEY is not set.[/bold red]"
+            )
             global_console.print("\nTo set it, run one of these commands:")
-            global_console.print("  [cyan]export OPENROUTER_API_KEY=sk-or-v1-xxxxx[/cyan]")
-            global_console.print("\nGet your API key from: [underline]https://openrouter.ai/keys[/underline]")
-            global_console.print("\n[bold yellow]Waiting for you to set the API key...[/bold yellow]")
+            global_console.print(
+                "  [cyan]export OPENROUTER_API_KEY=sk-or-v1-xxxxx[/cyan]"
+            )
+            global_console.print(
+                "\nGet your API key from: [underline]https://openrouter.ai/keys[/underline]"
+            )
+            global_console.print(
+                "\n[bold yellow]Waiting for you to set the API key...[/bold yellow]"
+            )
 
             # Give user a chance to export and retry
             retry_count = 0
             while retry_count < 3:
                 retry = questionary.confirm(
                     f"Have you exported OPENROUTER_API_KEY? (Attempt {retry_count + 1}/3)",
-                    default=False
+                    default=False,
                 ).ask()
 
                 if retry is None:
@@ -157,22 +210,34 @@ def init_project(path: str):
 
                 if retry:
                     # Re-check environment and config files
-                    env_api_key, key_source = get_api_key("OPENROUTER_API_KEY", search_configs=True)
+                    env_api_key, key_source = get_api_key(
+                        "OPENROUTER_API_KEY", search_configs=True
+                    )
                     if env_api_key:
                         openrouter_api_key = env_api_key
                         if key_source == "env":
-                            global_console.print(f"[green]✓ OPENROUTER_API_KEY found in environment![/green]")
+                            global_console.print(
+                                f"[green]✓ OPENROUTER_API_KEY found in environment![/green]"
+                            )
                         else:
-                            global_console.print(f"[green]✓ OPENROUTER_API_KEY found in config file![/green]")
+                            global_console.print(
+                                f"[green]✓ OPENROUTER_API_KEY found in config file![/green]"
+                            )
                         break
                     else:
-                        global_console.print("[yellow]! Still not found. Please export the variable and try again.[/yellow]")
+                        global_console.print(
+                            "[yellow]! Still not found. Please export the variable and try again.[/yellow]"
+                        )
 
                 retry_count += 1
 
             if not openrouter_api_key:
-                global_console.print("\n[bold red]✗ OpenRouter setup cancelled. API key required.[/bold red]")
-                global_console.print("You can re-run 'ledgermind init' after setting OPENROUTER_API_KEY")
+                global_console.print(
+                    "\n[bold red]✗ OpenRouter setup cancelled. API key required.[/bold red]"
+                )
+                global_console.print(
+                    "You can re-run 'ledgermind init' after setting OPENROUTER_API_KEY"
+                )
                 return
 
     # 8. Gemini Specific Setup (only for CLI provider)
@@ -180,114 +245,158 @@ def init_project(path: str):
     gemini_config_mode = "global"
 
     if provider == "cli" and client == "gemini":
-        global_console.print("\n[bold yellow]Step 8: Gemini Configuration[/bold yellow]")
+        global_console.print(
+            "\n[bold yellow]Step 8: Gemini Configuration[/bold yellow]"
+        )
         gemini_binary = GeminiConfigManager.discover_binary()
         if gemini_binary:
-            global_console.print(f"[green]✓ Found gemini binary at: {gemini_binary}[/green]")
+            global_console.print(
+                f"[green]✓ Found gemini binary at: {gemini_binary}[/green]"
+            )
         else:
-            global_console.print("[yellow]! Gemini binary not found in standard paths. Falling back to 'gemini' in PATH.[/yellow]")
+            global_console.print(
+                "[yellow]! Gemini binary not found in standard paths. Falling back to 'gemini' in PATH.[/yellow]"
+            )
             gemini_binary = "gemini"
 
         gemini_config_mode = questionary.select(
             "Select Gemini configuration mode:",
             choices=[
-                questionary.Choice(title="Global (~/.gemini/settings.json) - simple setup", value="global"),
-                questionary.Choice(title="Project (.gemini/settings.json) - isolate this agent", value="project")
+                questionary.Choice(
+                    title="Global (~/.gemini/settings.json) - simple setup",
+                    value="global",
+                ),
+                questionary.Choice(
+                    title="Project (.gemini/settings.json) - isolate this agent",
+                    value="project",
+                ),
             ],
-            default="global"
+            default="global",
         ).ask()
-        if gemini_config_mode is None: return
+        if gemini_config_mode is None:
+            return
 
-        config_path = GeminiConfigManager.get_config_path(mode=gemini_config_mode, project_path=project_path)
+        config_path = GeminiConfigManager.get_config_path(
+            mode=gemini_config_mode, project_path=project_path
+        )
         GeminiConfigManager.ensure_config_exists(config_path)
-        global_console.print(f"[green]✓ Gemini config ensured at: {config_path}[/green]")
+        global_console.print(
+            f"[green]✓ Gemini config ensured at: {config_path}[/green]"
+        )
 
     enrichment_model = None
 
     # Model selection for OpenRouter provider
     if provider == "openrouter" and mode == "rich":
-        global_console.print(f"\n[bold yellow]Step 7.5: OpenRouter Model Selection[/bold yellow]")
-        global_console.print("Choose a model from OpenRouter (https://openrouter.ai/models):")
-        global_console.print("Popular options: stepfun/step-3.5-flash:free, minimax/minimax-m2.5:free")
+        global_console.print(
+            f"\n[bold yellow]Step 7.5: OpenRouter Model Selection[/bold yellow]"
+        )
+        global_console.print(
+            "Choose a model from OpenRouter (https://openrouter.ai/models):"
+        )
+        global_console.print(
+            "Popular options: stepfun/step-3.5-flash:free, minimax/minimax-m2.5:free"
+        )
 
         while True:
-            enrichment_model = questionary.text(
-                "Model Name:",
-                default=""
-            ).ask()
+            enrichment_model = questionary.text("Model Name:", default="").ask()
 
-            if enrichment_model is None: break
+            if enrichment_model is None:
+                break
             if not enrichment_model.strip():
                 enrichment_model = "openrouter/free"
                 break
 
             # Basic validation
             if "/" not in enrichment_model:
-                global_console.print("[yellow]! Model name should be in format 'provider/model-name' (e.g., 'openai/gpt-4')[/yellow]")
+                global_console.print(
+                    "[yellow]! Model name should be in format 'provider/model-name' (e.g., 'openai/gpt-4')[/yellow]"
+                )
                 retry = questionary.confirm("Continue anyway?").ask()
                 if retry is None or not retry:
                     continue
 
             # Test model availability via API call
-            global_console.print(f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via OpenRouter API...")
+            global_console.print(
+                f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via OpenRouter API..."
+            )
             try:
                 import httpx
-                
+
                 # Simple test: make a minimal completion request
                 test_payload = {
                     "model": enrichment_model,
-                    "messages": [{"role": "user", "content": "Hi, respond with 'OK' if you can hear me."}],
-                    "max_tokens": 10
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": "Hi, respond with 'OK' if you can hear me.",
+                        }
+                    ],
+                    "max_tokens": 10,
                 }
-                
+
                 response = httpx.post(
                     "https://openrouter.ai/api/v1/chat/completions",
                     headers={
                         "Authorization": f"Bearer {openrouter_api_key}",
                         "Content-Type": "application/json",
                         "HTTP-Referer": "https://github.com/sl4m3/ledgermind",
-                        "X-Title": "LedgerMind Setup"
+                        "X-Title": "LedgerMind Setup",
                     },
                     json=test_payload,
-                    timeout=60
+                    timeout=60,
                 )
-                
+
                 if response.status_code == 200:
                     result = response.json()
                     if result.get("choices") and len(result["choices"]) > 0:
-                        global_console.print(f"[green]✓ Model {enrichment_model} is available and responsive.[/green]")
+                        global_console.print(
+                            f"[green]✓ Model {enrichment_model} is available and responsive.[/green]"
+                        )
                         break
                     else:
-                        global_console.print(f"[yellow]! Model returned empty response.[/yellow]")
+                        global_console.print(
+                            f"[yellow]! Model returned empty response.[/yellow]"
+                        )
                 elif response.status_code == 401:
-                    global_console.print(f"[bold red]✗ Authentication failed. Check your OPENROUTER_API_KEY.[/bold red]")
+                    global_console.print(
+                        f"[bold red]✗ Authentication failed. Check your OPENROUTER_API_KEY.[/bold red]"
+                    )
                     retry = questionary.confirm("Try another model name?").ask()
                     if not retry:
                         enrichment_model = None
                         break
                 elif response.status_code == 404:
-                    global_console.print(f"[bold red]✗ Model {enrichment_model} not found on OpenRouter.[/bold red]")
+                    global_console.print(
+                        f"[bold red]✗ Model {enrichment_model} not found on OpenRouter.[/bold red]"
+                    )
                     retry = questionary.confirm("Try another model name?").ask()
                     if not retry:
                         enrichment_model = None
                         break
                 else:
-                    global_console.print(f"[bold red]✗ API returned status {response.status_code}[/bold red]")
+                    global_console.print(
+                        f"[bold red]✗ API returned status {response.status_code}[/bold red]"
+                    )
                     if response.text:
                         global_console.print(f"[red]Error: {response.text[:200]}[/red]")
                     retry = questionary.confirm("Try another model name?").ask()
                     if not retry:
                         enrichment_model = None
                         break
-                        
+
             except httpx.TimeoutException:
-                global_console.print(f"[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]")
+                global_console.print(
+                    f"[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]"
+                )
                 retry = questionary.confirm("Try another model name?").ask()
                 if not retry:
                     enrichment_model = None
                     break
             except Exception as e:
-                global_console.print(f"[bold red]✗ Error during validation: {e}[/bold red]")
+                global_console.print(
+                    f"[bold red]✗ Error during validation: {e}[/bold red]"
+                )
                 retry = questionary.confirm("Try another model name?").ask()
                 if not retry:
                     enrichment_model = None
@@ -295,67 +404,92 @@ def init_project(path: str):
 
     # Model selection for CLI provider
     if mode == "rich" and provider == "cli" and client in ["gemini", "claude"]:
-        global_console.print(f"\n[bold yellow]Step 5b: Specific Model for {client.capitalize()}[/bold yellow]")
-        global_console.print("You can specify a model name to override the default client model.")
+        global_console.print(
+            f"\n[bold yellow]Step 5b: Specific Model for {client.capitalize()}[/bold yellow]"
+        )
+        global_console.print(
+            "You can specify a model name to override the default client model."
+        )
         if client == "claude":
             global_console.print("Examples: claude-sonnet-4-6, claude-haiku-4-5")
         else:
             global_console.print("Examples: gemini-2.5-flash-lite, gemini-2.0-flash")
-        
+
         while True:
             enrichment_model = questionary.text(
-                "Model Name (leave empty for default):",
-                default=""
+                "Model Name (leave empty for default):", default=""
             ).ask()
-            
-            if enrichment_model is None: break
+
+            if enrichment_model is None:
+                break
             if not enrichment_model.strip():
                 enrichment_model = None
                 break
-            
+
             # Validation
-            global_console.print(f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via {client}...")
+            global_console.print(
+                f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via {client}..."
+            )
             try:
                 import subprocess
                 import shutil
+
                 test_prompt = "Hi, respond with 'OK' if you can hear me."
                 if client == "gemini":
                     gemini_path = shutil.which("gemini")
                     if not gemini_path:
                         raise FileNotFoundError("gemini CLI not found")
-                    cmd = [gemini_path, "--model", enrichment_model, "--prompt", test_prompt]
-                else: # claude
+                    cmd = [
+                        gemini_path,
+                        "--model",
+                        enrichment_model,
+                        "--prompt",
+                        test_prompt,
+                    ]
+                else:  # claude
                     claude_path = shutil.which("claude")
                     if not claude_path:
                         raise FileNotFoundError("claude CLI not found")
                     # V7.10: Use flags to disable tools, MCP, session persistence, and slash commands
                     cmd = [
                         claude_path,
-                        "--model", enrichment_model,
+                        "--model",
+                        enrichment_model,
                         "-p",  # Print response and exit (non-interactive mode)
-                        "--tools", "",  # Disable tool calls
-                        "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',  # Disable MCP connections
+                        "--tools",
+                        "",  # Disable tool calls
+                        "--strict-mcp-config",
+                        "--mcp-config",
+                        '{"mcpServers":{}}',  # Disable MCP connections
                         "--no-session-persistence",  # Don't save to memory
                         "--disable-slash-commands",  # Disable slash commands
-                        test_prompt
+                        test_prompt,
                     ]
 
                 # We use a longer timeout for validation because APIs can be slow
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60) # nosec B603
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)  # nosec B603
                 if result.returncode == 0:
-                    global_console.print(f"[green]✓ Model {enrichment_model} is available and responsive.[/green]")
+                    global_console.print(
+                        f"[green]✓ Model {enrichment_model} is available and responsive.[/green]"
+                    )
                     break
                 else:
-                    global_console.print(f"[bold red]✗ Model validation failed.[/bold red]")
+                    global_console.print(
+                        f"[bold red]✗ Model validation failed.[/bold red]"
+                    )
                     if result.stderr:
-                        global_console.print(f"[red]Error: {result.stderr.strip()}[/red]")
-                    
+                        global_console.print(
+                            f"[red]Error: {result.stderr.strip()}[/red]"
+                        )
+
                     retry = questionary.confirm("Try another model name?").ask()
                     if not retry:
                         enrichment_model = None
                         break
             except Exception as e:
-                global_console.print(f"[bold red]✗ Error during validation:[/bold red] {e}")
+                global_console.print(
+                    f"[bold red]✗ Error during validation:[/bold red] {e}"
+                )
                 retry = questionary.confirm("Try another model name?").ask()
                 if not retry:
                     enrichment_model = None
@@ -363,100 +497,119 @@ def init_project(path: str):
 
     # Model selection for AI Studio provider
     if provider == "aistudio":
-        global_console.print(f"\n[bold yellow]Step 6: Google AI Studio Configuration[/bold yellow]")
-        
+        global_console.print(
+            f"\n[bold yellow]Step 6: Google AI Studio Configuration[/bold yellow]"
+        )
+
         # First check if API key is available in env or config files
         api_key, key_source = get_api_key("GOOGLE_API_KEY", search_configs=True)
-        
+
         if key_source == "env":
-            global_console.print("[green]✓ Found GOOGLE_API_KEY in environment variables.[/green]")
+            global_console.print(
+                "[green]✓ Found GOOGLE_API_KEY in environment variables.[/green]"
+            )
         elif key_source == "config":
-            global_console.print("[green]✓ Found GOOGLE_API_KEY in shell configuration file.[/green]")
-            global_console.print("  Tip: Run 'source ~/.bashrc' to load it into current session.")
+            global_console.print(
+                "[green]✓ Found GOOGLE_API_KEY in shell configuration file.[/green]"
+            )
+            global_console.print(
+                "  Tip: Run 'source ~/.bashrc' to load it into current session."
+            )
         else:
-            global_console.print("[bold yellow]Enter your Google AI Studio API key:[/bold yellow]")
+            global_console.print(
+                "[bold yellow]Enter your Google AI Studio API key:[/bold yellow]"
+            )
             global_console.print("Get it from: https://aistudio.google.com/app/apikey")
-            api_key = questionary.text(
-                "API Key:",
-                default=""
-            ).ask()
-        
+            api_key = questionary.text("API Key:", default="").ask()
+
         if not api_key:
-            global_console.print("[bold red]✗ API key is required for AI Studio.[/bold red]")
-            global_console.print("You can re-run 'ledgermind init' after setting GOOGLE_API_KEY")
+            global_console.print(
+                "[bold red]✗ API key is required for AI Studio.[/bold red]"
+            )
+            global_console.print(
+                "You can re-run 'ledgermind init' after setting GOOGLE_API_KEY"
+            )
             return
-        
+
         # Save API key to environment for validation
         os.environ["GOOGLE_API_KEY"] = api_key
-        
+
         # Model selection with validation
         while True:
             aistudio_model = questionary.text(
-                "Model Name (for example gemma-3-27b-it):",
-                default=""
+                "Model Name (for example gemma-3-27b-it):", default=""
             ).ask()
-            
+
             if aistudio_model is None:
                 enrichment_model = None
                 break
-            
+
             # Validate model with test request
-            global_console.print(f"Validating model [bold cyan]{aistudio_model}[/bold cyan] via Google AI Studio...")
+            global_console.print(
+                f"Validating model [bold cyan]{aistudio_model}[/bold cyan] via Google AI Studio..."
+            )
             try:
                 import requests
-                
+
                 api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{aistudio_model}:generateContent"
                 test_body = {
-                    "contents": [
-                        {
-                            "role": "user",
-                            "parts": [{"text": "Say OK"}]
-                        }
-                    ],
+                    "contents": [{"role": "user", "parts": [{"text": "Say OK"}]}],
                     "generationConfig": {
                         "temperature": 0.1,
                         "maxOutputTokens": 10,
-                    }
+                    },
                 }
-                
+
                 response = requests.post(
-                    api_url,
-                    params={"key": api_key},
-                    json=test_body,
-                    timeout=30
+                    api_url, params={"key": api_key}, json=test_body, timeout=30
                 )
-                
+
                 if response.status_code == 200:
                     result = response.json()
                     candidates = result.get("candidates", [])
                     if candidates and len(candidates) > 0:
-                        content = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+                        content = (
+                            candidates[0]
+                            .get("content", {})
+                            .get("parts", [{}])[0]
+                            .get("text", "")
+                        )
                         if content:
-                            global_console.print(f"[green]✓ Model {aistudio_model} is available and responsive.[/green]")
+                            global_console.print(
+                                f"[green]✓ Model {aistudio_model} is available and responsive.[/green]"
+                            )
                             enrichment_model = aistudio_model
                             break
-                
+
                 # If we get here, validation failed
                 if response.status_code != 200:
-                    global_console.print(f"[bold red]✗ API returned status {response.status_code}[/bold red]")
+                    global_console.print(
+                        f"[bold red]✗ API returned status {response.status_code}[/bold red]"
+                    )
                     if response.text:
                         global_console.print(f"[red]Error: {response.text[:200]}[/red]")
                 else:
-                    global_console.print(f"[bold red]✗ Model validation failed (empty response).[/bold red]")
-                
+                    global_console.print(
+                        f"[bold red]✗ Model validation failed (empty response).[/bold red]"
+                    )
+
                 retry = questionary.confirm("Try another model?").ask()
                 if not retry:
                     enrichment_model = None
                     break
-                    
+
             except requests.exceptions.Timeout:
-                global_console.print(f"[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]")
+                global_console.print(
+                    f"[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]"
+                )
                 retry = questionary.confirm("Try another model?").ask()
                 if not retry:
                     enrichment_model = None
                     break
             except Exception as e:
-                global_console.print(f"[bold red]✗ Error during validation: {e}[/bold red]")
+                global_console.print(
+                    f"[bold red]✗ Error during validation: {e}[/bold red]"
+                )
                 retry = questionary.confirm("Try another model?").ask()
                 if not retry:
                     enrichment_model = None
@@ -468,10 +621,16 @@ def init_project(path: str):
         if os.path.isabs(model_name):
             model_path = model_name
             if not os.path.exists(model_path):
-                 global_console.print(f"[yellow]Warning: Custom model path does not exist yet: {model_path}[/yellow]")
+                global_console.print(
+                    f"[yellow]Warning: Custom model path does not exist yet: {model_path}[/yellow]"
+                )
         else:
-            model_path = os.path.join(custom_path, "models", model_name) if model_name.endswith(".gguf") else model_name
-        
+            model_path = (
+                os.path.join(custom_path, "models", model_name)
+                if model_name.endswith(".gguf")
+                else model_name
+            )
+
         # Ensure memory directory exists first
         os.makedirs(custom_path, exist_ok=True)
         os.makedirs(os.path.join(custom_path, "models"), exist_ok=True)
@@ -480,32 +639,43 @@ def init_project(path: str):
             global_console.print(f"Downloading custom model from {custom_url}...")
             import httpx
             import time
+
             try:
                 with open(model_path, "wb") as f:
-                    with httpx.stream("GET", custom_url, follow_redirects=True, timeout=60.0) as response:
+                    with httpx.stream(
+                        "GET", custom_url, follow_redirects=True, timeout=60.0
+                    ) as response:
                         response.raise_for_status()
 
                         total = int(response.headers.get("Content-Length", 0))
                         downloaded = 0
                         last_log = time.time()
-                        for chunk in response.iter_bytes(chunk_size=1024*1024):
+                        for chunk in response.iter_bytes(chunk_size=1024 * 1024):
                             f.write(chunk)
                             downloaded += len(chunk)
                             if time.time() - last_log > 2.0:
                                 pct = (downloaded / total * 100) if total > 0 else 0
-                                global_console.print(f"  Downloading... {pct:.1f}% ({downloaded/(1024*1024):.1f}MB)")
+                                global_console.print(
+                                    f"  Downloading... {pct:.1f}% ({downloaded / (1024 * 1024):.1f}MB)"
+                                )
                                 last_log = time.time()
                 global_console.print(f"[green]✓ Downloaded to {model_path}[/green]")
             except Exception as e:
-                global_console.print(f"[bold red]✗ Failed to download custom model: {e}[/bold red]")
-                if os.path.exists(model_path): os.remove(model_path)
+                global_console.print(
+                    f"[bold red]✗ Failed to download custom model: {e}[/bold red]"
+                )
+                if os.path.exists(model_path):
+                    os.remove(model_path)
                 return
 
         if embedder == "jina-v5-4bit" or model_name.endswith(".gguf"):
             try:
                 from ledgermind.core.stores.vector import _is_llama_available
+
                 if not _is_llama_available():
-                    global_console.print("[red]Warning: llama-cpp-python is not installed. GGUF model might not work optimally until it's installed.[/red]")
+                    global_console.print(
+                        "[red]Warning: llama-cpp-python is not installed. GGUF model might not work optimally until it's installed.[/red]"
+                    )
             except ImportError:
                 pass
 
@@ -516,13 +686,17 @@ def init_project(path: str):
         memory.semantic.meta.set_config("enrichment_mode", mode)
         memory.semantic.meta.set_config("enrichment_language", language)
         memory.semantic.meta.set_config("client", client)
-        memory.semantic.meta.set_config("enrichment_provider", provider)  # V7.9: New provider setting
+        memory.semantic.meta.set_config(
+            "enrichment_provider", provider
+        )  # V7.9: New provider setting
 
         # V7.10: Save client-specific enrichment model (NO global enrichment_model to avoid duplication)
         if enrichment_model:
             if provider == "cli" and client:
                 # Save only for specific client (claude, gemini, cursor, vscode)
-                memory.semantic.meta.set_config(f"enrichment_model_{client}", enrichment_model)
+                memory.semantic.meta.set_config(
+                    f"enrichment_model_{client}", enrichment_model
+                )
             # For openrouter/aistudio, model is saved in their specific sections below
 
         if client == "gemini":
@@ -534,53 +708,87 @@ def init_project(path: str):
         if provider == "openrouter":
             memory.semantic.meta.set_config("openrouter_api_key", openrouter_api_key)
             # Note: site_url and site_name removed in v3.3.1 - use env vars if needed
-        
+
         # V7.11: Save AI Studio settings
         if provider == "aistudio":
             memory.semantic.meta.set_config("aistudio_api_key", api_key)
-            memory.semantic.meta.set_config("aistudio_model", enrichment_model or "gemma-3-27b-it")
-            global_console.print(f"[green]✓ Configured AI Studio API key and model: {enrichment_model or 'gemma-3-27b-it'}[/green]")
+            memory.semantic.meta.set_config(
+                "aistudio_model", enrichment_model or "gemma-3-27b-it"
+            )
+            global_console.print(
+                f"[green]✓ Configured AI Studio API key and model: {enrichment_model or 'gemma-3-27b-it'}[/green]"
+            )
 
-        global_console.print(f"[green]✓ Created memory structure at {custom_path}[/green]")
+        global_console.print(
+            f"[green]✓ Created memory structure at {custom_path}[/green]"
+        )
         global_console.print(f"[green]✓ Configured vector model: {model_name}[/green]")
         global_console.print(f"[green]✓ Set enrichment mode: {mode}[/green]")
         global_console.print(f"[green]✓ Set enrichment language: {language}[/green]")
         global_console.print(f"[green]✓ Set enrichment provider: {provider}[/green]")
         global_console.print(f"[green]✓ Registered client: {client}[/green]")
         if enrichment_model:
-            global_console.print(f"[green]✓ Configured enrichment model for {client}: {enrichment_model}[/green]")
+            global_console.print(
+                f"[green]✓ Configured enrichment model for {client}: {enrichment_model}[/green]"
+            )
 
         if client != "none":
-            global_console.print(f"\nInstalling hooks for {client} in {project_path}...")
+            global_console.print(
+                f"\nInstalling hooks for {client} in {project_path}..."
+            )
             try:
-                success = install_client(client, project_path, memory_path=custom_path, gemini_config_mode=gemini_config_mode)
+                success = install_client(
+                    client,
+                    project_path,
+                    memory_path=custom_path,
+                    gemini_config_mode=gemini_config_mode,
+                )
                 if success:
-                    global_console.print(f"[green]✓ Hooks installed for {client}[/green]")
+                    global_console.print(
+                        f"[green]✓ Hooks installed for {client}[/green]"
+                    )
                 else:
-                    global_console.print(f"[bold red]✗ Failed to install hooks for {client}[/bold red]")
+                    global_console.print(
+                        f"[bold red]✗ Failed to install hooks for {client}[/bold red]"
+                    )
             except Exception as e:
-                global_console.print(f"[yellow]Hook installer for '{client}' failed: {e}[/yellow]")
+                global_console.print(
+                    f"[yellow]Hook installer for '{client}' failed: {e}[/yellow]"
+                )
 
         # Install MCP server (mandatory for supported clients)
         if client in ["claude", "gemini"]:
-            global_console.print(f"\n[bold yellow]Installing MCP server for {client}...[/bold yellow]")
+            global_console.print(
+                f"\n[bold yellow]Installing MCP server for {client}...[/bold yellow]"
+            )
             try:
                 if client == "claude":
                     claude_installer = ClaudeInstaller()
-                    mcp_success = claude_installer.install_mcp_server(project_path, custom_path, client=client)
+                    mcp_success = claude_installer.install_mcp_server(
+                        project_path, custom_path, client=client
+                    )
                 elif client == "gemini":
                     gemini_installer = GeminiInstaller(config_mode=gemini_config_mode)
-                    mcp_success = gemini_installer.install_mcp_server(project_path, custom_path, client=client)
+                    mcp_success = gemini_installer.install_mcp_server(
+                        project_path, custom_path, client=client
+                    )
                 if mcp_success:
-                    global_console.print(f"[green]✓ MCP server configured for {client}[/green]")
+                    global_console.print(
+                        f"[green]✓ MCP server configured for {client}[/green]"
+                    )
                 else:
-                    global_console.print(f"[yellow]! MCP server configuration failed for {client}[/yellow]")
+                    global_console.print(
+                        f"[yellow]! MCP server configuration failed for {client}[/yellow]"
+                    )
             except Exception as e:
-                global_console.print(f"[yellow]! Error installing MCP server for {client}: {e}[/yellow]")
+                global_console.print(
+                    f"[yellow]! Error installing MCP server for {client}: {e}[/yellow]"
+                )
 
     except Exception as e:
         global_console.print(f"[bold red]✗ Error during initialization:[/bold red] {e}")
         import traceback
+
         global_console.print(traceback.format_exc())
         return
 
@@ -593,39 +801,45 @@ def check_project(path: str):
     """Runs diagnostics on an existing project."""
     from ledgermind.core.api.bridge import IntegrationBridge
 
-
-
     global_console.print(f"Running diagnostics for project at {path}...")
     try:
         bridge = IntegrationBridge(memory_path=path)
         health = bridge.check_health()
-        
-        global_console.print(f"Git Available: {'[green]✓[/green]' if health['git_available'] else '[bold red]✗[/bold red]'}")
-        global_console.print(f"Storage Writable: {'[green]✓[/green]' if health['storage_writable'] else '[bold red]✗[/bold red]'}")
-        global_console.print(f"Repo Healthy: {'[green]✓[/green]' if health['repo_healthy'] else '[bold red]✗[/bold red]'}")
-        global_console.print(f"Vector Search: {'[green]✓[/green]' if health['vector_available'] else '[yellow](!) Disabled[/yellow]'}")
-        
+
+        global_console.print(
+            f"Git Available: {'[green]✓[/green]' if health['git_available'] else '[bold red]✗[/bold red]'}"
+        )
+        global_console.print(
+            f"Storage Writable: {'[green]✓[/green]' if health['storage_writable'] else '[bold red]✗[/bold red]'}"
+        )
+        global_console.print(
+            f"Repo Healthy: {'[green]✓[/green]' if health['repo_healthy'] else '[bold red]✗[/bold red]'}"
+        )
+        global_console.print(
+            f"Vector Search: {'[green]✓[/green]' if health['vector_available'] else '[yellow](!) Disabled[/yellow]'}"
+        )
+
         if health["errors"]:
             global_console.print("\n[bold red]Errors Found:[/bold red]")
             for err in health["errors"]:
                 global_console.print(f"  [red]- {err}[/red]")
-        
+
         if health["warnings"]:
             global_console.print("\n[bold yellow]Warnings:[/bold yellow]")
             for warn in health["warnings"]:
                 global_console.print(f"  [yellow]- {warn}[/yellow]")
-                
+
         if not health["errors"]:
-             global_console.print("\n[green]✓ Environment is healthy.[/green]")
+            global_console.print("\n[green]✓ Environment is healthy.[/green]")
     except Exception as e:
         global_console.print(f"[bold red]✗ Fatal error during check: {e}[/bold red]")
+
 
 def show_stats(path: str):
     """Displays memory statistics."""
     from ledgermind.core.api.bridge import IntegrationBridge
 
     from rich.table import Table
-
 
     try:
         bridge = IntegrationBridge(memory_path=path)
@@ -635,13 +849,14 @@ def show_stats(path: str):
         table.add_column("Metric", style="cyan")
         table.add_column("Value", style="magenta")
 
-        table.add_row("Episodic Events", str(stats.get('episodic_count', 'unknown')))
-        table.add_row("Semantic Decisions", str(stats.get('semantic_count', 0)))
-        table.add_row("Vector Embeddings", str(stats.get('vector_count', 'unknown')))
+        table.add_row("Episodic Events", str(stats.get("episodic_count", "unknown")))
+        table.add_row("Semantic Decisions", str(stats.get("semantic_count", 0)))
+        table.add_row("Vector Embeddings", str(stats.get("vector_count", "unknown")))
 
         global_console.print(table)
     except Exception as e:
         global_console.print(f"[bold red]✗ Error fetching stats: {e}[/bold red]")
+
 
 def sync_transcript_history(bridge, transcript_path: str) -> set:
     """Synchronizes history from a transcript file, returning the set of newly synced user prompts."""
@@ -649,50 +864,69 @@ def sync_transcript_history(bridge, transcript_path: str) -> set:
     if not transcript_path or not os.path.exists(transcript_path):
         return synced_content_this_turn
 
-    error_console.print(f"* Syncing history from {transcript_path}...", style="cyan")
+    global_console.print(f"* Syncing history from {transcript_path}...", style="cyan")
     try:
         # Pre-fetch recent events to build a deduplication map
         recent_events = bridge.memory.episodic.query(limit=1000)
         processed_ids = set()
-        processed_signatures = set() # (norm_ts, content_prefix)
-        
+        processed_signatures = set()  # (norm_ts, content_prefix)
+
         for ev in recent_events:
             # 1. ID check
-            ctx = ev.get('context', {})
+            ctx = ev.get("context", {})
             if isinstance(ctx, str):
-                try: ctx = json.loads(ctx)
-                except: ctx = {}
-            if isinstance(ctx, dict) and 'transcript_id' in ctx:
-                processed_ids.add(ctx['transcript_id'])
-            
-            # 2. Content + Timestamp signature check
-            ts = ev.get('timestamp', '')
-            if '.' in ts: ts = ts.split('.')[0] + ts[ts.find('+') if '+' in ts else len(ts):]
-            processed_signatures.add((ts, ev.get('content', '')[:100].strip()))
+                try:
+                    ctx = json.loads(ctx)
+                except:
+                    ctx = {}
+            if isinstance(ctx, dict) and "transcript_id" in ctx:
+                processed_ids.add(ctx["transcript_id"])
 
-        with open(transcript_path, 'r', encoding='utf-8') as f:
+            # 2. Content + Timestamp signature check
+            ts = ev.get("timestamp", "")
+            if "." in ts:
+                ts = ts.split(".")[0] + ts[ts.find("+") if "+" in ts else len(ts) :]
+            processed_signatures.add((ts, ev.get("content", "")[:100].strip()))
+
+        with open(transcript_path, "r", encoding="utf-8") as f:
             sync_count = 0
             for line in f:
-                if not line.strip(): continue
-                try: entry = json.loads(line)
-                except: continue
-                
+                if not line.strip():
+                    continue
+                try:
+                    entry = json.loads(line)
+                except:
+                    continue
+
                 msg_id = entry.get("uuid") or entry.get("messageId") or entry.get("id")
-                if not msg_id: continue
-                
+                if not msg_id:
+                    continue
+
                 msg_type = entry.get("type")
                 timestamp = entry.get("timestamp")
-                norm_ts = timestamp.replace('Z', '+00:00') if timestamp else ""
-                if '.' in norm_ts: norm_ts = norm_ts.split('.')[0] + norm_ts[norm_ts.find('+') if '+' in norm_ts else len(norm_ts):]
+                norm_ts = timestamp.replace("Z", "+00:00") if timestamp else ""
+                if "." in norm_ts:
+                    norm_ts = (
+                        norm_ts.split(".")[0]
+                        + norm_ts[
+                            norm_ts.find("+") if "+" in norm_ts else len(norm_ts) :
+                        ]
+                    )
 
                 content = ""
                 kind = ""
                 source = ""
-                
+
                 if msg_type == "user":
                     raw_content = entry.get("message", {}).get("content", "")
                     if isinstance(raw_content, list):
-                        content = "\n".join([p.get("text", "") for p in raw_content if isinstance(p, dict) and p.get("type") == "text"]).strip()
+                        content = "\n".join(
+                            [
+                                p.get("text", "")
+                                for p in raw_content
+                                if isinstance(p, dict) and p.get("type") == "text"
+                            ]
+                        ).strip()
                     else:
                         content = str(raw_content).strip()
                     kind = "prompt"
@@ -701,21 +935,34 @@ def sync_transcript_history(bridge, transcript_path: str) -> set:
                     message = entry.get("message", {})
                     content_parts = message.get("content", [])
                     if isinstance(content_parts, list):
-                        texts = [p.get("text", "") for p in content_parts if isinstance(p, dict) and p.get("type") == "text"]
+                        texts = [
+                            p.get("text", "")
+                            for p in content_parts
+                            if isinstance(p, dict) and p.get("type") == "text"
+                        ]
                         content = "\n".join(texts).strip()
                         kind = "result"
                         source = "agent"
-                        
+
                         for idx, p in enumerate(content_parts):
                             if isinstance(p, dict) and p.get("type") == "tool_use":
                                 tool_name = p.get("name")
-                                tool_input = json.dumps(p.get("input", {}), ensure_ascii=False)
+                                tool_input = json.dumps(
+                                    p.get("input", {}), ensure_ascii=False
+                                )
                                 tc_content = f"Tool: {tool_name}\nInput: {tool_input}"
                                 tc_id = f"{msg_id}_tool_{idx}"
-                                if tc_id not in processed_ids and (norm_ts, tc_content[:100].strip()) not in processed_signatures:
+                                if (
+                                    tc_id not in processed_ids
+                                    and (norm_ts, tc_content[:100].strip())
+                                    not in processed_signatures
+                                ):
                                     bridge.memory.process_event(
-                                        source="agent", kind="call", content=tc_content, 
-                                        context={"transcript_id": tc_id}, timestamp=timestamp
+                                        source="agent",
+                                        kind="call",
+                                        content=tc_content,
+                                        context={"transcript_id": tc_id},
+                                        timestamp=timestamp,
                                     )
                                     sync_count += 1
                                     processed_ids.add(tc_id)
@@ -727,30 +974,48 @@ def sync_transcript_history(bridge, transcript_path: str) -> set:
                 if content:
                     c_strip = content.strip()
                     content_prefix = c_strip[:100]
-                    if msg_id not in processed_ids and (norm_ts, content_prefix) not in processed_signatures:
+                    if (
+                        msg_id not in processed_ids
+                        and (norm_ts, content_prefix) not in processed_signatures
+                    ):
                         res = bridge.memory.process_event(
-                            source=source, kind=kind, content=c_strip, 
-                            context={"transcript_id": msg_id}, timestamp=timestamp
+                            source=source,
+                            kind=kind,
+                            content=c_strip,
+                            context={"transcript_id": msg_id},
+                            timestamp=timestamp,
                         )
-                        if res: 
+                        if res:
                             sync_count += 1
                             processed_ids.add(msg_id)
                             processed_signatures.add((norm_ts, content_prefix))
-                            if source == "user": synced_content_this_turn.add(c_strip)
-            
+                            if source == "user":
+                                synced_content_this_turn.add(c_strip)
+
             if sync_count > 0:
-                error_console.print(f"* Successfully synced {sync_count} new events from history.", style="green")
+                global_console.print(
+                    f"* Successfully synced {sync_count} new events from history.",
+                    style="green",
+                )
     except Exception as e:
-        error_console.print(f"Transcript sync error: {e}", style="bold red")
+        global_console.print(f"Transcript sync error: {e}", style="bold red")
 
     return synced_content_this_turn
 
-def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold: Optional[float] = None, read_stdin: bool = False):
+
+def bridge_context(
+    path: str,
+    prompt: str,
+    cli: Optional[str] = None,
+    threshold: Optional[float] = None,
+    read_stdin: bool = False,
+):
     """Bridge API: Returns context for a prompt without starting MCP server."""
     from ledgermind.core.api.bridge import IntegrationBridge
     import sys
     import json
     import os
+
     try:
         real_prompt = prompt
         transcript_path = None
@@ -763,7 +1028,9 @@ def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold:
                     try:
                         data = json.loads(raw_input)
                         if isinstance(data, dict):
-                            real_prompt = data.get("prompt", data.get("userInput", raw_input))
+                            real_prompt = data.get(
+                                "prompt", data.get("userInput", raw_input)
+                            )
                             # Crucial: Get the ACTUAL transcript path from Claude Code
                             transcript_path = data.get("transcript_path")
                         else:
@@ -783,24 +1050,31 @@ def bridge_context(path: str, prompt: str, cli: Optional[str] = None, threshold:
 
         default_cli = [cli] if cli else None
         # Use cli as namespace for isolation between clients
-        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, relevance_threshold=threshold if threshold is not None else 0.7, namespace=cli)
+        bridge = IntegrationBridge(
+            memory_path=path,
+            default_cli=default_cli,
+            relevance_threshold=threshold if threshold is not None else 0.7,
+            namespace=cli,
+        )
 
         # 4. Robust History Sync (Hybrid Deduplication)
         # We only sync if transcript_path is a FILE
-        synced_content_this_turn = set()
         if transcript_path and os.path.isfile(transcript_path):
-            synced_content_this_turn = sync_transcript_history(bridge, transcript_path)
+            sync_transcript_history(bridge, transcript_path)
         elif transcript_path:
-            error_console.print(f"* Skipping sync: {transcript_path} is not a file", style="yellow")
+            global_console.print(
+                f"* Skipping sync: {transcript_path} is not a file", style="yellow"
+            )
 
         # 5. Record the CURRENT prompt (REMOVED - handled by Stop hook transcript sync)
         # Manual recording here causes duplicates with Stop hook sync due to TZ/precision diffs.
         # We rely on Stop hook to record everything robustly.
-        
+
         ctx = bridge.get_context_for_prompt(real_prompt)
         sys.stdout.write(ctx)
     except Exception as e:
-        error_console.print(f"✗ Error: {e}", style="bold red")
+        global_console.print(f"✗ Error: {e}", style="bold red")
+
 
 def bridge_sync(path: str, cli: Optional[str] = None):
     """Bridge API: Dedicated sync command for the Stop hook."""
@@ -808,6 +1082,7 @@ def bridge_sync(path: str, cli: Optional[str] = None):
     import sys
     import json
     import os
+
     try:
         transcript_path = None
         if not sys.stdin.isatty():
@@ -822,16 +1097,28 @@ def bridge_sync(path: str, cli: Optional[str] = None):
 
         default_cli = [cli] if cli else None
         # Use cli as namespace for isolation between clients
-        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, namespace=cli)
+        bridge = IntegrationBridge(
+            memory_path=path, default_cli=default_cli, namespace=cli
+        )
         sync_transcript_history(bridge, transcript_path)
     except Exception as e:
-        error_console.print(f"✗ Sync Error: {e}", style="bold red")
+        global_console.print(f"✗ Sync Error: {e}", style="bold red")
 
-def bridge_record(path: str, prompt: str, response: str, success: bool, metadata: str, cli: Optional[str] = None, read_stdin: bool = False):
+
+def bridge_record(
+    path: str,
+    prompt: str,
+    response: str,
+    success: bool,
+    metadata: str,
+    cli: Optional[str] = None,
+    read_stdin: bool = False,
+):
     """Bridge API: Records interaction into episodic memory."""
     from ledgermind.core.api.bridge import IntegrationBridge
     import json
     import sys
+
     try:
         real_prompt = prompt
         real_response = response
@@ -849,110 +1136,162 @@ def bridge_record(path: str, prompt: str, response: str, success: bool, metadata
                             # Try to extract from Claude Code PostToolUse format
                             if "toolUse" in data:
                                 tool_name = data["toolUse"].get("name", "unknown")
-                                tool_input = json.dumps(data["toolUse"].get("input", {}), ensure_ascii=False)
+                                tool_input = json.dumps(
+                                    data["toolUse"].get("input", {}), ensure_ascii=False
+                                )
                                 real_prompt = f"Tool Execution: {tool_name}"
                                 real_response = f"Args: {tool_input}"
                                 if "toolResult" in data:
                                     res = data["toolResult"].get("result", "")
-                                    if not isinstance(res, str): res = json.dumps(res, ensure_ascii=False)
+                                    if not isinstance(res, str):
+                                        res = json.dumps(res, ensure_ascii=False)
                                     real_response += f"\nResult: {res}"
-                            
+
                             # Try to extract from general transcript/response format
                             elif "response" in data:
                                 real_response = data["response"]
-                                if "prompt" in data: real_prompt = data["prompt"]
+                                if "prompt" in data:
+                                    real_prompt = data["prompt"]
                 except Exception:
                     pass
 
         default_cli = [cli] if cli else None
         # Use cli as namespace for isolation between clients
-        bridge = IntegrationBridge(memory_path=path, default_cli=default_cli, namespace=cli)
-        bridge.record_interaction(prompt=real_prompt, response=real_response, success=real_success, metadata=real_meta)
+        bridge = IntegrationBridge(
+            memory_path=path, default_cli=default_cli, namespace=cli
+        )
+        bridge.record_interaction(
+            prompt=real_prompt,
+            response=real_response,
+            success=real_success,
+            metadata=real_meta,
+        )
     except Exception as e:
         global_console.print(f"[bold red]✗ Error: {e}[/bold red]")
+
 
 def cleanup_orphans():
     """Finds and terminates all Ledgermind processes that are orphaned (PPID=1)."""
     import psutil
     import os
     import signal
-    
+
     current_pid = os.getpid()
     count = 0
-    for proc in psutil.process_iter(['pid', 'ppid', 'cmdline', 'name']):
+    for proc in psutil.process_iter(["pid", "ppid", "cmdline", "name"]):
         try:
             pinfo = proc.info
             # Filter for Ledgermind processes that are orphaned
-            if pinfo['ppid'] == 1 and pinfo['pid'] != current_pid:
-                cmd = " ".join(pinfo['cmdline'] or [])
+            if pinfo["ppid"] == 1 and pinfo["pid"] != current_pid:
+                cmd = " ".join(pinfo["cmdline"] or [])
                 # Identify if it's our process (by name or command line)
-                if 'ledgermind' in cmd.lower() or 'python' in pinfo['name'].lower():
-                    if 'ledgermind.server' in cmd or 'mcp' in cmd:
+                if "ledgermind" in cmd.lower() or "python" in pinfo["name"].lower():
+                    if "ledgermind.server" in cmd or "mcp" in cmd:
                         try:
-                            os.kill(pinfo['pid'], signal.SIGTERM)
+                            os.kill(pinfo["pid"], signal.SIGTERM)
                             count += 1
                         except (OSError, ProcessLookupError):
                             pass
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             continue
-            
+
     if count > 0:
-        error_console.print(f"* Cleaned up {count} orphaned Ledgermind processes.", style="yellow")
+        global_console.print(
+            f"* Cleaned up {count} orphaned Ledgermind processes.", style="yellow"
+        )
+
 
 def main():
     parser = argparse.ArgumentParser(description="Ledgermind MCP Server Launcher")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
-    
+
     # Run command
     run_parser = subparsers.add_parser("run", help="Run the MCP server")
-    run_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
+    run_parser.add_argument(
+        "--path", default="../.ledgermind", help="Path to memory storage"
+    )
     run_parser.add_argument("--name", default="Ledgermind", help="MCP Server Name")
     run_parser.add_argument("--capabilities", help="JSON string of capabilities")
-    run_parser.add_argument("--metrics-port", type=int, help="Port for Prometheus metrics")
+    run_parser.add_argument(
+        "--metrics-port", type=int, help="Port for Prometheus metrics"
+    )
     run_parser.add_argument("--rest-port", type=int, help="Port for REST Gateway")
-    run_parser.add_argument("--vector-workers", type=int, default=0, help="Number of workers for multi-process encoding (0=auto)")
-    run_parser.add_argument("--client", choices=["claude", "gemini", "cursor", "vscode", "none"], help="Client that started this MCP server")
-    
+    run_parser.add_argument(
+        "--vector-workers",
+        type=int,
+        default=0,
+        help="Number of workers for multi-process encoding (0=auto)",
+    )
+    run_parser.add_argument(
+        "--client",
+        choices=["claude", "gemini", "cursor", "vscode", "none"],
+        help="Client that started this MCP server",
+    )
+
     # Init command
     init_parser = subparsers.add_parser("init", help="Initialize a new memory project")
-    init_parser.add_argument("--path", default="../.ledgermind", help="Path to create memory storage")
+    init_parser.add_argument(
+        "--path", default="../.ledgermind", help="Path to create memory storage"
+    )
 
     # Check command
     check_parser = subparsers.add_parser("check", help="Check project health")
-    check_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
+    check_parser.add_argument(
+        "--path", default="../.ledgermind", help="Path to memory storage"
+    )
 
     # Stats command
     stats_parser = subparsers.add_parser("stats", help="Show memory statistics")
-    stats_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
+    stats_parser.add_argument(
+        "--path", default="../.ledgermind", help="Path to memory storage"
+    )
 
     # Settings command
-    from ledgermind.server.settings import create_settings_parser, handle_settings_command
+    from ledgermind.server.settings import (
+        create_settings_parser,
+        handle_settings_command,
+    )
+
     create_settings_parser(subparsers)
 
     # Bridge commands
     bc_parser = subparsers.add_parser("bridge-context", help="Internal: get context")
-    bc_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
+    bc_parser.add_argument(
+        "--path", default="../.ledgermind", help="Path to memory storage"
+    )
     bc_parser.add_argument("--prompt", required=True, help="User prompt")
     bc_parser.add_argument("--cli", help="Default CLI for enrichment")
     bc_parser.add_argument("--threshold", type=float, help="Relevance threshold")
     bc_parser.add_argument("--stdin", action="store_true", help="Read from stdin")
 
-    bs_parser = subparsers.add_parser("bridge-sync", help="Internal: sync transcript history (Stop hook)")
-    bs_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
+    bs_parser = subparsers.add_parser(
+        "bridge-sync", help="Internal: sync transcript history (Stop hook)"
+    )
+    bs_parser.add_argument(
+        "--path", default="../.ledgermind", help="Path to memory storage"
+    )
     bs_parser.add_argument("--cli", help="Default CLI for enrichment")
     bs_parser.add_argument("--stdin", action="store_true", help="Read from stdin")
 
-    br_parser = subparsers.add_parser("bridge-record", help="Internal: record interaction")
-    br_parser.add_argument("--path", default="../.ledgermind", help="Path to memory storage")
+    br_parser = subparsers.add_parser(
+        "bridge-record", help="Internal: record interaction"
+    )
+    br_parser.add_argument(
+        "--path", default="../.ledgermind", help="Path to memory storage"
+    )
     br_parser.add_argument("--prompt", required=True, help="User prompt")
     br_parser.add_argument("--response", required=True, help="Agent response")
-    br_parser.add_argument("--success", action="store_true", default=True, help="Was successful")
+    br_parser.add_argument(
+        "--success", action="store_true", default=True, help="Was successful"
+    )
     br_parser.add_argument("--metadata", default=None, help="JSON metadata")
     br_parser.add_argument("--cli", help="Default CLI for enrichment")
     br_parser.add_argument("--stdin", action="store_true", help="Read from stdin")
 
     # Global options
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose logging")
+    parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Enable verbose logging"
+    )
     parser.add_argument("--log-file", help="Path to log file")
 
     # Export schema command
@@ -960,18 +1299,34 @@ def main():
 
     # Default to 'run' if no command is provided
     import sys
-    known_commands = ["run", "init", "check", "stats", "settings", "export-schema", "bridge-context", "bridge-record", "bridge-sync", "-h", "--help", "--verbose", "-v", "--log-file"]
+
+    known_commands = [
+        "run",
+        "init",
+        "check",
+        "stats",
+        "settings",
+        "export-schema",
+        "bridge-context",
+        "bridge-record",
+        "bridge-sync",
+        "-h",
+        "--help",
+        "--verbose",
+        "-v",
+        "--log-file",
+    ]
     if len(sys.argv) > 1 and sys.argv[1] not in known_commands:
         sys.argv.insert(1, "run")
 
     args = parser.parse_args()
-    
+
     # Initialize logging
     # Skip global setup for 'run' command as it handles its own logging with overwrite mode
     if args.command != "run":
         log_level = logging.DEBUG if args.verbose else logging.INFO
         setup_logging(level=log_level, log_file=args.log_file)
-    
+
     if args.command == "export-schema":
         export_schemas()
     elif args.command == "bridge-context":
@@ -979,7 +1334,15 @@ def main():
     elif args.command == "bridge-sync":
         bridge_sync(args.path, args.cli)
     elif args.command == "bridge-record":
-        bridge_record(args.path, args.prompt, args.response, args.success, args.metadata, args.cli, args.stdin)
+        bridge_record(
+            args.path,
+            args.prompt,
+            args.response,
+            args.success,
+            args.metadata,
+            args.cli,
+            args.stdin,
+        )
     elif args.command == "init":
         init_project(args.path)
     elif args.command == "check":
@@ -991,7 +1354,7 @@ def main():
     elif args.command == "run":
         # Cleanup any previous orphaned processes before starting
         cleanup_orphans()
-        
+
         # Setup automatic server logging
         if not args.log_file:
             log_dir = os.path.join(os.getcwd(), "logs")
@@ -1001,19 +1364,28 @@ def main():
         else:
             log_file = args.log_file
 
-        setup_logging(level=logging.DEBUG if args.verbose else logging.INFO, log_file=log_file, mode='w')
+        setup_logging(
+            level=logging.DEBUG if args.verbose else logging.INFO,
+            log_file=log_file,
+            mode="w",
+        )
 
         # Create server.pid to help background processes detect server status
         pid_file = os.path.join(os.path.abspath(args.path), "server.pid")
         try:
-            with open(pid_file, 'w') as f:
+            with open(pid_file, "w") as f:
                 f.write(str(os.getpid()))
             import atexit
+
             def cleanup_pid():
-                if os.path.exists(pid_file): os.remove(pid_file)
+                if os.path.exists(pid_file):
+                    os.remove(pid_file)
+
             atexit.register(cleanup_pid)
         except Exception as e:
-            global_console.print(f"[yellow]Warning: Could not create server.pid: {e}[/yellow]")
+            global_console.print(
+                f"[yellow]Warning: Could not create server.pid: {e}[/yellow]"
+            )
 
         capabilities = None
         if args.capabilities:
@@ -1021,14 +1393,18 @@ def main():
                 capabilities = json.loads(args.capabilities)
             except json.JSONDecodeError as e:
                 logger.warning("Failed to parse capabilities as JSON: %s", e)
-                global_console.print(f"[bold red]Error: Invalid JSON for capabilities: {args.capabilities}[/bold red]")
+                global_console.print(
+                    f"[bold red]Error: Invalid JSON for capabilities: {args.capabilities}[/bold red]"
+                )
                 return
 
         from ledgermind.core.core.schemas import TrustBoundary
         from ledgermind.core.api.memory import Memory
         import signal
-        
-        memory = MCPServer.memory_instance_for_cli = None # Placeholder for signal handler access
+
+        memory = MCPServer.memory_instance_for_cli = (
+            None  # Placeholder for signal handler access
+        )
 
         def signal_handler(sig, frame):
             print("\nSignal received, shutting down...")
@@ -1043,7 +1419,11 @@ def main():
             signal.signal(signal.SIGHUP, signal_handler)
 
         try:
-            memory = Memory(storage_path=args.path, trust_boundary=TrustBoundary.AGENT_WITH_INTENT, vector_workers=args.vector_workers)
+            memory = Memory(
+                storage_path=args.path,
+                trust_boundary=TrustBoundary.AGENT_WITH_INTENT,
+                vector_workers=args.vector_workers,
+            )
             server = MCPServer(
                 memory,
                 server_name=args.name,
@@ -1051,15 +1431,16 @@ def main():
                 capabilities=capabilities,
                 metrics_port=args.metrics_port,
                 rest_port=args.rest_port,
-                client=args.client
+                client=args.client,
             )
             MCPServer.current_instance = server
             server.run()
         except Exception as e:
-            error_console.print(f"✗ Server Critical Failure: {e}", style="bold red")
+            global_console.print(f"✗ Server Critical Failure: {e}", style="bold red")
             sys.exit(1)
     else:
         parser.print_help()
+
 
 if __name__ == "__main__":
     main()

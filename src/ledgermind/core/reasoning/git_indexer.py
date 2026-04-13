@@ -1,15 +1,19 @@
+import logging
 import subprocess
 import os
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 from ledgermind.core.core.schemas import MemoryEvent
 
+logger = logging.getLogger(__name__)
+
+
 class GitIndexer:
     """
     Модуль для индексации истории Git и превращения коммитов в события памяти.
     Это позволяет ReflectionEngine учитывать изменения кода, сделанные людьми.
     """
-    
+
     def __init__(self, repo_path: str = "."):
         self.repo_path = repo_path
         self._validate_path_safety()
@@ -26,105 +30,119 @@ class GitIndexer:
         # Check if the repo path is within the CWD
         try:
             if os.path.commonpath([cwd, abs_repo_path]) != cwd:
-                raise ValueError(f"Security violation: Access to {self.repo_path} is outside the allowed scope (CWD: {cwd}).")
+                raise ValueError(
+                    f"Security violation: Access to {self.repo_path} is outside the allowed scope (CWD: {cwd})."
+                )
         except ValueError:
             # Can happen if paths are on different drives on Windows
-            raise ValueError(f"Security violation: Access to {self.repo_path} is outside the allowed scope.")
+            raise ValueError(
+                f"Security violation: Access to {self.repo_path} is outside the allowed scope."
+            )
 
-    def get_recent_commits(self, limit: int = 10, since_hash: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_recent_commits(
+        self, limit: int = 10, since_hash: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """Извлекает историю коммитов через git log."""
         try:
             # Формат: hash|author|date|subject|body
             # Используем --reverse чтобы идти от старых к новым при индексации
             format_str = "%H|%an|%ai|%s|%b%x00"
             cmd = ["git", "log", f"-n {limit}", f"--format={format_str}"]
-            
+
             if since_hash:
                 # Security: Validate hash to prevent argument injection
                 import re
-                if not re.match(r'^[a-f0-9]{4,40}$', since_hash):
-                    logger.warning(f"Invalid since_hash detected: {since_hash}. Ignoring.")
+
+                if not re.match(r"^[a-f0-9]{4,40}$", since_hash):
+                    logger.warning(
+                        f"Invalid since_hash detected: {since_hash}. Ignoring."
+                    )
                 else:
                     cmd.append(f"{since_hash}..HEAD")
-            
-            res = subprocess.run(cmd, cwd=self.repo_path, capture_output=True, text=True, check=True) # nosec B603 B607
+
+            res = subprocess.run(
+                cmd, cwd=self.repo_path, capture_output=True, text=True, check=True
+            )  # nosec B603 B607
             if not res.stdout.strip():
                 return []
 
             commits = []
             # Разделяем по нулевому байту, который мы добавили в конец каждого коммита
-            for raw_commit in res.stdout.split('\x00'):
+            for raw_commit in res.stdout.split("\x00"):
                 if not raw_commit.strip():
                     continue
-                
-                parts = raw_commit.strip().split('|', 4)
+
+                parts = raw_commit.strip().split("|", 4)
                 if len(parts) < 4:
                     continue
-                
-                commits.append({
-                    "hash": parts[0],
-                    "author": parts[1],
-                    "date": parts[2],
-                    "subject": parts[3],
-                    "body": parts[4] if len(parts) > 4 else ""
-                })
-            
+
+                commits.append(
+                    {
+                        "hash": parts[0],
+                        "author": parts[1],
+                        "date": parts[2],
+                        "subject": parts[3],
+                        "body": parts[4] if len(parts) > 4 else "",
+                    }
+                )
+
             return commits
-        except Exception as e:
-            # Не является git репозиторием или git не установлен
+        except Exception:
             return []
 
     def index_to_memory(self, memory_instance, limit: int = 20) -> int:
         """Сканирует Git и записывает новые коммиты в эпизодическую память."""
         # 1. Пытаемся найти хэш последнего проиндексированного коммита
         # Сначала проверяем в надежном хранилище метаданных
-        last_hash = memory_instance.semantic.meta.get_config('last_indexed_commit_hash')
-        
+        last_hash = memory_instance.semantic.meta.get_config("last_indexed_commit_hash")
+
         # Fallback к поиску в последних событиях если в конфиге пусто
         if not last_hash:
             recent_events = memory_instance.episodic.query(limit=50)
             for ev in recent_events:
-                if ev.get('kind') == 'commit_change':
-                    last_hash = ev.get('context', {}).get('hash')
+                if ev.get("kind") == "commit_change":
+                    last_hash = ev.get("context", {}).get("hash")
                     break
-        
+
         # 2. Получаем новые коммиты
         new_commits = self.get_recent_commits(limit=limit, since_hash=last_hash)
-        
+
         if not new_commits:
             return 0
 
         indexed_count = 0
         latest_hash = last_hash
-        
+
         from collections import Counter
         from ledgermind.core.utils.datetime_utils import to_naive_utc
 
-        for commit in reversed(new_commits): # От старых к новым
+        for commit in reversed(new_commits):  # От старых к новым
             # Дополнительно получаем список измененных файлов для контекста
             try:
                 diff_res = subprocess.run(
-                    ["git", "show", "--name-only", "--format=", commit['hash']], 
-                    cwd=self.repo_path, capture_output=True, text=True
-                ) # nosec B603 B607
-                changed_files = [f for f in diff_res.stdout.strip().split('\n') if f]
-                
+                    ["git", "show", "--name-only", "--format=", commit["hash"]],
+                    cwd=self.repo_path,
+                    capture_output=True,
+                    text=True,
+                )  # nosec B603 B607
+                changed_files = [f for f in diff_res.stdout.strip().split("\n") if f]
+
                 # ENHANCED Target Inference: use most frequent top-level directory
                 inferred_target = None
                 if changed_files:
                     path_starts = []
                     for f in changed_files:
-                        parts = f.split('/')
+                        parts = f.split("/")
                         if len(parts) > 1:
                             # If src/module/file.py, module is the target
-                            if parts[0] in ['src', 'lib', 'app', 'tests']:
+                            if parts[0] in ["src", "lib", "app", "tests"]:
                                 path_starts.append(parts[1])
                             else:
                                 path_starts.append(parts[0])
                         else:
                             # Root files
                             path_starts.append("root")
-                    
+
                     if path_starts:
                         inferred_target = Counter(path_starts).most_common(1)[0][0]
             except Exception:
@@ -136,25 +154,27 @@ class GitIndexer:
                 kind="commit_change",
                 content=f"Commit by {commit['author']}: {commit['subject']}",
                 context={
-                    "hash": commit['hash'],
-                    "author": commit['author'],
-                    "full_message": commit['body'],
+                    "hash": commit["hash"],
+                    "author": commit["author"],
+                    "full_message": commit["body"],
                     "changed_files": changed_files,
                     "target": inferred_target,
-                    "type": "git_history"
+                    "type": "git_history",
                 },
-                timestamp=to_naive_utc(commit['date'])
+                timestamp=to_naive_utc(commit["date"]),
             )
-            
+
             # Deep Duplicate Check
             if not memory_instance.episodic.find_duplicate(event).value:
                 memory_instance.episodic.append(event).value
                 indexed_count += 1
-            
-            latest_hash = commit['hash']
-            
+
+            latest_hash = commit["hash"]
+
         # Сохраняем последний проиндексированный хэш
         if latest_hash:
-            memory_instance.semantic.meta.set_config('last_indexed_commit_hash', latest_hash)
-            
+            memory_instance.semantic.meta.set_config(
+                "last_indexed_commit_hash", latest_hash
+            )
+
         return indexed_count
