@@ -1414,7 +1414,7 @@ def main():
         )
 
         def signal_handler(sig, frame):
-            print("\nSignal received, shutting down...")
+            global_console.print("\n[bold yellow]Signal received, shutting down...[/bold yellow]")
             if MCPServer.current_instance:
                 MCPServer.current_instance.stop()
             sys.exit(0)

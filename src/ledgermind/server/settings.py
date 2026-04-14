@@ -14,6 +14,10 @@ import json
 import os
 import sys
 from typing import Optional, Dict, Any, List
+from rich.console import Console
+
+console = Console()
+error_console = Console(stderr=True)
 
 # Default settings with their types and descriptions
 DEFAULT_SETTINGS = {
@@ -168,7 +172,7 @@ def save_setting(storage_path: str, key: str, value: Any) -> bool:
         conn.close()
         return True
     except Exception as e:
-        print(f"Error saving setting: {e}", file=sys.stderr)
+        error_console.print(f"[red]Error saving setting:[/] {e}")
         return False
 
 
@@ -183,12 +187,9 @@ def reset_setting(storage_path: str, key: str) -> bool:
 
 def cmd_settings_interactive(storage_path: str):
     """Interactive mode for managing settings."""
-    from rich.console import Console
     from rich.table import Table
     from rich.panel import Panel
     from rich.prompt import Prompt, Confirm, FloatPrompt
-    
-    console = Console()
     
     while True:
         settings = load_settings(storage_path)
@@ -278,10 +279,8 @@ def cmd_settings_interactive(storage_path: str):
 
 def cmd_settings_show(storage_path: str, verbose: bool = False):
     """Show all current settings."""
-    from rich.console import Console
     from rich.table import Table
     
-    console = Console()
     settings = load_settings(storage_path)
     
     table = Table(title="LedgerMind Settings", show_header=True, header_style="bold cyan")
@@ -319,27 +318,27 @@ def cmd_settings_get(storage_path: str, key: str):
     settings = load_settings(storage_path)
     
     if key not in settings and key not in DEFAULT_SETTINGS:
-        print(f"Error: Unknown setting '{key}'", file=sys.stderr)
-        print(f"Available settings: {', '.join(DEFAULT_SETTINGS.keys())}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/] Unknown setting '{key}'")
+        error_console.print(f"Available settings: {', '.join(DEFAULT_SETTINGS.keys())}")
         sys.exit(1)
     
     value = settings.get(key, DEFAULT_SETTINGS[key]['default'])
-    print(value)
+    console.print(str(value))
 
 
 def cmd_settings_set(storage_path: str, key: str, value: str):
     """Set a specific setting value."""
     if key not in DEFAULT_SETTINGS:
-        print(f"Error: Unknown setting '{key}'", file=sys.stderr)
-        print(f"Available settings: {', '.join(DEFAULT_SETTINGS.keys())}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/] Unknown setting '{key}'")
+        error_console.print(f"Available settings: {', '.join(DEFAULT_SETTINGS.keys())}")
         sys.exit(1)
     
     config = DEFAULT_SETTINGS[key]
     
     # Validate choice
     if config['choices'] and value not in config['choices']:
-        print(f"Error: Invalid value '{value}' for setting '{key}'", file=sys.stderr)
-        print(f"Valid choices: {', '.join(config['choices'])}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/] Invalid value '{value}' for setting '{key}'")
+        error_console.print(f"Valid choices: {', '.join(config['choices'])}")
         sys.exit(1)
     
     # Type conversion
@@ -347,21 +346,21 @@ def cmd_settings_set(storage_path: str, key: str, value: str):
         try:
             value = float(value)
         except ValueError:
-            print(f"Error: Value must be a number for setting '{key}'", file=sys.stderr)
+            error_console.print(f"[red]Error:[/] Value must be a number for setting '{key}'")
             sys.exit(1)
     
     # Validate range for merge_threshold
     if key == "merge_threshold":
         if not 0.5 <= value <= 0.95:
-            print(f"Error: merge_threshold must be between 0.5 and 0.95", file=sys.stderr)
+            error_console.print(f"[red]Error:[/] merge_threshold must be between 0.5 and 0.95")
             sys.exit(1)
     
     if save_setting(storage_path, key, value):
-        print(f"✓ Setting '{key}' updated to '{value}'")
+        console.print(f"[green]✓[/] Setting '{key}' updated to '{value}'")
         
         # Show if restart is needed
         if key in ['enrichment_mode', 'embedder', 'enrichment_model']:
-            print("⚠ Restart required: Run 'pkill -f background.py' and restart worker")
+            console.print("[yellow]⚠ Restart required:[/] Run 'pkill -f background.py' and restart worker")
     else:
         sys.exit(1)
 
@@ -369,24 +368,21 @@ def cmd_settings_set(storage_path: str, key: str, value: str):
 def cmd_settings_reset(storage_path: str, key: str):
     """Reset a specific setting to default."""
     if key not in DEFAULT_SETTINGS:
-        print(f"Error: Unknown setting '{key}'", file=sys.stderr)
-        print(f"Available settings: {', '.join(DEFAULT_SETTINGS.keys())}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/] Unknown setting '{key}'")
+        error_console.print(f"Available settings: {', '.join(DEFAULT_SETTINGS.keys())}")
         sys.exit(1)
     
     if reset_setting(storage_path, key):
         default = DEFAULT_SETTINGS[key]['default']
-        print(f"✓ Setting '{key}' reset to default '{default}'")
+        console.print(f"[green]✓[/] Setting '{key}' reset to default '{default}'")
     else:
-        print(f"Error: Failed to reset setting '{key}'", file=sys.stderr)
+        error_console.print(f"[red]Error:[/] Failed to reset setting '{key}'")
         sys.exit(1)
 
 
 def cmd_settings_reset_all(storage_path: str):
     """Reset all settings to defaults."""
-    from rich.console import Console
     from rich.prompt import Confirm
-    
-    console = Console()
     
     if not Confirm.ask("This will reset ALL settings to defaults. Continue?"):
         console.print("Cancelled")
@@ -504,6 +500,6 @@ def handle_settings_command(args):
     elif args.settings_command == "reset-all":
         cmd_settings_reset_all(storage_path)
     else:
-        print(f"Error: Unknown settings command '{args.settings_command}'", file=sys.stderr)
+        error_console.print(f"[red]Error:[/] Unknown settings command '{args.settings_command}'")
         sys.exit(1)
 
