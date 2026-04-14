@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776115556016,
+  "lastUpdate": 1776166353288,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2295,6 +2295,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00009244501958176969",
             "extra": "mean: 925.8643999999094 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6b9437b0a7dd4d55a865b3324321e06f1a6d7d4f",
+          "message": "⚡ Bolt: Eliminate redundant database query in search (#133)",
+          "timestamp": "2026-04-14T14:28:47+03:00",
+          "tree_id": "f47a4101376b772a950ac78652fae8a74d6f9a1a",
+          "url": "https://github.com/sl4m3/ledgermind/commit/6b9437b0a7dd4d55a865b3324321e06f1a6d7d4f"
+        },
+        "date": 1776166352885,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 93.86549915012944,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0001022245014426764",
+            "extra": "mean: 10.653541599992877 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11188.610890038726,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000013917073915948197",
+            "extra": "mean: 89.37659999332936 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1129.0611765902177,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009972278493187855",
+            "extra": "mean: 885.6916000070214 usec\nrounds: 5"
           }
         ]
       }
