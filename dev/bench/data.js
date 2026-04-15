@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776166362712,
+  "lastUpdate": 1776259676329,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2385,6 +2385,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000950821146790289",
             "extra": "mean: 958.4477999965202 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "660481f04877a8d4cd93c560c2c2e1c687e3fb3b",
+          "message": "⚡ Bolt: Batch database updates in search hot path (#135)",
+          "timestamp": "2026-04-15T16:24:12+03:00",
+          "tree_id": "4128202648a6b931bfb2d2d76bb6fcc57e61062c",
+          "url": "https://github.com/sl4m3/ledgermind/commit/660481f04877a8d4cd93c560c2c2e1c687e3fb3b"
+        },
+        "date": 1776259675346,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 97.0691334134594,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00042254306355807595",
+            "extra": "mean: 10.30193599999052 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11315.929434090322,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010594014671035415",
+            "extra": "mean: 88.37099999823295 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1274.9293306558557,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000038795800447199446",
+            "extra": "mean: 784.3572000069798 usec\nrounds: 5"
           }
         ]
       }
