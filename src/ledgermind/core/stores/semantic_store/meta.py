@@ -441,6 +441,17 @@ class SemanticMetaStore:
             (now, fid),
         )
 
+    def increment_hits_batch(self, fids: List[str]):
+        if not fids:
+            return
+        now = datetime.now().isoformat()
+        # ⚡ Bolt: Deduplicate while preserving order and use json_each to avoid variable limits
+        fids_unique = list(dict.fromkeys(fids))
+        self._conn.execute(
+            "UPDATE semantic_meta SET hit_count = hit_count + 1, last_hit_at = ? WHERE fid IN (SELECT value FROM json_each(?))",
+            (now, json.dumps(fids_unique)),
+        )
+
     def close(self):
         if self._conn:
             try:
