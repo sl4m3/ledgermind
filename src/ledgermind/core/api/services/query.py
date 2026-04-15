@@ -194,6 +194,7 @@ class QueryService(MemoryService):
         final_results = []
         seen_ids = set()
         skipped = 0
+        hit_fids = []
         
         # ⚡ Bolt: Move json.loads and math.log10 to local variables outside the loop to avoid continuous global lookups
         _loads = json.loads
@@ -233,10 +234,13 @@ class QueryService(MemoryService):
             
             final_results.append(cand)
             seen_ids.add(cand['id'])
-            try: self.semantic.meta.increment_hit(cand['id'])
-            except Exception: pass
+            hit_fids.append(cand['id'])
 
             if len(final_results) >= limit: break
+
+        if hit_fids:
+            try: self.semantic.meta.increment_hits_batch(hit_fids)
+            except Exception: pass
 
         return final_results
 
