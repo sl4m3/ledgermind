@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776259676329,
+  "lastUpdate": 1776259686068,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2430,6 +2430,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000038795800447199446",
             "extra": "mean: 784.3572000069798 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bfcc30877c7919e65b8585416defeac6e294e2ba",
+          "message": "feat(ux): add missing accessibility states for background watchers (#136)",
+          "timestamp": "2026-04-15T16:24:23+03:00",
+          "tree_id": "22e51e0be1ca0383e103c3774be59eae28b03869",
+          "url": "https://github.com/sl4m3/ledgermind/commit/bfcc30877c7919e65b8585416defeac6e294e2ba"
+        },
+        "date": 1776259685199,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 86.43422004056815,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006315753549682146",
+            "extra": "mean: 11.569491800014475 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 12674.174849819281,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001077483989270536",
+            "extra": "mean: 78.90059998771903 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1324.2135627741532,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005589162881061604",
+            "extra": "mean: 755.1652000188369 usec\nrounds: 5"
           }
         ]
       }
