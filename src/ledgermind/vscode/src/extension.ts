@@ -265,6 +265,7 @@ ${stdout}`;
                                 setBusy(false);
                                 if (err) {
                                     outputChannel.appendLine(`LedgerMind RooCode Record Error: ${err.message}`);
+                                    setError(true);
                                 } else {
                                     outputChannel.appendLine(`✓ Recorded RooCode/Cline interaction via file watcher`);
                                 }
@@ -304,6 +305,7 @@ ${stdout}`;
                     const cmds = lines.filter((l: string) => /\$|>/.test(l)).join('; ');
 
                     if (cmds) {
+                        setBusy(true);
                         execFile('ledgermind-mcp', [
                             'bridge-record',
                             '--path', projectPath,
@@ -312,8 +314,10 @@ ${stdout}`;
                             '--success',
                             '--cli', 'vscode-terminal'
                         ], (err) => {
+                            setBusy(false);
                             if (err) {
                                 outputChannel.appendLine(`LedgerMind Terminal Record Error: ${err.message}`);
+                                setError(true);
                             }
                         });
                     }
@@ -335,6 +339,7 @@ ${stdout}`;
             updateShadowContext(`Changes in ${fileName}`);
 
             // Записываем сохранение как эпизод
+            setBusy(true);
             execFile('ledgermind-mcp', [
                 'bridge-record',
                 '--path', projectPath,
@@ -343,6 +348,7 @@ ${stdout}`;
                 '--success',
                 '--cli', 'vscode-editor'
             ], (err) => {
+                setBusy(false);
                 if (err) {
                     outputChannel.appendLine(`LedgerMind File Record Error: ${err.message}`);
                     setError(true);
