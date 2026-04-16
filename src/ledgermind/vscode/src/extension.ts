@@ -22,9 +22,6 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(outputChannel);
 
     const showOutputCommandId = 'ledgermind.showOutput';
-    context.subscriptions.push(vscode.commands.registerCommand(showOutputCommandId, () => {
-        outputChannel.show();
-    }));
     statusBarItem.command = showOutputCommandId;
 
     let isBusy = false;
@@ -54,6 +51,11 @@ export function activate(context: vscode.ExtensionContext) {
         isBusy = busy;
         setError(false);
     };
+
+    context.subscriptions.push(vscode.commands.registerCommand(showOutputCommandId, () => {
+        outputChannel.show();
+        setError(false); // Clear error state when logs are opened
+    }));
 
     // ==========================================
     // DUAL-HOOK MECHANISM (Cache + onDidReceiveChatResponse)
@@ -277,6 +279,7 @@ ${stdout}`;
                     }
                 } catch (err) {
                     outputChannel.appendLine(`LedgerMind File Watcher Error: ${(err as Error).message}`);
+                    setError(true);
                 }
             }, 2000); // Debounce 2s
         });

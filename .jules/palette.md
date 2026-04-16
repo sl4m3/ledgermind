@@ -4,3 +4,6 @@
 ## 2024-05-24 - Missing accessibility states for background tasks
 **Learning:** In VS Code extensions, background watchers that execute silently can fail or hang without the user knowing. This breaks accessibility guidelines as screen readers and visual indicators do not alert the user to ongoing work or failures.
 **Action:** Always wrap async or background processes (like `execFile`) with loading state handlers (e.g., `setBusy(true/false)`) and ensure error callbacks explicitly set error UI states (e.g., `setError(true)`) to provide consistent, accessible feedback via status bar items or ARIA labels.
+## 2024-04-16 - Accessible Error State Management
+**Learning:** Background process errors (like file watcher JSON parsing) need accessible visual cues via the status bar, and users need an interactive path to dismiss these error states (e.g. by clicking to open logs).
+**Action:** Always wrap background processes with accessible error state triggers (`setError(true)`) and ensure the associated UI element's command can clear the error state.
