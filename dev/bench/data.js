@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776348683923,
+  "lastUpdate": 1776348696297,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2520,6 +2520,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00003315305799102615",
             "extra": "mean: 787.580399997978 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9a87f2a8148bae66824d88b638a8de75468eac17",
+          "message": "🎨 Palette: Improve error state visibility and dismissal (#138)\n\n- Updated VS Code status bar error handling to be dismissable\n- Added `setError(true)` to file watcher errors\n- Registered command correctly down the flow so it clears error.\n- Recorded learning in .jules/palette.md",
+          "timestamp": "2026-04-16T17:07:46+03:00",
+          "tree_id": "02da7fcf522088dac562c36d1883806bd18bf7bc",
+          "url": "https://github.com/sl4m3/ledgermind/commit/9a87f2a8148bae66824d88b638a8de75468eac17"
+        },
+        "date": 1776348695865,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 96.41335939765082,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009832026322479521",
+            "extra": "mean: 10.37200659999371 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11482.45366478087,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000016158556795082348",
+            "extra": "mean: 87.08939998314236 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1370.3236677062905,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000020800964526803472",
+            "extra": "mean: 729.7546000017974 usec\nrounds: 5"
           }
         ]
       }
