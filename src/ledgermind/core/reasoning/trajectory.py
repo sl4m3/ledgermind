@@ -162,7 +162,8 @@ class TrajectoryBuilder:
                         decision_ids[did] = decision_ids.get(did, 0) + 1
                         
         if explicit_targets:
-            best_explicit = sorted(explicit_targets.items(), key=lambda x: x[1], reverse=True)[0][0]
+            # ⚡ Bolt: Use O(N) max() with get() instead of O(N log N) sorted()[0]
+            best_explicit = max(explicit_targets, key=explicit_targets.get)
             chain.global_target = self.target_registry.normalize(best_explicit)
             return
 
@@ -197,13 +198,15 @@ class TrajectoryBuilder:
                 path_freq[normalized] = path_freq.get(normalized, 0) + 1
                     
             if path_freq:
-                best_path = sorted(path_freq.items(), key=lambda x: x[1], reverse=True)[0][0]
+                # ⚡ Bolt: Use O(N) max() with get() instead of O(N log N) sorted()[0]
+                best_path = max(path_freq, key=path_freq.get)
                 chain.global_target = self.target_registry.normalize(best_path)
                 return
 
         # 3. Fallback to Decision ID
         if decision_ids:
-            best_did = sorted(decision_ids.items(), key=lambda x: x[1], reverse=True)[0][0]
+            # ⚡ Bolt: Use O(N) max() with get() instead of O(N log N) sorted()[0]
+            best_did = max(decision_ids, key=decision_ids.get)
             chain.global_target = f"Recovered-{best_did[:8]}"
             return
             

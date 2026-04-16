@@ -7,3 +7,7 @@
 ## 2024-05-24 - Batch database updates in the search hot path
 **Learning:** During the core search operation (`QueryService.search`), the system was iteratively invoking `increment_hit` on individual IDs, resulting in multiple synchronous `UPDATE` queries executing inside a tight loop over `all_candidates`. This represents an N+1 database I/O bottleneck in an extremely hot path.
 **Action:** Replaced individual hit increments with a single batched UPDATE call (`increment_hits_batch`) that leverages SQLite's `json_each` to bypass parameter limits. By aggregating IDs into a list and firing a single query, database overhead and lock contention are significantly minimized.
+
+## 2025-04-16 - [O(N) Max and Sorting Optimizations]
+**Learning:** In tight loops evaluating dict scores (like `trajectory.py` recovering paths), using `sorted(d.items(), key=lambda x: x[1])[0][0]` runs in O(N log N) and creates unnecessary temporary lists. Finding the maximum key directly using `max(d, key=d.get)` runs in O(N) and operates strictly on the dictionary iterators. Additionally, using `lambda` functions for key sorting introduces significant Python-level function call overhead.
+**Action:** Always prefer `max()`/`min()` over sorting when only the extremes are needed. Replace lambda functions in `sorted()` or `max()` with C-optimized accessors like `dict.get` or `operator.itemgetter` wherever possible.
