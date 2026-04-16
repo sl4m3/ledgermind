@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776259686068,
+  "lastUpdate": 1776348683923,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2475,6 +2475,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00005589162881061604",
             "extra": "mean: 755.1652000188369 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d3fcae25164e41a9abc29c68c5e6e92ccc0b9e3a",
+          "message": "⚡ Bolt: O(N) max/sort optimizations (#137)",
+          "timestamp": "2026-04-16T17:07:37+03:00",
+          "tree_id": "e2a09524ccb3932dfca7c37c42294f69140c1be8",
+          "url": "https://github.com/sl4m3/ledgermind/commit/d3fcae25164e41a9abc29c68c5e6e92ccc0b9e3a"
+        },
+        "date": 1776348683345,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 93.3381709885674,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00021051755659190824",
+            "extra": "mean: 10.713730399993437 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 9913.711058242727,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002308706317009947",
+            "extra": "mean: 100.87040000712477 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1269.7116383325022,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003315305799102615",
+            "extra": "mean: 787.580399997978 usec\nrounds: 5"
           }
         ]
       }
