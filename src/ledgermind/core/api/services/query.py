@@ -68,7 +68,7 @@ class QueryService(MemoryService):
                     "kind": r['kind']
                 } for r in kw_results]
                 # V7.1: MUST SORT by score, otherwise weights have no effect on order
-                return sorted(fast_results, key=lambda x: x['score'], reverse=True)
+                return sorted(fast_results, key=itemgetter('score'), reverse=True)
 
         search_limit = max(200, (offset + limit) * 10) if namespace else (offset + limit) * 3
         

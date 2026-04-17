@@ -78,7 +78,7 @@ class LLMEnricher:
             return DecisionPhase.PATTERN
 
         # 1. Определяем максимальную фазу
-        max_phase = max(source_phases, key=lambda p: self.PHASE_ORDER.index(p))
+        max_phase = max(source_phases, key=self.PHASE_ORDER.index)
 
         # 2. Понижаем фазу если метрики не дотягивают
         for phase in reversed(self.PHASE_ORDER):  # CANONICAL → EMERGENT → PATTERN

@@ -1,4 +1,5 @@
 import os
+from operator import itemgetter
 import time
 import numpy as np
 import logging
@@ -726,7 +727,7 @@ class VectorStore:
                 })
 
         # Merge and Sort
-        results.sort(key=lambda x: x["score"], reverse=True)
+        results.sort(key=itemgetter("score"), reverse=True)
 
         # Deduplicate by ID? No, original didn't.
 
