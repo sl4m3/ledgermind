@@ -24,7 +24,7 @@ export function activate(context: vscode.ExtensionContext) {
     const showOutputCommandId = 'ledgermind.showOutput';
     statusBarItem.command = showOutputCommandId;
 
-    let isBusy = false;
+    let busyCount = 0;
 
     const setError = (hasError: boolean) => {
         if (hasError) {
@@ -34,7 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
             statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
         } else {
             statusBarItem.backgroundColor = undefined;
-            if (isBusy) {
+            if (busyCount > 0) {
                 statusBarItem.text = '$(sync~spin) LedgerMind';
                 statusBarItem.tooltip = 'LedgerMind: Syncing Context... (Click to view logs)';
                 statusBarItem.accessibilityInformation = { label: 'LedgerMind Syncing Context, click to view logs', role: 'button' };
@@ -47,9 +47,19 @@ export function activate(context: vscode.ExtensionContext) {
     };
 
     const setBusy = (busy: boolean) => {
-        if (isBusy === busy) return;
-        isBusy = busy;
-        setError(false);
+        if (busy) {
+            busyCount++;
+            if (busyCount === 1) {
+                setError(false);
+            }
+        } else {
+            if (busyCount > 0) {
+                busyCount--;
+                if (busyCount === 0) {
+                    setError(false);
+                }
+            }
+        }
     };
 
     context.subscriptions.push(vscode.commands.registerCommand(showOutputCommandId, () => {
