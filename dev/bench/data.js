@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776518502477,
+  "lastUpdate": 1776518520606,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2610,6 +2610,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000024496895119725734",
             "extra": "mean: 727.2715999988577 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29610b31e55c5d1a9fb3fe1aee738005bf0ffe13",
+          "message": "Fix insecure deserialization in VectorStore (#140)",
+          "timestamp": "2026-04-18T16:18:23+03:00",
+          "tree_id": "bf310924c8ec2276aaf92cc7c5c50538ecdd1714",
+          "url": "https://github.com/sl4m3/ledgermind/commit/29610b31e55c5d1a9fb3fe1aee738005bf0ffe13"
+        },
+        "date": 1776518520106,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 97.77650937747714,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0002683649898927524",
+            "extra": "mean: 10.227405399996314 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11379.930358264079,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00001213640516260579",
+            "extra": "mean: 87.87399997345346 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1313.3601030848586,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000030642042828868",
+            "extra": "mean: 761.4058000172008 usec\nrounds: 5"
           }
         ]
       }
