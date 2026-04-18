@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776348696297,
+  "lastUpdate": 1776518502477,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2565,6 +2565,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000020800964526803472",
             "extra": "mean: 729.7546000017974 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "74b3ac48036e73588a99d957ab49819797f0f09d",
+          "message": "Replace lambda functions with C-optimized accessors for faster sorting (#139)",
+          "timestamp": "2026-04-18T16:18:07+03:00",
+          "tree_id": "72df7400cde301e54c63c715a8718a92c0de9a96",
+          "url": "https://github.com/sl4m3/ledgermind/commit/74b3ac48036e73588a99d957ab49819797f0f09d"
+        },
+        "date": 1776518502156,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 95.82447164583395,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00014613195278243864",
+            "extra": "mean: 10.435747600007517 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11488.891390295841,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000013738632768369677",
+            "extra": "mean: 87.04060000468417 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1375.0021312554632,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000024496895119725734",
+            "extra": "mean: 727.2715999988577 usec\nrounds: 5"
           }
         ]
       }
