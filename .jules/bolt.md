@@ -11,3 +11,6 @@
 ## 2025-04-16 - [O(N) Max and Sorting Optimizations]
 **Learning:** In tight loops evaluating dict scores (like `trajectory.py` recovering paths), using `sorted(d.items(), key=lambda x: x[1])[0][0]` runs in O(N log N) and creates unnecessary temporary lists. Finding the maximum key directly using `max(d, key=d.get)` runs in O(N) and operates strictly on the dictionary iterators. Additionally, using `lambda` functions for key sorting introduces significant Python-level function call overhead.
 **Action:** Always prefer `max()`/`min()` over sorting when only the extremes are needed. Replace lambda functions in `sorted()` or `max()` with C-optimized accessors like `dict.get` or `operator.itemgetter` wherever possible.
+## 2026-04-17 - Replace lambda functions with C-optimized accessors for faster sorting
+**Learning:** In tight sorting or selection loops, using a Python `lambda` function inside `key=` arguments introduces significant function-call overhead.
+**Action:** Replace `lambda x: x['key']` with `operator.itemgetter('key')` and replace `lambda p: self.list.index(p)` with a direct method reference like `self.list.index` to leverage C-optimized implementations for measurable performance gains in tight loops.
