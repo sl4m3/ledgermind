@@ -34,3 +34,8 @@
 **Vulnerability:** The `purge_memory` function in `src/ledgermind/core/stores/semantic.py` concatenated the `fid` parameter directly with `self.repo_path` without validation, allowing a potential path traversal risk.
 **Learning:** File identifiers (fids) should always be validated, even for deletion endpoints, as untrusted input can result in arbitrary file deletion outside the intended directory scope.
 **Prevention:** Always sanitize or canonicalize identifiers against the base directory by calling `_validate_fid` (or similar mechanisms) before passing them to file system operations like `os.path.join` and `os.remove`.
+
+## 2024-05-20 - Insecure Deserialization in VectorStore
+**Vulnerability:** Arbitrary code execution risk due to `np.load(..., allow_pickle=True)` used for loading Python lists (`_doc_ids`).
+**Learning:** `np.load` with `allow_pickle=True` uses the `pickle` module under the hood, which is insecure and can execute arbitrary code if the `.npy` file is tampered with. This shouldn't be used for simple data structures like lists of strings.
+**Prevention:** Store metadata like string lists in safer formats like JSON (`vector_meta.json`). For numeric index files, explicitly set `allow_pickle=False` when using `np.load()` to prevent insecure deserialization.
