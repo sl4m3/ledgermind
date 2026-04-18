@@ -3,6 +3,7 @@ from operator import itemgetter
 import time
 import numpy as np
 import logging
+import json
 import platform
 import threading
 from typing import List, Dict, Any, Optional
@@ -234,7 +235,7 @@ class VectorStore:
     def __init__(self, storage_path: str, model_name: str = "../../models/v5-small-text-matching-Q4_K_M.gguf", dimension: int = 384, workers: int = 0):
         self.storage_path = storage_path
         self.index_path = os.path.join(storage_path, "vectors.npy")
-        self.meta_path = os.path.join(storage_path, "vector_meta.npy")
+        self.meta_path = os.path.join(storage_path, "vector_meta.json")
         self.model_name = model_name
         self.dimension = dimension
         self.workers = self._resolve_workers(workers)
@@ -464,11 +465,27 @@ class VectorStore:
 
 
     def load(self):
-        if os.path.exists(self.index_path) and os.path.exists(self.meta_path):
+        legacy_meta_path = os.path.join(self.storage_path, "vector_meta.npy")
+        has_index = os.path.exists(self.index_path)
+        has_meta = os.path.exists(self.meta_path)
+        has_legacy_meta = os.path.exists(legacy_meta_path)
+
+        if has_index and (has_meta or has_legacy_meta):
             try:
-                self._vectors = np.load(self.index_path)
-                self._doc_ids = np.load(self.meta_path, allow_pickle=True).tolist()
+                self._vectors = np.load(self.index_path, allow_pickle=False)
                 self._deleted_ids = set()
+
+                if has_meta:
+                    with open(self.meta_path, 'r', encoding='utf-8') as f:
+                        self._doc_ids = json.load(f)
+                else:
+                    self._doc_ids = np.load(legacy_meta_path, allow_pickle=True).tolist()
+                    self._dirty = True
+                    self.save()
+                    try:
+                        os.remove(legacy_meta_path)
+                    except Exception as e:
+                        logger.warning(f"Failed to remove legacy meta file: {e}")
 
                 # Check if vectors are normalized (checking first one is usually enough)
                 # But to be safe and simple, we normalize everything on load.
@@ -502,7 +519,8 @@ class VectorStore:
     def save(self):
         if self._vectors is not None and self._dirty:
             np.save(self.index_path, self._vectors)
-            np.save(self.meta_path, np.array(self._doc_ids, dtype=object))
+            with open(self.meta_path, 'w', encoding='utf-8') as f:
+                json.dump(self._doc_ids, f)
 
             # Rebuild Annoy index on save
             self._build_annoy_index()
