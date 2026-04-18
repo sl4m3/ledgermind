@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776518520606,
+  "lastUpdate": 1776518537734,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2655,6 +2655,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000030642042828868",
             "extra": "mean: 761.4058000172008 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "76d96ee3b77ad40f6a88e68a620acecedb1a4e58",
+          "message": "🎨 Palette: Fix concurrent loading states for status bar item (#141)",
+          "timestamp": "2026-04-18T16:18:32+03:00",
+          "tree_id": "7b1808db32d93ec9ed54ebb4c815ac860055936f",
+          "url": "https://github.com/sl4m3/ledgermind/commit/76d96ee3b77ad40f6a88e68a620acecedb1a4e58"
+        },
+        "date": 1776518536856,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 95.49060878502459,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000596712106890585",
+            "extra": "mean: 10.47223400000803 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11541.373515637135,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009404367289505772",
+            "extra": "mean: 86.64480000106778 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1304.048235191047,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000033148341210888335",
+            "extra": "mean: 766.8427999931282 usec\nrounds: 5"
           }
         ]
       }
