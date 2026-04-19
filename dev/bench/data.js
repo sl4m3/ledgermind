@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776597655056,
+  "lastUpdate": 1776597678504,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2745,6 +2745,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000032706691087297443",
             "extra": "mean: 725.5038000039349 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cc73fa782e7f199e84b894074ba91df96b6cb067",
+          "message": "🎨 Palette: Fix VS Code concurrent loading states clearing errors (#143)",
+          "timestamp": "2026-04-19T14:17:33+03:00",
+          "tree_id": "54d69d88b4150660b46d1e962467727337f2b8a5",
+          "url": "https://github.com/sl4m3/ledgermind/commit/cc73fa782e7f199e84b894074ba91df96b6cb067"
+        },
+        "date": 1776597677574,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 99.84254032651847,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008117826932692774",
+            "extra": "mean: 10.015770799998336 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10185.705787013838,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000014069587031401168",
+            "extra": "mean: 98.17680000878681 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1336.5956961022096,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000020300638770199118",
+            "extra": "mean: 748.1694000034622 usec\nrounds: 5"
           }
         ]
       }
