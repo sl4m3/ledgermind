@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776518537734,
+  "lastUpdate": 1776597655056,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2700,6 +2700,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000033148341210888335",
             "extra": "mean: 766.8427999931282 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "093815d3e751fe539d37d6ffc4fb49c3efd07cd9",
+          "message": "Optimize python lambda sort bottlenecks with dict.get and itemgetter (#142)",
+          "timestamp": "2026-04-19T14:17:24+03:00",
+          "tree_id": "082a319c81b47fcb3594a68e6fa88bbceec13ec0",
+          "url": "https://github.com/sl4m3/ledgermind/commit/093815d3e751fe539d37d6ffc4fb49c3efd07cd9"
+        },
+        "date": 1776597654730,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 95.41419713242779,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008525557544844101",
+            "extra": "mean: 10.480620600014845 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11387.550221511285,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000015492688774239748",
+            "extra": "mean: 87.8151999813781 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1378.3525323982815,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000032706691087297443",
+            "extra": "mean: 725.5038000039349 usec\nrounds: 5"
           }
         ]
       }
