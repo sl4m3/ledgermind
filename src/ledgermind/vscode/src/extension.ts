@@ -25,46 +25,47 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.command = showOutputCommandId;
 
     let busyCount = 0;
+    let isError = false;
 
-    const setError = (hasError: boolean) => {
-        if (hasError) {
+    const updateStatusBar = () => {
+        if (isError) {
             statusBarItem.text = '$(error) LedgerMind';
             statusBarItem.tooltip = 'LedgerMind: Sync Error (Click to view logs)';
             statusBarItem.accessibilityInformation = { label: 'LedgerMind Sync Error, click to view logs', role: 'button' };
             statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
+        } else if (busyCount > 0) {
+            statusBarItem.backgroundColor = undefined;
+            statusBarItem.text = '$(sync~spin) LedgerMind';
+            statusBarItem.tooltip = 'LedgerMind: Syncing Context... (Click to view logs)';
+            statusBarItem.accessibilityInformation = { label: 'LedgerMind Syncing Context, click to view logs', role: 'button' };
         } else {
             statusBarItem.backgroundColor = undefined;
-            if (busyCount > 0) {
-                statusBarItem.text = '$(sync~spin) LedgerMind';
-                statusBarItem.tooltip = 'LedgerMind: Syncing Context... (Click to view logs)';
-                statusBarItem.accessibilityInformation = { label: 'LedgerMind Syncing Context, click to view logs', role: 'button' };
-            } else {
-                statusBarItem.text = '$(database) LedgerMind';
-                statusBarItem.tooltip = 'LedgerMind Dual-Hook Bridge Active (Click to view logs)';
-                statusBarItem.accessibilityInformation = { label: 'LedgerMind Dual-Hook Bridge Active, click to view logs', role: 'button' };
-            }
+            statusBarItem.text = '$(database) LedgerMind';
+            statusBarItem.tooltip = 'LedgerMind Dual-Hook Bridge Active (Click to view logs)';
+            statusBarItem.accessibilityInformation = { label: 'LedgerMind Dual-Hook Bridge Active, click to view logs', role: 'button' };
         }
+    };
+
+    const setError = (hasError: boolean) => {
+        isError = hasError;
+        updateStatusBar();
     };
 
     const setBusy = (busy: boolean) => {
         if (busy) {
             busyCount++;
-            if (busyCount === 1) {
-                setError(false);
-            }
         } else {
             if (busyCount > 0) {
                 busyCount--;
-                if (busyCount === 0) {
-                    setError(false);
-                }
             }
         }
+        updateStatusBar();
     };
 
     context.subscriptions.push(vscode.commands.registerCommand(showOutputCommandId, () => {
         outputChannel.show();
-        setError(false); // Clear error state when logs are opened
+        isError = false; // Clear error state when logs are opened
+        updateStatusBar();
     }));
 
     // ==========================================
