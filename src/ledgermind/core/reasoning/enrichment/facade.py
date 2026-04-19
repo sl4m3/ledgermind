@@ -120,17 +120,9 @@ class LLMEnricher:
             logger.info("No records found with enrichment_status='pending'.")
             return
 
-        # 2. PRIORITY SORTING: Merge -> Validation -> Standard Enrichment
-        def get_priority(m):
-            target = m.get("target", "general")
-            if target == "knowledge_merge":
-                return 0
-            if target == "knowledge_validation":
-                return 1
-            return 2
-
-        # Sort by priority first, then by timestamp (ASC - oldest first)
-        pending_metas.sort(key=lambda m: (get_priority(m), m.get("timestamp", "")))
+        # ⚡ Bolt: Replace priority map function lookup inside lambda with a direct dict.get on pre-computed inline tuple values to bypass significant Python execution overhead
+        _priority_map = {"knowledge_merge": 0, "knowledge_validation": 1}
+        pending_metas.sort(key=lambda m: (_priority_map.get(m.get("target", "general"), 2), m.get("timestamp", "")))
 
         if limit:
             pending_metas = pending_metas[:limit]
