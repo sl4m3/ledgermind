@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776597678504,
+  "lastUpdate": 1776727161753,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2790,6 +2790,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000020300638770199118",
             "extra": "mean: 748.1694000034622 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d812b4e320c4da5c1ae48598932287c16fa53ead",
+          "message": "⚡ Bolt: Replace lambda with operator.itemgetter for event sorting (#144)",
+          "timestamp": "2026-04-21T02:15:44+03:00",
+          "tree_id": "b0c7404553c5daeaeb7afb4ab1d3e40e9d1f00d9",
+          "url": "https://github.com/sl4m3/ledgermind/commit/d812b4e320c4da5c1ae48598932287c16fa53ead"
+        },
+        "date": 1776727161231,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 99.25275380742445,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00012123302667336046",
+            "extra": "mean: 10.075287199993 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11717.834542852981,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009498614839069087",
+            "extra": "mean: 85.34000000963715 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1313.0800366839871,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000198030141088577",
+            "extra": "mean: 761.5682000050583 usec\nrounds: 5"
           }
         ]
       }
