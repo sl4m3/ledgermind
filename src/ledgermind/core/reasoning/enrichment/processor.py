@@ -1,4 +1,5 @@
 import logging
+from operator import itemgetter
 from typing import Any, Tuple, List
 from .config import EnrichmentConfig
 
@@ -22,7 +23,8 @@ class LogProcessor:
         found_ids = {e['id'] for e in events}
         missing_ids = [eid for eid in eids if eid not in found_ids]
         
-        events.sort(key=lambda x: x.get('timestamp', ''))
+        # ⚡ Bolt: Replace lambda function with C-optimized operator.itemgetter for faster sorting
+        events.sort(key=itemgetter('timestamp'))
         
         total_available = len(events)
         included_lines = []
