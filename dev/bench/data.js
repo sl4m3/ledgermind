@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776727161753,
+  "lastUpdate": 1776821907392,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2835,6 +2835,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000198030141088577",
             "extra": "mean: 761.5682000050583 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "281699d8667efd9f94789229acb4c7982449114d",
+          "message": "Fix Path Hijacking in Semantic Store (#146)",
+          "timestamp": "2026-04-22T04:34:48+03:00",
+          "tree_id": "c4a0de64316f807b1401579d6b690f6ba93d3624",
+          "url": "https://github.com/sl4m3/ledgermind/commit/281699d8667efd9f94789229acb4c7982449114d"
+        },
+        "date": 1776821907070,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 92.49789016935489,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00013632970720125643",
+            "extra": "mean: 10.811057400002255 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11945.147881695855,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010836229944405562",
+            "extra": "mean: 83.71599999463797 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1323.7062822745647,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000046366205742168124",
+            "extra": "mean: 755.4546000051232 usec\nrounds: 5"
           }
         ]
       }
