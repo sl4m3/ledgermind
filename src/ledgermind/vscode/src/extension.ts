@@ -29,9 +29,9 @@ export function activate(context: vscode.ExtensionContext) {
 
     const updateStatusBar = () => {
         if (isError) {
-            statusBarItem.text = '$(error) LedgerMind';
-            statusBarItem.tooltip = 'LedgerMind: Sync Error (Click to view logs)';
-            statusBarItem.accessibilityInformation = { label: 'LedgerMind Sync Error, click to view logs', role: 'button' };
+            statusBarItem.text = busyCount > 0 ? '$(sync~spin) $(error) LedgerMind' : '$(error) LedgerMind';
+            statusBarItem.tooltip = busyCount > 0 ? 'LedgerMind: Sync Error (Syncing...) (Click to view logs)' : 'LedgerMind: Sync Error (Click to view logs)';
+            statusBarItem.accessibilityInformation = { label: busyCount > 0 ? 'LedgerMind Sync Error and Syncing Context, click to view logs' : 'LedgerMind Sync Error, click to view logs', role: 'button' };
             statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
         } else if (busyCount > 0) {
             statusBarItem.backgroundColor = undefined;
