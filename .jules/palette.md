@@ -7,3 +7,7 @@
 ## 2024-04-16 - Accessible Error State Management
 **Learning:** Background process errors (like file watcher JSON parsing) need accessible visual cues via the status bar, and users need an interactive path to dismiss these error states (e.g. by clicking to open logs).
 **Action:** Always wrap background processes with accessible error state triggers (`setError(true)`) and ensure the associated UI element's command can clear the error state.
+
+## 2024-04-22 - Visual representation of background tasks in error states
+**Learning:** Users and screen readers lose visibility of active background synchronization if an unacknowledged persistent error state entirely overrides the status bar.
+**Action:** When overlapping states occur, dynamically combine icons and accessibility labels (e.g., error and active sync) to ensure both critical conditions remain visible.
