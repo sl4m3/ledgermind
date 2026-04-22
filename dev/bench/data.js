@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776867707170,
+  "lastUpdate": 1776867722032,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2925,6 +2925,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000048626256021801055",
             "extra": "mean: 809.8219999965295 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f440f266438cfd2c0ffa776dbb76042904596529",
+          "message": "🎨 Palette: Improve accessibility of background tasks during error states (#148)",
+          "timestamp": "2026-04-22T17:18:12+03:00",
+          "tree_id": "77379c39cb1060a6b790f7e1bbc02374e8eb731e",
+          "url": "https://github.com/sl4m3/ledgermind/commit/f440f266438cfd2c0ffa776dbb76042904596529"
+        },
+        "date": 1776867721647,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 99.93405751303251,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000045702245665724705",
+            "extra": "mean: 10.006598599977679 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11768.970402174378,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009923387776571199",
+            "extra": "mean: 84.96920000879982 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1275.7588468582928,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0000431929031254247",
+            "extra": "mean: 783.8472000116781 usec\nrounds: 5"
           }
         ]
       }
