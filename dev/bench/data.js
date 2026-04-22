@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776821907392,
+  "lastUpdate": 1776867707170,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2880,6 +2880,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000046366205742168124",
             "extra": "mean: 755.4546000051232 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b1a96cd730c927f43393d0e40806eb1b4abc65fc",
+          "message": "⚡ Bolt: optimize query candidate mapping loops (#147)",
+          "timestamp": "2026-04-22T17:18:00+03:00",
+          "tree_id": "ba518a3ad01e294b967fe8559e2447abdee681cd",
+          "url": "https://github.com/sl4m3/ledgermind/commit/b1a96cd730c927f43393d0e40806eb1b4abc65fc"
+        },
+        "date": 1776867706784,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 98.93038642668077,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00003534683442177968",
+            "extra": "mean: 10.108117799995853 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11868.168384904086,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000901609470048826",
+            "extra": "mean: 84.2590000047494 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1234.839260978691,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000048626256021801055",
+            "extra": "mean: 809.8219999965295 usec\nrounds: 5"
           }
         ]
       }
