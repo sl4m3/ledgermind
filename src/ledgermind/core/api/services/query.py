@@ -129,21 +129,24 @@ class QueryService(MemoryService):
             iteration += 1
 
         resolved_records = []
+        mode_is_maintenance = mode == "maintenance"
+        mode_is_strict = mode == "strict"
+        include_history = self.context.include_history
+
         for fid in sorted_fids:
             meta = self._resolve_to_truth(fid, mode, cache=request_cache)
             if not meta: continue
             if meta.get('namespace', 'default') != effective_namespace: continue
 
             status = meta.get("status", "unknown")
-            if status in ("processed", "knowledge_merge", "knowledge_validation", "accepted"):
+
+            if status == "active":
+                pass
+            elif status in ("processed", "knowledge_merge", "knowledge_validation", "accepted"):
                 continue
-
-            if not self.context.include_history and status not in ("active", "superseded", "deprecated", "pending_merge", "draft"):
-                if mode != "maintenance" or status != "draft": continue
-
-            if mode == "strict" and status not in ("active", "pending_merge"): continue
-            # V7.0: Allow draft proposals in balanced mode if they are the latest truth
-            # if mode == "balanced" and status == "draft": continue
+            elif not include_history and status not in ("superseded", "deprecated", "pending_merge", "draft"):
+                if not mode_is_maintenance or status != "draft": continue
+            elif mode_is_strict and status != "pending_merge": continue
 
             resolved_records.append((fid, meta, scores[fid] / max_rrf))
 
@@ -186,11 +189,10 @@ class QueryService(MemoryService):
                 "phase": phase
             }
 
-        all_candidates = []
-        for cand in final_candidates.values():
+        all_candidates = list(final_candidates.values())
+        for cand in all_candidates:
             raw_score = (cand['base_score'] + cand['boost']) * cand['lifecycle_multiplier']
-            cand['score'] = min(1.0, raw_score)
-            all_candidates.append(cand)
+            cand['score'] = raw_score if raw_score < 1.0 else 1.0
 
         # ⚡ Bolt: Use C-optimized itemgetter instead of lambda for faster dictionary value extraction
         all_candidates.sort(key=itemgetter('score'), reverse=True)
@@ -210,9 +212,14 @@ class QueryService(MemoryService):
                 skipped += 1
                 continue
 
-            try:
-                ctx = _loads(cand.pop('context_json'))
-            except Exception: ctx = {}
+            ctx_json = cand.pop('context_json', None)
+            if ctx_json and len(ctx_json) > 2:
+                try:
+                    ctx = _loads(ctx_json)
+                except Exception:
+                    ctx = {}
+            else:
+                ctx = {}
 
             _get = ctx.get
             cand["rationale"] = _get("rationale")
@@ -283,21 +290,31 @@ class QueryService(MemoryService):
     def _get_lifecycle_weight(self, meta: Optional[Dict[str, Any]]) -> float:
         if not meta: return 1.0
         weight = 1.0
+
         if meta.get('kind') == 'decision': weight *= 1.35
-        phase = (meta.get('phase') or '').lower()
-        if phase == 'canonical': weight *= 1.5
-        elif phase == 'emergent': weight *= 1.2
-        vitality = (meta.get('vitality') or '').lower()
-        if vitality == 'decaying': weight *= 0.5
-        elif vitality == 'dormant': weight *= 0.2
+
+        phase = meta.get('phase')
+        if phase == 'canonical' or phase == 'CANONICAL': weight *= 1.5
+        elif phase == 'emergent' or phase == 'EMERGENT': weight *= 1.2
+
+        vitality = meta.get('vitality')
+        if vitality == 'decaying' or vitality == 'DECAYING': weight *= 0.5
+        elif vitality == 'dormant' or vitality == 'DORMANT': weight *= 0.2
+
         return weight
 
     def _get_lifecycle_multiplier(self, phase: str, vitality: str, kind: str, status: Optional[str]) -> float:
-        multiplier = (
-            self._PHASE_WEIGHTS.get(phase, 1.0) *
-            self._VITALITY_WEIGHTS.get(vitality, 1.0) *
-            self._KIND_WEIGHTS.get(kind, 1.0)
-        )
+        multiplier = 1.0
+
+        if phase == 'canonical': multiplier *= 1.5
+        elif phase == 'emergent': multiplier *= 1.2
+
+        if vitality == 'decaying': multiplier *= 0.5
+        elif vitality == 'dormant': multiplier *= 0.2
+
+        if kind == 'decision': multiplier *= 1.35
+
         if status in ("rejected", "falsified"): multiplier *= 0.2
         elif status in ("superseded", "deprecated"): multiplier *= 0.3
+
         return multiplier
