@@ -6,6 +6,7 @@ import sqlite3
 import uuid
 import threading
 import subprocess
+import shutil
 from datetime import datetime
 from typing import List, Optional, Any, Dict, Tuple
 from contextlib import contextmanager, nullcontext
@@ -88,8 +89,10 @@ class SemanticStore:
         
         git_available = False
         try:
-            subprocess.run(["git", "--version"], capture_output=True, check=True) # nosec B603 B607
-            git_available = True
+            git_path = shutil.which("git")
+            if git_path:
+                subprocess.run([git_path, "--version"], capture_output=True, check=True) # nosec B603 B607
+                git_available = True
         except (subprocess.CalledProcessError, FileNotFoundError):
             pass
 
@@ -130,7 +133,9 @@ class SemanticStore:
             recovered = False
             for f in disk_files:
                 if isinstance(self.audit, GitAuditProvider):
-                    res = subprocess.run(["git", "ls-files", "--error-unmatch", f], 
+                    git_path = shutil.which("git")
+                    if not git_path: continue
+                    res = subprocess.run([git_path, "ls-files", "--error-unmatch", f],
                                          cwd=self.repo_path, capture_output=True) # nosec B603 B607
                     if res.returncode != 0:
                         logger.info(f"Recovering untracked file: {f}")
