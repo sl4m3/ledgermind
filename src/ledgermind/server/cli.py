@@ -902,7 +902,8 @@ def sync_transcript_history(bridge, transcript_path: str) -> set:
                     continue
                 try:
                     entry = json.loads(line)
-                except:
+                except json.JSONDecodeError as e:
+                    global_console.print(f"[yellow]Warning: Failed to parse history line as JSON: {e}[/yellow]")
                     continue
 
                 msg_id = entry.get("uuid") or entry.get("messageId") or entry.get("id")
