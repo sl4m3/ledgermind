@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776867722032,
+  "lastUpdate": 1776944394156,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -2970,6 +2970,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.0000431929031254247",
             "extra": "mean: 783.8472000116781 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "38ce68ff292e34bcb78496cf1116daa112c3e741",
+          "message": "🎨 Palette: Fix silent json decode error in cli (#149)",
+          "timestamp": "2026-04-23T14:35:59+03:00",
+          "tree_id": "6aca9a8bbbedeb886afade6b29d2603fbaffb536",
+          "url": "https://github.com/sl4m3/ledgermind/commit/38ce68ff292e34bcb78496cf1116daa112c3e741"
+        },
+        "date": 1776944393147,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 89.69223955652281,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0017207044067774951",
+            "extra": "mean: 11.149236600004997 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10480.33470098563,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00002480474602678588",
+            "extra": "mean: 95.41679999074404 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1323.706632730536,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012365114517784716",
+            "extra": "mean: 755.4543999958696 usec\nrounds: 5"
           }
         ]
       }
