@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776944394156,
+  "lastUpdate": 1777038222286,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3015,6 +3015,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000012365114517784716",
             "extra": "mean: 755.4543999958696 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "392ef0d8af09ecc8f12ab68b689f824d4b56a3d9",
+          "message": "🎨 Palette: Improve JSON parse error visibility in CLI (#150)",
+          "timestamp": "2026-04-24T16:39:50+03:00",
+          "tree_id": "dcb5ba402cbc5a56f4e3b5201a183de8e06e22ca",
+          "url": "https://github.com/sl4m3/ledgermind/commit/392ef0d8af09ecc8f12ab68b689f824d4b56a3d9"
+        },
+        "date": 1777038221599,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 106.90933203424424,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00011260775715209868",
+            "extra": "mean: 9.35372040000857 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 13117.403383976995,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000007839986079922117",
+            "extra": "mean: 76.23459999877014 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1320.8078483195518,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004295404209861068",
+            "extra": "mean: 757.112400015103 usec\nrounds: 5"
           }
         ]
       }
