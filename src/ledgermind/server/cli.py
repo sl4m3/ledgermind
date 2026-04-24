@@ -884,7 +884,8 @@ def sync_transcript_history(bridge, transcript_path: str) -> set:
             if isinstance(ctx, str):
                 try:
                     ctx = json.loads(ctx)
-                except:
+                except json.JSONDecodeError as e:
+                    global_console.print(f"[yellow]Warning: Failed to parse context JSON: {e}[/yellow]")
                     ctx = {}
             if isinstance(ctx, dict) and "transcript_id" in ctx:
                 processed_ids.add(ctx["transcript_id"])
