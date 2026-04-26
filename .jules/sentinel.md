@@ -39,3 +39,7 @@
 **Vulnerability:** Arbitrary code execution risk due to `np.load(..., allow_pickle=True)` used for loading Python lists (`_doc_ids`).
 **Learning:** `np.load` with `allow_pickle=True` uses the `pickle` module under the hood, which is insecure and can execute arbitrary code if the `.npy` file is tampered with. This shouldn't be used for simple data structures like lists of strings.
 **Prevention:** Store metadata like string lists in safer formats like JSON (`vector_meta.json`). For numeric index files, explicitly set `allow_pickle=False` when using `np.load()` to prevent insecure deserialization.
+## 2025-05-30 - Fix Path Hijacking in GitIndexer
+**Vulnerability:** The `GitIndexer` class executed the `git` binary using a hardcoded string `git` in `subprocess.run`, which allowed for path hijacking where an attacker could put a malicious `git` binary in the PATH environment variable.
+**Learning:** Hardcoding binary paths creates a path hijacking risk. It's essential to retrieve the absolute path using `shutil.which` to ensure the correct executable is run.
+**Prevention:** Always use `shutil.which('git')` and gracefully handle the possibility that the binary doesn't exist before executing `subprocess.run`.
