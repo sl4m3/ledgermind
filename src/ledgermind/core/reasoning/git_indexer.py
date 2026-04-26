@@ -44,10 +44,14 @@ class GitIndexer:
     ) -> List[Dict[str, Any]]:
         """Извлекает историю коммитов через git log."""
         try:
+            import shutil
+            git_path = shutil.which("git")
+            if not git_path:
+                return []
             # Формат: hash|author|date|subject|body
             # Используем --reverse чтобы идти от старых к новым при индексации
             format_str = "%H|%an|%ai|%s|%b%x00"
-            cmd = ["git", "log", f"-n {limit}", f"--format={format_str}"]
+            cmd = [git_path, "log", f"-n {limit}", f"--format={format_str}"]
 
             if since_hash:
                 # Security: Validate hash to prevent argument injection
@@ -119,8 +123,12 @@ class GitIndexer:
         for commit in reversed(new_commits):  # От старых к новым
             # Дополнительно получаем список измененных файлов для контекста
             try:
+                import shutil
+                git_path = shutil.which("git")
+                if not git_path:
+                    raise FileNotFoundError("git executable not found in PATH")
                 diff_res = subprocess.run(
-                    ["git", "show", "--name-only", "--format=", commit["hash"]],
+                    [git_path, "show", "--name-only", "--format=", commit["hash"]],
                     cwd=self.repo_path,
                     capture_output=True,
                     text=True,
