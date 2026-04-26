@@ -64,8 +64,10 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(vscode.commands.registerCommand(showOutputCommandId, () => {
         outputChannel.show();
-        isError = false; // Clear error state when logs are opened
-        updateStatusBar();
+        if (isError) {
+            outputChannel.appendLine('✓ Error state cleared by user');
+        }
+        setError(false); // Clear error state when logs are opened
     }));
 
     // ==========================================
