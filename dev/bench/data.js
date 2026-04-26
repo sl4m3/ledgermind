@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777038222286,
+  "lastUpdate": 1777216363034,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3060,6 +3060,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00004295404209861068",
             "extra": "mean: 757.112400015103 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1928186927ba273f187b9c5727b0f229bb7cc2c5",
+          "message": "🛡️ Sentinel: [CRITICAL] Fix Path Hijacking in GitIndexer (#151)\n\nResolved the full absolute path of the `git` executable using `shutil.which(\"git\")` before executing `subprocess.run` to prevent local privilege escalation and malicious binary interception.",
+          "timestamp": "2026-04-26T18:08:58+03:00",
+          "tree_id": "606777f1e43f90c761a50eb5f3105aca32a2146e",
+          "url": "https://github.com/sl4m3/ledgermind/commit/1928186927ba273f187b9c5727b0f229bb7cc2c5"
+        },
+        "date": 1777216362080,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 91.54837990392821,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0010479025942471455",
+            "extra": "mean: 10.923186200011514 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11762.325739377198,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010348265601738792",
+            "extra": "mean: 85.01720001277135 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1309.8184251232535,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000025866203066886107",
+            "extra": "mean: 763.464599992858 usec\nrounds: 5"
           }
         ]
       }
