@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777216363034,
+  "lastUpdate": 1777216367796,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3105,6 +3105,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000025866203066886107",
             "extra": "mean: 763.464599992858 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "efd991d134c0e7e315888fd2421773dea103db79",
+          "message": "🎨 Palette: Add explicit visual feedback for error state dismissal (#152)",
+          "timestamp": "2026-04-26T18:09:06+03:00",
+          "tree_id": "d47a29e03ad57b06531e82e36404e044ee28ce6b",
+          "url": "https://github.com/sl4m3/ledgermind/commit/efd991d134c0e7e315888fd2421773dea103db79"
+        },
+        "date": 1777216366864,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 98.94043305086346,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007619247613852594",
+            "extra": "mean: 10.107091399993351 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11495.283483781743,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000950797179613298",
+            "extra": "mean: 86.99220001062713 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1298.4089037477772,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000028624035036900372",
+            "extra": "mean: 770.1734000079341 usec\nrounds: 5"
           }
         ]
       }
