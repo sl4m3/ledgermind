@@ -1161,6 +1161,8 @@ def bridge_record(
                                 real_response = data["response"]
                                 if "prompt" in data:
                                     real_prompt = data["prompt"]
+                except json.JSONDecodeError as e:
+                    global_console.print(f"[yellow]Warning: Failed to parse stdin as JSON: {e}[/yellow]")
                 except Exception:
                     pass
 
