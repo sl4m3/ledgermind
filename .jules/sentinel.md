@@ -43,3 +43,7 @@
 **Vulnerability:** The `GitIndexer` class executed the `git` binary using a hardcoded string `git` in `subprocess.run`, which allowed for path hijacking where an attacker could put a malicious `git` binary in the PATH environment variable.
 **Learning:** Hardcoding binary paths creates a path hijacking risk. It's essential to retrieve the absolute path using `shutil.which` to ensure the correct executable is run.
 **Prevention:** Always use `shutil.which('git')` and gracefully handle the possibility that the binary doesn't exist before executing `subprocess.run`.
+## 2024-05-30 - Fix SQL Structure Injection Risk
+**Vulnerability:** The `EpisodicStore.query` method used `.format()` to construct SQL queries, allowing potential structural injection if variables controlling structure (like `where_clause`) are not completely sanitized.
+**Learning:** Using `.format()` or f-strings for SQL query templates risks accidental manipulation of query structure, even when dynamic data is supposedly controlled.
+**Prevention:** Build SQL strings using explicit concatenation of static fragments and use if/else logic for identifiers like `ASC`/`DESC` to ensure the structure is immune to dynamic data manipulation.

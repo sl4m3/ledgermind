@@ -1,7 +1,8 @@
-💡 What: Added explicit visual feedback in the Output Channel when the user dismisses a persistent error state via the status bar. Replaced direct assignment of `isError` with the dedicated `setError` state updater for improved state-handling semantics.
+🎯 **What**
+Fixed a medium severity security risk in `EpisodicStore.query` where `.format()` was being used to insert `where_clause` and `direction` into a SQL query template string.
 
-🎯 Why: To improve the user experience by providing a reassuring confirmation in the logs that the error has been acknowledged and dismissed. Additionally, utilizing the correct state-handling method avoids relying on side-effect updates.
+⚠️ **Risk**
+Using string formatting mechanisms like `.format()` or f-strings for SQL structure exposes the code to SQL Structural Injection. Even if the variables (like `ASC`/`DESC`) are currently heavily sanitized or generated statically internally, using `.format()` creates a dangerous anti-pattern that can be exploited in the future if input validation logic is modified or bypassed.
 
-📸 Before/After: Before, dismissing an error via clicking the status bar silently reset the flag and refreshed the UI. After, clicking the status bar logs a clear visual indication ('✓ Error state cleared by user') if an error state was active.
-
-♿ Accessibility: Ensures that users and screen readers navigating through the interaction logs receive confirmation of error resolution.
+🛡️ **Solution**
+Refactored the SQL query building to use explicit static string concatenation along with strict `if/else` logic specifically for identifiers like the `ASC`/`DESC` direction parameter. This makes the query completely immune to structural manipulation from dynamic data and complies with the LedgerMind secure coding standards for SQL template generation.

@@ -208,11 +208,13 @@ class EpisodicStore:
             
             where_clause = ""
             if query_parts:
-                where_clause = "WHERE " + " AND ".join(query_parts)
+                where_clause = " WHERE " + " AND ".join(query_parts)
             
-            direction = 'ASC' if order.upper() == 'ASC' else 'DESC'
-            sql_template = "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events {} ORDER BY id {} LIMIT ?"
-            sql = sql_template.format(where_clause, direction)
+            # Explicit string concatenation to prevent SQL injection or formatting issues
+            if order.upper() == 'ASC':
+                sql = "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events" + where_clause + " ORDER BY id ASC LIMIT ?"
+            else:
+                sql = "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events" + where_clause + " ORDER BY id DESC LIMIT ?"
             params.append(limit)
             
             cursor = conn.execute(sql, params)
