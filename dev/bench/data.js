@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777374969913,
+  "lastUpdate": 1777561549983,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3195,6 +3195,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00010588740910065637",
             "extra": "mean: 877.725600003032 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3208feb6167130b078c1369c6296fe953613aaed",
+          "message": "🛡️ Sentinel: [MEDIUM] Fix SQL template injection risk (#154)",
+          "timestamp": "2026-04-30T18:02:01+03:00",
+          "tree_id": "d9a58b0adb2d9ddad7938f60c3a94320daf00fc2",
+          "url": "https://github.com/sl4m3/ledgermind/commit/3208feb6167130b078c1369c6296fe953613aaed"
+        },
+        "date": 1777561548974,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 92.7417195601613,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012416354753096777",
+            "extra": "mean: 10.782633800005215 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11493.090354840362,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010073192006673173",
+            "extra": "mean: 87.00879999423705 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1216.0568141747456,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000057859294226199085",
+            "extra": "mean: 822.329999999738 usec\nrounds: 5"
           }
         ]
       }
