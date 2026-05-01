@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777636411449,
+  "lastUpdate": 1777636427901,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3285,6 +3285,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000057286431371216904",
             "extra": "mean: 828.2357999860324 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7c50da85897ba58b317848fe333acdf47bd5fb30",
+          "message": "🛡️ Sentinel: [MEDIUM] Fix Bandit B608 false positives (#157)\n\nAppended `# nosec B608` to the explicit concatenation statements that are safely parameterized to suppress the false positives.",
+          "timestamp": "2026-05-01T14:50:01+03:00",
+          "tree_id": "00e8b43d99917b80d7b07dafec98f500e3043534",
+          "url": "https://github.com/sl4m3/ledgermind/commit/7c50da85897ba58b317848fe333acdf47bd5fb30"
+        },
+        "date": 1777636426999,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 98.51125845764896,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00013637691440326836",
+            "extra": "mean: 10.15112400000362 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11682.215696061963,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011176451078942325",
+            "extra": "mean: 85.60019999777069 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1217.889431723603,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000056047102431142765",
+            "extra": "mean: 821.0925999946994 usec\nrounds: 5"
           }
         ]
       }
