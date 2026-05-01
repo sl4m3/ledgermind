@@ -11,3 +11,6 @@
 ## 2024-04-22 - Visual representation of background tasks in error states
 **Learning:** Users and screen readers lose visibility of active background synchronization if an unacknowledged persistent error state entirely overrides the status bar.
 **Action:** When overlapping states occur, dynamically combine icons and accessibility labels (e.g., error and active sync) to ensure both critical conditions remain visible.
+## 2024-05-24 - Actionable error states for missing background dependencies
+**Learning:** When background operations fail due to missing external CLI dependencies (e.g., `ENOENT` on `execFile`), surfacing the failure with just a silent red status bar is inaccessible and leaves users confused.
+**Action:** Surface such critical environment failures with a one-time actionable toast notification (`vscode.window.showErrorMessage`) so users know exactly what went wrong and how to fix their environment, while still allowing them to clear the error state.

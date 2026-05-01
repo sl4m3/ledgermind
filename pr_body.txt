@@ -1,8 +1,0 @@
-🎯 **What**
-Fixed a medium severity security risk in `EpisodicStore.query` where `.format()` was being used to insert `where_clause` and `direction` into a SQL query template string.
-
-⚠️ **Risk**
-Using string formatting mechanisms like `.format()` or f-strings for SQL structure exposes the code to SQL Structural Injection. Even if the variables (like `ASC`/`DESC`) are currently heavily sanitized or generated statically internally, using `.format()` creates a dangerous anti-pattern that can be exploited in the future if input validation logic is modified or bypassed.
-
-🛡️ **Solution**
-Refactored the SQL query building to use explicit static string concatenation along with strict `if/else` logic specifically for identifiers like the `ASC`/`DESC` direction parameter. This makes the query completely immune to structural manipulation from dynamic data and complies with the LedgerMind secure coding standards for SQL template generation.

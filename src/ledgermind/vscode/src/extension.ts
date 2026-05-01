@@ -51,6 +51,23 @@ export function activate(context: vscode.ExtensionContext) {
         updateStatusBar();
     };
 
+    let hasShownMissingCliWarning = false;
+
+    const handleCliError = (err: any, contextMsg: string) => {
+        outputChannel.appendLine(`LedgerMind ${contextMsg} Error: ${err.message}`);
+        setError(true);
+
+        if (err && (err.code === 'ENOENT' || err.message?.includes('ENOENT')) && !hasShownMissingCliWarning) {
+            hasShownMissingCliWarning = true;
+            vscode.window.showErrorMessage('LedgerMind CLI (ledgermind-mcp) not found. Please install it to enable background sync.', 'View Logs').then(selection => {
+                if (selection === 'View Logs') {
+                    outputChannel.show();
+                    setError(false);
+                }
+            });
+        }
+    };
+
     const setBusy = (busy: boolean) => {
         if (busy) {
             busyCount++;
@@ -105,8 +122,7 @@ export function activate(context: vscode.ExtensionContext) {
             ], (err) => {
                 setBusy(false);
                 if (err) {
-                    outputChannel.appendLine(`LedgerMind Record Error: ${err.message}`);
-                    setError(true);
+                    handleCliError(err, 'Record');
                 } else {
                     outputChannel.appendLine(`✓ Recorded previous interaction: "${interaction.prompt.substring(0, 50)}..."`);
                 }
@@ -130,8 +146,7 @@ export function activate(context: vscode.ExtensionContext) {
             ], (err, stdout) => {
                 setBusy(false);
                 if (err) {
-                    outputChannel.appendLine(`LedgerMind Context Sync Error: ${err.message}`);
-                    setError(true);
+                    handleCliError(err, 'Context Sync');
                 } else if (stdout) {
                     const content = `<!-- LEDGERMIND AUTONOMOUS CONTEXT - DO NOT EDIT -->
 <!-- Updated: ${new Date().toISOString()} -->
@@ -143,8 +158,7 @@ ${stdout}`;
                         fs.writeFileSync(shadowFilePath, content, 'utf-8');
                         outputChannel.appendLine(`✓ Updated shadow context: ${path.basename(shadowFilePath)}`);
                     } catch (writeErr) {
-                        outputChannel.appendLine(`LedgerMind Shadow File Error: ${(writeErr as Error).message}`);
-                        setError(true);
+                        handleCliError(writeErr, 'Shadow File');
                     }
                 }
                 resolve();
@@ -279,8 +293,7 @@ ${stdout}`;
                             ], (err) => {
                                 setBusy(false);
                                 if (err) {
-                                    outputChannel.appendLine(`LedgerMind RooCode Record Error: ${err.message}`);
-                                    setError(true);
+                                    handleCliError(err, 'RooCode Record');
                                 } else {
                                     outputChannel.appendLine(`✓ Recorded RooCode/Cline interaction via file watcher`);
                                 }
@@ -291,8 +304,7 @@ ${stdout}`;
                         }
                     }
                 } catch (err) {
-                    outputChannel.appendLine(`LedgerMind File Watcher Error: ${(err as Error).message}`);
-                    setError(true);
+                    handleCliError(err, 'File Watcher');
                 }
             }, 2000); // Debounce 2s
         });
@@ -332,8 +344,7 @@ ${stdout}`;
                         ], (err) => {
                             setBusy(false);
                             if (err) {
-                                outputChannel.appendLine(`LedgerMind Terminal Record Error: ${err.message}`);
-                                setError(true);
+                                handleCliError(err, 'Terminal Record');
                             }
                         });
                     }
@@ -366,8 +377,7 @@ ${stdout}`;
             ], (err) => {
                 setBusy(false);
                 if (err) {
-                    outputChannel.appendLine(`LedgerMind File Record Error: ${err.message}`);
-                    setError(true);
+                    handleCliError(err, 'File Record');
                 }
             });
         })
