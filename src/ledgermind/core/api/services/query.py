@@ -229,11 +229,14 @@ class QueryService(MemoryService):
             cand["objections"] = _get("objections", [])
             
             evidence_count = _get("total_evidence_count", 0)
+            base = cand.get("base_score", 0.0)
             if evidence_count > 0:
-                reliability_boost = min(0.2, _log10(evidence_count + 1) * 0.05)
-                cand["base_score"] = cand.get("base_score", 0.0) + reliability_boost
+                val1 = _log10(evidence_count + 1) * 0.05
+                reliability_boost = 0.2 if val1 > 0.2 else val1
+                base += reliability_boost
+                cand["base_score"] = base
 
-            cand["similarity_score"] = min(1.0, cand.get("base_score", 0.0))
+            cand["similarity_score"] = 1.0 if base > 1.0 else base
             
             # Extract confidence from context
             cand["confidence"] = _get("confidence", 0.0)
@@ -289,9 +292,7 @@ class QueryService(MemoryService):
 
     def _get_lifecycle_weight(self, meta: Optional[Dict[str, Any]]) -> float:
         if not meta: return 1.0
-        weight = 1.0
-
-        if meta.get('kind') == 'decision': weight *= 1.35
+        weight = 1.35 if meta.get('kind') == 'decision' else 1.0
 
         phase = meta.get('phase')
         if phase == 'canonical' or phase == 'CANONICAL': weight *= 1.5
@@ -304,7 +305,7 @@ class QueryService(MemoryService):
         return weight
 
     def _get_lifecycle_multiplier(self, phase: str, vitality: str, kind: str, status: Optional[str]) -> float:
-        multiplier = 1.0
+        multiplier = 1.35 if kind == 'decision' else 1.0
 
         if phase == 'canonical': multiplier *= 1.5
         elif phase == 'emergent': multiplier *= 1.2
@@ -312,9 +313,7 @@ class QueryService(MemoryService):
         if vitality == 'decaying': multiplier *= 0.5
         elif vitality == 'dormant': multiplier *= 0.2
 
-        if kind == 'decision': multiplier *= 1.35
-
-        if status in ("rejected", "falsified"): multiplier *= 0.2
-        elif status in ("superseded", "deprecated"): multiplier *= 0.3
+        if status == 'rejected' or status == 'falsified': multiplier *= 0.2
+        elif status == 'superseded' or status == 'deprecated': multiplier *= 0.3
 
         return multiplier
