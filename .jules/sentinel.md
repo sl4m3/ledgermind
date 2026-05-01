@@ -47,3 +47,7 @@
 **Vulnerability:** The `EpisodicStore.query` method used `.format()` to construct SQL queries, allowing potential structural injection if variables controlling structure (like `where_clause`) are not completely sanitized.
 **Learning:** Using `.format()` or f-strings for SQL query templates risks accidental manipulation of query structure, even when dynamic data is supposedly controlled.
 **Prevention:** Build SQL strings using explicit concatenation of static fragments and use if/else logic for identifiers like `ASC`/`DESC` to ensure the structure is immune to dynamic data manipulation.
+## 2025-05-01 - [Bandit B608: False Positive on Safe SQL Concatenation]
+**Vulnerability:** Bandit B608 flags SQL queries built using string concatenation as potential structural SQL injection vectors.
+**Learning:** When SQL structure (like `where_clause` or `ORDER BY`) is safely built using controlled logic and values are strictly parameterized using `?`, string concatenation is secure.
+**Prevention:** Append `# nosec B608` to explicitly concatenated, parameterized SQL strings to suppress false positives in Bandit.
