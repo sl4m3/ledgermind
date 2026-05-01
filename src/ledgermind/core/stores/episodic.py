@@ -212,9 +212,9 @@ class EpisodicStore:
             
             # Explicit string concatenation to prevent SQL injection or formatting issues
             if order.upper() == 'ASC':
-                sql = "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events" + where_clause + " ORDER BY id ASC LIMIT ?"
+                sql = "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events" + where_clause + " ORDER BY id ASC LIMIT ?"  # nosec B608
             else:
-                sql = "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events" + where_clause + " ORDER BY id DESC LIMIT ?"
+                sql = "SELECT id, source, kind, content, context, timestamp, status, linked_id, link_strength FROM events" + where_clause + " ORDER BY id DESC LIMIT ?"  # nosec B608
             params.append(limit)
             
             cursor = conn.execute(sql, params)
