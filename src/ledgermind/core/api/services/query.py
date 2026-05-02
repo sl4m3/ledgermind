@@ -79,7 +79,7 @@ class QueryService(MemoryService):
             
         kw_results = self.semantic.meta.keyword_search(query, limit=search_limit, namespace=effective_namespace)
     
-        all_initial_fids = list(set([item.get('id') for item in vec_results] + [r.get('fid') for r in kw_results]))
+        all_initial_fids = list(set([item['id'] for item in vec_results] + [r['fid'] for r in kw_results]))
         meta_cache = {m['fid']: m for m in self.semantic.meta.get_batch_by_fids(all_initial_fids)}
 
         scores = {}
@@ -222,6 +222,15 @@ class QueryService(MemoryService):
                 ctx = {}
 
             _get = ctx.get
+
+            # Extract confidence early
+            conf = _get("confidence", 0.0)
+
+            # Filter by min_confidence threshold early to avoid redundant dict operations
+            if conf < min_confidence:
+                continue
+
+            cand["confidence"] = conf
             cand["rationale"] = _get("rationale")
             cand["consequences"] = _get("consequences", [])
             cand["compressive_rationale"] = _get("compressive_rationale")
@@ -237,13 +246,6 @@ class QueryService(MemoryService):
                 cand["base_score"] = base
 
             cand["similarity_score"] = 1.0 if base > 1.0 else base
-            
-            # Extract confidence from context
-            cand["confidence"] = _get("confidence", 0.0)
-            
-            # Filter by min_confidence threshold
-            if cand["confidence"] < min_confidence:
-                continue
             
             final_results.append(cand)
             seen_ids.add(cand['id'])
