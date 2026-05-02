@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777636427901,
+  "lastUpdate": 1777720892252,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3330,6 +3330,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000056047102431142765",
             "extra": "mean: 821.0925999946994 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5e34b0d83c2aa0529c451909226e1eb426ade87f",
+          "message": "⚡ Bolt: Optimize query filtering loops (#159)\n\nOptimized the tight core filtering loop within `QueryService.search` to fail fast and avoid redundant dictionary access. Extracted the `confidence` score evaluation before assigning arbitrary JSON context fields, combined the dictionary ID array extraction using direct key access instead of `.get()`.",
+          "timestamp": "2026-05-02T14:17:38+03:00",
+          "tree_id": "20bc4fa8cc7afc1937745c65d364ded4ae4b2628",
+          "url": "https://github.com/sl4m3/ledgermind/commit/5e34b0d83c2aa0529c451909226e1eb426ade87f"
+        },
+        "date": 1777720891208,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 99.42248856758391,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00008352357997577696",
+            "extra": "mean: 10.058086599997296 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10402.579839490925,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000014882179358314012",
+            "extra": "mean: 96.13000000285865 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1227.6653904641819,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005178231042473552",
+            "extra": "mean: 814.5542000022488 usec\nrounds: 5"
           }
         ]
       }
