@@ -51,6 +51,19 @@ export function activate(context: vscode.ExtensionContext) {
         updateStatusBar();
     };
 
+    let hasShownEnoentToast = false;
+
+    const handleExecError = (err: Error & { code?: string }, contextMsg: string) => {
+        outputChannel.appendLine(`${contextMsg}: ${err.message}`);
+        setError(true);
+        if (err.code === 'ENOENT' && !hasShownEnoentToast) {
+            hasShownEnoentToast = true;
+            vscode.window.showErrorMessage(
+                "LedgerMind: 'ledgermind-mcp' CLI not found. Please install it using 'pip install ledgermind' and ensure it is in your PATH."
+            );
+        }
+    };
+
     const setBusy = (busy: boolean) => {
         if (busy) {
             busyCount++;
@@ -105,8 +118,7 @@ export function activate(context: vscode.ExtensionContext) {
             ], (err) => {
                 setBusy(false);
                 if (err) {
-                    outputChannel.appendLine(`LedgerMind Record Error: ${err.message}`);
-                    setError(true);
+                    handleExecError(err as Error & { code?: string }, 'LedgerMind Record Error');
                 } else {
                     outputChannel.appendLine(`✓ Recorded previous interaction: "${interaction.prompt.substring(0, 50)}..."`);
                 }
@@ -130,8 +142,7 @@ export function activate(context: vscode.ExtensionContext) {
             ], (err, stdout) => {
                 setBusy(false);
                 if (err) {
-                    outputChannel.appendLine(`LedgerMind Context Sync Error: ${err.message}`);
-                    setError(true);
+                    handleExecError(err as Error & { code?: string }, 'LedgerMind Context Sync Error');
                 } else if (stdout) {
                     const content = `<!-- LEDGERMIND AUTONOMOUS CONTEXT - DO NOT EDIT -->
 <!-- Updated: ${new Date().toISOString()} -->
@@ -279,8 +290,7 @@ ${stdout}`;
                             ], (err) => {
                                 setBusy(false);
                                 if (err) {
-                                    outputChannel.appendLine(`LedgerMind RooCode Record Error: ${err.message}`);
-                                    setError(true);
+                                    handleExecError(err as Error & { code?: string }, 'LedgerMind RooCode Record Error');
                                 } else {
                                     outputChannel.appendLine(`✓ Recorded RooCode/Cline interaction via file watcher`);
                                 }
@@ -332,8 +342,7 @@ ${stdout}`;
                         ], (err) => {
                             setBusy(false);
                             if (err) {
-                                outputChannel.appendLine(`LedgerMind Terminal Record Error: ${err.message}`);
-                                setError(true);
+                                handleExecError(err as Error & { code?: string }, 'LedgerMind Terminal Record Error');
                             }
                         });
                     }
@@ -366,8 +375,7 @@ ${stdout}`;
             ], (err) => {
                 setBusy(false);
                 if (err) {
-                    outputChannel.appendLine(`LedgerMind File Record Error: ${err.message}`);
-                    setError(true);
+                    handleExecError(err as Error & { code?: string }, 'LedgerMind File Record Error');
                 }
             });
         })

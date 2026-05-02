@@ -1,13 +1,4 @@
-💡 **What:**
-Optimized calculation functions `_get_lifecycle_weight` and `_get_lifecycle_multiplier` in `src/ledgermind/core/api/services/query.py` by converting to use inline ternary operators and boolean `or`/`and` comparisons instead of python `min()` function calls, thereby reducing overhead from C-API calls and list operations within loops.
-
-🎯 **Why:**
-The query calculation engine evaluates scores internally using tight iterative loops. Using dictionary mapping calls dynamically, and using python's built-in `min()` incurs function-call overhead that drastically adds up over 1M+ iterations within hotpaths. Extracting loop operations and replacing dynamic `min()` evaluations with direct comparisons greatly increases operation speeds.
-
-📊 **Impact:**
-- Evaluated pure loop evaluation optimization across 1,000,000 runs inside testing scripts.
-- Decreased test operations processing loop times dramatically (~2.5x speed improvements via benchmarking tests from 1.8 seconds down to 0.6 seconds in python internal loops without min()).
-- Evaluated benchmark testing inside `bench_ops.py`. Testing indicated pure benchmark iteration speeds dropping from over 1400us down to ~1300us in full RRF Hybrid Search benchmarking tests.
-
-🔬 **Measurement:**
-Verification was done via checking the `test_semantic_search_ranking.py` checks to test normative lifecycle weighting passes, alongside `pytest tests/core/performance/bench_ops.py` to evaluate execution test speeds across different components.
+💡 What: Added an actionable toast notification when the 'ledgermind-mcp' CLI is missing.
+🎯 Why: Previously, users were only given a red status bar without a clear explanation if the CLI dependency was missing. This makes the error more explicit and actionable.
+📸 Before/After: N/A - Visual toast notification addition.
+♿ Accessibility: Improves user feedback by providing explicit text notifications for critical background process failures, which screen readers will announce immediately compared to passive status bar color changes.
