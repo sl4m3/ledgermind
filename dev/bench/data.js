@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777720892252,
+  "lastUpdate": 1777809408505,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3375,6 +3375,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00005178231042473552",
             "extra": "mean: 814.5542000022488 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7509338e271c66fca7c5b1668fbe1e9a4faa283c",
+          "message": "🎨 Palette: Add actionable toast notification for missing CLI dependencies (#162)",
+          "timestamp": "2026-05-03T14:52:59+03:00",
+          "tree_id": "be9ec24cd8dbca9616cd113aca9a96698708346f",
+          "url": "https://github.com/sl4m3/ledgermind/commit/7509338e271c66fca7c5b1668fbe1e9a4faa283c"
+        },
+        "date": 1777809407408,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 95.67995621085188,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00017947810572751044",
+            "extra": "mean: 10.451509799986525 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10326.226137849659,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000023476610075096063",
+            "extra": "mean: 96.8407999835108 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1242.6345940949293,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000059200456802135833",
+            "extra": "mean: 804.7418000046491 usec\nrounds: 5"
           }
         ]
       }
