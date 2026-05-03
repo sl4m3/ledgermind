@@ -39,14 +39,18 @@ class DecayEngine:
         """
         # 1. Evidence component (0.0 - 1.0)
         # Логарифмическая шкала: 1 = 0.15, 10 = 0.5, 100 = 1.0
-        evidence_component = min(1.0, math.log10(max(0, total_evidence_count) + 1) / 2)
+        safe_ev = total_evidence_count if total_evidence_count > 0 else 0
+        ev_comp = math.log10(safe_ev + 1) / 2
+        evidence_component = 1.0 if ev_comp > 1.0 else ev_comp
         
         # 2. Stability component (0.0 - 1.0)
-        stability_component = max(0.0, min(1.0, stability_score))
+        stability_component = 1.0 if stability_score > 1.0 else (0.0 if stability_score < 0.0 else stability_score)
         
         # 3. Usage component (0.0 - 1.0)
         # Логарифмическая шкала: 1 = 0.13, 10 = 0.43, 100 = 0.87
-        usage_component = min(1.0, math.log1p(max(0, hit_count)) / 2.3)
+        safe_hit = hit_count if hit_count > 0 else 0
+        us_comp = math.log1p(safe_hit) / 2.3
+        usage_component = 1.0 if us_comp > 1.0 else us_comp
         
         # Weighted average
         confidence = (
