@@ -1,12 +1,4 @@
-💡 What
-Optimized the tight core filtering loop within `QueryService.search` to fail fast and avoid redundant dictionary access. Extracted the `confidence` score evaluation before assigning arbitrary JSON context fields, combined the dictionary ID array extraction using direct key access instead of `.get()`.
-
-🎯 Why
-Profiling showed that during RRF ranking iteration over `all_candidates`, parsing the context JSON and redundantly allocating non-essential dictionary variables to `cand` before doing the confidence check introduced unnecessary performance overhead and latency in the search hot path.
-
-📊 Impact
-- Up to **15-20% faster** execution times for large candidate filtering batches.
-- Benchmarks showed reducing overhead from 4.45s to 4.16s when evaluating 500,000 un-cached dictionaries, avoiding unnecessary context map parsing on low-confidence nodes.
-
-🔬 Measurement
-Verify the overall RRF latency using simulated load tests against large batch results, ensuring the fast path continues returning valid structures.
+💡 What: Replaced silent status bar error toggling on `ENOENT` (command not found) errors with an actionable toast notification linking to the installation docs.
+🎯 Why: The previous behavior left users unaware of why the status bar turned red if `ledgermind-mcp` wasn't in their PATH. A one-time toast immediately guides them to a solution.
+📸 Before/After: Before: Silent red status bar. After: Red status bar + Actionable Toast with 'View Installation Docs' button.
+♿ Accessibility: Ensures that background failure modes are explicitly communicated to users, rather than relying solely on visual indicators in the status bar.
