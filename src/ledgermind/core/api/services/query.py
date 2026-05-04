@@ -120,7 +120,9 @@ class QueryService(MemoryService):
         current_layer_ids = list(dict.fromkeys(m['superseded_by'] for m in candidates_meta if m.get('superseded_by') and m['superseded_by'] not in request_cache))
 
         iteration = 0
-        while current_layer_ids and iteration < 5:
+        # ⚡ Bolt: Align pre-fetch iteration limit (20) with the cache traversal limit in _resolve_to_truth
+        # to ensure long superseded chains are fully loaded in a single batch, eliminating N+1 DB fallbacks.
+        while current_layer_ids and iteration < 20:
             new_batch = self.semantic.meta.get_batch_by_fids(current_layer_ids)
             for m in new_batch:
                 request_cache[m['fid']] = m
