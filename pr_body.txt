@@ -1,4 +1,4 @@
-💡 What: Replaced silent status bar error toggling on `ENOENT` (command not found) errors with an actionable toast notification linking to the installation docs.
-🎯 Why: The previous behavior left users unaware of why the status bar turned red if `ledgermind-mcp` wasn't in their PATH. A one-time toast immediately guides them to a solution.
-📸 Before/After: Before: Silent red status bar. After: Red status bar + Actionable Toast with 'View Installation Docs' button.
-♿ Accessibility: Ensures that background failure modes are explicitly communicated to users, rather than relying solely on visual indicators in the status bar.
+💡 **What**: Increased the batch pre-fetch iteration limit from 5 to 20 in `QueryService.search`.
+🎯 **Why**: The fallback mechanism (`self.semantic.meta.resolve_to_truth`) iterates individually up to 20 levels deep. When chains exceeded the 5-layer batch pre-fetch limit, the system triggered an N+1 query pattern where it recursively hit the DB for each item in the chain. Matching the pre-fetch depth to the evaluation depth ensures all nodes are cached locally via O(D) batch queries.
+📊 **Impact**: Eliminates N+1 database querying for documents with deep (>5) superseding chains, massively reducing I/O and latency.
+🔬 **Measurement**: Verify by processing searches with long superseded chains and inspecting DB query logs; individual `SELECT` calls should be replaced by aggregated `IN` queries.
