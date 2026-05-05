@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777809408505,
+  "lastUpdate": 1777986631928,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3420,6 +3420,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000059200456802135833",
             "extra": "mean: 804.7418000046491 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "536c44caa1d51fd0d87f8c49f6c3667a8b3f237d",
+          "message": "⚡ Bolt: Align pre-fetch limits to avoid N+1 query fallbacks (#163)",
+          "timestamp": "2026-05-05T16:06:46+03:00",
+          "tree_id": "fdd7ba403d488123e1c46b895ff95481c2a2bb6e",
+          "url": "https://github.com/sl4m3/ledgermind/commit/536c44caa1d51fd0d87f8c49f6c3667a8b3f237d"
+        },
+        "date": 1777986630300,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 99.22657843427672,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009417906192881184",
+            "extra": "mean: 10.077945000011823 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11858.48557745367,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009894088110410432",
+            "extra": "mean: 84.32779999338891 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1222.9062072535903,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006034562588483007",
+            "extra": "mean: 817.7241999987928 usec\nrounds: 5"
           }
         ]
       }
