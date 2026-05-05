@@ -1,4 +1,14 @@
-💡 What: Replaced silent status bar error toggling on `ENOENT` (command not found) errors with an actionable toast notification linking to the installation docs.
-🎯 Why: The previous behavior left users unaware of why the status bar turned red if `ledgermind-mcp` wasn't in their PATH. A one-time toast immediately guides them to a solution.
-📸 Before/After: Before: Silent red status bar. After: Red status bar + Actionable Toast with 'View Installation Docs' button.
-♿ Accessibility: Ensures that background failure modes are explicitly communicated to users, rather than relying solely on visual indicators in the status bar.
+🎨 Palette: Add Actionable Toasts for Background Errors
+
+💡 What:
+Added a one-time actionable toast notification with a 'View Logs' button for non-ENOENT background errors in the VS Code extension.
+
+🎯 Why:
+Previously, when background tasks failed, the status bar would silently turn red. Users often miss this visual cue, leading to confusion about why context synchronization isn't working. The toast provides immediate feedback and an actionable path to diagnose the issue via logs.
+
+📸 Before/After:
+Before: Status bar turns red silently. User must notice it and click to view logs.
+After: Status bar turns red, AND a toast appears: "LedgerMind Background Error: [context]" with a "View Logs" button.
+
+♿ Accessibility:
+Improves screen reader awareness of background failures, as standard toasts are automatically announced by assistive technologies, whereas status bar color changes are purely visual.

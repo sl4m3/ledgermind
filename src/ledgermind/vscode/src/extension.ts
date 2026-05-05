@@ -56,17 +56,30 @@ export function activate(context: vscode.ExtensionContext) {
         if (!err) return;
 
         outputChannel.appendLine(`${contextMessage}: ${err.message}`);
+        const wasError = isError;
         setError(true);
 
         // Check if error is ENOENT (command not found)
-        if ((err as any).code === 'ENOENT' && !hasShownEnoentToast) {
-            hasShownEnoentToast = true;
+        if ((err as any).code === 'ENOENT') {
+            if (!hasShownEnoentToast) {
+                hasShownEnoentToast = true;
+                vscode.window.showErrorMessage(
+                    'LedgerMind MCP not found. Please ensure "ledgermind-mcp" is installed and in your PATH.',
+                    'View Installation Docs'
+                ).then(selection => {
+                    if (selection === 'View Installation Docs') {
+                        vscode.env.openExternal(vscode.Uri.parse('https://github.com/ledgermind/ledgermind#installation'));
+                    }
+                });
+            }
+        } else if (!wasError) {
+            // Show actionable toast for other background errors
             vscode.window.showErrorMessage(
-                'LedgerMind MCP not found. Please ensure "ledgermind-mcp" is installed and in your PATH.',
-                'View Installation Docs'
+                `LedgerMind Background Error: ${contextMessage}`,
+                'View Logs'
             ).then(selection => {
-                if (selection === 'View Installation Docs') {
-                    vscode.env.openExternal(vscode.Uri.parse('https://github.com/ledgermind/ledgermind#installation'));
+                if (selection === 'View Logs') {
+                    vscode.commands.executeCommand('ledgermind.showOutput');
                 }
             });
         }
