@@ -11,3 +11,7 @@
 ## 2024-04-22 - Visual representation of background tasks in error states
 **Learning:** Users and screen readers lose visibility of active background synchronization if an unacknowledged persistent error state entirely overrides the status bar.
 **Action:** When overlapping states occur, dynamically combine icons and accessibility labels (e.g., error and active sync) to ensure both critical conditions remain visible.
+
+## 2024-05-24 - Interactive Path Completion in CLI
+**Learning:** When asking for filesystem paths in the CLI, standard text inputs lead to typos and user frustration. Using specialized path inputs with auto-completion significantly improves the installation experience.
+**Action:** Always use specialized path input widgets (like `questionary.path` with `only_directories=True`) instead of generic text inputs when prompting users for file or directory locations.
