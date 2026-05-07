@@ -100,6 +100,10 @@ class MetadataStore(ABC):
         pass
 
     @abstractmethod
+    def get_batch_by_fids(self, fids: List[str]) -> List[Dict[str, Any]]:
+        pass
+
+    @abstractmethod
     def get_active_fid(self, target: str, namespace: str = "default") -> Optional[str]:
         pass
 

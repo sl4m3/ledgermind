@@ -1,4 +1,12 @@
-💡 **What**: Increased the batch pre-fetch iteration limit from 5 to 20 in `QueryService.search`.
-🎯 **Why**: The fallback mechanism (`self.semantic.meta.resolve_to_truth`) iterates individually up to 20 levels deep. When chains exceeded the 5-layer batch pre-fetch limit, the system triggered an N+1 query pattern where it recursively hit the DB for each item in the chain. Matching the pre-fetch depth to the evaluation depth ensures all nodes are cached locally via O(D) batch queries.
-📊 **Impact**: Eliminates N+1 database querying for documents with deep (>5) superseding chains, massively reducing I/O and latency.
-🔬 **Measurement**: Verify by processing searches with long superseded chains and inspecting DB query logs; individual `SELECT` calls should be replaced by aggregated `IN` queries.
+💡 **What**:
+- Batched metadata fetching inside `MergeEngineFacade.process_batch` within `search_results` loop.
+- Grouped identifiers from `search_results` and executed a single query to retrieve missing metadata, maintaining them in `full_meta_map` dictionary cache.
+
+🎯 **Why**:
+- An N+1 database I/O bottleneck existed inside the semantic search hot path loop where the engine queried `self.memory.semantic.meta.get_by_fid` iteratively for every result within the search layer. This degrades search throughput.
+
+📊 **Impact**:
+- Drastically mitigates the database round-trips over SQLite scaling N+1 database fetches to exactly 1 query inside `MergeEngineFacade.process_batch` improving search engine merge operations throughput.
+
+🔬 **Measurement**:
+- Verification run against simulated iteration benchmarking confirmed O(1) query response time.

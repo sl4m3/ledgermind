@@ -143,18 +143,37 @@ class MergeEngineFacade:
                 to_validate = []
                 seen_target_fids = set()
 
+                # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata
+                missing_fids = []
+                resolved_truths = {}
                 for res in search_results:
                     doc_id = res.get("id")
                     if doc_id == cand_id:
                         continue
-
                     target_doc = self.memory._resolve_to_truth(
                         doc_id, mode="balanced", cache=full_meta_map
                     )
                     if not target_doc:
                         continue
-
                     target_fid = target_doc.get("fid")
+                    resolved_truths[res.get("id")] = target_fid
+                    if target_fid not in full_meta_map:
+                        missing_fids.append(target_fid)
+
+                if missing_fids:
+                    batch_res = self.memory.semantic.meta.get_batch_by_fids(missing_fids)
+                    for m in batch_res:
+                        if m:
+                            full_meta_map[m["fid"]] = m
+
+                for res in search_results:
+                    doc_id = res.get("id")
+                    if doc_id == cand_id:
+                        continue
+
+                    target_fid = resolved_truths.get(doc_id)
+                    if not target_fid:
+                        continue
 
                     # Prevent self-merging (resolved truth is the candidate itself)
                     if target_fid == cand_id:
@@ -166,7 +185,7 @@ class MergeEngineFacade:
                     seen_target_fids.add(target_fid)
 
                     # IMPORTANT: Check if target is already being merged
-                    actual_target = self.memory.semantic.meta.get_by_fid(target_fid)
+                    actual_target = full_meta_map.get(target_fid)
                     if (
                         not actual_target
                         or actual_target.get("merge_status") == "pending"
