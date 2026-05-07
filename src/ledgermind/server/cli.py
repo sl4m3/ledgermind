@@ -49,7 +49,7 @@ def init_project(path: str):
     global_console.print(
         "Where is the codebase for this agent? (Hooks will be installed here)"
     )
-    project_path = questionary.text("Project Path:", default=os.getcwd()).ask()
+    project_path = questionary.path("Project Path:", default=os.getcwd(), only_directories=True).ask()
     if project_path is None:
         return
     project_path = os.path.abspath(project_path)
@@ -61,7 +61,7 @@ def init_project(path: str):
         "We recommend placing it outside the project root (e.g., ../.ledgermind)"
     )
     default_mem_path = os.path.abspath(os.path.join(project_path, "..", ".ledgermind"))
-    custom_path = questionary.text("Memory Path:", default=default_mem_path).ask()
+    custom_path = questionary.path("Memory Path:", default=default_mem_path, only_directories=True).ask()
     if custom_path is None:
         return
 
