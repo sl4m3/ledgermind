@@ -1,4 +1,9 @@
-💡 **What**: Increased the batch pre-fetch iteration limit from 5 to 20 in `QueryService.search`.
-🎯 **Why**: The fallback mechanism (`self.semantic.meta.resolve_to_truth`) iterates individually up to 20 levels deep. When chains exceeded the 5-layer batch pre-fetch limit, the system triggered an N+1 query pattern where it recursively hit the DB for each item in the chain. Matching the pre-fetch depth to the evaluation depth ensures all nodes are cached locally via O(D) batch queries.
-📊 **Impact**: Eliminates N+1 database querying for documents with deep (>5) superseding chains, massively reducing I/O and latency.
-🔬 **Measurement**: Verify by processing searches with long superseded chains and inspecting DB query logs; individual `SELECT` calls should be replaced by aggregated `IN` queries.
+## 🎨 Palette: Enable Tab Completion for Path Prompt
+
+**💡 What**: Changed `questionary.text()` to `questionary.path()` for the URL/path prompt in the `cli.py` configuration wizard.
+
+**🎯 Why**: When users enter a local `.gguf` absolute path, they can now use tab-completion, which significantly reduces friction and errors when typing long paths.
+
+**📸 Before/After**: N/A (CLI interaction behavior change)
+
+**♻️ Accessibility**: Improves usability for all users, reducing keystrokes and typos.

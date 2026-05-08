@@ -5,3 +5,6 @@
 ## 2026-04-26 - Actionable Toasts for Missing Dependencies
 **Learning:** When background operations fail due to missing external CLI dependencies (e.g., ENOENT on execFile), surfacing the failure with a one-time actionable toast notification (`vscode.window.showErrorMessage`) rather than just silently turning the status bar red provides users with exactly how to fix their environment.
 **Action:** Use actionable toast notifications to guide users in resolving missing dependencies.
+## 2026-04-26 - Enable Tab Completion for Path Prompt
+**Learning:** Using `questionary.path()` instead of `questionary.text()` for file path inputs significantly reduces user friction and errors by enabling built-in tab-completion.
+**Action:** Always use `questionary.path()` for file/directory prompts in CLI wizard setups to improve user experience and accessibility.

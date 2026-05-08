@@ -89,7 +89,7 @@ def init_project(path: str):
         global_console.print(
             "OR provide an absolute path to an already downloaded .gguf file."
         )
-        user_input = questionary.text("Enter URL or absolute path:").ask()
+        user_input = questionary.path("Enter URL or absolute path:").ask()
         if user_input is None:
             return
 
