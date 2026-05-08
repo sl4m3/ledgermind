@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778152497798,
+  "lastUpdate": 1778241105616,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3510,6 +3510,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00004318662738282277",
             "extra": "mean: 804.1218000130357 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "42afdc1103db7e57d676eb9ae78134f1dfdcf0f5",
+          "message": "⚡ Bolt: Optimize hybrid search cache seeding and weight computation (#167)",
+          "timestamp": "2026-05-08T14:47:45+03:00",
+          "tree_id": "97985b1f777587674f3cc996e03a758573c3d2e8",
+          "url": "https://github.com/sl4m3/ledgermind/commit/42afdc1103db7e57d676eb9ae78134f1dfdcf0f5"
+        },
+        "date": 1778241104871,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 97.59304135053816,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00009445049389498842",
+            "extra": "mean: 10.246632200016847 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11474.706302167573,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000009514106492618312",
+            "extra": "mean: 87.14820002069246 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1224.2587358333053,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005684788816408894",
+            "extra": "mean: 816.8207999915467 usec\nrounds: 5"
           }
         ]
       }
