@@ -27,3 +27,6 @@
 ## 2024-05-25 - Align batch pre-fetch depths with recursive limit
 **Learning:** The truth-resolution traversal in `QueryService` used a depth limit of 20 (`depth < 20`), but the upstream batch pre-fetcher only iterated 5 times (`iteration < 5`). This caused requests with deep chain paths to miss the local cache and fall back to `self.semantic.meta.resolve_to_truth()`, which executes an O(N*D) N+1 query loop.
 **Action:** When implementing layered batch pre-fetching algorithms for trees or chains, ensure the iteration limit exactly matches the maximum traversal depth of the downstream consumer to prevent fallback paths from executing catastrophic N+1 database queries.
+## 2026-05-09 - Seed metadata cache from keyword query results
+**Learning:** Keyword search results usually already contain all the required metadata. In `QueryService.search`, we were previously extracting only IDs from `kw_results` and re-fetching their metadata from the DB along with `vec_results`.
+**Action:** Seed local caches (like `meta_cache`) directly with full rows from `kw_results`, extracting and batch-fetching only the missing IDs from vector results. Additionally, pre-calculate `weight_cache` for the entire cache upfront rather than lazily inside the hot RRF scoring loops to eliminate function overhead.

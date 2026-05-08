@@ -79,19 +79,21 @@ class QueryService(MemoryService):
             
         kw_results = self.semantic.meta.keyword_search(query, limit=search_limit, namespace=effective_namespace)
     
-        all_initial_fids = list(set([item['id'] for item in vec_results] + [r['fid'] for r in kw_results]))
-        meta_cache = {m['fid']: m for m in self.semantic.meta.get_batch_by_fids(all_initial_fids)}
+        # ⚡ Bolt: Seed the local meta_cache directly from kw_results to avoid redundant database reads.
+        meta_cache = {r['fid']: r for r in kw_results}
+
+        # ⚡ Bolt: Only fetch metadata for FIDs from vec_results that aren't already in the cache.
+        missing_fids = list(set([item['id'] for item in vec_results if item['id'] not in meta_cache]))
+        if missing_fids:
+            meta_cache.update({m['fid']: m for m in self.semantic.meta.get_batch_by_fids(missing_fids)})
 
         scores = {}
-        # ⚡ Bolt: Memoize weight calculation dynamically to avoid redundant function calls and dictionary lookups
-        weight_cache = {}
+        # ⚡ Bolt: Pre-calculate lifecycle weights upfront to avoid redundant dict.get and function call overhead during scoring loops.
+        weight_cache = {fid: self._get_lifecycle_weight(m) for fid, m in meta_cache.items()}
 
         for rank, item in enumerate(vec_results):
             fid = item['id']
-            if fid not in weight_cache:
-                weight_cache[fid] = self._get_lifecycle_weight(meta_cache.get(fid))
-
-            weight = weight_cache[fid]
+            weight = weight_cache.get(fid, 1.0)
             if fid in scores:
                 scores[fid] += (weight / (k + rank + 1))
             else:
@@ -99,10 +101,7 @@ class QueryService(MemoryService):
             
         for rank, r in enumerate(kw_results):
             fid = r['fid']
-            if fid not in weight_cache:
-                weight_cache[fid] = self._get_lifecycle_weight(meta_cache.get(fid))
-
-            weight = weight_cache[fid]
+            weight = weight_cache.get(fid, 1.0)
             if fid in scores:
                 scores[fid] += (weight / (k + rank + 1))
             else:
