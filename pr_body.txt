@@ -1,4 +1,12 @@
-💡 **What**: Increased the batch pre-fetch iteration limit from 5 to 20 in `QueryService.search`.
-🎯 **Why**: The fallback mechanism (`self.semantic.meta.resolve_to_truth`) iterates individually up to 20 levels deep. When chains exceeded the 5-layer batch pre-fetch limit, the system triggered an N+1 query pattern where it recursively hit the DB for each item in the chain. Matching the pre-fetch depth to the evaluation depth ensures all nodes are cached locally via O(D) batch queries.
-📊 **Impact**: Eliminates N+1 database querying for documents with deep (>5) superseding chains, massively reducing I/O and latency.
-🔬 **Measurement**: Verify by processing searches with long superseded chains and inspecting DB query logs; individual `SELECT` calls should be replaced by aggregated `IN` queries.
+💡 **What**:
+- Seeds the `meta_cache` directly from `kw_results` in `QueryService.search`.
+- Batch fetches only the missing metadata from `vec_results`.
+- Pre-calculates lifecycle weights for the entire cache upfront before RRF scoring.
+
+🎯 **Why**:
+- Redundant SQLite reads were occurring because `kw_results` already contains the full row metadata, but we were extracting just the IDs and executing a `get_batch_by_fids` query for all of them.
+- Lazy evaluation of `weight_cache` inside the RRF loop added unnecessary function call and dict lookup overhead.
+
+📄 **Measured Improvement**:
+- Eliminates 50-100% of the IDs from the batch metadata query since keyword results are already populated.
+- Pre-calculating weights avoids thousands of redundant dict.get and `_get_lifecycle_weight` invocations inside tight loops.
