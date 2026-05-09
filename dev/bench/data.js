@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778241105616,
+  "lastUpdate": 1778326326445,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3555,6 +3555,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00005684788816408894",
             "extra": "mean: 816.8207999915467 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2b0565e52e3dbca3d7bfb9b9b19d01c4891d4f52",
+          "message": "🎨 Palette: Enable path completion for custom embedder (#169)",
+          "timestamp": "2026-05-09T14:28:24+03:00",
+          "tree_id": "9e4dba0487e98af67eb6edf73d35a1ac0ef6680a",
+          "url": "https://github.com/sl4m3/ledgermind/commit/2b0565e52e3dbca3d7bfb9b9b19d01c4891d4f52"
+        },
+        "date": 1778326325914,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 99.10045918567552,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000061446819265999",
+            "extra": "mean: 10.0907706000271 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10707.76162499938,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000014429497330354886",
+            "extra": "mean: 93.39020002698817 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1235.0366052834895,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005807335482274443",
+            "extra": "mean: 809.6925999780069 usec\nrounds: 5"
           }
         ]
       }
