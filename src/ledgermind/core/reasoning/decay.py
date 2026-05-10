@@ -37,16 +37,23 @@ class DecayEngine:
         
         Returns: confidence (0.0 - 1.0)
         """
+        # ⚡ Bolt: Use inline conditionals instead of min/max for bounds checking to eliminate Python function call overhead during mass evaluation
+
         # 1. Evidence component (0.0 - 1.0)
         # Логарифмическая шкала: 1 = 0.15, 10 = 0.5, 100 = 1.0
-        evidence_component = min(1.0, math.log10(max(0, total_evidence_count) + 1) / 2)
+        ev_count = total_evidence_count if total_evidence_count > 0 else 0
+        ev_val = math.log10(ev_count + 1) / 2
+        evidence_component = ev_val if ev_val < 1.0 else 1.0
         
         # 2. Stability component (0.0 - 1.0)
-        stability_component = max(0.0, min(1.0, stability_score))
+        stab_val = stability_score if stability_score < 1.0 else 1.0
+        stability_component = stab_val if stab_val > 0.0 else 0.0
         
         # 3. Usage component (0.0 - 1.0)
         # Логарифмическая шкала: 1 = 0.13, 10 = 0.43, 100 = 0.87
-        usage_component = min(1.0, math.log1p(max(0, hit_count)) / 2.3)
+        hc = hit_count if hit_count > 0 else 0
+        usg_val = math.log1p(hc) / 2.3
+        usage_component = usg_val if usg_val < 1.0 else 1.0
         
         # Weighted average
         confidence = (
@@ -104,7 +111,9 @@ class DecayEngine:
                 except (ValueError, TypeError):
                     current_conf = 1.0
 
-                new_conf = max(0.0, current_conf - (effective_rate * decay_steps))
+                # ⚡ Bolt: Inline boundary check avoids max() call
+                new_conf_raw = current_conf - (effective_rate * decay_steps)
+                new_conf = new_conf_raw if new_conf_raw > 0.0 else 0.0
                 
                 # Deletion threshold (cleanup trash)
                 try:
