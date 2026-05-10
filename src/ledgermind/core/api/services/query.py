@@ -162,7 +162,9 @@ class QueryService(MemoryService):
                 continue
 
             link_count, _ = link_counts.get(final_id, (0, 0.0))
-            boost = min(link_count * 0.2, 1.0)
+            # ⚡ Bolt: Replace built-in min() with inline conditional to avoid C-API function call overhead in a tight loop
+            boost_val = link_count * 0.2
+            boost = boost_val if boost_val < 1.0 else 1.0
 
             phase = meta.get('phase', 'pattern').lower()
             vitality = meta.get('vitality', 'active').lower()
