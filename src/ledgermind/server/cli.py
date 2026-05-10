@@ -6,7 +6,7 @@ import questionary
 import sys
 
 logger = logging.getLogger("ledgermind.cli")
-from typing import Optional, List, Dict, Any
+from typing import Optional
 from ledgermind.server.server import MCPServer
 from ledgermind.core.utils.logging import setup_logging
 from ledgermind.core.utils.api_keys import get_api_key
@@ -224,11 +224,11 @@ def init_project(path: str):
                         openrouter_api_key = env_api_key
                         if key_source == "env":
                             global_console.print(
-                                f"[green]✓ OPENROUTER_API_KEY found in environment![/green]"
+                                "[green]✓ OPENROUTER_API_KEY found in environment![/green]"
                             )
                         else:
                             global_console.print(
-                                f"[green]✓ OPENROUTER_API_KEY found in config file![/green]"
+                                "[green]✓ OPENROUTER_API_KEY found in config file![/green]"
                             )
                         break
                     else:
@@ -296,7 +296,7 @@ def init_project(path: str):
     # Model selection for OpenRouter provider
     if provider == "openrouter" and mode == "rich":
         global_console.print(
-            f"\n[bold yellow]Step 7.5: OpenRouter Model Selection[/bold yellow]"
+            "\n[bold yellow]Step 7.5: OpenRouter Model Selection[/bold yellow]"
         )
         global_console.print(
             "Choose a model from OpenRouter (https://openrouter.ai/models):"
@@ -363,11 +363,11 @@ def init_project(path: str):
                         break
                     else:
                         global_console.print(
-                            f"[yellow]! Model returned empty response.[/yellow]"
+                            "[yellow]! Model returned empty response.[/yellow]"
                         )
                 elif response.status_code == 401:
                     global_console.print(
-                        f"[bold red]✗ Authentication failed. Check your OPENROUTER_API_KEY.[/bold red]"
+                        "[bold red]✗ Authentication failed. Check your OPENROUTER_API_KEY.[/bold red]"
                     )
                     retry = questionary.confirm("Try another model name?").ask()
                     if not retry:
@@ -394,7 +394,7 @@ def init_project(path: str):
 
             except httpx.TimeoutException:
                 global_console.print(
-                    f"[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]"
+                    "[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]"
                 )
                 retry = questionary.confirm("Try another model name?").ask()
                 if not retry:
@@ -482,7 +482,7 @@ def init_project(path: str):
                     break
                 else:
                     global_console.print(
-                        f"[bold red]✗ Model validation failed.[/bold red]"
+                        "[bold red]✗ Model validation failed.[/bold red]"
                     )
                     if result.stderr:
                         global_console.print(
@@ -505,7 +505,7 @@ def init_project(path: str):
     # Model selection for AI Studio provider
     if provider == "aistudio":
         global_console.print(
-            f"\n[bold yellow]Step 6: Google AI Studio Configuration[/bold yellow]"
+            "\n[bold yellow]Step 6: Google AI Studio Configuration[/bold yellow]"
         )
 
         # First check if API key is available in env or config files
@@ -527,7 +527,7 @@ def init_project(path: str):
                 "[bold yellow]Enter your Google AI Studio API key:[/bold yellow]"
             )
             global_console.print("Get it from: https://aistudio.google.com/app/apikey")
-            api_key = questionary.text("API Key:", default="").ask()
+            api_key = questionary.password("API Key:", default="").ask()
 
         if not api_key:
             global_console.print(
@@ -597,7 +597,7 @@ def init_project(path: str):
                         global_console.print(f"[red]Error: {response.text[:200]}[/red]")
                 else:
                     global_console.print(
-                        f"[bold red]✗ Model validation failed (empty response).[/bold red]"
+                        "[bold red]✗ Model validation failed (empty response).[/bold red]"
                     )
 
                 retry = questionary.confirm("Try another model?").ask()
@@ -607,7 +607,7 @@ def init_project(path: str):
 
             except requests.exceptions.Timeout:
                 global_console.print(
-                    f"[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]"
+                    "[bold red]✗ Request timeout. The model might be unavailable or slow.[/bold red]"
                 )
                 retry = questionary.confirm("Try another model?").ask()
                 if not retry:
@@ -1021,7 +1021,6 @@ def bridge_context(
 ):
     """Bridge API: Returns context for a prompt without starting MCP server."""
     from ledgermind.core.api.bridge import IntegrationBridge
-    import sys
     import json
     import os
 
@@ -1088,9 +1087,7 @@ def bridge_context(
 def bridge_sync(path: str, cli: Optional[str] = None):
     """Bridge API: Dedicated sync command for the Stop hook."""
     from ledgermind.core.api.bridge import IntegrationBridge
-    import sys
     import json
-    import os
 
     try:
         transcript_path = None
@@ -1126,7 +1123,6 @@ def bridge_record(
     """Bridge API: Records interaction into episodic memory."""
     from ledgermind.core.api.bridge import IntegrationBridge
     import json
-    import sys
 
     try:
         real_prompt = prompt
@@ -1309,7 +1305,6 @@ def main():
     subparsers.add_parser("export-schema", help="Export JSON schemas for API contracts")
 
     # Default to 'run' if no command is provided
-    import sys
 
     known_commands = [
         "run",

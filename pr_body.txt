@@ -1,12 +1,11 @@
-💡 **What**:
-- Seeds the `meta_cache` directly from `kw_results` in `QueryService.search`.
-- Batch fetches only the missing metadata from `vec_results`.
-- Pre-calculates lifecycle weights for the entire cache upfront before RRF scoring.
+🎨 Palette: [Obscure API key input in CLI]
 
-🎯 **Why**:
-- Redundant SQLite reads were occurring because `kw_results` already contains the full row metadata, but we were extracting just the IDs and executing a `get_batch_by_fids` query for all of them.
-- Lazy evaluation of `weight_cache` inside the RRF loop added unnecessary function call and dict lookup overhead.
+💡 **What:** Changed the API key input prompt in `src/ledgermind/server/cli.py` to use `questionary.password()` instead of `questionary.text()`.
 
-📄 **Measured Improvement**:
-- Eliminates 50-100% of the IDs from the batch metadata query since keyword results are already populated.
-- Pre-calculating weights avoids thousands of redundant dict.get and `_get_lifecycle_weight` invocations inside tight loops.
+🎯 **Why:** To improve user privacy and security by obscuring the API key with asterisks as it is typed into the terminal, preventing potential shoulder-surfing or accidental capture in screen recordings.
+
+📸 **Before/After:**
+*Before:* `API Key: sk-...` (visible as typed)
+*After:* `API Key: ********` (obscured)
+
+♿ **Accessibility:** This aligns with expected terminal behavior for secrets (like passwords), reducing anxiety for users inputting sensitive data.
