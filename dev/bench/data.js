@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778326326445,
+  "lastUpdate": 1778412687441,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3600,6 +3600,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00005807335482274443",
             "extra": "mean: 809.6925999780069 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "88e88997b839208417da0e0973b7d343c25ce688",
+          "message": "Refactor: optimize min/max bounds in tight loops (#170)\n\nReplaced built-in `min()` and `max()` calls with inline Python conditionals\n(`val if val < limit else limit`) in core search and decay hot paths. This\nbypasses C-API function overhead, yielding up to a 5x improvement during\nnumerical bounding operations executed iteratively over large collections.",
+          "timestamp": "2026-05-10T06:27:52-05:00",
+          "tree_id": "3980a6517acab7f1ba88f33c8b5f6d51d8c9a24d",
+          "url": "https://github.com/sl4m3/ledgermind/commit/88e88997b839208417da0e0973b7d343c25ce688"
+        },
+        "date": 1778412687081,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 90.09656567928421,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000295083311929747",
+            "extra": "mean: 11.09920220000049 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 12434.87235520809,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000962462007578719",
+            "extra": "mean: 80.41900000534952 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1260.4888427681174,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00006657559178313098",
+            "extra": "mean: 793.3430000093722 usec\nrounds: 5"
           }
         ]
       }
