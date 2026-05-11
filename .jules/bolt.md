@@ -33,3 +33,6 @@
 ## 2024-05-25 - Avoid Python built-in min/max functions in hot paths
 **Learning:** Calling built-in C-API functions like `min()` and `max()` introduces measurable overhead in tight loops (e.g., when calculating bounds for boost, scoring, or decay). Benchmarks show that an inline Python conditional `val if val < 1.0 else 1.0` evaluates significantly faster (~10x) than `min(1.0, val)` for simple numerical clamping because it compiles directly to faster bytecode and avoids function call overhead.
 **Action:** Replace `min()` and `max()` with inline conditionals when bounding scalar numerical values inside computationally heavy loops or frequently called functions, such as `QueryService.search` scoring layers and `DecayEngine.calculate_confidence`.
+## 2024-05-26 - Generate Cache Keys Efficiently
+**Learning:** Generating stable keys by sorting IDs using an inline `if/else` conditional `(s1, s2) if s1 < s2 else (s2, s1)` is significantly more efficient than `tuple(sorted([s1, s2]))` for pairwise comparison caches in tight loops.
+**Action:** Replace `tuple(sorted(...))` with inline conditional sorting for small fixed-size tuple cache key generation.
