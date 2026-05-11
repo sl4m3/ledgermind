@@ -1,11 +1,4 @@
-🎨 Palette: [Obscure API key input in CLI]
-
-💡 **What:** Changed the API key input prompt in `src/ledgermind/server/cli.py` to use `questionary.password()` instead of `questionary.text()`.
-
-🎯 **Why:** To improve user privacy and security by obscuring the API key with asterisks as it is typed into the terminal, preventing potential shoulder-surfing or accidental capture in screen recordings.
-
-📸 **Before/After:**
-*Before:* `API Key: sk-...` (visible as typed)
-*After:* `API Key: ********` (obscured)
-
-♿ **Accessibility:** This aligns with expected terminal behavior for secrets (like passwords), reducing anxiety for users inputting sensitive data.
+💡 What: Added autocomplete to language selection in initialization prompt.
+🎯 Why: Makes it easier and faster for users to select common languages without fully typing them.
+📸 Before/After: Before it was a plain text input without suggestions, now it provides a dropdown of common languages with tab completion.
+♿ Accessibility: Reduces typing overhead and spelling mistakes, making the interactive CLI more accessible.
