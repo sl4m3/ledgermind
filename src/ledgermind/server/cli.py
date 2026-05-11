@@ -160,7 +160,11 @@ def init_project(path: str):
     global_console.print(
         "Enter preferred language for records (e.g., 'russian', 'english', 'german'):"
     )
-    language = questionary.text("Preferred language:", default="russian").ask()
+    language = questionary.autocomplete(
+        "Preferred language:",
+        choices=["english", "russian", "german", "spanish", "french", "chinese", "japanese", "korean"],
+        default="russian"
+    ).ask()
     if language is None:
         return
     language = language.strip().lower()

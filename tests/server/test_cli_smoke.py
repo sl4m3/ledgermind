@@ -45,11 +45,12 @@ def test_cli_init_and_check(tmp_path):
     with patch('ledgermind.server.cli.questionary.path') as mock_path, \
          patch('ledgermind.server.cli.questionary.text') as mock_text, \
          patch('ledgermind.server.cli.questionary.select') as mock_select, \
+         patch('ledgermind.server.cli.questionary.autocomplete') as mock_autocomplete, \
          patch('ledgermind.server.cli.questionary.confirm') as mock_confirm:
         # Mock answers: Project Path, Memory Path
         mock_path.return_value.ask.side_effect = [str(tmp_path), memory_path]
         # Mock answers: Language
-        mock_text.return_value.ask.side_effect = ["russian"]
+        mock_autocomplete.return_value.ask.side_effect = ["russian"]
         # Mock answers: Embedder, Client, Provider, Mode
         mock_select.return_value.ask.side_effect = ["jina-v5-4bit", "none", "cli", "optimal"]
         # Mock confirm (for OpenRouter/AI Studio retry)
