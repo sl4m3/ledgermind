@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778499174792,
+  "lastUpdate": 1778499182974,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3735,6 +3735,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00005869020973267122",
             "extra": "mean: 765.2861999872584 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "44729f05197890035a89b0db3112636a14010c65",
+          "message": "🎨 Palette: Add autocomplete to language selection (#173)\n\n* 🎨 Palette: Add autocomplete to language selection\n\n* 🎨 Palette: Add autocomplete to language selection",
+          "timestamp": "2026-05-11T06:29:12-05:00",
+          "tree_id": "fa8bfaffeb113d4b59d9aa09d076ce17fc0b7cf5",
+          "url": "https://github.com/sl4m3/ledgermind/commit/44729f05197890035a89b0db3112636a14010c65"
+        },
+        "date": 1778499182218,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 117.27370625231202,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00021162422443000729",
+            "extra": "mean: 8.527060599999459 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 12193.991775155242,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000013561594780450146",
+            "extra": "mean: 82.00760000818264 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1348.1536765988603,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005717608504575373",
+            "extra": "mean: 741.7551999878924 usec\nrounds: 5"
           }
         ]
       }
