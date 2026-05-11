@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778412718334,
+  "lastUpdate": 1778499174792,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3690,6 +3690,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00006223289195377554",
             "extra": "mean: 851.538200009827 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73834887+sl4m3@users.noreply.github.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c2c733d42407dc07a7956329a057ad8d17349afa",
+          "message": "⚡ Bolt: Optimize cache key generation in pairwise comparison (#172)",
+          "timestamp": "2026-05-11T06:29:00-05:00",
+          "tree_id": "28cd7f0e74d491229f558a3694f47547f2a1216b",
+          "url": "https://github.com/sl4m3/ledgermind/commit/c2c733d42407dc07a7956329a057ad8d17349afa"
+        },
+        "date": 1778499174316,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 90.28488094094867,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00014500440870702713",
+            "extra": "mean: 11.076051599980019 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 12287.306718842337,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012760681248160122",
+            "extra": "mean: 81.38480001207427 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1306.7006827205944,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00005869020973267122",
+            "extra": "mean: 765.2861999872584 usec\nrounds: 5"
           }
         ]
       }
