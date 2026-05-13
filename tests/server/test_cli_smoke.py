@@ -50,8 +50,8 @@ def test_cli_init_and_check(tmp_path):
         # Mock answers: Project Path, Memory Path
         mock_path.return_value.ask.side_effect = [str(tmp_path), memory_path]
         # Mock answers: Language
-        mock_autocomplete.return_value.ask.side_effect = ["russian", "", "", ""]
-        mock_text.return_value.ask.side_effect = ["dummy"]
+        mock_autocomplete.return_value.ask.side_effect = ["russian", "", "", "", "", "", ""]
+        mock_text.return_value.ask.side_effect = ["dummy", "dummy", "dummy"]
         # Mock answers: Embedder, Client, Provider, Mode
         mock_select.return_value.ask.side_effect = ["jina-v5-4bit", "none", "cli", "optimal"]
         # Mock confirm (for OpenRouter/AI Studio retry)
@@ -75,8 +75,8 @@ def test_cli_stats(tmp_path):
          patch('ledgermind.server.cli.questionary.autocomplete') as mock_autocomplete, \
          patch('ledgermind.server.cli.questionary.select') as mock_select:
         mock_path.return_value.ask.side_effect = [str(tmp_path), memory_path]
-        mock_autocomplete.return_value.ask.side_effect = ["russian", "", "", ""]
-        mock_text.return_value.ask.side_effect = ["dummy"]
+        mock_autocomplete.return_value.ask.side_effect = ["russian", "", "", "", "", "", ""]
+        mock_text.return_value.ask.side_effect = ["dummy", "dummy", "dummy"]
         mock_select.return_value.ask.side_effect = ["jina-v5-4bit", "none", "cli", "optimal"]
         run_cli(["init", "--path", memory_path])
     
@@ -93,8 +93,8 @@ def test_cli_verbose_logging(tmp_path):
          patch('ledgermind.server.cli.questionary.autocomplete') as mock_autocomplete, \
          patch('ledgermind.server.cli.questionary.select') as mock_select:
         mock_path.return_value.ask.side_effect = [str(tmp_path), memory_path]
-        mock_autocomplete.return_value.ask.side_effect = ["russian", "", "", ""]
-        mock_text.return_value.ask.side_effect = ["dummy"]
+        mock_autocomplete.return_value.ask.side_effect = ["russian", "", "", "", "", "", ""]
+        mock_text.return_value.ask.side_effect = ["dummy", "dummy", "dummy"]
         mock_select.return_value.ask.side_effect = ["jina-v5-4bit", "none", "cli", "optimal"]
         run_cli(["init", "--path", memory_path])
     
@@ -113,8 +113,8 @@ def test_cli_settings(tmp_path):
          patch('ledgermind.server.cli.questionary.autocomplete') as mock_autocomplete, \
          patch('ledgermind.server.cli.questionary.select') as mock_select:
         mock_path.return_value.ask.side_effect = [str(tmp_path), memory_path]
-        mock_autocomplete.return_value.ask.side_effect = ["russian", "", "", ""]
-        mock_text.return_value.ask.side_effect = ["dummy"]
+        mock_autocomplete.return_value.ask.side_effect = ["russian", "", "", "", "", "", ""]
+        mock_text.return_value.ask.side_effect = ["dummy", "dummy", "dummy"]
         mock_select.return_value.ask.side_effect = ["jina-v5-4bit", "none", "cli", "rich"]
         run_cli(["init", "--path", memory_path])
     
