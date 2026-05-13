@@ -310,7 +310,11 @@ def init_project(path: str):
         )
 
         while True:
-            enrichment_model = questionary.text("Model Name:", default="").ask()
+            enrichment_model = questionary.autocomplete(
+                "Model Name:",
+                choices=["stepfun/step-3.5-flash:free", "minimax/minimax-m2.5:free", "openrouter/free"],
+                default=""
+            ).ask()
 
             if enrichment_model is None:
                 break
@@ -427,8 +431,11 @@ def init_project(path: str):
             global_console.print("Examples: gemini-2.5-flash-lite, gemini-2.0-flash")
 
         while True:
-            enrichment_model = questionary.text(
-                "Model Name (leave empty for default):", default=""
+            choices = ["claude-sonnet-4-6", "claude-haiku-4-5"] if client == "claude" else ["gemini-2.5-flash-lite", "gemini-2.0-flash"]
+            enrichment_model = questionary.autocomplete(
+                "Model Name (leave empty for default):",
+                choices=choices,
+                default=""
             ).ask()
 
             if enrichment_model is None:
@@ -547,8 +554,10 @@ def init_project(path: str):
 
         # Model selection with validation
         while True:
-            aistudio_model = questionary.text(
-                "Model Name (for example gemma-3-27b-it):", default=""
+            aistudio_model = questionary.autocomplete(
+                "Model Name (for example gemma-3-27b-it):",
+                choices=["gemma-3-27b-it", "gemma-2-9b-it", "gemini-2.5-flash"],
+                default=""
             ).ask()
 
             if aistudio_model is None:
