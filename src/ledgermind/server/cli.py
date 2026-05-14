@@ -547,8 +547,10 @@ def init_project(path: str):
 
         # Model selection with validation
         while True:
-            aistudio_model = questionary.text(
-                "Model Name (for example gemma-3-27b-it):", default=""
+            aistudio_model = questionary.autocomplete(
+                "Model Name (for example gemma-3-27b-it):",
+                choices=["gemma-3-27b-it", "gemini-2.5-flash-lite", "gemini-2.0-flash"],
+                default=""
             ).ask()
 
             if aistudio_model is None:

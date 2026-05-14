@@ -1,4 +1,4 @@
-💡 What: Added autocomplete to language selection in initialization prompt.
-🎯 Why: Makes it easier and faster for users to select common languages without fully typing them.
-📸 Before/After: Before it was a plain text input without suggestions, now it provides a dropdown of common languages with tab completion.
-♿ Accessibility: Reduces typing overhead and spelling mistakes, making the interactive CLI more accessible.
+💡 **What:** Changed the AI Studio model prompt to use `questionary.autocomplete` and populated it with explicit choices (gemma-3-27b-it, gemini-2.5-flash-lite, gemini-2.0-flash).
+🎯 **Why:** To improve UX by providing tab-completion and hints for available Google AI Studio models, reducing user typos.
+📸 **Before/After:** Before: Autocomplete input with an empty choice list. After: Autocomplete input populated with verified valid choices.
+♿ **Accessibility:** Keyboard navigation (tab) is now fully functional and meaningful for model selection, making it easier for users relying on keyboard input.
