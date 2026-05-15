@@ -266,7 +266,7 @@ def cmd_settings_interactive(storage_path: str):
                 
                 if save_setting(storage_path, key, new_val):
                     console.print(f"[green]✓[/] Updated {key} to {new_val}")
-                    if key in ['enrichment_mode', 'embedder', 'enrichment_model']:
+                    if key in {'enrichment_mode', 'embedder', 'enrichment_model'}:
                         console.print("⚠ Restart required: Run 'pkill -f background.py' and restart worker")
                         import time
                         time.sleep(1.5)
@@ -359,7 +359,7 @@ def cmd_settings_set(storage_path: str, key: str, value: str):
         console.print(f"[green]✓[/] Setting '{key}' updated to '{value}'")
         
         # Show if restart is needed
-        if key in ['enrichment_mode', 'embedder', 'enrichment_model']:
+        if key in {'enrichment_mode', 'embedder', 'enrichment_model'}:
             console.print("[yellow]⚠ Restart required:[/] Run 'pkill -f background.py' and restart worker")
     else:
         sys.exit(1)

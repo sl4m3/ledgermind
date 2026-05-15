@@ -61,7 +61,7 @@ def _cached_validate_fid(repo_path_str: str, fid: str) -> str:
     repo_str = str(resolved_repo)
     if not fid_str.startswith(repo_str):
         raise ValueError(f"Invalid file identifier (canonicalized path outside repository): {fid}")
-    if any(x in fid_str for x in ["../", "..\\", "\x00"]):
+    if any(x in fid_str for x in {"../", "..\\", "\x00"}):
         raise ValueError(f"Invalid file identifier (suspicious pattern in canonicalized path): {fid}")
 
     return os.path.relpath(fid_str, repo_str)

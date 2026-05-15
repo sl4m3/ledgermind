@@ -32,7 +32,7 @@ class AuditLogger:
         status = "ALLOWED" if success else "DENIED"
         pid = os.getpid()
         # Mask sensitive params or large payloads
-        sanitized_params = {k: v for k, v in params.items() if k not in ["old_decision_ids", "embedding"]} 
+        sanitized_params = {k: v for k, v in params.items() if k not in {"old_decision_ids", "embedding"}}
         
         msg = f"PID: {pid} | Role: {role} | Tool: {tool} | Status: {status} | Params: {sanitized_params}"
         if commit_hash:

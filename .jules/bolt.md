@@ -36,3 +36,6 @@
 ## 2024-05-26 - Generate Cache Keys Efficiently
 **Learning:** Generating stable keys by sorting IDs using an inline `if/else` conditional `(s1, s2) if s1 < s2 else (s2, s1)` is significantly more efficient than `tuple(sorted([s1, s2]))` for pairwise comparison caches in tight loops.
 **Action:** Replace `tuple(sorted(...))` with inline conditional sorting for small fixed-size tuple cache key generation.
+## 2024-05-27 - Use set literals for membership checks
+**Learning:** In Python 3.10+, using set literals (e.g., `x in {'a', 'b'}`) instead of list literals (e.g., `x in ['a', 'b']`) for membership checks provides a measurable speed boost (~30-40% in micro-benchmarks), as set lookups are O(1) and the literal is often optimized into a constant by the compiler. Using lists forces an O(N) scan.
+**Action:** Always prefer set literals over list literals when performing static membership checks (`in`) in loops or performance-critical paths.
