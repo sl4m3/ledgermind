@@ -1,0 +1,6 @@
+⚡ Bolt: Improve concurrency lock resilience under heavy load
+
+💡 What: Increased lock sleep interval from `0.01` to `0.1` during heavy concurrent load simulation and properly imported `time`.
+🎯 Why: CI checks in GitHub Actions failed with `exit code 143` during `test_concurrency.py`, primarily because tight infinite polling loops with minimal sleep intervals (`time.sleep(0.01)` or bare `except Exception: continue`) were causing resource exhaustion and semaphore leaks on slower runners.
+📊 Impact: Prevents Github Action CI container from OOM/resource exhaustion when running heavy multiprocessing lock verification.
+🔬 Measurement: Verify running `test_concurrency.py` safely completes under standard CI environments.

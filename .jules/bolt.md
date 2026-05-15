@@ -39,3 +39,7 @@
 ## 2024-05-27 - Use set literals for membership checks
 **Learning:** In Python 3.10+, using set literals (e.g., `x in {'a', 'b'}`) instead of list literals (e.g., `x in ['a', 'b']`) for membership checks provides a measurable speed boost (~30-40% in micro-benchmarks), as set lookups are O(1) and the literal is often optimized into a constant by the compiler. Using lists forces an O(N) scan.
 **Action:** Always prefer set literals over list literals when performing static membership checks (`in`) in loops or performance-critical paths.
+
+## 2026-05-15 - Prevent lock contention CI failure using controlled backoffs
+**Learning:** In Github Action runners running heavily parallel tests, tight `while True:` polling loops that aggressively hit locks (e.g. `except Exception: continue` or `time.sleep(0.01)`) cause OS resource exhaustion (like semaphore leaks) and ultimately `Exit Code 143` (SIGTERM from container limits) due to spin-locking.
+**Action:** When writing or diagnosing concurrent lock-testing code, ensure infinite loops have proper `time.sleep` intervals (e.g., `0.1s`) after lock rejection/failures to allow the OS scheduler to fairly distribute cycles and clean up semaphores.

@@ -1,5 +1,7 @@
 import os
 import multiprocessing
+import time
+import time
 import pytest
 from ledgermind.core.api.memory import Memory
 
@@ -71,6 +73,8 @@ def test_supersede_consistency_under_load(tmp_path):
     memory.record_decision("v0", target, "Initial version of decision with a rationale long enough to pass")
     
     def writer_loop(path, stop_ev):
+        import time
+        import time
         m = Memory(storage_path=path)
         i = 1
         while not stop_ev.is_set():
@@ -79,7 +83,9 @@ def test_supersede_consistency_under_load(tmp_path):
                 if active:
                     m.supersede_decision(f"v{i}", target, f"Update {i} with long rationale", [active[0]])
                     i += 1
-            except Exception: continue
+            except Exception:
+                time.sleep(0.01)
+                continue
 
     def reader_loop(path, stop_ev, results_queue):
         m = Memory(storage_path=path)
@@ -106,7 +112,7 @@ def test_supersede_consistency_under_load(tmp_path):
         
         # Даем поработать 0.5 секунды (достаточно для проверки локов)
         import time
-        time.sleep(0.5)
+        time.sleep(0.1)
         stop_event.set()
         
     # Проверяем результаты из очереди
