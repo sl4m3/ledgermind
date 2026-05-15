@@ -51,3 +51,8 @@
 **Vulnerability:** Bandit B608 flags SQL queries built using string concatenation as potential structural SQL injection vectors.
 **Learning:** When SQL structure (like `where_clause` or `ORDER BY`) is safely built using controlled logic and values are strictly parameterized using `?`, string concatenation is secure.
 **Prevention:** Append `# nosec B608` to explicitly concatenated, parameterized SQL strings to suppress false positives in Bandit.
+
+## 2024-05-20 - Insecure Deserialization in VectorStore Migration
+**Vulnerability:** Arbitrary code execution risk (CWE-502) due to `np.load(..., allow_pickle=True)` used when loading legacy `.npy` metadata.
+**Learning:** `np.load` with `allow_pickle=True` uses the insecure `pickle` module under the hood, making it vulnerable to code execution if the `.npy` file has been tampered with. This is unnecessary when securely loading array representations.
+**Prevention:** Always set `allow_pickle=False` when using `np.load()`, even for legacy migrations or fallback routines. If complex objects must be serialized, use safer alternatives like JSON instead of pickle.

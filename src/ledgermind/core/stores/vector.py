@@ -74,8 +74,6 @@ VECTOR_AVAILABLE = True # NumPy is always available
 class GGUFEmbeddingAdapter:
     """Adapts llama-cpp-python to match SentenceTransformer's encode API."""
     def __init__(self, model_path: str):
-        import contextlib
-        import io
         import threading
         from llama_cpp import Llama
         
@@ -126,8 +124,6 @@ class GGUFEmbeddingAdapter:
             self.dimension = 1024
 
     def encode(self, sentences: Any, stop_event: Optional[threading.Event] = None, **kwargs) -> np.ndarray:
-        import contextlib
-        import io
         
         is_single = isinstance(sentences, str)
         input_list = [sentences] if is_single else sentences
@@ -479,7 +475,7 @@ class VectorStore:
                     with open(self.meta_path, 'r', encoding='utf-8') as f:
                         self._doc_ids = json.load(f)
                 else:
-                    self._doc_ids = np.load(legacy_meta_path, allow_pickle=True).tolist()
+                    self._doc_ids = np.load(legacy_meta_path, allow_pickle=False).tolist()
                     self._dirty = True
                     self.save()
                     try:
@@ -678,7 +674,7 @@ class VectorStore:
             try:
                 idx_dim = self._vectors.shape[1]
                 q_dim = query_vector.shape[0]
-                if idx_dim != q_dim and not "Mock" in str(type(query_vector)):
+                if idx_dim != q_dim and "Mock" not in str(type(query_vector)):
                     logger.warning(f"Search dimension mismatch: index={idx_dim}, query={q_dim}. Skipping vector search.")
                     return []
             except (AttributeError, IndexError):
