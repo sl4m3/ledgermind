@@ -74,7 +74,6 @@ def test_supersede_consistency_under_load(tmp_path):
     
     def writer_loop(path, stop_ev):
         import time
-        import time
         m = Memory(storage_path=path)
         i = 1
         while not stop_ev.is_set():
@@ -84,7 +83,7 @@ def test_supersede_consistency_under_load(tmp_path):
                     m.supersede_decision(f"v{i}", target, f"Update {i} with long rationale", [active[0]])
                     i += 1
             except Exception:
-                time.sleep(0.01)
+                time.sleep(0.1)
                 continue
 
     def reader_loop(path, stop_ev, results_queue):
