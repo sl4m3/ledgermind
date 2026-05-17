@@ -36,3 +36,6 @@
 ## 2024-05-26 - Generate Cache Keys Efficiently
 **Learning:** Generating stable keys by sorting IDs using an inline `if/else` conditional `(s1, s2) if s1 < s2 else (s2, s1)` is significantly more efficient than `tuple(sorted([s1, s2]))` for pairwise comparison caches in tight loops.
 **Action:** Replace `tuple(sorted(...))` with inline conditional sorting for small fixed-size tuple cache key generation.
+## 2026-05-17 - Optimize Conflict Detection
+**Learning:** Using `list_all()` and filtering `active` statuses in Python iterates over all documents, creating massive overhead for conflict detection.
+**Action:** Use the SQL-optimized `list_active_conflicts()` method, which delegates filtering to SQLite and returns only the matching `fid`s directly.

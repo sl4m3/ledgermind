@@ -1,7 +1,5 @@
 from typing import List, Optional, Any
-import os
 from ledgermind.core.core.schemas import MemoryEvent, KIND_DECISION, KIND_INTERVENTION, ResolutionIntent
-from ledgermind.core.stores.semantic_store.loader import MemoryLoader
 
 class ConflictEngine:
     """
@@ -35,7 +33,8 @@ class ConflictEngine:
         return ResolutionIntent(resolution_type="record", rationale="First entry for target")
 
     def _get_target(self, event: MemoryEvent) -> Optional[str]:
-        if not event.context: return None
+        if not event.context:
+            return None
         target = None
         if hasattr(event.context, "target"):
             target = event.context.target
@@ -44,7 +43,8 @@ class ConflictEngine:
         return target
 
     def _get_namespace(self, event: MemoryEvent) -> str:
-        if not event.context: return "default"
+        if not event.context:
+            return "default"
         if hasattr(event.context, "namespace"):
             return getattr(event.context, "namespace") or "default"
         if isinstance(event.context, dict):
@@ -53,14 +53,13 @@ class ConflictEngine:
 
     def get_conflict_files(self, event: MemoryEvent, namespace: Optional[str] = None) -> List[str]:
         new_target = self._get_target(event)
-        if not new_target: return []
+        if not new_target:
+            return []
 
         if self.meta:
             ns = namespace or self._get_namespace(event)
-            # Find all active decisions for the same target using standard list_all
-            metas = self.meta.list_all(target=new_target, namespace=ns)
-            fids = [m['fid'] for m in metas if m.get('status') == 'active']
-            return fids
+            # Find all active decisions for the same target using SQL-optimized method
+            return self.meta.list_active_conflicts(target=new_target, namespace=ns)
 
         return []
 
