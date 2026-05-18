@@ -40,6 +40,8 @@ class VectorEmbeddingAlgorithm(DuplicateSearchAlgorithm):
 
         self._pairwise_cache: Dict[Tuple[str, str], float] = {}
         self._embedding_memory_cache: Dict[str, np.ndarray] = {}
+        self._text_cache: Dict[int, str] = {}
+        self._kw_cache: Dict[int, Set[str]] = {}
 
         self.embedding_model = embedding_model
 
@@ -60,15 +62,25 @@ class VectorEmbeddingAlgorithm(DuplicateSearchAlgorithm):
 
     def _get_doc_text(self, doc: Dict[str, Any]) -> str:
         """Standardized text extraction matching indexing format (title\\ncontent)."""
+        doc_id = id(doc)
+        if doc_id in self._text_cache:
+            return self._text_cache[doc_id]
+
         title = doc.get("title", "").strip()
         # 'content' field in search results often maps to 'rationale' during recording
         content = doc.get("content", doc.get("rationale", "")).strip()
 
         # Consistent format: "Title\nRationale/Content"
-        return f"{title}\n{content}".strip()
+        text = f"{title}\n{content}".strip()
+        self._text_cache[doc_id] = text
+        return text
 
     def _get_doc_keywords_set(self, doc: Dict[str, Any]) -> Set[str]:
         """Normalized keywords set."""
+        doc_id = id(doc)
+        if doc_id in self._kw_cache:
+            return self._kw_cache[doc_id]
+
         keywords = doc.get("keywords", [])
         if isinstance(keywords, str):
             import re
@@ -76,7 +88,9 @@ class VectorEmbeddingAlgorithm(DuplicateSearchAlgorithm):
             keywords = [k.strip() for k in re.split(r"[,\s]+", keywords) if k.strip()]
         elif not isinstance(keywords, list):
             keywords = []
-        return set(str(k).lower().strip() for k in keywords if k)
+        kw_set = set(str(k).lower().strip() for k in keywords if k)
+        self._kw_cache[doc_id] = kw_set
+        return kw_set
 
     def _keyword_similarity(self, doc1: Dict[str, Any], doc2: Dict[str, Any]) -> float:
         """DEPRECATED: Use _keyword_semantic_similarity instead."""
@@ -317,5 +331,7 @@ class VectorEmbeddingAlgorithm(DuplicateSearchAlgorithm):
         """Clears all internal caches."""
         self._pairwise_cache.clear()
         self._embedding_memory_cache.clear()
+        self._text_cache.clear()
+        self._kw_cache.clear()
         if self.embedding_model:
             self.embedding_model.cache._cache.clear()

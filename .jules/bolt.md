@@ -36,3 +36,6 @@
 ## 2024-05-26 - Generate Cache Keys Efficiently
 **Learning:** Generating stable keys by sorting IDs using an inline `if/else` conditional `(s1, s2) if s1 < s2 else (s2, s1)` is significantly more efficient than `tuple(sorted([s1, s2]))` for pairwise comparison caches in tight loops.
 **Action:** Replace `tuple(sorted(...))` with inline conditional sorting for small fixed-size tuple cache key generation.
+## 2024-05-26 - Do Not Mutate Input Dictionaries for Local Caching
+**Learning:** Adding internal caches directly to input `doc` dictionaries (e.g., `doc["_lm_kw_cache"] = ...`) causes data pollution, breaks downstream shallow copies in tests, and prevents the object's `clear_cache()` methods from properly purging state.
+**Action:** Always use class-level or instance-level dictionary caches keyed by the input object's memory address (`id(doc)`) to store extracted properties for O(1) retrieval without mutating the underlying data structure.
