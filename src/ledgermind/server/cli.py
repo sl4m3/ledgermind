@@ -328,9 +328,6 @@ def init_project(path: str):
                     continue
 
             # Test model availability via API call
-            global_console.print(
-                f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via OpenRouter API..."
-            )
             try:
                 import httpx
 
@@ -346,17 +343,21 @@ def init_project(path: str):
                     "max_tokens": 10,
                 }
 
-                response = httpx.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {openrouter_api_key}",
-                        "Content-Type": "application/json",
-                        "HTTP-Referer": "https://github.com/sl4m3/ledgermind",
-                        "X-Title": "LedgerMind Setup",
-                    },
-                    json=test_payload,
-                    timeout=60,
-                )
+                with global_console.status(
+                    f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via OpenRouter API...",
+                    spinner="dots",
+                ):
+                    response = httpx.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {openrouter_api_key}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "https://github.com/sl4m3/ledgermind",
+                            "X-Title": "LedgerMind Setup",
+                        },
+                        json=test_payload,
+                        timeout=60,
+                    )
 
                 if response.status_code == 200:
                     result = response.json()
@@ -438,9 +439,6 @@ def init_project(path: str):
                 break
 
             # Validation
-            global_console.print(
-                f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via {client}..."
-            )
             try:
                 import subprocess
                 import shutil
@@ -478,7 +476,11 @@ def init_project(path: str):
                     ]
 
                 # We use a longer timeout for validation because APIs can be slow
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)  # nosec B603
+                with global_console.status(
+                    f"Validating model [bold cyan]{enrichment_model}[/bold cyan] via {client}...",
+                    spinner="dots",
+                ):
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)  # nosec B603
                 if result.returncode == 0:
                     global_console.print(
                         f"[green]✓ Model {enrichment_model} is available and responsive.[/green]"
@@ -556,9 +558,6 @@ def init_project(path: str):
                 break
 
             # Validate model with test request
-            global_console.print(
-                f"Validating model [bold cyan]{aistudio_model}[/bold cyan] via Google AI Studio..."
-            )
             try:
                 import requests
 
@@ -571,9 +570,13 @@ def init_project(path: str):
                     },
                 }
 
-                response = requests.post(
-                    api_url, params={"key": api_key}, json=test_body, timeout=30
-                )
+                with global_console.status(
+                    f"Validating model [bold cyan]{aistudio_model}[/bold cyan] via Google AI Studio...",
+                    spinner="dots",
+                ):
+                    response = requests.post(
+                        api_url, params={"key": api_key}, json=test_body, timeout=30
+                    )
 
                 if response.status_code == 200:
                     result = response.json()
