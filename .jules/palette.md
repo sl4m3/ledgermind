@@ -15,3 +15,7 @@
 ## 2024-05-24 - Interactive Path Completion in CLI
 **Learning:** When asking for filesystem paths in the CLI, standard text inputs lead to typos and user frustration. Using specialized path inputs with auto-completion significantly improves the installation experience.
 **Action:** Always use specialized path input widgets (like `questionary.path` with `only_directories=True`) instead of generic text inputs when prompting users for file or directory locations.
+
+## 2024-05-18 - Visual Feedback for Blocking CLI Operations
+**Learning:** Users perceive frozen or slow CLI applications as broken. During operations that require network requests or blocking subprocesses, providing immediate visual feedback is crucial to UX.
+**Action:** Wrap blocking operations (like API calls or subprocesses) in `rich.console.status("...", spinner="dots")` context managers to display a loading spinner.
