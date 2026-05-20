@@ -88,4 +88,4 @@ class ResponseParser:
                         keywords.append(clean)
             else:
                 keywords.append(k_str.strip())
-        return list(set([k for k in keywords if k]))
+        return list({k for k in keywords if k})

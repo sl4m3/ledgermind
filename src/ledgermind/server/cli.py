@@ -414,7 +414,7 @@ def init_project(path: str):
                     break
 
     # Model selection for CLI provider
-    if mode == "rich" and provider == "cli" and client in ["gemini", "claude"]:
+    if mode == "rich" and provider == "cli" and client in {"gemini", "claude"}:
         global_console.print(
             f"\n[bold yellow]Step 5b: Specific Model for {client.capitalize()}[/bold yellow]"
         )
@@ -768,7 +768,7 @@ def init_project(path: str):
                 )
 
         # Install MCP server (mandatory for supported clients)
-        if client in ["claude", "gemini"]:
+        if client in {"claude", "gemini"}:
             global_console.print(
                 f"\n[bold yellow]Installing MCP server for {client}...[/bold yellow]"
             )

@@ -143,7 +143,7 @@ class GitIndexer:
                         parts = f.split("/")
                         if len(parts) > 1:
                             # If src/module/file.py, module is the target
-                            if parts[0] in ["src", "lib", "app", "tests"]:
+                            if parts[0] in {"src", "lib", "app", "tests"}:
                                 path_starts.append(parts[1])
                             else:
                                 path_starts.append(parts[0])

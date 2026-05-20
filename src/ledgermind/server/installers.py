@@ -339,7 +339,7 @@ def main():
 
                         events_recorded = 0
                         for t in agent_turns:
-                            if t.get("type") in ["gemini", "agent", "assistant"] or t.get("role") in ["assistant", "agent", "gemini"]:
+                            if t.get("type") in {"gemini", "agent", "assistant"} or t.get("role") in {"assistant", "agent", "gemini"}:
                                 text_content = t.get("content", "").strip()
                                 if text_content:
                                     bridge.memory.process_event(source='agent', kind='result', content=text_content)
