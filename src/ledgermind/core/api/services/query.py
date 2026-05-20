@@ -83,7 +83,7 @@ class QueryService(MemoryService):
         meta_cache = {r['fid']: r for r in kw_results}
 
         # ⚡ Bolt: Only fetch metadata for FIDs from vec_results that aren't already in the cache.
-        missing_fids = list(set([item['id'] for item in vec_results if item['id'] not in meta_cache]))
+        missing_fids = list({item['id'] for item in vec_results if item['id'] not in meta_cache})
         if missing_fids:
             meta_cache.update({m['fid']: m for m in self.semantic.meta.get_batch_by_fids(missing_fids)})
 
@@ -151,7 +151,7 @@ class QueryService(MemoryService):
 
             resolved_records.append((fid, meta, scores[fid] / max_rrf))
 
-        unique_final_ids = list(set([r[1]['fid'] for r in resolved_records]))
+        unique_final_ids = list({r[1]['fid'] for r in resolved_records})
         link_counts = self.episodic.count_links_for_semantic_batch(unique_final_ids)
 
         final_candidates = {}

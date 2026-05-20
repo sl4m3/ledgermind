@@ -36,3 +36,6 @@
 ## 2024-05-26 - Generate Cache Keys Efficiently
 **Learning:** Generating stable keys by sorting IDs using an inline `if/else` conditional `(s1, s2) if s1 < s2 else (s2, s1)` is significantly more efficient than `tuple(sorted([s1, s2]))` for pairwise comparison caches in tight loops.
 **Action:** Replace `tuple(sorted(...))` with inline conditional sorting for small fixed-size tuple cache key generation.
+## 2024-05-18 - Optimize Membership and Set Creation
+**Learning:** Using `set([...])` with list comprehensions creates temporary intermediate lists in memory, and list membership checks `x in ["a", "b"]` scale at O(n) complexity.
+**Action:** Avoid intermediate lists by using set comprehensions like `{x for x in data}`, and always prefer set literals `x in {"a", "b"}` for O(1) membership checks.

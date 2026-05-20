@@ -47,7 +47,7 @@ class KnowledgeGraphGenerator:
             display_text = f"{target}<br/>({status}){evidence_label}"
             
             # Add node with style
-            style_class = status if status in ["active", "superseded"] else "proposal" if kind == "proposal" else ""
+            style_class = status if status in {"active", "superseded"} else "proposal" if kind == "proposal" else ""
             node_def = f'  {node_id}["{display_text}"]'
             if style_class:
                 node_def += f'::: {style_class}'
