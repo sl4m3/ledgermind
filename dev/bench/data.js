@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778499182974,
+  "lastUpdate": 1783534554162,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3780,6 +3780,49 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00005717608504575373",
             "extra": "mean: 741.7551999878924 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "stanislav@ledgermind.dev",
+            "name": "Stanislav"
+          },
+          "committer": {
+            "email": "stanislav@ledgermind.dev",
+            "name": "Stanislav"
+          },
+          "distinct": true,
+          "id": "00a915e12705a9ee1adf9778b3e69b30e81f6839",
+          "message": "feat: Hermes plugin with dual-mode support\n\n- Remove all old connectors (Claude, Cursor, Gemini, VSCode)\n- Add Hermes plugin with pre_tool_call and post_tool_call hooks\n- Support two modes: agent (summaries) and core (autonomous)\n- Config file at ~/.ledgermind/config.yaml\n- Template config for new installations",
+          "timestamp": "2026-07-08T18:11:01Z",
+          "tree_id": "f81f4de79831b33ac82b4652593ecc2be4fb4663",
+          "url": "https://github.com/sl4m3/ledgermind/commit/00a915e12705a9ee1adf9778b3e69b30e81f6839"
+        },
+        "date": 1783534553092,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 9.562563515502484,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0898593064944529",
+            "extra": "mean: 104.57446880000703 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 13418.748138287854,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000011724619150041873",
+            "extra": "mean: 74.52259999922717 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1631.6674009081037,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000048817897902065576",
+            "extra": "mean: 612.8700000033405 usec\nrounds: 5"
           }
         ]
       }
