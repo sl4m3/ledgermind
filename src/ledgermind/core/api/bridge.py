@@ -32,7 +32,7 @@ class Bridge:
 
         self.relevance_threshold = relevance_threshold
         self.retention_turns = retention_turns
-        self.default_cli = default_cli or ["gemini"]
+        self.default_cli = default_cli or ["hermes"]
         self.namespace = namespace  # Namespace for isolation between clients
         self._active_context_ids: Dict[str, int] = {}
         self._turn_counter = 0

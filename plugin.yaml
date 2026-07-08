@@ -1,0 +1,8 @@
+name: ledgermind
+version: 1.0.0
+description: "LedgerMind - Autonomous Memory Management for AI Agents"
+author: "sl4m3"
+kind: standalone
+provides_hooks:
+  - pre_tool_call
+  - post_tool_call

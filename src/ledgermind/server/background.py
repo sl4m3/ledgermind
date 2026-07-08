@@ -230,7 +230,7 @@ class BackgroundWorker:
             self.reflection_worker.shutdown()
             self.reflection_worker.join(timeout=timeout / 2)
 
-        # 2. Kill all registered gemini subprocesses immediately
+        # 2. Kill all registered subprocesses immediately
         with self._proc_lock:
             if self._active_subprocesses:
                 logger.info(f"Killing {len(self._active_subprocesses)} active subprocesses...")
@@ -347,10 +347,12 @@ class BackgroundWorker:
             self.stop()
 
     def _cleanup_orphans(self):
+        """Clean up orphaned subprocesses from previous runs."""
         try:
+            # Kill any orphaned ledgermind worker processes
             pkill_path = shutil.which('pkill')
             if pkill_path:
-                subprocess.run([pkill_path, '-f', 'gemini --extensions "" -m'], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL) # nosec B603
+                subprocess.run([pkill_path, '-f', 'ledgermind.*worker'], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL) # nosec B603
         except Exception: pass
 
 if __name__ == "__main__":
@@ -358,7 +360,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="LedgerMind Standalone Worker")
     parser.add_argument("--storage", required=True, help="Absolute path to storage")
     parser.add_argument("--log", help="Absolute path to log file")
-    parser.add_argument("--client", help="Client that started this worker (claude, gemini, cursor, vscode)")
+    parser.add_argument("--client", help="Client that started this worker (hermes, openclaw)")
     args = parser.parse_args()
 
     storage_abs = os.path.abspath(args.storage)

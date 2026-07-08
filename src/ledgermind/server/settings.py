@@ -32,7 +32,7 @@ DEFAULT_SETTINGS = {
         "description": "Language for LLM enrichment responses (e.g., 'russian', 'english')"
     },
     "enrichment_model": {
-        "default": "gemini-2.5-flash-lite",
+        "default": "deepseek-chat",
         "choices": None,
         "description": "LLM model for enrichment (when using rich mode)"
     },
@@ -57,8 +57,8 @@ DEFAULT_SETTINGS = {
         "description": "Embedding model for vector search"
     },
     "client": {
-        "default": "none",
-        "choices": ["cursor", "claude", "gemini", "vscode", "none"],
+        "default": "hermes",
+        "choices": ["hermes", "openclaw", "none"],
         "description": "Client integration for context capture"
     },
 }

@@ -1,0 +1,26 @@
+# LedgerMind Configuration
+# This file is created during installation
+
+# Storage path for memory database
+storage_path: "~/.ledgermind"
+
+# Operating mode:
+#   agent - Agent produces summaries after each round (uses cached tokens)
+#   core - LedgerMind processes data autonomously (local model or separate LLM)
+mode: "agent"
+
+# Language for memory records
+language: "russian"
+
+# Model for core mode (only used when mode: core)
+# Options: deepseek-chat, gpt-4o-mini, or custom model name
+enrichment_model: "deepseek-chat"
+
+# Namespace for memory isolation (default: "default")
+namespace: "default"
+
+# Relevance threshold for context injection (0.0-1.0)
+relevance_threshold: 0.5
+
+# Maximum memories to inject per query
+max_context_items: 5

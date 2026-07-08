@@ -21,7 +21,7 @@ class EnrichmentConfig:
             memory: Memory instance
             mode: Enrichment mode (optimal/rich)
             enrichment_language: Language for enrichment
-            client: Client identifier (claude/gemini/cursor/vscode) for client-specific models
+            client: Client identifier (hermes/openclaw) for client-specific models
         """
         config = cls(mode=mode, enrichment_language=enrichment_language)
         if memory and hasattr(memory, 'config'):

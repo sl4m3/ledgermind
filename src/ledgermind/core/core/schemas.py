@@ -171,11 +171,11 @@ class LedgermindConfig(BaseModel):
     relevance_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
     enrichment_model: Optional[str] = Field(default=None)
     
-    # Gemini CLI Configuration
-    gemini_binary_path: Optional[str] = Field(default=None, description="Path to gemini CLI binary")
-    gemini_global_config_path: str = Field(default="~/.gemini/settings.json", description="Path to global gemini config")
-    gemini_project_config_path: str = Field(default=".gemini/settings.json", description="Path to project gemini config")
-    gemini_config_mode: Literal["global", "project"] = Field(default="global", description="Gemini configuration mode")
+    # CLI Configuration
+    cli_binary_path: Optional[str] = Field(default=None, description="Path to CLI binary")
+    cli_global_config_path: str = Field(default="~/.config/ledgermind/config.json", description="Path to global config")
+    cli_project_config_path: str = Field(default=".ledgermind/config.json", description="Path to project config")
+    cli_config_mode: Literal["global", "project"] = Field(default="global", description="Configuration mode")
     max_enrichment_tokens: int = Field(default=100000, ge=1000)
 
 # --- V5.0 Deep Integrity Trajectory Models ---
