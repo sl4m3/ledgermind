@@ -51,3 +51,7 @@
 **Vulnerability:** Bandit B608 flags SQL queries built using string concatenation as potential structural SQL injection vectors.
 **Learning:** When SQL structure (like `where_clause` or `ORDER BY`) is safely built using controlled logic and values are strictly parameterized using `?`, string concatenation is secure.
 **Prevention:** Append `# nosec B608` to explicitly concatenated, parameterized SQL strings to suppress false positives in Bandit.
+## 2025-05-20 - Prevent Credential Leakage in Audit Logs
+**Vulnerability:** The `AuditLogger.log_access` method logged all tool parameters in plaintext, risking the exposure of sensitive credentials (API keys, passwords, tokens) into the audit log files.
+**Learning:** Tool execution logs must actively filter and mask parameter values based on key heuristics, not just explicitly exclude a short list of known non-sensitive large fields.
+**Prevention:** Implement a robust dictionary comprehension that masks values to "***MASKED***" if their corresponding keys contain sensitive substrings like "key", "password", "secret", "token", or "auth".
