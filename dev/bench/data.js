@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783870489707,
+  "lastUpdate": 1783887648243,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3868,6 +3868,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00007653192555191555",
             "extra": "mean: 644.2039999910776 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "ef3e0776b70317e85c25d40b0fb5d976d3cc032d",
+          "message": "refactor: replace CLI bridge with Hermes plugin installation, add HTTP API support, and clean up obsolete project files.",
+          "timestamp": "2026-07-12T15:16:45-05:00",
+          "tree_id": "2c8520959198db4f2b5d2f8acf799bd0977e7896",
+          "url": "https://github.com/sl4m3/ledgermind/commit/ef3e0776b70317e85c25d40b0fb5d976d3cc032d"
+        },
+        "date": 1783887647211,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 105.5771755322646,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008632510578851011",
+            "extra": "mean: 9.471744199998966 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 12614.476372045861,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000008903625656528303",
+            "extra": "mean: 79.27400000653506 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1357.7927937633744,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004727673363115932",
+            "extra": "mean: 736.4893999977085 usec\nrounds: 5"
           }
         ]
       }
