@@ -57,9 +57,6 @@ class ReflectionEngine:
         result_ids = []
         max_id = after_id
         
-        # V7.7: Use enrichment_mode setting (legacy arbitration_mode removed)
-        arbitration_mode = self.semantic.meta.get_config("enrichment_mode") or "rich"
-
         # NO GLOBAL TRANSACTION: Processing trajectories doesn't require a lock,
         # and semantic.save() will handle its own granular transactions.
         
@@ -109,7 +106,6 @@ class ReflectionEngine:
                     }
                     new_fid = self._create_pattern_stream(target, stats, now, 
                                                           event_map=event_map, 
-                                                          arbitration_mode=arbitration_mode,
                                                           keywords=getattr(chain, 'keywords', []))
                     if new_fid: result_ids.append(new_fid)
 
@@ -175,47 +171,24 @@ class ReflectionEngine:
 
     def _create_pattern_stream(self, target: str, stats: Dict[str, Any], now: datetime, 
                                event_map: Optional[Dict[int, Any]] = None,
-                               arbitration_mode: str = "optimal",
                                keywords: List[str] = None) -> Optional[str]:
         """Creates a new pattern stream for a discovered target."""
         try:
-            # V7.1: DISABLED IDEMPOTENCY CHECK - allow multiple drafts per target 
-            # to enable natural evolution and promotion via merging.
+            # V7.1: Idempotency check disabled — allow multiple drafts per
+            # target to enable natural evolution and promotion via merging.
+            # Calculate initial signals (real stream creation happens below)
+            # via calculate_temporal_signals.
             pass
-
-            # V6.0: Calculate actual time range from evidence events
-            event_times = []
-            for eid in stats['all_ids']:
-                if event_map and eid in event_map:
-                    try:
-                        # Use to_naive_utc for consistent comparison
-                        ts = to_naive_utc(event_map[eid]['timestamp'])
-                        if ts: event_times.append(ts)
-                    except: pass
             
-            # Normalize 'now' as well
-            now_normalized = to_naive_utc(now)
-            first_seen = min(event_times) if event_times else now_normalized
-            last_seen = max(event_times) if event_times else now_normalized
-
+            # Create the pattern stream (DecisionStream)
             stream = DecisionStream(
-                decision_id=str(uuid.uuid4()),
+                decision_id=f"stream_{target}_{now.strftime('%Y%m%d%H%M%S')}",
                 target=target,
                 title=f"Hypothesis for {target}",
-                rationale=f"Observed emerging activity for {target}",
-                phase=DecisionPhase.PATTERN,
-                vitality=DecisionVitality.ACTIVE,
-                evidence_event_ids=stats['all_ids'],
-                first_seen=first_seen,
-                last_seen=last_seen,
-                frequency=0,
-                keywords=keywords or [],
-                strengths=[],
-                objections=[],
-                consequences=[],
-                procedural=None
+                rationale=f"Behavioral pattern detected for {target} via reinforcement learning.",
+                status="draft",
             )
-            
+
             # Calculate initial signals
             reinforcement_dates = []
             REINFORCEMENT_KINDS = {KIND_RESULT, KIND_ERROR, "call", "task", "prompt", "intervention"}

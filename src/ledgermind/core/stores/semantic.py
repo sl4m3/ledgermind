@@ -10,7 +10,7 @@ import shutil
 from datetime import datetime
 from typing import List, Optional, Any, Dict, Tuple
 from contextlib import contextmanager, nullcontext
-from ledgermind.core.core.schemas import MemoryEvent, TrustBoundary
+from ledgermind.core.core.schemas import MemoryEvent
 from ledgermind.core.stores.interfaces import MetadataStore, AuditProvider
 from ledgermind.core.stores.audit_git import GitAuditProvider
 from ledgermind.core.stores.audit_no import NoAuditProvider
@@ -71,12 +71,11 @@ class SemanticStore:
     Store for semantic memory (long-term decisions) using a pluggable 
     AuditProvider for versioning and a MetadataStore for indexing.
     """
-    def __init__(self, repo_path: str, trust_boundary: TrustBoundary = TrustBoundary.AGENT_WITH_INTENT, 
+    def __init__(self, repo_path: str,
                  meta_store: Optional[MetadataStore] = None,
                  audit_store: Optional[AuditProvider] = None,
                  skip_validate: bool = False):
         self.repo_path = repo_path
-        self.trust_boundary = trust_boundary
         self.lock_file = os.path.join(repo_path, ".lock")
         
         self._fs_lock = FileSystemLock(self.lock_file)
@@ -342,11 +341,6 @@ class SemanticStore:
             self._in_transaction = False
             self._current_tx = None
 
-    def _enforce_trust(self, event: Optional[MemoryEvent] = None):
-        if self.trust_boundary == TrustBoundary.HUMAN_ONLY:
-            if not event or (event.source == "agent" and event.kind == "decision"):
-                raise PermissionError("Trust Boundary Violation")
-
     def _upsert_metadata(self, fid: str, target: str, namespace: str, kind: str,
                          timestamp: datetime, content: str, context: Dict[str, Any],
                          status: str, title: Optional[str] = None, 
@@ -405,7 +399,6 @@ class SemanticStore:
             raise
 
     def save(self, event: MemoryEvent, namespace: Optional[str] = None) -> str:
-        self._enforce_trust(event)
         if namespace and namespace != "default" and not re.match(r'^[a-zA-Z0-9_\-]+$', namespace):
             raise ValueError(f"Invalid namespace: {namespace}")
         if not self._in_transaction: self._fs_lock.acquire(exclusive=True)
@@ -466,7 +459,6 @@ class SemanticStore:
 
     def update_decision(self, filename: str, updates: dict, commit_msg: str):
         filename = self._validate_fid(filename)
-        self._enforce_trust()
         if not self._in_transaction: self._fs_lock.acquire(exclusive=True)
         try:
             if self._in_transaction and self._current_tx: self._current_tx.stage_file(filename)

@@ -46,16 +46,10 @@ def _is_llama_available():
     return _LLAMA_AVAILABLE
 
 def _is_annoy_available():
-    # Disable Annoy on Android/Termux to prevent SIGSEGV/mmap conflicts with llama.cpp
-    import platform
-    if os.path.exists("/data/data/com.termux") or platform.system() == "Android":
-        return False
-        
-    global ANNOY_AVAILABLE
-    if ANNOY_AVAILABLE is not None:
-        return ANNOY_AVAILABLE
-        
     global _ANNOY_AVAILABLE
+    if _ANNOY_AVAILABLE is not None:
+        return _ANNOY_AVAILABLE
+
     if _ANNOY_AVAILABLE is None:
         try:
             from annoy import AnnoyIndex
@@ -78,26 +72,20 @@ class GGUFEmbeddingAdapter:
         import io
         import threading
         from llama_cpp import Llama
-        
+
         logger.info(f"Loading GGUF Model: {model_path}")
         self._lock = threading.Lock()
-        
-        # Determine if we are running on Android/Termux
-        import platform
-        is_android = os.path.exists("/data/data/com.termux") or platform.system() == "Android"
-        
-        # use_mmap=False is CRITICAL for Android to avoid SIGSEGV (Exit Code 139)
-        # when Llama competes with NumPy/Python heap for virtual address space.
+
         self.client = Llama(
-            model_path=model_path, 
-            embedding=True, 
-            verbose=False, 
-            n_ctx=8192, 
+            model_path=model_path,
+            embedding=True,
+            verbose=False,
+            n_ctx=8192,
             logits_all=True,
             n_gpu_layers=0,
             n_threads=2,
             n_batch=512,
-            use_mmap=not is_android,
+            use_mmap=True,
             pooling_type=1
         )
         self._cache = {}
@@ -230,7 +218,7 @@ atexit.register(_cleanup_model_cache)
 class VectorStore:
     """
     A simple vector store using NumPy for cosine similarity.
-    Reliable and stable in environments like Termux.
+    Reliable and stable.
     """
     def __init__(self, storage_path: str, model_name: str = "../../models/v5-small-text-matching-Q4_K_M.gguf", dimension: int = 384, workers: int = 0):
         self.storage_path = storage_path
@@ -334,8 +322,7 @@ class VectorStore:
         if workers > 0:
             return workers
         
-        # Default to 1 (Single-threaded) for safety in constrained environments like Termux
-        # or when running parallel tests (to avoid nested multiprocessing).
+        # Default to 1 (Single-threaded) to avoid nested multiprocessing in tests.
         # Multi-processing should be explicitly requested by passing workers > 1.
         return 1
 
@@ -447,11 +434,7 @@ class VectorStore:
             try:
                 logger.info(f"Starting multi-process pool with {self.workers} workers...")
                 # target_devices=None uses all GPUs if available, otherwise CPUs
-                # For Termux/Android we explicitly use CPU to avoid issues
-                is_android = os.path.exists("/data/data/com.termux") or platform.system() == "Android"
-                target_devices = ["cpu"] * self.workers if is_android else None
-                
-                self._pool = self.model.start_multi_process_pool(target_devices=target_devices)
+                self._pool = self.model.start_multi_process_pool(target_devices=None)
             except Exception as e:
                 logger.warning(f"Failed to start multi-process pool: {e}. Falling back to single-process.")
                 self.workers = 1

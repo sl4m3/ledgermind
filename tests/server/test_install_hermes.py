@@ -177,9 +177,6 @@ class TestPluginFiles:
         assert "def _on_pre_llm_call" in content
         assert "def _on_post_llm_call" in content
         assert "def _on_session_start" in content
-        assert "def _import_state_db" in content
-        assert "def _read_state_db" in content
-        assert "def _call_enrichment_model" in content
         assert "def register(ctx)" in content
 
     def test_plugin_config_json(self, hermes_home, tmp_path):

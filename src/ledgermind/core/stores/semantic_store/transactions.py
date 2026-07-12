@@ -88,7 +88,7 @@ class FileSystemLock:
                         # Before giving up, log who is holding it if possible
                         raise TimeoutError(f"Could not acquire OS lock on {self.lock_path} after {effective_timeout}s. "
                                          f"Check if another process is stuck.")
-                    time.sleep(0.05) # Balanced sleep for Termux environment
+                    time.sleep(0.05) # Balanced sleep to reduce lock contention
 
         except Exception as e:
             self._thread_lock.release()

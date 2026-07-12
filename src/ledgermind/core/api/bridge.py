@@ -17,7 +17,7 @@ class Bridge:
     High-level bridge for integrating LedgerMind into CLI tools.
     """
     
-    def __init__(self, memory_path: str = "../.ledgermind", relevance_threshold: float = 0.85, retention_turns: int = 10, vector_model: Optional[str] = None, default_cli: Optional[List[str]] = None, memory_instance: Optional['Memory'] = None, namespace: Optional[str] = None):
+    def __init__(self, memory_path: str = "../.ledgermind", relevance_threshold: float = 0.85, retention_turns: int = 10, vector_model: Optional[str] = None, memory_instance: Optional['Memory'] = None, namespace: Optional[str] = None):
         self.memory_path = os.path.abspath(memory_path)
         if memory_instance:
             self._memory = memory_instance
@@ -32,7 +32,6 @@ class Bridge:
 
         self.relevance_threshold = relevance_threshold
         self.retention_turns = retention_turns
-        self.default_cli = default_cli or ["hermes"]
         self.namespace = namespace  # Namespace for isolation between clients
         self._active_context_ids: Dict[str, int] = {}
         self._turn_counter = 0

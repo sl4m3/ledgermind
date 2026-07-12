@@ -3,9 +3,7 @@ from .config import EnrichmentConfig
 from .processor import LogProcessor
 from .builder import PromptBuilder
 from .parser import ResponseParser
-from .clients import CloudLLMClient, LocalLLMClient
-from .openrouter_client import OpenRouterClient
-from .aistudio_client import AIStudioClient
+from .base_client import BaseURLClient
 
 __all__ = [
     "LLMEnricher",
@@ -13,8 +11,5 @@ __all__ = [
     "LogProcessor",
     "PromptBuilder",
     "ResponseParser",
-    "CloudLLMClient",
-    "LocalLLMClient",
-    "OpenRouterClient",
-    "AIStudioClient"
+    "BaseURLClient",
 ]

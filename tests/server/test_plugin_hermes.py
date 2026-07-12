@@ -105,62 +105,6 @@ class TestExtractKeywords:
         assert "is" not in keywords   # stop word
 
 
-class TestSearch:
-    def test_search_empty_when_no_memory(self):
-        """Test search returns empty when memory not initialized."""
-        import sys
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "ledgermind_plugin"))
-        from __init__ import _search
-
-        with patch("__init__._get_memory", return_value=None):
-            results = _search("test query", "default")
-            assert results == []
-
-
-class TestReadStateDb:
-    def test_read_state_db(self, state_db):
-        """Test reading from state.db."""
-        import sys
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "ledgermind_plugin"))
-        from __init__ import _read_state_db
-
-        sessions = _read_state_db(state_db)
-        assert len(sessions) == 1
-        assert sessions[0]["id"] == "test_session_1"
-        assert len(sessions[0]["messages"]) == 4
-
-    def test_read_state_db_nonexistent(self, tmp_path):
-        """Test reading from non-existent state.db."""
-        import sys
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "ledgermind_plugin"))
-        from __init__ import _read_state_db
-
-        sessions = _read_state_db(tmp_path / "nonexistent.db")
-        assert sessions == []
-
-
-class TestCallEnrichmentModel:
-    def test_call_enrichment_model_no_api_key(self):
-        """Test enrichment model call fails without API key."""
-        import sys
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "ledgermind_plugin"))
-        from __init__ import _call_enrichment_model
-
-        config = {"enrichment": {"api_key": "", "base_url": "http://test", "model": "test"}}
-        result = _call_enrichment_model(config, [{"role": "user", "content": "hello"}])
-        assert result is None
-
-    def test_call_enrichment_model_empty_messages(self):
-        """Test enrichment model call with empty messages."""
-        import sys
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "ledgermind_plugin"))
-        from __init__ import _call_enrichment_model
-
-        config = {"enrichment": {"api_key": "test-key", "base_url": "http://test", "model": "test"}}
-        result = _call_enrichment_model(config, [])
-        assert result is None
-
-
 class TestRegister:
     def test_register_hooks(self):
         """Test that register() registers all hooks."""

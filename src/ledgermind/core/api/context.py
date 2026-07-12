@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Any, Optional, Union
-from ledgermind.core.core.schemas import LedgermindConfig, TrustBoundary
+from ledgermind.core.core.schemas import LedgermindConfig
 from ledgermind.core.stores.episodic import EpisodicStore
 from ledgermind.core.stores.semantic import SemanticStore
 from ledgermind.core.stores.vector import VectorStore
@@ -14,7 +14,6 @@ class MemoryContext:
     """
     storage_path: str
     namespace: str
-    trust_boundary: TrustBoundary
     include_history: bool
     config: LedgermindConfig
     

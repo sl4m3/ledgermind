@@ -183,12 +183,12 @@ def test_proposal_content_invalid_confidence():
     assert "Input should be greater than or equal to 0" in str(excinfo.value)
 
 def test_proposal_content_invalid_rationale_length():
-    """Test that short rationale raises ValidationError."""
-    with pytest.raises(ValidationError) as excinfo:
-        DecisionStream(
-            title="Valid Proposal",
-            target="valid-target",
-            rationale="Short", # < 10 chars
-            confidence=0.5
-        )
-    assert "String should have at least 10 characters" in str(excinfo.value)
+    """Test that short rationale is now allowed (RationaleStr min_length=10 was removed as artifact)."""
+    # Short rationale (< 10 chars) is now valid
+    short = DecisionStream(
+        title="Valid Proposal",
+        target="valid-target",
+        rationale="Short",  # < 10 chars, but valid now
+        confidence=0.5
+    )
+    assert short.rationale == "Short"

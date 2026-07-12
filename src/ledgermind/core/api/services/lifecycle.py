@@ -396,7 +396,11 @@ class LifecycleManagementService(MemoryService):
                 try:
                     import json
                     ctx = json.loads(m.get("context_json", "{}"))
-                    if ctx.get("enrichment_status") == "completed" or ctx.get("rationale"):
+                    # V7.12: index ONLY completed entries. Vectors are computed
+                    # exclusively for enrichment_status == "completed" (hypotheses
+                    # included — they can be injected into context once completed).
+                    # Pending / non-completed items stay out of the vector index.
+                    if ctx.get("enrichment_status") == "completed":
                         enriched.append(m)
                 except Exception:
                     pass

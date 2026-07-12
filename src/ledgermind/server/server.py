@@ -485,9 +485,7 @@ class MCPServer:
               metrics_port: Optional[int] = None,
               rest_port: Optional[int] = None,
               vector_workers: int = 0):
-        from ledgermind.core.core.schemas import TrustBoundary
-        
-        memory = Memory(storage_path=storage_path, trust_boundary=TrustBoundary.AGENT_WITH_INTENT, vector_workers=vector_workers)
+        memory = Memory(storage_path=storage_path, vector_workers=vector_workers)
         server = cls(
             memory, 
             server_name=server_name, 

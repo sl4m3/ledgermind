@@ -72,12 +72,6 @@ class MigrationEngine:
                     ctx["target"] = f"migrated_{target}"
                     changed = True
                 
-                # 3. Fix Rationale Length
-                rationale = ctx.get("rationale", "")
-                if len(rationale) < 10:
-                    ctx["rationale"] = f"{rationale} (Migrated content)"
-                    changed = True
-                
                 # 4. Fix Namespace
                 if "namespace" not in ctx:
                     ctx["namespace"] = "default"

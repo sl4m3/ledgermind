@@ -5,7 +5,6 @@ import unittest
 import time
 from ledgermind.core.api.memory import Memory
 from ledgermind.server.server import MCPServer
-from ledgermind.core.core.schemas import TrustBoundary
 
 class TestHeartbeat(unittest.TestCase):
     def setUp(self):

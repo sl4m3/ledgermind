@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 from ledgermind.core.core.router import MemoryRouter
 from ledgermind.core.core.schemas import (
-    MemoryEvent, MemoryDecision, ResolutionIntent, TrustBoundary, 
+    MemoryEvent, MemoryDecision, ResolutionIntent,
     DecisionContent, DecisionStream, DecisionPhase, DecisionVitality, ProposalStatus, SEMANTIC_KINDS, KIND_DECISION, KIND_PROPOSAL, KIND_INTERVENTION,
     LedgermindConfig
 )
@@ -49,7 +49,6 @@ class Memory:
     def __init__(self,
                  storage_path: Optional[str] = None,
                  ttl_days: Optional[int] = None,
-                 trust_boundary: Optional[TrustBoundary] = None,
                  config: Optional[LedgermindConfig] = None,
                  episodic_store: Optional[Union[EpisodicStore, EpisodicProvider]] = None,
                  semantic_store: Optional[SemanticStore] = None,
@@ -65,7 +64,6 @@ class Memory:
         Args:
             storage_path: Path to storage directory
             ttl_days: Time-to-live for events in days
-            trust_boundary: Trust boundary for operations
             config: Optional configuration object
             episodic_store: Custom episodic store instance
             semantic_store: Custom semantic store instance
@@ -85,7 +83,6 @@ class Memory:
             self.config = LedgermindConfig(
                 storage_path=storage_path or "../.ledgermind",
                 ttl_days=ttl_days or 30,
-                trust_boundary=trust_boundary or TrustBoundary.AGENT_WITH_INTENT,
                 namespace=namespace or "default",
                 vector_model=vector_model or "../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf",
                 vector_workers=vector_workers if vector_workers is not None else 0
@@ -95,7 +92,6 @@ class Memory:
         if not isinstance(raw_path, str) or "<MagicMock" in str(raw_path):
              raw_path = os.path.join(os.getcwd(), ".ledgermind_fallback")
         self.storage_path = os.path.abspath(raw_path)
-        self.trust_boundary = self.config.trust_boundary
         self.namespace = self.config.namespace
         self.include_history = include_history
         
@@ -111,8 +107,7 @@ class Memory:
             self.episodic: Union[EpisodicStore, EpisodicProvider] = episodic_store or EpisodicStore(os.path.join(self.storage_path, "episodic.db"))
         else:
             self.semantic = SemanticStore(
-                os.path.join(self.storage_path, "semantic"), 
-                trust_boundary=self.trust_boundary,
+                os.path.join(self.storage_path, "semantic"),
                 meta_store=meta_store_provider,
                 audit_store=audit_store_provider
             )
@@ -154,7 +149,6 @@ class Memory:
         self.context = MemoryContext(
             storage_path=self.storage_path,
             namespace=self.namespace,
-            trust_boundary=self.trust_boundary,
             include_history=self.include_history,
             config=self.config,
             semantic=self.semantic,

@@ -10,7 +10,6 @@ from ledgermind.core.core.schemas import (
     ProceduralStep,
     DecisionPhase,
 )
-from .clients import CloudLLMClient, LocalLLMClient
 from .config import EnrichmentConfig
 from .parser import ResponseParser
 from .builder import PromptBuilder
@@ -45,14 +44,10 @@ class LLMEnricher:
     ]
 
     def __init__(
-        self, mode: Optional[str] = None, enrichment_language: Optional[str] = None
+        self, enrichment_language: Optional[str] = None
     ):
-        self.mode = mode
         self.enrichment_language = enrichment_language
         self._cloud_client = None
-        self._local_client = None
-        self._openrouter_client = None
-        self._aistudio_client = None  # V7.11: AI Studio client
 
     def _inherit_phase_with_validation(
         self,
@@ -99,15 +94,13 @@ class LLMEnricher:
         # V7.7: Use enrichment_* settings (legacy settings removed)
         if memory and hasattr(memory, "semantic") and hasattr(memory.semantic, "meta"):
             meta = memory.semantic.meta
-            if self.mode is None:
-                self.mode = meta.get_config("enrichment_mode") or "rich"
             if self.enrichment_language is None:
                 self.enrichment_language = (
                     meta.get_config("enrichment_language") or "russian"
                 )
 
         logger.info(
-            f"Auto-Enrichment Triggered: Language={self.enrichment_language}, Mode={self.mode}"
+            f"Auto-Enrichment Triggered: Language={self.enrichment_language}"
         )
 
         # 1. Discover all records where enrichment is still needed
@@ -190,9 +183,7 @@ class LLMEnricher:
         combined_text = "\n\n--- SOURCE RATIONALE ---\n\n".join(rationales)
         config = EnrichmentConfig.from_memory(
             memory,
-            mode=self.mode or "rich",
             enrichment_language=self.enrichment_language or "russian",
-            client=None,
         )
 
         # Use existing prompts from builder.py
@@ -304,13 +295,9 @@ class LLMEnricher:
         fid = getattr(prop, "fid", "unknown")
         current_obj = prop
         iteration = 1
-        # Get namespace from proposal for client-specific model
-        proposal_namespace = getattr(prop, "namespace", None)
         config = EnrichmentConfig.from_memory(
             memory,
-            mode=self.mode,
             enrichment_language=self.enrichment_language,
-            client=proposal_namespace,
         )
 
         while True:
@@ -417,9 +404,7 @@ class LLMEnricher:
 
         config = EnrichmentConfig.from_memory(
             memory,
-            mode="rich",
             enrichment_language=self.enrichment_language,
-            client=None,
         )
         instructions = PromptBuilder.build_clustering_prompt(config)
         full_prompt = PromptBuilder.wrap_with_data(instructions, docs_summary, config)
@@ -716,9 +701,7 @@ class LLMEnricher:
         # V7.8: Use PromptBuilder for consistent prompt formatting
         config = EnrichmentConfig.from_memory(
             memory,
-            mode="rich",
             enrichment_language=self.enrichment_language,
-            client=None,
         )
         prompt = PromptBuilder.build_target_conflict_resolution_prompt(
             config=config,
@@ -888,9 +871,7 @@ class LLMEnricher:
         docs_summary = "\n\n--- DOCUMENT BOUNDARY ---\n\n".join(docs_full)
         config = EnrichmentConfig.from_memory(
             memory,
-            mode="rich",
             enrichment_language=self.enrichment_language,
-            client=None,
         )
         instructions = PromptBuilder.build_consolidation_prompt(config)
         full_prompt = PromptBuilder.wrap_with_data(instructions, docs_summary, config)
@@ -1159,10 +1140,8 @@ class LLMEnricher:
     ) -> Any:
         fid = getattr(proposal, "fid", "unknown")
         target = getattr(proposal, "target", "general")
-        # Get namespace from proposal for client-specific model
-        proposal_namespace = getattr(proposal, "namespace", None)
         config = EnrichmentConfig.from_memory(
-            memory, self.mode, self.enrichment_language, client=proposal_namespace
+            memory, self.enrichment_language
         )
         instructions = PromptBuilder.build_system_prompt(
             target, getattr(proposal, "rationale", ""), config
@@ -1179,34 +1158,11 @@ class LLMEnricher:
         )
 
     def _get_client(self, config: EnrichmentConfig, memory: Any):
-        """Get appropriate LLM client based on provider configuration."""
-        # OpenRouter provider
-        if config.provider == "openrouter":
-            if not self._openrouter_client:
-                from .openrouter_client import OpenRouterClient
-
-                self._openrouter_client = OpenRouterClient(config, memory)
-            return self._openrouter_client
-
-        # AI Studio provider (V7.11)
-        if config.provider == "aistudio":
-            if not self._aistudio_client:
-                from .aistudio_client import AIStudioClient
-
-                self._aistudio_client = AIStudioClient(config, memory)
-            return self._aistudio_client
-
-        # Cloud provider (Gemini CLI/SDK)
-        if config.mode == "rich":
-            if not self._cloud_client:
-                self._cloud_client = CloudLLMClient(config, memory)
-            return self._cloud_client
-
-        # Local provider (llama-cpp)
-        else:
-            if not self._local_client:
-                self._local_client = LocalLLMClient(config, memory)
-            return self._local_client
+        """Get the unified LLM client (single base URL endpoint)."""
+        if not self._cloud_client:
+            from .base_client import BaseURLClient
+            self._cloud_client = BaseURLClient(config, memory)
+        return self._cloud_client
 
     def _apply_mapping(
         self,

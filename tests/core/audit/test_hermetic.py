@@ -3,7 +3,7 @@ import os
 import shutil
 import time
 from ledgermind.core.api.memory import Memory
-from ledgermind.core.core.schemas import TrustBoundary, MemoryEvent
+from ledgermind.core.core.schemas import MemoryEvent
 from pydantic import ValidationError
 
 def test_replay_determinism(temp_storage):
@@ -63,48 +63,6 @@ def test_replay_determinism(temp_storage):
     assert e['linked_id'] == fid
 
     print("Replay determinism verified.")
-
-
-
-def test_trust_boundary_bypass_attempt(temp_storage):
-
-    """Verify that direct store access is also protected by TrustBoundary."""
-
-    memory = Memory(storage_path=temp_storage, trust_boundary=TrustBoundary.HUMAN_ONLY)
-
-    
-
-    # Direct save attempt on store (valid structure, but unauthorized source)
-
-    event = MemoryEvent(
-
-        source="agent", 
-
-        kind="decision", 
-
-        content="Hacked Decision",
-
-        context={"title": "Hack", "target": "TargetArea", "rationale": "Hacking rationale must be long"}
-
-    )
-
-    
-
-    with pytest.raises(PermissionError) as excinfo:
-
-        memory.semantic.save(event)
-
-    assert "Trust Boundary Violation" in str(excinfo.value)
-
-    
-
-    # Direct update attempt on store
-
-    with pytest.raises(PermissionError) as excinfo:
-
-        memory.semantic.update_decision("any.md", {"status": "superseded"}, "Hacked Update rationale must be long enough")
-
-    assert "Trust Boundary Violation" in str(excinfo.value)
 
 
 

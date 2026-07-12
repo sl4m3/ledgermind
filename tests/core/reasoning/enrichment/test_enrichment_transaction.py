@@ -35,7 +35,7 @@ class TestEnrichmentTransactionPerProposal:
     @pytest.fixture
     def enricher(self):
         """Create an LLMEnricher instance."""
-        return LLMEnricher(mode="rich", enrichment_language="russian")
+        return LLMEnricher(enrichment_language="russian")
 
     def test_batch_continues_on_i4_violation(self, memory, enricher):
         """
@@ -140,7 +140,12 @@ class TestEnrichmentTransactionPerProposal:
             def __init__(self, fid, target):
                 self.fid = fid
                 self.target = target
-                self.evidence_event_ids = []
+                self.evidence_event_ids = [1, 2]
+        
+        class MockEnriched:
+            evidence_event_ids = [1, 2]  # Equal to source → "No progress" path → 1 txn
+            def model_dump(self, mode=None):
+                return {"evidence_event_ids": [1, 2], "title": "x", "rationale": "x"}
         
         proposals = [MockProposal(fid, "general")]
         
@@ -153,7 +158,7 @@ class TestEnrichmentTransactionPerProposal:
             return original_transaction()
         
         with patch.object(memory.semantic, 'transaction', count_transaction):
-            with patch.object(enricher, 'enrich_proposal', return_value=None):
+            with patch.object(enricher, 'enrich_proposal', return_value=MockEnriched()):
                 enricher.process_batch(proposals, memory.episodic, memory=memory)
         
         # Transaction should have been entered once for the batch
@@ -176,7 +181,7 @@ class TestEnrichmentTransactionLogging:
 
     @pytest.fixture
     def enricher(self):
-        return LLMEnricher(mode="rich", enrichment_language="russian")
+        return LLMEnricher(enrichment_language="russian")
 
     def test_batch_start_log(self, memory, enricher, caplog):
         """Should log when batch processing starts (V7.7: per-proposal transactions)."""

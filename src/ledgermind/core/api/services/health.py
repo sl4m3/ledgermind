@@ -4,8 +4,6 @@ import shutil
 import subprocess
 from typing import Dict, Any, Optional
 from ..base_service import MemoryService
-from ledgermind.core.core.schemas import TrustBoundary
-
 logger = logging.getLogger("ledgermind.core.api.services.health")
 
 class HealthService(MemoryService):
@@ -98,7 +96,7 @@ class HealthService(MemoryService):
                 results["repo_healthy"] = True
             except Exception as e: results["errors"].append(f"Git repo failed: {e}")
                 
-        if results["errors"] and self.context.trust_boundary == TrustBoundary.AGENT_WITH_INTENT:
+        if results["errors"]:
              for error in results["errors"]: logger.error(f"Environment check failed: {error}")
         
         results["healthy"] = len(results["errors"]) == 0

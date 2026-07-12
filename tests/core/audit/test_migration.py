@@ -2,7 +2,6 @@ import os
 import pytest
 from unittest.mock import MagicMock
 from ledgermind.core.stores.semantic import SemanticStore
-from ledgermind.core.core.schemas import TrustBoundary
 
 def test_auto_migration_v1_22(temp_storage):
     sem_path = os.path.join(temp_storage, "semantic")
@@ -27,7 +26,7 @@ context:
         f.write(content)
         
     # 2. Initialize SemanticStore (which triggers migration)
-    store = SemanticStore(sem_path, trust_boundary=TrustBoundary.AGENT_WITH_INTENT)
+    store = SemanticStore(sem_path)
     
     # 3. Verify changes
     with open(os.path.join(sem_path, legacy_file), 'r') as f:
@@ -35,7 +34,7 @@ context:
         
     assert "kind: decision" in migrated_content
     assert "target: migrated_t1" in migrated_content
-    assert "rationale: short (Migrated content)" in migrated_content
+    assert "rationale: short" in migrated_content
     assert "namespace: default" in migrated_content
     
     # 4. Verify SQLite index updated

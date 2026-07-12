@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, Union
 from ..base_service import MemoryService
 from ledgermind.core.core.schemas import (
-    MemoryEvent, MemoryDecision, ResolutionIntent, TrustBoundary, 
+    MemoryEvent, MemoryDecision, ResolutionIntent,
     DecisionContent, DecisionStream, KIND_DECISION, KIND_PROPOSAL, KIND_INTERVENTION
 )
 from ledgermind.core.core.exceptions import ConflictError
@@ -42,9 +42,6 @@ class EventProcessingService(MemoryService):
         """Core event processing logic."""
         effective_namespace = namespace or self.context.namespace
         final_timestamp = self._normalize_timestamp(timestamp)
-
-        if (self.context.trust_boundary == TrustBoundary.HUMAN_ONLY and source == "agent" and kind == KIND_DECISION):
-            return MemoryDecision(should_persist=False, store_type="none", reason="Trust Boundary Violation")
 
         if kind == KIND_INTERVENTION:
             context = self._handle_intervention(content, context, namespace)

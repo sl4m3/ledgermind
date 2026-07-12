@@ -195,9 +195,7 @@ class DecisionCommandService(MemoryService):
                             except Exception: pass
                         if original_rationales:
                             from ledgermind.core.reasoning.enrichment import LLMEnricher
-                            # V7.8: Use enrichment_mode setting (default to rich)
-                            mode = self.semantic.meta.get_config("enrichment_mode", "rich")
-                            final_rationale = LLMEnricher(mode=mode).synthesize_merged_rationale(original_rationales)
+                            final_rationale = LLMEnricher().synthesize_merged_rationale(original_rationales)
                             # V7.5: Since we synthesized, mark as completed
                             enrichment_status = "completed"
                 else:

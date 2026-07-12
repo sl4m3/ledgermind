@@ -16,10 +16,6 @@ except ImportError:
             tags = []
         return html.escape(text)
 
-class TrustBoundary(str, Enum):
-    AGENT_WITH_INTENT = "agent"
-    HUMAN_ONLY = "human"
-
 # Constants for Event Kinds
 KIND_DECISION = "decision"
 KIND_ERROR = "error"
@@ -38,7 +34,7 @@ KIND_REFLECTION_SUMMARY = "reflection_summary"
 SEMANTIC_KINDS = [KIND_DECISION, KIND_CONSTRAINT, KIND_ASSUMPTION, KIND_PROPOSAL, KIND_INTERVENTION]
 
 StrictStr = Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
-RationaleStr = Annotated[str, StringConstraints(min_length=10, strip_whitespace=True)]
+RationaleStr = str  # V7.12: removed min_length=10 constraint — Hermes pipeline writes short auto-generated rationale
 TargetStr = Annotated[str, StringConstraints(min_length=3, strip_whitespace=True)]
 
 
@@ -163,19 +159,16 @@ class ResolutionIntent(BaseModel):
 class LedgermindConfig(BaseModel):
     storage_path: str = Field(default="../.ledgermind")
     ttl_days: int = Field(default=30, ge=1)
-    trust_boundary: TrustBoundary = Field(default=TrustBoundary.AGENT_WITH_INTENT)
     namespace: str = "default"
     vector_model: str = Field(default="../.ledgermind/models/v5-small-text-matching-Q4_K_M.gguf")
     vector_workers: int = Field(default=0, ge=0)
     enable_git: bool = Field(default=True)
     relevance_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
     enrichment_model: Optional[str] = Field(default=None)
-    
-    # CLI Configuration
-    cli_binary_path: Optional[str] = Field(default=None, description="Path to CLI binary")
-    cli_global_config_path: str = Field(default="~/.config/ledgermind/config.json", description="Path to global config")
-    cli_project_config_path: str = Field(default=".ledgermind/config.json", description="Path to project config")
-    cli_config_mode: Literal["global", "project"] = Field(default="global", description="Configuration mode")
+    enrichment_provider: str = Field(default="openrouter")
+    enrichment_base_url: Optional[str] = Field(default=None)
+    enrichment_api_key: Optional[str] = Field(default=None)
+
     max_enrichment_tokens: int = Field(default=100000, ge=1000)
 
 # --- V5.0 Deep Integrity Trajectory Models ---
