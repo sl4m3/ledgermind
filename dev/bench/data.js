@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783534554162,
+  "lastUpdate": 1783870489707,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3823,6 +3823,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000048817897902065576",
             "extra": "mean: 612.8700000033405 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "df629c06b6b1c971f05b5d273177c9da47f100b7",
+          "message": "Installer: auto-inject ledgermind path into plugin for Hermes compatibility",
+          "timestamp": "2026-07-12T10:31:26-05:00",
+          "tree_id": "ed923d876e91af4597b900dc835782bd9ed345a5",
+          "url": "https://github.com/sl4m3/ledgermind/commit/df629c06b6b1c971f05b5d273177c9da47f100b7"
+        },
+        "date": 1783870488806,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 41.05617873771452,
+            "unit": "iter/sec",
+            "range": "stddev: 0.034317294500874604",
+            "extra": "mean: 24.356869799999004 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 14659.618319067436,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000012167078722242447",
+            "extra": "mean: 68.21460001447122 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1552.3033076693878,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00007653192555191555",
+            "extra": "mean: 644.2039999910776 usec\nrounds: 5"
           }
         ]
       }
