@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783887648243,
+  "lastUpdate": 1783896905346,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3913,6 +3913,49 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.00004727673363115932",
             "extra": "mean: 736.4893999977085 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "stanislav@ledgermind.dev",
+            "name": "Stanislav"
+          },
+          "committer": {
+            "email": "stanislav@ledgermind.dev",
+            "name": "Stanislav"
+          },
+          "distinct": false,
+          "id": "324424d5358fd4f0afa3ef658542f75afb7703d5",
+          "message": "Refactor: remove terminal-era artifacts, unify enrichment on single base_url\n\n- Remove terminal LLM clients (Gemini CLI/Cloud Code, AI Studio, OpenRouter,\n  local llama-cpp): clients.py, aistudio_client.py, openrouter_client.py,\n  utils/gemini_config.py\n- Add unified BaseURLClient (OpenAI-compatible /v1/chat/completions)\n- EnrichmentConfig: read base_url/model/api_key from LedgermindConfig ->\n  ~/.hermes/plugins/ledgermind/config.json + .env -> meta -> ENRICHMENT_DEFAULTS\n- Remove enrichment_mode (rich/optimal/lite) artifact; TrustBoundary (human/agent\n  split) fully removed from 7 files; RationaleStr.min_length=10 removed;\n  CLI config fields removed from LedgermindConfig\n- Remove Termux/Android branches in vector.py; fix lifecycle.py model_update typo;\n  fix reflection.py missing stream init after dead-block removal\n- Migrator 'Fix Rationale Length' block removed; bridge default_cli removed\n- Tests adapted to new code (209 passed, 3 pre-existing failures unrelated)",
+          "timestamp": "2026-07-12T22:49:56Z",
+          "tree_id": "b3d696601501b09bd414248dd2bdb2cb0ce4be1d",
+          "url": "https://github.com/sl4m3/ledgermind/commit/324424d5358fd4f0afa3ef658542f75afb7703d5"
+        },
+        "date": 1783896904969,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 89.56628226450563,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000403779985482313",
+            "extra": "mean: 11.164915799975006 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 10514.185739462362,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000010835501459430566",
+            "extra": "mean: 95.10959999943225 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 1279.7395473869299,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000041833406514937534",
+            "extra": "mean: 781.4090000124452 usec\nrounds: 5"
           }
         ]
       }
