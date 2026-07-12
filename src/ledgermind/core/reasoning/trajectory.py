@@ -20,7 +20,7 @@ class TrajectoryBuilder:
         self.target_registry = target_registry
         
         # V7.0: Capture full hierarchical path including functional roots
-        self.path_regex = re.compile(r'\b((?:src/|lib/|app/|tests/|ledgermind/|core/|server/|vscode/)(?:\w+/)+)[\w.-]+')
+        self.path_regex = re.compile(r'\b((?:src/|lib/|app/|tests/|ledgermind/|core/|server/)(?:\w+/)+)[\w.-]+')
 
     def build_chains(self, events_dicts: List[Dict[str, Any]]) -> List[TrajectoryChain]:
         """Converts raw event dictionaries from SQLite into TrajectoryChains."""

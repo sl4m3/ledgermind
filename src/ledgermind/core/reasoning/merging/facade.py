@@ -88,6 +88,11 @@ class MergeEngineFacade:
         logger.debug(f"Shuffled candidates for diverse merge exploration.")
 
         # 2. PRE-CACHE EMBEDDINGS (Batch optimization)
+        # Only load model if there are candidates to process
+        if not resolved_candidates:
+            logger.info("No candidates to process, skipping merge.")
+            return Result(success=True, data=[], metadata={"candidates": 0})
+
         # We must ensure the model is initialized before batch encoding
         if hasattr(self.algorithm, "_ensure_model"):
             self.algorithm._ensure_model(self.memory)

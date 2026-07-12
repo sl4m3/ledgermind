@@ -250,11 +250,31 @@ class LifecycleManagementService(MemoryService):
             len(to_archive), len(to_prune), retained, semantic_forgotten=forgotten_count
         )
 
+    def _get_watermark(self) -> int:
+        """Read watermark from config.json."""
+        import json
+        from pathlib import Path
+        config_path = Path.home() / ".ledgermind" / "hermes" / "config.json"
+        if config_path.exists():
+            config = json.loads(config_path.read_text())
+            return int(config.get("last_reflection_event_id", 0))
+        return 0
+
+    def _set_watermark(self, value: int):
+        """Write watermark to config.json."""
+        import json
+        from pathlib import Path
+        config_path = Path.home() / ".ledgermind" / "hermes" / "config.json"
+        if config_path.exists():
+            config = json.loads(config_path.read_text())
+        else:
+            config = {}
+        config["last_reflection_event_id"] = value
+        config_path.write_text(json.dumps(config, indent=2))
+
     def run_reflection(self, stop_event: Optional[threading.Event] = None) -> List[str]:
         """Execute the incremental reflection process."""
-        watermark_key = "last_reflection_event_id"
-        last_id = self.semantic.meta.get_config(watermark_key)
-        after_id = int(last_id) if last_id is not None else 0
+        after_id = self._get_watermark()
 
         all_proposal_ids = []
         CHUNK_SIZE = 5000
@@ -277,12 +297,7 @@ class LifecycleManagementService(MemoryService):
             after_id = new_max_id
             processed_total += CHUNK_SIZE
 
-            # Using semantic direct lock for watermark update as in original code
-            if self.semantic._fs_lock.acquire(exclusive=True, timeout=30):
-                try:
-                    self.semantic.meta.set_config(watermark_key, str(new_max_id))
-                finally:
-                    self.semantic._fs_lock.release()
+            self._set_watermark(new_max_id)
 
         return all_proposal_ids
 
@@ -375,9 +390,23 @@ class LifecycleManagementService(MemoryService):
             if not missing:
                 return
 
-            logger.info(f"Re-indexing {len(missing)} missing entries...")
+            # Filter: only index enriched items
+            enriched = []
+            for m in missing:
+                try:
+                    import json
+                    ctx = json.loads(m.get("context_json", "{}"))
+                    if ctx.get("enrichment_status") == "completed" or ctx.get("rationale"):
+                        enriched.append(m)
+                except Exception:
+                    pass
+
+            if not enriched:
+                return
+
+            logger.info(f"Re-indexing {len(enriched)} enriched entries...")
             docs_to_add = []
-            for m in missing[:limit]:
+            for m in enriched[:limit]:
                 if stop_event and stop_event.is_set():
                     break
                 try:

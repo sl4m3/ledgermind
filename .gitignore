@@ -7,18 +7,18 @@ __pycache__/
 dist/
 build/
 .env
+.venv
 .idea/
 .vscode/
 .gemini/
 .claude/
 .benchmarks/
 .hypothesis/
-.jules/
+uv.lock
 /ledgermind/
 audit/
 models/
 logs/
-GEMINI.md
 run_tests.sh
 # Benchmarking data
 benchmarks/datasets/
@@ -32,5 +32,5 @@ node_modules/
 
 scripts/
 
-.qwen/
+.mimocode
 gha-creds-*.json

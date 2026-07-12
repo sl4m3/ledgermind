@@ -1,8 +1,14 @@
 name: ledgermind
 version: 1.0.0
 description: "LedgerMind - Autonomous Memory Management for AI Agents"
-author: "sl4m3"
+author: "Stanislav Zotov"
 kind: standalone
-provides_hooks:
-  - pre_tool_call
-  - post_tool_call
+platforms:
+  hermes:
+    hooks:
+      - pre_tool_call
+      - post_tool_call
+    entry: ledgermind_plugin/__init__.py
+  openclaw:
+    entry: openclaw-plugin/dist/index.js
+    manifest: openclaw-plugin/openclaw.plugin.json

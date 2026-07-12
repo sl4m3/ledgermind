@@ -316,13 +316,7 @@ class LLMEnricher:
         while True:
             eids = getattr(current_obj, "evidence_event_ids", [])
             if not eids:
-                # V7.5: Nothing to enrich, mark as completed
-                with memory.semantic.transaction():
-                    memory.semantic.update_decision(
-                        fid,
-                        {"enrichment_status": "completed"},
-                        commit_msg="Enrichment: completed (no evidence)",
-                    )
+                # No evidence to enrich — leave as pending, skip silently
                 break
 
             logs_text, used_ids, missing_ids = LogProcessor.get_batch_logs(
@@ -330,13 +324,7 @@ class LLMEnricher:
             )
 
             if not used_ids and not missing_ids:
-                # V7.5: No logs found, nothing more to enrich
-                with memory.semantic.transaction():
-                    memory.semantic.update_decision(
-                        fid,
-                        {"enrichment_status": "completed"},
-                        commit_msg="Enrichment: completed (no logs)",
-                    )
+                # No logs found — leave as pending, skip silently
                 break
 
             if not used_ids and missing_ids:
@@ -364,13 +352,7 @@ class LLMEnricher:
             )
 
             if not enriched:
-                # Mark as completed if LLM failed
-                with memory.semantic.transaction():
-                    memory.semantic.update_decision(
-                        fid,
-                        {"enrichment_status": "completed"},
-                        commit_msg="Enrichment: completed (LLM failed)",
-                    )
+                # LLM failed — leave as pending, will retry next cycle
                 break
 
             # Check for progress

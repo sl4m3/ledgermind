@@ -261,15 +261,18 @@ class VectorStore:
     def _ensure_loaded(self):
         """Ensures that the index is loaded from disk (Lazy Loading)."""
         if not self._loaded:
-            # CRITICAL Fix for SIGSEGV: Initialize Llama model FIRST.
-            # This reserves contiguous memory for the model before NumPy fragments the heap.
-            try:
-                _ = self.model 
-            except Exception as e:
-                logger.error(f"Failed to eager-load GGUF model: {e}")
-
+            # Load vectors from disk first (no model needed)
             self.load()
             self._loaded = True
+
+            # Only load GGUF model if there are vectors to work with
+            if self._vectors is not None and len(self._vectors) > 0:
+                try:
+                    _ = self.model
+                except Exception as e:
+                    logger.error(f"Failed to eager-load GGUF model: {e}")
+            else:
+                logger.debug("No vectors in index, skipping GGUF model load")
 
     def _build_annoy_index(self):
         """Builds an Annoy index for the current vectors."""
@@ -301,6 +304,13 @@ class VectorStore:
             self._annoy_index = None
             self._indexed_count = 0
 
+    def _ensure_model_loaded(self):
+        """Ensures GGUF model is loaded for encoding. Called on demand, not at startup."""
+        try:
+            _ = self.model
+        except Exception as e:
+            logger.error(f"Failed to load GGUF model for encoding: {e}")
+
     def _get_embedding(self, text: str) -> np.ndarray:
         """Internal helper with caching."""
         self._ensure_loaded()
@@ -308,6 +318,7 @@ class VectorStore:
             return self._embedding_cache[text]
         
         # Single-process encoding
+        self._ensure_model_loaded()
         vector = self.model.encode([text])[0].astype('float32')
         
         # Cache management (FIFO-ish)
@@ -579,6 +590,7 @@ class VectorStore:
         if embeddings is not None:
             new_embeddings = np.array(embeddings).astype('float32')
         elif self.model is not None:
+            self._ensure_model_loaded()
             texts = [doc["content"] for doc in documents]
             pool = self._get_pool()
             if pool:

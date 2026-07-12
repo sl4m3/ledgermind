@@ -1,0 +1,38 @@
+{
+  "id": "ledgermind",
+  "name": "LedgerMind",
+  "description": "Autonomous memory management — injects context before model, captures summaries after",
+  "contracts": {
+    "tools": []
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "storagePath": {
+        "type": "string",
+        "default": "~/.ledgermind"
+      },
+      "mode": {
+        "type": "string",
+        "enum": ["agent", "core"],
+        "default": "agent"
+      },
+      "namespace": {
+        "type": "string",
+        "default": "default"
+      },
+      "maxContextItems": {
+        "type": "number",
+        "default": 5
+      },
+      "language": {
+        "type": "string",
+        "default": "russian"
+      }
+    },
+    "additionalProperties": false
+  }
+}

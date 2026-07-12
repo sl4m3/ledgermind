@@ -1,4 +1,0 @@
-💡 What: Added autocomplete to language selection in initialization prompt.
-🎯 Why: Makes it easier and faster for users to select common languages without fully typing them.
-📸 Before/After: Before it was a plain text input without suggestions, now it provides a dropdown of common languages with tab completion.
-♿ Accessibility: Reduces typing overhead and spelling mistakes, making the interactive CLI more accessible.

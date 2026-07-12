@@ -1,260 +1,212 @@
 """
 LedgerMind Plugin for Hermes Agent
 
-Autonomous memory management for AI agents.
-
-Two modes:
-1. agent - Agent produces summaries after each round, hook captures them
-2. core - LedgerMind processes raw data autonomously (local model or separate LLM)
+HTTP bridge to LedgerMind server. No direct imports — just HTTP calls.
 """
 
+import atexit
 import os
-import re
 import json
 import logging
+import signal
+import subprocess
+import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("ledgermind.plugin")
 
-# Global memory instance
-_memory_instance = None
-
-# Global config instance
-_config = None
-
-# Common stop words to filter out
-_STOP_WORDS = {
-    'what', 'is', 'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at',
-    'to', 'for', 'of', 'with', 'by', 'from', 'as', 'into', 'through',
-    'during', 'before', 'after', 'above', 'below', 'between', 'out', 'off',
-    'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there',
-    'when', 'where', 'why', 'how', 'all', 'both', 'each', 'few', 'more',
-    'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own',
-    'same', 'so', 'than', 'too', 'very', 'can', 'will', 'just', 'don',
-    'should', 'now', 'tell', 'me', 'about', 'do', 'you', 'know', 'can',
-    'could', 'would', 'please', 'help', 'find', 'search', 'look', 'get'
-}
-
-# Default config values
-DEFAULT_CONFIG = {
-    "storage_path": "~/.ledgermind",
-    "mode": "agent",
-    "language": "russian",
-    "enrichment_model": "deepseek-chat",
-    "namespace": "default",
-    "relevance_threshold": 0.5,
-    "max_context_items": 5
-}
-
-
-def _clean_query(query: str) -> str:
-    """Clean and normalize a query for search."""
-    # Remove special characters but keep spaces
-    cleaned = re.sub(r'[^\w\s]', ' ', query)
-    # Remove extra whitespace
-    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-    return cleaned
-
-
-def _extract_keywords(query: str) -> List[str]:
-    """Extract meaningful keywords from a query."""
-    cleaned = _clean_query(query)
-    words = cleaned.split()
-    # Filter out stop words and short words
-    keywords = [w.lower() for w in words if len(w) > 2 and w.lower() not in _STOP_WORDS]
-    return keywords
+CONFIG_DIR = Path.home() / ".ledgermind" / "hermes"
+PLUGIN_DIR = Path(__file__).parent
+DEFAULT_PORT = 8000
+SERVER_URL = f"http://127.0.0.1:{DEFAULT_PORT}"
 
 
 def _load_config() -> Dict[str, Any]:
-    """Load configuration from config file."""
-    global _config
-    if _config is not None:
-        return _config
-    
-    # Try to find config file
-    config_paths = [
-        os.path.expanduser("~/.ledgermind/config.yaml"),
-        os.path.expanduser("~/.hermes/ledgermind/config.yaml"),
-        os.path.join(os.path.dirname(__file__), "config.yaml"),
-    ]
-    
-    for config_path in config_paths:
-        if os.path.exists(config_path):
-            try:
-                import yaml
-                with open(config_path, 'r') as f:
-                    _config = yaml.safe_load(f) or {}
-                logger.info(f"Loaded config from {config_path}")
-                return _config
-            except Exception as e:
-                logger.warning(f"Failed to load config from {config_path}: {e}")
-    
-    # Use defaults if no config found
-    _config = DEFAULT_CONFIG.copy()
-    logger.info("Using default configuration")
-    return _config
+    config_path = CONFIG_DIR / "config.json"
+    if config_path.exists():
+        return json.loads(config_path.read_text())
+    return {}
 
 
-def _get_config_value(key: str, default: Any = None) -> Any:
-    """Get a configuration value."""
-    config = _load_config()
-    return config.get(key, default)
-
-
-def _get_memory():
-    """Get or initialize the LedgerMind memory instance."""
-    global _memory_instance
-    if _memory_instance is not None:
-        return _memory_instance
-    
+def _get_profile_name() -> str:
     try:
-        from ledgermind.core.api.memory import Memory
-        
-        # Get configuration
-        storage_path = _get_config_value("storage_path", "~/.ledgermind")
-        storage_path = os.path.expanduser(storage_path)
-        
-        namespace = _get_config_value("namespace", "default")
-        
-        _memory_instance = Memory(storage_path=storage_path, namespace=namespace)
-        logger.info(f"LedgerMind initialized: {storage_path} (namespace: {namespace})")
+        hermes_cli = __import__("hermes_cli", fromlist=["plugins"])
+        return getattr(hermes_cli.plugins, "current_profile", None) or "default"
+    except Exception:
+        return "default"
+
+
+def _api(method: str, path: str, data: dict = None) -> Optional[dict]:
+    import urllib.request
+    import urllib.error
+
+    url = f"{SERVER_URL}{path}"
+    try:
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(data).encode() if data else None,
+            headers={"Content-Type": "application/json"},
+            method=method,
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return json.loads(resp.read())
+    except urllib.error.URLError:
+        return None
     except Exception as e:
-        logger.error(f"Failed to initialize LedgerMind: {e}")
+        logger.debug("API error: %s", e)
         return None
-    
-    return _memory_instance
 
 
-def _search_with_keywords(memory, query: str, limit: int = 5) -> List[Dict[str, Any]]:
-    """Search using extracted keywords with fallback to individual keyword search."""
-    # First try the original query
-    results = memory.search_decisions(query, limit=limit, mode="lite")
-    if results:
-        return results
-    
-    # Extract keywords and search with each
-    keywords = _extract_keywords(query)
-    if not keywords:
-        return []
-    
-    # Search with each keyword and combine results
-    all_results = []
-    seen_ids = set()
-    
-    for keyword in keywords:
-        results = memory.search_decisions(keyword, limit=limit, mode="lite")
-        for r in results:
-            fid = r.get('fid') or r.get('id')
-            if fid and fid not in seen_ids:
-                seen_ids.add(fid)
-                all_results.append(r)
-    
-    # Sort by score and return top results
-    all_results.sort(key=lambda x: x.get('score', 0), reverse=True)
-    return all_results[:limit]
+_server_process = None
 
 
-def _on_pre_tool_call(tool_name: str = "", args: Any = None, **kwargs) -> Optional[Dict[str, str]]:
-    """Hook called before each tool call. Injects relevant memories."""
+def _kill_server():
+    global _server_process
+    if _server_process is not None and _server_process.poll() is None:
+        try:
+            _server_process.terminate()
+            _server_process.wait(timeout=5)
+        except Exception:
+            _server_process.kill()
+        logger.info("LedgerMind server stopped")
+
+
+def _ensure_server_running():
+    global _server_process
+
+    resp = _api("GET", "/health")
+    if resp:
+        return
+
+    venv_python = Path.home() / ".ledgermind" / "venv" / "bin" / "python3"
+    if not venv_python.exists():
+        venv_python = Path(sys.executable)
+
     try:
-        memory = _get_memory()
-        if not memory:
-            return None
-        
-        # Get the current prompt from args if available
-        if not isinstance(args, dict):
-            return None
-        
-        prompt = args.get("prompt") or args.get("query") or args.get("command")
-        if not prompt:
-            return None
-        
-        # Get max context items from config
-        max_items = _get_config_value("max_context_items", 5)
-        
-        # Search for relevant memories using keyword extraction
-        results = _search_with_keywords(memory, prompt, limit=max_items)
-        
-        if results:
-            # Format context for injection
-            context_items = []
-            for r in results:
-                item = {
-                    "title": r.get("title", ""),
-                    "target": r.get("target", ""),
-                    "rationale": r.get("rationale", ""),
-                    "score": r.get("score", 0)
-                }
-                context_items.append(item)
-            
-            context_str = f"[LEDGERMIND KNOWLEDGE BASE ACTIVE]\n{json.dumps({'source': 'ledgermind', 'memories': context_items}, indent=2, ensure_ascii=False)}"
-            return {"action": "inject_context", "context": context_str}
-        
-        return None
-        
+        log_file = Path.home() / ".ledgermind" / "server.log"
+        _server_process = subprocess.Popen(
+            [str(venv_python), "-m", "ledgermind.server.cli", "serve",
+             "--port", str(DEFAULT_PORT)],
+            stdout=log_file.open("a"),
+            stderr=subprocess.STDOUT,
+        )
+
+        atexit.register(_kill_server)
+
+        def _signal_handler(signum, frame):
+            _kill_server()
+            sys.exit(0)
+
+        signal.signal(signal.SIGTERM, _signal_handler)
+        signal.signal(signal.SIGINT, _signal_handler)
+
+        for _ in range(10):
+            time.sleep(0.5)
+            if _api("GET", "/health"):
+                logger.info("LedgerMind server started on port %d", DEFAULT_PORT)
+                return
+        logger.warning("LedgerMind server failed to start")
     except Exception as e:
-        logger.error(f"Error in pre_tool_call hook: {e}")
+        logger.error("Failed to start LedgerMind server: %s", e)
+
+
+def _on_pre_llm_call(
+    session_id: str,
+    user_message: str,
+    conversation_history: list,
+    is_first_turn: bool,
+    model: str,
+    platform: str,
+    **kwargs,
+):
+    if not user_message:
         return None
 
+    profile = _get_profile_name()
+    resp = _api("POST", "/memory/search", {
+        "query": user_message,
+        "limit": 5,
+        "profile": profile,
+    })
+    if not resp or not resp.get("results"):
+        return None
 
-def _on_post_tool_call(tool_name: str = "", args: Any = None, result: Any = None, task_id: str = "", **kwargs) -> None:
-    """Hook called after each tool call. Records the interaction."""
+    lines = ["[LEDGERMIND KNOWLEDGE BASE ACTIVE]"]
+    for m in resp["results"]:
+        lines.append(
+            f"- {m.get('title', '')} ({m.get('target', '')}): "
+            f"{m.get('rationale', '')} [score: {m.get('score', 0)}]"
+        )
+    return {"context": "\n".join(lines)}
+
+
+def _on_post_llm_call(
+    session_id: str,
+    user_message: str,
+    assistant_response: str,
+    conversation_history: list,
+    model: str,
+    platform: str,
+    **kwargs,
+):
+    if not assistant_response:
+        return
+
+    profile = _get_profile_name()
+
+    _api("POST", "/memory/write", {
+        "source": "user",
+        "kind": "prompt",
+        "content": user_message,
+        "context": {"session_id": session_id},
+        "profile": profile,
+    })
+
+    _api("POST", "/memory/write", {
+        "source": "agent",
+        "kind": "result",
+        "content": assistant_response,
+        "context": {"session_id": session_id, "model": model},
+        "profile": profile,
+    })
+
+
+def _on_session_start(session_id: str, model: str, platform: str, **kwargs):
     try:
-        memory = _get_memory()
-        if not memory:
+        config = _load_config()
+        profile_name = _get_profile_name()
+        done = config.get("initial_import_done", {})
+        if done.get(profile_name):
             return
-        
-        mode = _get_config_value("mode", "agent")
-        
-        # Get the user prompt from args
-        if isinstance(args, dict):
-            prompt = args.get("prompt") or args.get("query") or args.get("command")
-        else:
-            prompt = ""
-        
-        if not prompt:
+
+        state_db = Path.home() / ".hermes" / "state.db"
+        if not state_db.exists():
             return
-        
-        if mode == "agent":
-            # Agent mode: capture the summary produced by the agent
-            # The result should already be a summary from the agent
-            if result:
-                memory.process_event(
-                    source="user",
-                    kind="prompt",
-                    content=prompt
-                )
-                
-                memory.process_event(
-                    source="agent",
-                    kind="result",
-                    content=str(result)
-                )
-        else:
-            # Core mode: record raw data for autonomous processing
-            # LedgerMind will process this through its own reasoning engine
-            if result:
-                memory.process_event(
-                    source="user",
-                    kind="prompt",
-                    content=prompt
-                )
-                
-                memory.process_event(
-                    source="agent",
-                    kind="result",
-                    content=str(result)
-                )
-                
-                # Trigger autonomous processing in background
-                # This would be handled by LedgerMind's background worker
-        
+
+        logger.info("Importing state.db for profile: %s", profile_name)
+        _api("POST", "/import/state-db", {"profile": profile_name})
     except Exception as e:
-        logger.error(f"Error in post_tool_call hook: {e}")
+        logger.error("on_session_start error: %s", e)
 
 
-def register(ctx) -> None:
-    """Register hooks with Hermes."""
-    ctx.register_hook("pre_tool_call", _on_pre_tool_call)
-    ctx.register_hook("post_tool_call", _on_post_tool_call)
+def register(ctx):
+    ctx.register_hook("pre_llm_call", _on_pre_llm_call)
+    ctx.register_hook("post_llm_call", _on_post_llm_call)
+    ctx.register_hook("on_session_start", _on_session_start)
+
+    _ensure_server_running()
+    _api("POST", "/worker/start")
+
+    try:
+        config = _load_config()
+        profile_name = _get_profile_name()
+        done = config.get("initial_import_done", {})
+        if not done.get(profile_name):
+            state_db = Path.home() / ".hermes" / "state.db"
+            if state_db.exists():
+                logger.info("Importing state.db for profile: %s", profile_name)
+                _api("POST", "/import/state-db", {"profile": profile_name})
+    except Exception as e:
+        logger.error("Import error: %s", e)
