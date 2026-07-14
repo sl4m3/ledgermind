@@ -108,6 +108,11 @@ class Bridge:
                         elif isinstance(v, list):
                             memory_item[k] = [x for x in v if x not in placeholders]
 
+                    # Inject file reference into compressive_rationale for context
+                    cr = memory_item.get("compressive_rationale")
+                    if cr and "To retrieve more detailed data" not in cr:
+                        memory_item["compressive_rationale"] = f"{cr} To retrieve more detailed data, use cat .ledgermind/hermes/semantic/{fid}"
+
                     memories.append(memory_item)
             return memories
         except Exception as e:

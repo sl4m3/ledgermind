@@ -52,18 +52,17 @@ class EnrichmentWorker(WorkerThread):
     def _do_enrichment(self):
         """Выполнить enrichment (внутри coordinator context)."""
         try:
-            # Get current mode from memory config
-            # V7.7: Use enrichment_mode setting (legacy arbitration_mode removed)
-            mode = self.memory.semantic.meta.get_config("enrichment_mode", "rich")
-
-            # V7.8: lite mode removed, always enrich
-            logger.info(f"[EnrichmentWorker] Starting enrichment cycle (mode={mode})")
+            # Get enrichment language from config.json
+            from ledgermind.core.stores.semantic_store.meta import load_config
+            cfg = load_config()
+            lang = cfg.get("language", "english")
+            logger.info(f"[EnrichmentWorker] Starting enrichment cycle (lang={lang})")
 
             # Import here to avoid circular imports
             from ledgermind.core.reasoning.enrichment import LLMEnricher
 
             # Create enricher and process batch
-            self._enricher = LLMEnricher(mode=mode)
+            self._enricher = LLMEnricher(enrichment_language=lang)
 
             try:
                 self._enricher.run_auto_enrichment(self.memory)

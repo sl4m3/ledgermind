@@ -203,6 +203,9 @@ class ReflectionEngine:
             
             stream = self.lifecycle.calculate_temporal_signals(stream, reinforcement_dates, now)
 
+            # Link evidence event IDs to the hypothesis
+            stream.evidence_event_ids = stats['all_ids']
+
             # V7.8: Always set enrichment_status (lite mode removed)
             stream.enrichment_status = "pending"
 

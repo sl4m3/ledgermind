@@ -214,8 +214,9 @@ class LedgerMindTools:
             self.server._validate_auth()
             self.server._check_capability("maintenance")
             
-            # V7.7: Use enrichment_language setting (legacy preferred_language removed)
-            lang = self.server.memory.semantic.meta.get_config("enrichment_language", "russian").lower()
+            # Read language from config.json
+            from ledgermind.core.stores.semantic_store.meta import load_config
+            lang = load_config().get("language", "english").lower()
             metas = self.server.memory.semantic.meta.list_all()
             
             reset_count = 0

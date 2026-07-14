@@ -277,7 +277,7 @@ class LifecycleManagementService(MemoryService):
         after_id = self._get_watermark()
 
         all_proposal_ids = []
-        CHUNK_SIZE = 5000
+        CHUNK_SIZE = 100000
         MAX_TOTAL = 100000
         processed_total = 0
 
@@ -344,6 +344,17 @@ class LifecycleManagementService(MemoryService):
 
         self.reindex_missing(stop_event=stop_event)
 
+        # Clean up orphaned vectors (vectors for deleted/forgotten decisions)
+        if self.vector:
+            try:
+                all_meta = self.semantic.meta.list_all()
+                valid_ids = {m["fid"] for m in all_meta}
+                removed = self.vector.remove_orphaned(valid_ids)
+                if removed:
+                    logger.info(f"Removed {removed} orphaned vectors")
+            except Exception as e:
+                logger.warning(f"Orphaned vector cleanup failed: {e}")
+
         if stop_event and stop_event.is_set():
             return {
                 "integrity": integrity_status,
@@ -372,7 +383,7 @@ class LifecycleManagementService(MemoryService):
         }
 
     def reindex_missing(
-        self, limit: int = 50, stop_event: Optional[threading.Event] = None
+        self, limit: int = 1000, stop_event: Optional[threading.Event] = None
     ):
         """Identifies active decisions missing from the vector index."""
         if not self.vector:
@@ -393,17 +404,13 @@ class LifecycleManagementService(MemoryService):
             # Filter: only index enriched items
             enriched = []
             for m in missing:
-                try:
-                    import json
-                    ctx = json.loads(m.get("context_json", "{}"))
-                    # V7.12: index ONLY completed entries. Vectors are computed
-                    # exclusively for enrichment_status == "completed" (hypotheses
-                    # included — they can be injected into context once completed).
-                    # Pending / non-completed items stay out of the vector index.
-                    if ctx.get("enrichment_status") == "completed":
-                        enriched.append(m)
-                except Exception:
-                    pass
+                # V7.12: index ONLY completed entries. Vectors are computed
+                # exclusively for enrichment_status == "completed" (hypotheses
+                # included — they can be injected into context once completed).
+                # Pending / non-completed items stay out of the vector index.
+                # enrichment_status is a top-level meta column, NOT inside context_json.
+                if m.get("enrichment_status") == "completed":
+                    enriched.append(m)
 
             if not enriched:
                 return

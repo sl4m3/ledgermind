@@ -67,22 +67,22 @@ VECTOR_AVAILABLE = True # NumPy is always available
 
 class GGUFEmbeddingAdapter:
     """Adapts llama-cpp-python to match SentenceTransformer's encode API."""
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, n_gpu_layers: int = 0):
         import contextlib
         import io
         import threading
         from llama_cpp import Llama
 
-        logger.info(f"Loading GGUF Model: {model_path}")
+        logger.info(f"Loading GGUF Model: {model_path} (gpu_layers={n_gpu_layers})")
         self._lock = threading.Lock()
 
         self.client = Llama(
             model_path=model_path,
             embedding=True,
             verbose=False,
-            n_ctx=8192,
-            logits_all=True,
-            n_gpu_layers=0,
+            n_ctx=1024,
+            logits_all=False,
+            n_gpu_layers=n_gpu_layers,
             n_threads=2,
             n_batch=512,
             use_mmap=True,
@@ -220,13 +220,14 @@ class VectorStore:
     A simple vector store using NumPy for cosine similarity.
     Reliable and stable.
     """
-    def __init__(self, storage_path: str, model_name: str = "../../models/v5-small-text-matching-Q4_K_M.gguf", dimension: int = 384, workers: int = 0):
+    def __init__(self, storage_path: str, model_name: str = "../../models/v5-small-text-matching-Q4_K_M.gguf", dimension: int = 384, workers: int = 0, n_gpu_layers: int = 0):
         self.storage_path = storage_path
         self.index_path = os.path.join(storage_path, "vectors.npy")
         self.meta_path = os.path.join(storage_path, "vector_meta.json")
         self.model_name = model_name
         self.dimension = dimension
         self.workers = self._resolve_workers(workers)
+        self.n_gpu_layers = n_gpu_layers
         self._pool = None
         self._vectors = None # NumPy array of vectors
         self._doc_ids = []
@@ -346,8 +347,8 @@ class VectorStore:
                         if not os.path.exists(self.model_name):
                             self._ensure_model_downloaded(self.model_name)
                             
-                        _MODEL_CACHE[cache_key] = GGUFEmbeddingAdapter(self.model_name)
-                        logger.info(f"GGUF Vector Engine Initialized: {self.model_name}")
+                        _MODEL_CACHE[cache_key] = GGUFEmbeddingAdapter(self.model_name, n_gpu_layers=self.n_gpu_layers)
+                        logger.info(f"GGUF Vector Engine Initialized: {self.model_name} (gpu_layers={self.n_gpu_layers})")
                         return _MODEL_CACHE[cache_key]
 
                     # Scenario B: Standard Transformers Model
@@ -565,6 +566,29 @@ class VectorStore:
              self._indexed_count = 0
 
         logger.info("Vector store compaction complete")
+
+    def remove_orphaned(self, valid_ids: set) -> int:
+        """Remove vectors whose IDs are not in valid_ids (proposals/decisions that still exist).
+
+        Args:
+            valid_ids: Set of fids that exist in semantic store.
+
+        Returns:
+            Number of orphaned vectors removed.
+        """
+        self._ensure_loaded()
+        if not self._doc_ids:
+            return 0
+
+        orphaned = [fid for fid in self._doc_ids if fid not in valid_ids and fid not in self._deleted_ids]
+        if not orphaned:
+            return 0
+
+        for fid in orphaned:
+            self._deleted_ids.add(fid)
+        logger.info(f"Found {len(orphaned)} orphaned vectors, compacting...")
+        self.compact()
+        return len(orphaned)
 
     def add_documents(self, documents: List[Dict[str, Any]], embeddings: Optional[List[np.ndarray]] = None, stop_event: Optional[threading.Event] = None):
         if not documents: return

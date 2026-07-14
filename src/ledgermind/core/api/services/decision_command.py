@@ -45,7 +45,9 @@ class DecisionCommandService(MemoryService):
 
             if self.vector:
                 from ledgermind.core.stores.vector import _is_transformers_available
-                can_compute = _is_transformers_available() or (hasattr(self.vector, "model") and self.vector.model is not None)
+                # Only compute vector if model is already loaded (don't force-load GGUF for pending items)
+                model_loaded = hasattr(self.vector, "_loaded") and self.vector._loaded and hasattr(self.vector, "model") and self.vector.model is not None
+                can_compute = _is_transformers_available() or model_loaded
                 if can_compute:
                     new_vec = self.vector.model.encode([new_text])[0]
                     new_vec_cached = new_vec
@@ -268,7 +270,7 @@ class DecisionCommandService(MemoryService):
                 meta = self.semantic.meta.get_by_fid(decision_id)
 
             if meta:
-                if needs_meta_for_vector:
+                if needs_meta_for_vector and meta.get("enrichment_status") == "completed":
                     try: self.vector.add_documents([{"id": decision_id, "content": meta.get('content', '')}])
                     except Exception: pass
 

@@ -50,6 +50,7 @@ class WriteRequest(BaseModel):
 
 class ImportRequest(BaseModel):
     profile: str = "default"
+    limit: Optional[int] = None  # None = use config, 0 = skip, -1 = all, N = last N
 
 
 class HealthResponse(BaseModel):
@@ -126,20 +127,12 @@ def worker_stop():
 @app.post("/reflection/run")
 def run_reflection():
     memory = _get_memory()
-    # Reset watermark everywhere
-    memory.semantic.meta.set_config("last_reflection_event_id", "0")
+    # Reset watermark
     config_path = STORAGE_DIR / "config.json"
-    if config_path.exists():
-        config = json.loads(config_path.read_text())
-    else:
-        config = {}
+    config = json.loads(config_path.read_text()) if config_path.exists() else {}
     config["last_reflection_event_id"] = 0
     config_path.write_text(json.dumps(config, indent=2))
     result = memory.run_maintenance()
-    # Sync watermark back to config after reflection
-    final_id = memory.semantic.meta.get_config("last_reflection_event_id")
-    config["last_reflection_event_id"] = int(final_id) if final_id else 0
-    config_path.write_text(json.dumps(config, indent=2))
     return result
 
 
@@ -151,53 +144,57 @@ def import_state_db(req: ImportRequest):
 
     try:
         import sqlite3
+
+        # Resolve import limit: request param > config.json > 0 (skip)
+        config_path = STORAGE_DIR / "config.json"
+        config = json.loads(config_path.read_text()) if config_path.exists() else {}
+        limit = req.limit if req.limit is not None else config.get("import_limit", 0)
+
+        if limit == 0:
+            return {"status": "ok", "imported": 0, "message": "Import skipped (limit=0)"}
+
         conn = sqlite3.connect(str(state_db))
         conn.row_factory = sqlite3.Row
 
-        sessions = conn.execute("SELECT * FROM sessions").fetchall()
-        imported = 0
-
-        memory = _get_memory()
-        for session in sessions:
-            messages = conn.execute(
-                "SELECT * FROM messages WHERE session_id = ? ORDER BY timestamp",
-                (session["id"],)
-            ).fetchall()
-
-            if not messages:
-                continue
-
-            for m in messages:
-                if not m["content"]:
-                    continue
-                if m["role"] == "user":
-                    source, kind = "user", "prompt"
-                    ctx = {"session_id": session["id"]}
-                else:
-                    source, kind = "agent", "result"
-                    ctx = {"session_id": session["id"], "success": True}
-                memory.process_event(
-                    source=source,
-                    kind=kind,
-                    content=m["content"][:2000],
-                    context=ctx,
-                    namespace=req.profile,
-                )
-                imported += 1
-
+        # Fetch all messages across sessions, then apply limit
+        all_messages = conn.execute("""
+            SELECT m.*, s.id as sid FROM messages m
+            JOIN sessions s ON m.session_id = s.id
+            ORDER BY m.timestamp DESC
+        """).fetchall()
         conn.close()
 
+        if limit > 0:
+            all_messages = all_messages[:limit]
+
+        all_messages.reverse()  # Restore chronological order
+
+        memory = _get_memory()
+        imported = 0
+        for m in all_messages:
+            if not m["content"]:
+                continue
+            if m["role"] == "user":
+                source, kind = "user", "prompt"
+                ctx = {"session_id": m["sid"]}
+            else:
+                source, kind = "agent", "result"
+                ctx = {"session_id": m["sid"], "success": True}
+            memory.process_event(
+                source=source,
+                kind=kind,
+                content=m["content"][:2000],
+                context=ctx,
+                namespace=req.profile,
+            )
+            imported += 1
+
         # Reset watermark in config.json
-        config_path = STORAGE_DIR / "config.json"
-        if config_path.exists():
-            config = json.loads(config_path.read_text())
-        else:
-            config = {}
         config["last_reflection_event_id"] = 0
         config.setdefault("initial_import_done", {})[req.profile] = True
         config_path.write_text(json.dumps(config, indent=2))
 
-        return {"status": "ok", "imported": imported}
+        return {"status": "ok", "imported": imported, "limit": limit}
     except Exception as e:
         logger.error("Import failed: %s", e)
         return {"status": "error", "message": str(e)}

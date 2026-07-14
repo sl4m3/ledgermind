@@ -72,14 +72,6 @@ class AuditProvider(ABC):
 
 class MetadataStore(ABC):
     @abstractmethod
-    def get_version(self) -> str:
-        pass
-
-    @abstractmethod
-    def set_version(self, version: str):
-        pass
-
-    @abstractmethod
     def upsert(self, fid: str, target: str, title: str = "Untitled", status: str = "active", kind: str = "decision", 
                timestamp: Any = None, content: str = "", context_json: str = "{}", 
                namespace: str = "default", phase: str = "pattern", 
@@ -129,14 +121,6 @@ class MetadataStore(ABC):
 
     @abstractmethod
     def clear(self):
-        pass
-
-    @abstractmethod
-    def get_config(self, key: str, default: Any = None) -> Any:
-        pass
-
-    @abstractmethod
-    def set_config(self, key: str, value: Any):
         pass
 
     @abstractmethod

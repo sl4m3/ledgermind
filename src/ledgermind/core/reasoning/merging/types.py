@@ -8,6 +8,7 @@ class Result:
     success: bool
     data: Any = None
     error: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 class SemanticMetaProtocol(Protocol):
     def list_all(self) -> List[Dict[str, Any]]: ...

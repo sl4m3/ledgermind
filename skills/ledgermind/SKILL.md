@@ -33,7 +33,7 @@ ledgermind install hermes
 
 **Non-interactive mode** (for agents — collect answers first, then run one command):
 ```bash
-ledgermind install hermes --mode agent --enrichment openrouter --api-key <KEY> --language english
+ledgermind install hermes --mode agent --enrichment openrouter --api-key <KEY> --language english --import-limit 1000
 ```
 
 | Flag | Default | Options |
@@ -43,12 +43,31 @@ ledgermind install hermes --mode agent --enrichment openrouter --api-key <KEY> -
 | `--api-key` | (prompts) | API key for the enrichment provider |
 | `--base-url` | (auto) | Custom API endpoint URL |
 | `--language` | `english` | `english`, `russian`, or any other language |
+| `--import-limit` | **required** | `0` = skip import, `-1` = all events, `N` = last N events |
+| `--gpu-layers` | `0` | `0` = CPU only, `99` = all layers on GPU (CUDA required) |
+
+**Non-interactive mode requires `--import-limit`**. To determine the right value:
+1. Check state.db: `sqlite3 ~/.hermes/state.db "SELECT COUNT(*) FROM messages"`
+2. Ask the user how many recent events to import
+3. Pass the answer as `--import-limit`
+
+Example agent workflow:
+```
+Agent: "Your Hermes has 22,673 messages. How many recent events should I import?
+        1. Last 1,000 (quick start)
+        2. Last 5,000
+        3. Last 10,000
+        4. All"
+User: "1,000"
+Agent: ledgermind install hermes --mode agent --enrichment openrouter --api-key sk-... --import-limit 1000
+```
 
 The installer automatically:
 - Creates a venv with matching Python version
 - Installs ledgermind into the venv
 - Copies the plugin to Hermes
 - Enables the plugin in config
+- Saves import_limit to config.json
 
 ### Step 3: Restart Hermes
 
@@ -57,13 +76,19 @@ After installation, restart Hermes to activate the plugin:
 /restart
 ```
 
-### Step 4: First session — automatic import
+### Step 4: Import events
 
-On the first conversation after installation, LedgerMind automatically:
-1. Starts the HTTP server (`localhost:8000`)
-2. Imports all existing Hermes sessions from `~/.hermes/state.db`
-3. Each session is summarized by the enrichment model and stored
-4. Sets `initial_import_done: true` — this runs only once
+Trigger the import via API:
+```bash
+curl -X POST http://localhost:8000/import/state-db -H "Content-Type: application/json" -d '{"profile":"default"}'
+```
+
+The server imports events based on the `import_limit` from config.json (set during installation). You can override with `{"limit": 5000}` in the request body.
+
+After import:
+1. Events are stored in episodic memory
+2. Enrichment worker processes them into structured knowledge
+3. Sets `initial_import_done: true`
 
 ### Step 5: Use normally
 
@@ -93,17 +118,22 @@ The plugin is a thin HTTP bridge. No direct imports of ledgermind. Works with an
 ~/.hermes/plugins/ledgermind/
 ├── plugin.yaml      # Plugin manifest
 ├── __init__.py      # Plugin code (HTTP client)
-├── config.json      # Provider, model, base_url
 └── .env             # API key (LEDGERMIND_API_KEY)
 
 ~/.ledgermind/
 ├── venv/            # Python venv with ledgermind
 └── hermes/
-    ├── config.json  # Mode, language, enrichment settings
+    ├── config.json  # Mode, language, enrichment, import_limit
     └── <profile>/   # Per-profile memory storage
-        ├── episodic.db  # Events (SQLite WAL)
-        ├── semantic/    # Decisions (Markdown + Git)
-        └── vectors.db   # Vector index
+        ├── episodic.db       # Events (SQLite)
+        ├── semantic/         # Decisions (Markdown + Git)
+        │   └── semantic_meta.db  # Decision metadata
+        ├── vector_index/     # Vector index
+        │   ├── vectors.npy   # Embeddings
+        │   ├── vectors.ann   # Annoy index
+        │   └── vector_meta.json
+        └── models/
+            └── v5-small-text-matching-Q4_K_M.gguf  # Embedding model (~379MB)
 ```
 
 ## What It Does
@@ -160,9 +190,28 @@ User message → pre_llm_call → HTTP /memory/search → Inject context → LLM
 
 | File | Purpose |
 |------|---------|
-| `~/.hermes/plugins/ledgermind/config.json` | Provider, model, base_url |
-| `~/.hermes/plugins/ledgermind/.env` | API key (`LEDGERMIND_API_KEY`) |
-| `~/.ledgermind/hermes/config.json` | Mode, language, enrichment settings |
+| `~/.ledgermind/hermes/.env` | API key (`LEDGERMIND_API_KEY`) |
+| `~/.ledgermind/hermes/config.json` | Mode, language, enrichment, import_limit |
+| `~/.ledgermind/hermes/hermes/models/` | Embedding model (auto-downloaded) |
+
+### config.json
+
+```json
+{
+  "default_mode": "agent",
+  "language": "english",
+  "import_limit": 1000,
+  "gpu_layers": 0,
+  "enrichment": {
+    "provider": "openrouter",
+    "model": "nvidia/nemotron-3-super-120b-a12b:free",
+    "base_url": "https://openrouter.ai/api/v1"
+  }
+}
+```
+
+- `gpu_layers: 0` — CPU only (default)
+- `gpu_layers: 99` — all layers on GPU (requires CUDA)
 
 ## Profiles
 
@@ -170,11 +219,13 @@ Each Hermes profile (`hermes -p <name>`) gets isolated memory. The plugin detect
 
 ## First Run
 
-On first session start, LedgerMind imports your existing Hermes sessions from `~/.hermes/state.db`:
-1. Reads all past sessions and messages
-2. Sends each to the enrichment model for structured summarization
-3. Writes summaries to the knowledge base
-4. Sets `initial_import_done: true` — runs only once
+After installation:
+1. Start the LedgerMind server (plugin does this automatically)
+2. Trigger import: `POST /import/state-db` (uses `import_limit` from config)
+3. Events are stored in episodic memory
+4. Enrichment worker processes them into structured knowledge
+5. Reflection worker discovers patterns and creates hypotheses
+6. Merging merges duplicates
 
 ## Requirements
 
@@ -184,7 +235,7 @@ On first session start, LedgerMind imports your existing Hermes sessions from `~
 - **Python**: 3.10 or higher
 - **Hermes Agent**: v0.18+ (with plugin system support)
 - **Git**: Required for semantic memory audit trail
-- **RAM**: ~600 MB (embedding model Jina v5 small Q4_K_M loads into memory on first use)
+- **RAM**: ~1 GB (embedding model Jina v5 small Q4_K_M loads into memory on first use)
 - **CPU**: No special requirements — runs on any modern processor
 - **Disk space**: ~50 MB for dependencies + growing memory storage (~1 MB per 1000 conversations)
 

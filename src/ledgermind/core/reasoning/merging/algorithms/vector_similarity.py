@@ -116,31 +116,23 @@ class VectorEmbeddingAlgorithm(DuplicateSearchAlgorithm):
             return 0.0
 
     def _target_similarity(self, doc1: Dict[str, Any], doc2: Dict[str, Any]) -> float:
-        """Calculates Jaccard similarity between hierarchical target paths."""
+        """Calculates semantic similarity between targets using embeddings."""
         t1_raw = doc1.get("target", "unknown") or "unknown"
         t2_raw = doc2.get("target", "unknown") or "unknown"
 
         if t1_raw == t2_raw:
             return 1.0
 
-        s1 = set(part for part in str(t1_raw).split("/") if part)
-        s2 = set(part for part in str(t2_raw).split("/") if part)
+        # Fast path: check embedding cache first
+        t1_id = f"tgt_{hash(t1_raw)}"
+        t2_id = f"tgt_{hash(t2_raw)}"
 
-        if not s1 or not s2:
+        try:
+            emb1 = self._get_cached_embedding(t1_id, t1_raw)
+            emb2 = self._get_cached_embedding(t2_id, t2_raw)
+            return float(np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2) + 1e-9))
+        except Exception:
             return 0.0
-
-        intersection = s1.intersection(s2)
-        union = s1.union(s2)
-
-        jaccard = len(intersection) / len(union) if union else 0.0
-
-        # Hard constraint: if root modules (first segment) differ, similarity is 0
-        root1 = str(t1_raw).split("/")[0] if s1 else None
-        root2 = str(t2_raw).split("/")[0] if s2 else None
-        if root1 and root2 and root1 != root2:
-            return 0.0
-
-        return jaccard
 
     def _get_cached_embedding(self, doc_id: str, text: str) -> np.ndarray:
         """Retrieve or compute embedding with per-document and text-hash caching."""

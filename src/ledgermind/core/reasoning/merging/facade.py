@@ -101,22 +101,34 @@ class MergeEngineFacade:
             hasattr(self.algorithm, "embedding_model")
             and self.algorithm.embedding_model
         ):
-            logger.info(
-                f"Pre-caching embeddings for {len(resolved_candidates)} candidates..."
-            )
-            all_texts = [self.algorithm._get_doc_text(c) for c in resolved_candidates]
-            try:
-                # Batch encode all texts (O(N) instead of O(N^2))
-                embeddings = self.algorithm.embedding_model.encode(all_texts)
-                for cand, emb in zip(resolved_candidates, embeddings):
-                    fid = cand.get("fid", cand.get("id"))
-                    if fid:
-                        self.algorithm._embedding_memory_cache[fid] = emb
-                logger.info(f"Successfully pre-cached {len(embeddings)} embeddings.")
-            except Exception as e:
-                logger.warning(
-                    f"Batch pre-caching failed: {e}. Falling back to on-demand caching."
+            # Only encode candidates not already in cache
+            to_encode = []
+            to_encode_fids = []
+            cached_count = 0
+            for c in resolved_candidates:
+                fid = c.get("fid", c.get("id"))
+                if fid and fid in self.algorithm._embedding_memory_cache:
+                    cached_count += 1
+                else:
+                    to_encode.append(self.algorithm._get_doc_text(c))
+                    to_encode_fids.append(fid)
+
+            if to_encode:
+                logger.info(
+                    f"Pre-caching {len(to_encode)} new embeddings ({cached_count} cached)..."
                 )
+                try:
+                    embeddings = self.algorithm.embedding_model.encode(to_encode)
+                    for fid, emb in zip(to_encode_fids, embeddings):
+                        if fid:
+                            self.algorithm._embedding_memory_cache[fid] = emb
+                    logger.info(f"Successfully pre-cached {len(embeddings)} embeddings.")
+                except Exception as e:
+                    logger.warning(
+                        f"Batch pre-caching failed: {e}. Falling back to on-demand caching."
+                    )
+            else:
+                logger.info(f"All {cached_count} embeddings already cached.")
 
         proposals = []
 

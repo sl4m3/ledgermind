@@ -18,6 +18,25 @@ from .processor import LogProcessor
 logger = logging.getLogger("ledgermind.core.enrichment.facade")
 
 
+def _index_proposal(memory: Any, fid: str):
+    """Index a completed proposal into the vector store."""
+    if not memory or not hasattr(memory, 'vector') or not memory.vector:
+        return
+    try:
+        meta = memory.semantic.meta.get_by_fid(fid)
+        if not meta or meta.get("enrichment_status") != "completed":
+            return
+        import json as _json
+        ctx = _json.loads(meta.get("context_json", "{}"))
+        rationale = ctx.get("rationale", "") or meta.get("content", "")
+        content = f"{meta.get('title', '')}\n{rationale}"
+        if content.strip():
+            memory.vector.add_documents([{"id": fid, "content": content}])
+            memory.vector.save()
+    except Exception as e:
+        logger.warning(f"Failed to index {fid}: {e}")
+
+
 class LLMEnricher:
     """
     Facade for the LLM enrichment subsystem.
@@ -91,13 +110,9 @@ class LLMEnricher:
 
     def run_auto_enrichment(self, memory: Any, limit: Optional[int] = None):
         """Orchestrates prioritized auto-enrichment."""
-        # V7.7: Use enrichment_* settings (legacy settings removed)
-        if memory and hasattr(memory, "semantic") and hasattr(memory.semantic, "meta"):
-            meta = memory.semantic.meta
-            if self.enrichment_language is None:
-                self.enrichment_language = (
-                    meta.get_config("enrichment_language") or "russian"
-                )
+        if self.enrichment_language is None:
+            from ledgermind.core.stores.semantic_store.meta import load_config
+            self.enrichment_language = load_config().get("language", "english")
 
         logger.info(
             f"Auto-Enrichment Triggered: Language={self.enrichment_language}"
@@ -105,17 +120,33 @@ class LLMEnricher:
 
         # 1. Discover all records where enrichment is still needed
         all_metas = memory.semantic.meta.list_all()
-        pending_metas = [
-            m for m in all_metas if m.get("enrichment_status") == "pending"
+        MERGE_TARGETS = {"knowledge_merge", "knowledge_validation"}
+
+        # Priority: enrichment first, merge/validation only after all enrichment done
+        regular_pending = [
+            m for m in all_metas
+            if m.get("enrichment_status") == "pending"
+            and m.get("target") not in MERGE_TARGETS
+        ]
+        merge_pending = [
+            m for m in all_metas
+            if m.get("enrichment_status") == "pending"
+            and m.get("target") in MERGE_TARGETS
         ]
 
-        if not pending_metas:
+        if regular_pending:
+            # Enrichment takes priority — skip merge/validation
+            pending_metas = regular_pending
+            logger.info(f"Enrichment priority: {len(regular_pending)} regular, {len(merge_pending)} merge/validation deferred")
+        elif merge_pending:
+            # All enrichment done — now process merge/validation
+            pending_metas = merge_pending
+            logger.info(f"All enrichment complete. Processing {len(merge_pending)} merge/validation proposals")
+        else:
             logger.info("No records found with enrichment_status='pending'.")
             return
 
-        # ⚡ Bolt: Replace priority map function lookup inside lambda with a direct dict.get on pre-computed inline tuple values to bypass significant Python execution overhead
-        _priority_map = {"knowledge_merge": 0, "knowledge_validation": 1}
-        pending_metas.sort(key=lambda m: (_priority_map.get(m.get("target", "general"), 2), m.get("timestamp", "")))
+        pending_metas.sort(key=lambda m: m.get("timestamp", ""))
 
         if limit:
             pending_metas = pending_metas[:limit]
@@ -183,7 +214,7 @@ class LLMEnricher:
         combined_text = "\n\n--- SOURCE RATIONALE ---\n\n".join(rationales)
         config = EnrichmentConfig.from_memory(
             memory,
-            enrichment_language=self.enrichment_language or "russian",
+            enrichment_language=self.enrichment_language or "english",
         )
 
         # Use existing prompts from builder.py
@@ -303,7 +334,13 @@ class LLMEnricher:
         while True:
             eids = getattr(current_obj, "evidence_event_ids", [])
             if not eids:
-                # No evidence to enrich — leave as pending, skip silently
+                # All evidence processed — mark completed
+                with memory.semantic.transaction():
+                    memory.semantic.update_decision(
+                        fid,
+                        {"enrichment_status": "completed"},
+                        commit_msg="Enrichment: completed (all evidence processed)",
+                    )
                 break
 
             logs_text, used_ids, missing_ids = LogProcessor.get_batch_logs(
@@ -311,7 +348,13 @@ class LLMEnricher:
             )
 
             if not used_ids and not missing_ids:
-                # No logs found — leave as pending, skip silently
+                # No logs found — mark completed, skip silently
+                with memory.semantic.transaction():
+                    memory.semantic.update_decision(
+                        fid,
+                        {"enrichment_status": "completed"},
+                        commit_msg="Enrichment: completed (no logs remaining)",
+                    )
                 break
 
             if not used_ids and missing_ids:
@@ -358,9 +401,13 @@ class LLMEnricher:
 
             # V7.6: Short transaction for update
             with memory.semantic.transaction():
+                updates = enriched.model_dump(mode="json")
+                # If all evidence processed, mark completed
+                if not getattr(enriched, "evidence_event_ids", []):
+                    updates["enrichment_status"] = "completed"
                 memory.semantic.update_decision(
                     fid,
-                    enriched.model_dump(mode="json"),
+                    updates,
                     commit_msg=f"Enrichment: Iter {iteration}",
                 )
 
@@ -377,6 +424,8 @@ class LLMEnricher:
                 break
 
         # V7.5: Final completion marker (already marked in loops above)
+        # Circuit 1: Immediate indexing after enrichment
+        _index_proposal(memory, fid)
         return current_obj
 
     def _handle_validation_cluster(self, proposal: Any, memory: Any):
@@ -416,7 +465,11 @@ class LLMEnricher:
         )
 
         try:
-            res_data = json.loads(re.search(r"\{.*\}", response, re.DOTALL).group(0))
+            match = re.search(r"\{.*\}", response, re.DOTALL)
+            if not match:
+                logger.warning(f"  - No JSON in clustering response, skipping validation")
+                return
+            res_data = json.loads(match.group(0))
             clusters = res_data.get("clusters", [])
             logger.info(f"  - LLM Result: {len(clusters)} groups identified.")
 
@@ -1087,6 +1140,8 @@ class LLMEnricher:
                 self._inherit_cluster_evidence(
                     memory, parent_fid, new_fid, filter_fids=fids
                 )
+                # Circuit 1: Immediate indexing after consolidation
+                _index_proposal(memory, new_fid)
                 logger.info(
                     f"  - SUCCESS: Created active record: {new_fid} (inherited {total_evidence_count} evidence)"
                 )
@@ -1212,15 +1267,6 @@ class LLMEnricher:
         compressive = data.get("compressive") or data.get("compressive_rationale")
         compressive = _clean_text(compressive)
 
-        if compressive and memory and hasattr(memory, "semantic"):
-            try:
-                full_path = os.path.join(memory.semantic.repo_path, fid)
-                rel_path = os.path.relpath(full_path, os.getcwd())
-                if "To retrieve more detailed data" not in compressive:
-                    compressive = f"{compressive.strip()} To retrieve more detailed data, use cat {rel_path}."
-            except Exception:
-                pass
-
         # 3. Evidence Crystallization
         current_eids = getattr(proposal, "evidence_event_ids", [])
         # Ensure comparison is done with same types (integers)
@@ -1253,6 +1299,9 @@ class LLMEnricher:
         updates = {
             "title": _clean_text(
                 data.get("title") or data.get("goal") or getattr(proposal, "title", "")
+            ),
+            "target": _clean_text(
+                data.get("target") or getattr(proposal, "target", "")
             ),
             "rationale": _clean_text(
                 data.get("rationale") or getattr(proposal, "rationale", "")

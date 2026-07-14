@@ -2,10 +2,48 @@ import sqlite3
 import json
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 from contextlib import contextmanager
 
 logger = logging.getLogger("ledgermind.core.semantic_store.meta")
+
+
+def _get_storage_dir() -> Path:
+    """Find the first agent storage dir under ~/.ledgermind/."""
+    base = Path.home() / ".ledgermind"
+    if not base.exists():
+        return base / "hermes"
+    for d in base.iterdir():
+        if d.is_dir() and (d / "config.json").exists():
+            return d
+    return base / "hermes"
+
+
+def load_config(storage_path: Optional[str] = None) -> Dict[str, Any]:
+    """Read config from <storage_path>/config.json."""
+    if storage_path:
+        cfg_path = Path(storage_path) / "config.json"
+    else:
+        cfg_path = _get_storage_dir() / "config.json"
+    if cfg_path.exists():
+        try:
+            return json.loads(cfg_path.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def save_config(updates: Dict[str, Any], storage_path: Optional[str] = None):
+    """Merge updates into config.json."""
+    if storage_path:
+        cfg_path = Path(storage_path) / "config.json"
+    else:
+        cfg_path = _get_storage_dir() / "config.json"
+    config = load_config(storage_path)
+    config.update(updates)
+    cfg_path.parent.mkdir(parents=True, exist_ok=True)
+    cfg_path.write_text(json.dumps(config, indent=2, ensure_ascii=False))
 
 
 class SemanticMetaStore:
@@ -60,9 +98,6 @@ class SemanticMetaStore:
                         compressive_rationale TEXT
                     )
                 """)
-                self._conn.execute(
-                    "CREATE TABLE IF NOT EXISTS semantic_config (key TEXT PRIMARY KEY, value TEXT)"
-                )
                 self._conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_target ON semantic_meta(target)"
                 )
@@ -124,19 +159,6 @@ class SemanticMetaStore:
                     continue
                 raise
 
-    def get_version(self) -> str:
-        return self.get_config("version", "0.0.0")
-
-    def set_version(self, version: str):
-        self.set_config("version", version)
-
-    def get_config(self, key: str, default: Any = None) -> Any:
-        cursor = self._conn.execute(
-            "SELECT value FROM semantic_config WHERE key = ?", (key,)
-        )
-        row = cursor.fetchone()
-        return row[0] if row else default
-
     def _execute_with_retry(
         self, sql: str, params: tuple = (), commit: bool = False, is_write: bool = False
     ):
@@ -176,14 +198,6 @@ class SemanticMetaStore:
                     except:
                         pass
                 raise
-
-    def set_config(self, key: str, value: str):
-        self._execute_with_retry(
-            "INSERT OR REPLACE INTO semantic_config (key, value) VALUES (?, ?)",
-            (key, str(value)),
-            commit=True,
-            is_write=True,
-        )
 
     def upsert(
         self,

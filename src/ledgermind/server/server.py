@@ -139,7 +139,8 @@ class MCPServer:
 
         # Update client config if provided
         if client:
-            self.memory.semantic.meta.set_config("client", client)
+            from ledgermind.core.stores.semantic_store.meta import save_config
+            save_config({"client": client})
             logger.info(f"Client configured: {client}")
 
         self._last_write_time = 0

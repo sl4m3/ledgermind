@@ -14,7 +14,6 @@ from ledgermind.core.core.schemas import MemoryEvent
 from ledgermind.core.stores.interfaces import MetadataStore, AuditProvider
 from ledgermind.core.stores.audit_git import GitAuditProvider
 from ledgermind.core.stores.audit_no import NoAuditProvider
-from ledgermind.core.core.migration import MigrationEngine
 from ledgermind.core.core.exceptions import ConflictError
 from ledgermind.core.stores.semantic_store.integrity import IntegrityChecker
 from ledgermind.core.stores.semantic_store.transitions import TransitionValidator
@@ -103,15 +102,6 @@ class SemanticStore:
             self.audit = NoAuditProvider(repo_path)
         
         self.audit.initialize()
-        
-        self._fs_lock.acquire(exclusive=True)
-        try:
-            if self.meta.get_version() != "1.22.0":
-                migrator = MigrationEngine(self)
-                migrator.run_all()
-                self.meta.set_version("1.22.0")
-        finally:
-            self._fs_lock.release()
 
         self.reconcile_untracked()
         self.sync_meta_index()

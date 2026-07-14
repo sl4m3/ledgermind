@@ -97,8 +97,8 @@ class GitIndexer:
     def index_to_memory(self, memory_instance, limit: int = 20) -> int:
         """Сканирует Git и записывает новые коммиты в эпизодическую память."""
         # 1. Пытаемся найти хэш последнего проиндексированного коммита
-        # Сначала проверяем в надежном хранилище метаданных
-        last_hash = memory_instance.semantic.meta.get_config("last_indexed_commit_hash")
+        from ledgermind.core.stores.semantic_store.meta import load_config
+        last_hash = load_config().get("last_indexed_commit_hash")
 
         # Fallback к поиску в последних событиях если в конфиге пусто
         if not last_hash:
@@ -181,8 +181,7 @@ class GitIndexer:
 
         # Сохраняем последний проиндексированный хэш
         if latest_hash:
-            memory_instance.semantic.meta.set_config(
-                "last_indexed_commit_hash", latest_hash
-            )
+            from ledgermind.core.stores.semantic_store.meta import save_config
+            save_config({"last_indexed_commit_hash": latest_hash})
 
         return indexed_count

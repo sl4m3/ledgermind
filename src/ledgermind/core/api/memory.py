@@ -113,16 +113,19 @@ class Memory:
             )
             self.episodic: Union[EpisodicStore, EpisodicProvider] = episodic_store or EpisodicStore(os.path.join(self.storage_path, "episodic.db"))
 
-        # 2. Sync Config from DB (Overrides defaults if present)
-        db_model = self.semantic.meta.get_config("vector_model")
-        if db_model:
-            self.config.vector_model = db_model
+        # 2. Sync vector_model from config.json if present
+        from ledgermind.core.stores.semantic_store.meta import load_config
+        cfg = load_config()
+        cfg_model = cfg.get("vector_model")
+        if cfg_model:
+            self.config.vector_model = cfg_model
 
         # 3. Initialize Vector Engine
         self.vector = VectorStore(
             os.path.join(self.storage_path, "vector_index"),
             model_name=self.config.vector_model,
-            workers=self.config.vector_workers
+            workers=self.config.vector_workers,
+            n_gpu_layers=cfg.get("gpu_layers", 0),
         )
         # Deferred loading (VectorStore will load on first document addition or search)
 
@@ -320,12 +323,17 @@ class Memory:
             for p, count in stats.get('phases', {}).items():
                 PHASE_DISTRIBUTION.labels(phase=p).set(count)
 
-        # Merge Engine coordination remains part of maintenance orchestration for now
-        from ledgermind.core.reasoning.merging import MergeEngine
-        merger = MergeEngine(self)
-        merges = merger.scan_for_duplicates()
-        
-        result["merging"] = {"proposals_created": len(merges), "ids": merges}
+        # Merge Engine: only if no pending enrichment
+        pending = [m for m in self.semantic.meta.list_all()
+                   if m.get("enrichment_status") == "pending" and m.get("kind") == "proposal"]
+        if pending:
+            logger.info(f"Merging skipped: {len(pending)} proposals pending enrichment")
+            result["merging"] = {"proposals_created": 0, "ids": [], "skipped": True, "pending": len(pending)}
+        else:
+            from ledgermind.core.reasoning.merging import MergeEngine
+            merger = MergeEngine(self)
+            merges = merger.scan_for_duplicates()
+            result["merging"] = {"proposals_created": len(merges), "ids": merges}
         return result
 
     def get_stats(self) -> Dict[str, Any]:
