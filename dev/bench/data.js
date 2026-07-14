@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783896905346,
+  "lastUpdate": 1784060036495,
   "repoUrl": "https://github.com/sl4m3/ledgermind",
   "entries": {
     "Benchmark": [
@@ -3956,6 +3956,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.000041833406514937534",
             "extra": "mean: 781.4090000124452 usec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "committer": {
+            "email": "staszotov555@gmail.com",
+            "name": "Stanislav",
+            "username": "sl4m3"
+          },
+          "distinct": true,
+          "id": "4583d4724c9262e09be7d8274c7adc21aede4f2e",
+          "message": "refactor: remove validation cluster logic and consolidate enrichment workflow in facade",
+          "timestamp": "2026-07-14T15:09:59-05:00",
+          "tree_id": "2611135ef216035361eaed952cd3bd79b696fdd6",
+          "url": "https://github.com/sl4m3/ledgermind/commit/4583d4724c9262e09be7d8274c7adc21aede4f2e"
+        },
+        "date": 1784060036134,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_record_decision",
+            "value": 89.98051813812259,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012440215288402033",
+            "extra": "mean: 11.113516799991885 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_fast_path",
+            "value": 11763.460339884872,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00000922782618658672",
+            "extra": "mean: 85.00899999717149 usec\nrounds: 5"
+          },
+          {
+            "name": "tests/core/performance/bench_ops.py::test_benchmark_search_hybrid_rrf",
+            "value": 2623.8413772279755,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00004233792119275676",
+            "extra": "mean: 381.12060000230485 usec\nrounds: 5"
           }
         ]
       }
