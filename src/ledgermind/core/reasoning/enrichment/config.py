@@ -42,6 +42,7 @@ class EnrichmentConfig:
     retry_attempts: int = 3
     retry_delay: int = 5
     timeout: int = 300
+    json_mode: bool = True                  # Use response_format=json_object (OpenAI/OpenRouter only, not NVIDIA NIM)
     enrichment_language: str = "english"
 
     @classmethod
@@ -94,6 +95,8 @@ class EnrichmentConfig:
         hc_provider = enrich.get("provider")
         if hc_provider:
             config.provider = hc_provider
+
+        # json_mode is always enabled — all providers support response_format: json_object
         hc_key = enrich.get("api_key")
         if hc_key:
             config.api_key = hc_key

@@ -9,18 +9,15 @@ class MergeConfig:
     max_workers: int = 4
     timeout: int = 300
 
-    algorithms: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {        "default": {"name": "vector_embedding", "validation_threshold": 0.60},
+    algorithms: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
+        "default": {"name": "vector_embedding"},
         "rrf_jaccard": {"threshold": 0.80},
         "vector_embedding": {
             "threshold": 0.80,
-            "validation_threshold": 0.60,
             "keyword_weight": 0.15,
             "use_vector_search": True,
             "vector_search_limit": 100,
             "enable_cache": True,
-            "cache_size": 10000,
-            "model_name": "jina-v5-small-4bit",
-            "use_adaptive_weights": True
         }
     })
 

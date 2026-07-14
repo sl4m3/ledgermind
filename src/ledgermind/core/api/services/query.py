@@ -143,7 +143,7 @@ class QueryService(MemoryService):
 
             if status == "active":
                 pass
-            elif status in ("processed", "knowledge_merge", "knowledge_validation", "accepted"):
+            elif status in ("processed", "knowledge_merge", "accepted"):
                 continue
             elif not include_history and status not in ("superseded", "deprecated", "pending_merge", "draft"):
                 if not mode_is_maintenance or status != "draft": continue

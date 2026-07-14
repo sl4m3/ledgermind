@@ -93,50 +93,13 @@ class MergeEngineFacade:
             logger.info("No candidates to process, skipping merge.")
             return Result(success=True, data=[], metadata={"candidates": 0})
 
-        # We must ensure the model is initialized before batch encoding
-        if hasattr(self.algorithm, "_ensure_model"):
-            self.algorithm._ensure_model(self.memory)
-
-        if (
-            hasattr(self.algorithm, "embedding_model")
-            and self.algorithm.embedding_model
-        ):
-            # Only encode candidates not already in cache
-            to_encode = []
-            to_encode_fids = []
-            cached_count = 0
-            for c in resolved_candidates:
-                fid = c.get("fid", c.get("id"))
-                if fid and fid in self.algorithm._embedding_memory_cache:
-                    cached_count += 1
-                else:
-                    to_encode.append(self.algorithm._get_doc_text(c))
-                    to_encode_fids.append(fid)
-
-            if to_encode:
-                logger.info(
-                    f"Pre-caching {len(to_encode)} new embeddings ({cached_count} cached)..."
-                )
-                try:
-                    embeddings = self.algorithm.embedding_model.encode(to_encode)
-                    for fid, emb in zip(to_encode_fids, embeddings):
-                        if fid:
-                            self.algorithm._embedding_memory_cache[fid] = emb
-                    logger.info(f"Successfully pre-cached {len(embeddings)} embeddings.")
-                except Exception as e:
-                    logger.warning(
-                        f"Batch pre-caching failed: {e}. Falling back to on-demand caching."
-                    )
-            else:
-                logger.info(f"All {cached_count} embeddings already cached.")
+        # Model will be loaded on-demand by calculate_similarity()
+        # No pre-caching needed — vectors already in index, Annoy already built
 
         proposals = []
 
         # Use thresholds from config if available, otherwise fall back to defaults
         merge_threshold = self.config.threshold or 0.80
-        validation_threshold = self.config.get_algorithm_config("default").get(
-            "validation_threshold", 0.60
-        )
 
         try:
             for i, candidate in enumerate(resolved_candidates):
@@ -157,7 +120,6 @@ class MergeEngineFacade:
                     continue
 
                 to_merge = []
-                to_validate = []
                 seen_target_fids = set()
 
                 for res in search_results:
@@ -204,36 +166,17 @@ class MergeEngineFacade:
 
                     if sim_score >= merge_threshold:
                         to_merge.append(actual_target)
-                    elif sim_score >= validation_threshold:
-                        to_validate.append(actual_target)
 
-                # STAGE 1: Unified Clustering
-                # Collect ALL potential neighbors into a single cluster for analysis
-                all_neighbors = to_merge + to_validate
+                if to_merge:
+                    group = [candidate] + to_merge
 
-                if all_neighbors:
-                    group = [candidate] + all_neighbors
-
-                    # V7.7: Ensure we have at least 2 items for merge
                     if len(group) < 2:
-                        logger.debug(
-                            f"Skipping merge for {cand_id}: only {len(group)} item(s) in group."
-                        )
                         continue
 
-                    # If we have ANY uncertain matches (grey zone), the whole group needs LLM validation
-                    target = (
-                        "knowledge_merge" if not to_validate else "knowledge_validation"
-                    )
+                    topic = f"Merge Cluster: {candidate.get('topic', candidate.get('title', 'Knowledge Group'))}"
 
-                    if target == "knowledge_merge":
-                        topic = f"Merge Cluster: {candidate.get('topic', candidate.get('title', 'Knowledge Group'))}"
-                    else:
-                        topic = f"Validation Cluster: Multi-Document Analysis ({len(group)} items)"
-
-                    # ATOMIC TRANSACTION: Create proposal AND supersede targets together
                     pid = self.execute_merge_transaction(
-                        group, topic=topic, target=target
+                        group, topic=topic, target="knowledge_merge"
                     )
                     if pid:
                         proposals.append(pid)

@@ -57,6 +57,9 @@ class BaseURLClient:
                 "temperature": 0.1,
             }
 
+            if self.config.json_mode:
+                body["response_format"] = {"type": "json_object"}
+
             logger.info(f"BaseURL: Calling {self.config.model_name} @ {self._base_url} for {fid}...")
 
             for attempt in range(1, self.config.retry_attempts + 1):

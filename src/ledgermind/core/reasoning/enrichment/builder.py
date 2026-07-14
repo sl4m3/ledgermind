@@ -27,29 +27,6 @@ class PromptBuilder:
         )
 
     @staticmethod
-    def build_clustering_prompt(config: EnrichmentConfig) -> str:
-        lang = config.enrichment_language
-        lang_instr = f"Respond strictly in {lang}." if lang != "auto" else ""
-
-        return (
-            "You are a Duplicate Detection Expert.\n"
-            "### TASK: Analyze the provided documents and group their FIDs into clusters of actual semantic duplicates.\n"
-            "### RULES:\n"
-            "1. Documents that describe the SAME functional change or hypothesis MUST be grouped together.\n"
-            "2. Every provided FID MUST be included in the output exactly once.\n"
-            "3. If a document is truly unique, place it in a cluster by itself (list of 1 FID).\n"
-            "4. DO NOT write any titles or summaries. Just return the arrays of FIDs.\n"
-            f"### OUTPUT RULES: {lang_instr} Return ONLY a JSON object with fields:\n"
-            "{\n"
-            "  \"clusters\": [\n"
-            "    [\"fid_1\", \"fid_2\"], // Group of duplicates\n"
-            "    [\"fid_3\"] // Unique item\n"
-            "  ],\n"
-            "  \"reasoning\": \"Brief explanation of your grouping\"\n"
-            "}"
-        )
-
-    @staticmethod
     def build_consolidation_prompt(config: EnrichmentConfig) -> str:
         lang = config.enrichment_language
         lang_instr = f"Respond strictly in {lang}." if lang != "auto" else ""

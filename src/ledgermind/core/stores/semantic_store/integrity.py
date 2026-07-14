@@ -154,7 +154,7 @@ class IntegrityChecker:
             # V7.3 Alignment: Only enforce I4 for 'active' status
             if status == "active" and kind in ("decision", "proposal"):
                 target = data.get("target") or ctx.get("target")
-                if target in ("knowledge_validation", "knowledge_merge"):
+                if target == "knowledge_merge":
                     continue
                     
                 namespace = data.get("namespace") or ctx.get("namespace", "default")

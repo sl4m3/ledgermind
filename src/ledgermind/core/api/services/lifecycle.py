@@ -440,6 +440,6 @@ class LifecycleManagementService(MemoryService):
 
             if docs_to_add:
                 self.vector.add_documents(docs_to_add, stop_event=stop_event)
-                self.vector.save()
+                self.vector.save(rebuild_annoy=True)  # Batch: rebuild Annoy once
         except Exception as e:
             logger.error(f"Auto-reindexing failed: {e}")

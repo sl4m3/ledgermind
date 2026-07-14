@@ -32,7 +32,6 @@ def _index_proposal(memory: Any, fid: str):
         content = f"{meta.get('title', '')}\n{rationale}"
         if content.strip():
             memory.vector.add_documents([{"id": fid, "content": content}])
-            memory.vector.save()
     except Exception as e:
         logger.warning(f"Failed to index {fid}: {e}")
 
@@ -120,7 +119,7 @@ class LLMEnricher:
 
         # 1. Discover all records where enrichment is still needed
         all_metas = memory.semantic.meta.list_all()
-        MERGE_TARGETS = {"knowledge_merge", "knowledge_validation"}
+        MERGE_TARGETS = {"knowledge_merge"}
 
         # Priority: enrichment first, merge/validation only after all enrichment done
         regular_pending = [
@@ -257,34 +256,15 @@ class LLMEnricher:
             try:
                 fid = getattr(prop, "fid", "unknown")
 
-                # STAGE 1: Handle Knowledge Clusters (Merge & Validation)
+                # Handle Knowledge Merge
                 target = getattr(prop, "target", "")
                 target_ids = getattr(prop, "target_ids", [])
-
-                if target == "knowledge_validation":
-                    status = getattr(prop, "status", "unknown")
-                    logger.info(
-                        f"\n>>> [STEP 1/2: CLUSTER VALIDATION {i}/{total}] Processing {fid} (status={status})"
-                    )
-                    # V7.6: Keep validation in single transaction (fast operation)
-                    with memory.semantic.transaction():
-                        self._handle_validation_cluster(prop, memory)
-                        # V7.5: Mark validation cluster as completed
-                        memory.semantic.update_decision(
-                            fid,
-                            {"enrichment_status": "completed"},
-                            commit_msg="Enrichment: validation completed",
-                        )
-                    results.append(prop)
-                    processed_count += 1
-                    continue
 
                 if target == "knowledge_merge" or target_ids:
                     status = getattr(prop, "status", "unknown")
                     logger.info(
-                        f"\n>>> [STEP 2/2: DEEP CONSOLIDATION {i}/{total}] Processing {fid} (status={status})"
+                        f"\n>>> [MERGE {i}/{total}] Processing {fid} (status={status})"
                     )
-                    # V7.6: Keep consolidation in single transaction (fast operation)
                     with memory.semantic.transaction():
                         self._execute_consolidation(target_ids, memory, fid)
                     results.append(prop)
@@ -293,7 +273,7 @@ class LLMEnricher:
 
                 status = getattr(prop, "status", "unknown")
                 logger.info(
-                    f"\n>>> [STEP 3: STANDARD ENRICHMENT {i}/{total}] Processing {fid} (status={status})"
+                    f"\n>>> [ENRICHMENT {i}/{total}] Processing {fid} (status={status})"
                 )
 
                 # V7.6: Standard enrichment with per-proposal transactions
@@ -428,264 +408,6 @@ class LLMEnricher:
         _index_proposal(memory, fid)
         return current_obj
 
-    def _handle_validation_cluster(self, proposal: Any, memory: Any):
-        """STEP 1: Validation (Sorter). Only groups FIDs."""
-        target_ids = getattr(proposal, "target_ids", [])
-        fid = getattr(proposal, "fid", "unknown")
-        if len(target_ids) < 2:
-            return
-
-        logger.info(
-            f"  - Analyzing cluster of {len(target_ids)} items. Searching for semantic boundaries..."
-        )
-
-        # ⚡ Bolt: Optimized N+1 query and duplicate execution into a single batch fetch
-        docs_meta = [m for m in memory.semantic.meta.get_batch_by_fids(target_ids) if m]
-        if len(docs_meta) < 2:
-            return
-
-        docs_summary = "\n\n".join(
-            [
-                f"FID: {d['fid']}\nTitle: {d['title']}\nTarget: {d.get('target', 'unknown')}\nKeywords: {d.get('keywords', [])}\nRationale: {d.get('rationale', '')[:300]}\nContent: {d['content'][:500]}"
-                for d in docs_meta
-            ]
-        )
-
-        config = EnrichmentConfig.from_memory(
-            memory,
-            enrichment_language=self.enrichment_language,
-        )
-        instructions = PromptBuilder.build_clustering_prompt(config)
-        full_prompt = PromptBuilder.wrap_with_data(instructions, docs_summary, config)
-
-        logger.info("  - Sending clustering request to LLM...")
-        client = self._get_client(config, memory)
-        response = client.call(
-            "You are a Duplicate Detection Expert.", full_prompt, fid=fid
-        )
-
-        try:
-            match = re.search(r"\{.*\}", response, re.DOTALL)
-            if not match:
-                logger.warning(f"  - No JSON in clustering response, skipping validation")
-                return
-            res_data = json.loads(match.group(0))
-            clusters = res_data.get("clusters", [])
-            logger.info(f"  - LLM Result: {len(clusters)} groups identified.")
-
-            handled_fids = set()
-
-            # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata for all groups
-            all_u_fids = [
-                g[0] if g[0].endswith(".md") else f"{g[0]}.md"
-                for g in clusters
-                if isinstance(g, list) and len(g) == 1
-            ]
-            u_fids_meta_batch = (
-                {
-                    m["fid"]: m
-                    for m in memory.semantic.meta.get_batch_by_fids(all_u_fids)
-                }
-                if all_u_fids
-                else {}
-            )
-
-            for group in clusters:
-                if not isinstance(group, list) or not group:
-                    continue
-                group_fids = [f if f.endswith(".md") else f"{f}.md" for f in group]
-
-                if len(group_fids) > 1:
-                    logger.info(
-                        f"  - Group detected (Duplicates): {group_fids}. Passing to CONSOLIDATION."
-                    )
-                    self._execute_consolidation(group_fids, memory, fid)
-                    for g_fid in group_fids:
-                        handled_fids.add(g_fid)
-                else:
-                    u_fid = group_fids[0]
-                    meta = u_fids_meta_batch.get(u_fid)
-                    if meta:
-                        kind = meta.get("kind", "proposal")
-
-                        # V7.6: Decision/Constraint/Assumption always stay active
-                        if kind in ("decision", "constraint", "assumption"):
-                            restore_status = "active"
-                        else:
-                            restore_status = meta.get("metadata", {}).get(
-                                "previous_status", "draft"
-                            )
-
-                        logger.info(
-                            f"  - Group detected (Unique): {u_fid} (kind={kind}). Restoring to {restore_status}."
-                        )
-
-                        # V7.6: Read existing fields from context_json
-                        ctx_raw = meta.get("context_json")
-                        ctx = json.loads(ctx_raw) if ctx_raw else {}
-                        existing_title = ctx.get("title") or meta.get("title")
-                        existing_rationale = ctx.get("rationale") or meta.get(
-                            "rationale"
-                        )
-
-                        # V7.6: Ensure mandatory fields exist for valid DecisionStream
-                        update_data = {
-                            "status": restore_status,
-                            "merge_status": "idle",
-                            "superseded_by": None,
-                        }
-
-                        # Fill mandatory fields only if truly missing
-                        if not existing_title:
-                            update_data["title"] = (
-                                f"Hypothesis: {meta.get('target', 'unknown')}"
-                            )
-                        if not existing_rationale:
-                            update_data["rationale"] = (
-                                f"Unique hypothesis for {meta.get('target', 'unknown')}"
-                            )
-                        if not meta.get("first_seen"):
-                            update_data["first_seen"] = meta.get(
-                                "timestamp", datetime.now().isoformat()
-                            )
-                        if not meta.get("last_seen"):
-                            update_data["last_seen"] = meta.get(
-                                "timestamp", datetime.now().isoformat()
-                            )
-
-                        memory.semantic.update_decision(
-                            u_fid, update_data, f"Restore unique: {restore_status}"
-                        )
-                        self._inherit_cluster_evidence(
-                            memory, fid, u_fid, filter_fids=[u_fid]
-                        )
-                        handled_fids.add(u_fid)
-
-            # Safety rollbacks
-            # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata for safety rollbacks
-            rollback_tids = [tid for tid in target_ids if tid not in handled_fids]
-            rollback_meta_batch = (
-                {
-                    m["fid"]: m
-                    for m in memory.semantic.meta.get_batch_by_fids(rollback_tids)
-                }
-                if rollback_tids
-                else {}
-            )
-
-            for tid in rollback_tids:
-                meta = rollback_meta_batch.get(tid)
-                if meta:
-                    kind = meta.get("kind", "proposal")
-
-                    # V7.6: Decision/Constraint/Assumption always stay active
-                    if kind in ("decision", "constraint", "assumption"):
-                        restore_status = "active"
-                    else:
-                        restore_status = meta.get("metadata", {}).get(
-                            "previous_status", "draft"
-                        )
-
-                    # V7.6: Read existing fields from context_json
-                    ctx_raw = meta.get("context_json")
-                    ctx = json.loads(ctx_raw) if ctx_raw else {}
-                    existing_title = ctx.get("title") or meta.get("title")
-                    existing_rationale = ctx.get("rationale") or meta.get("rationale")
-
-                    # V7.6: Ensure mandatory fields exist
-                    update_data = {
-                        "status": restore_status,
-                        "merge_status": "idle",
-                        "superseded_by": None,
-                    }
-                    if not existing_title:
-                        update_data["title"] = (
-                            f"Hypothesis: {meta.get('target', 'unknown')}"
-                        )
-                    if not existing_rationale:
-                        update_data["rationale"] = (
-                            f"Unique hypothesis for {meta.get('target', 'unknown')}"
-                        )
-                    if not meta.get("first_seen"):
-                        update_data["first_seen"] = meta.get(
-                            "timestamp", datetime.now().isoformat()
-                        )
-                    if not meta.get("last_seen"):
-                        update_data["last_seen"] = meta.get(
-                            "timestamp", datetime.now().isoformat()
-                        )
-
-                    memory.semantic.update_decision(
-                        tid, update_data, "Safety rollback."
-                    )
-
-            memory.semantic.update_decision(
-                fid,
-                {"status": "fulfilled", "enrichment_status": "completed"},
-                f"Done: {res_data.get('reasoning', 'N/A')}",
-            )
-
-        except Exception as e:
-            logger.error(f"  - Validation failure: {e}")
-            # ⚡ Bolt: Prevent N+1 query problem by batch fetching metadata for safety rollbacks
-            rollback_meta_batch = (
-                {
-                    m["fid"]: m
-                    for m in memory.semantic.meta.get_batch_by_fids(target_ids)
-                    if m
-                }
-                if target_ids
-                else {}
-            )
-            for tid in target_ids:
-                meta = rollback_meta_batch.get(tid)
-                if meta:
-                    kind = meta.get("kind", "proposal")
-
-                    # V7.6: Decision/Constraint/Assumption always stay active
-                    if kind in ("decision", "constraint", "assumption"):
-                        restore_status = "active"
-                    else:
-                        restore_status = meta.get("metadata", {}).get(
-                            "previous_status", "draft"
-                        )
-
-                    # V7.6: Read existing fields from context_json
-                    ctx_raw = meta.get("context_json")
-                    ctx = json.loads(ctx_raw) if ctx_raw else {}
-                    existing_title = ctx.get("title") or meta.get("title")
-                    existing_rationale = ctx.get("rationale") or meta.get("rationale")
-
-                    # V7.6: Ensure mandatory fields exist
-                    update_data = {
-                        "status": restore_status,
-                        "merge_status": "idle",
-                        "superseded_by": None,
-                    }
-                    if not existing_title:
-                        update_data["title"] = (
-                            f"Hypothesis: {meta.get('target', 'unknown')}"
-                        )
-                    if not existing_rationale:
-                        update_data["rationale"] = (
-                            f"Unique hypothesis for {meta.get('target', 'unknown')}"
-                        )
-                    if not meta.get("first_seen"):
-                        update_data["first_seen"] = meta.get(
-                            "timestamp", datetime.now().isoformat()
-                        )
-                    if not meta.get("last_seen"):
-                        update_data["last_seen"] = meta.get(
-                            "timestamp", datetime.now().isoformat()
-                        )
-
-                    memory.semantic.update_decision(tid, update_data, "Error rollback.")
-            memory.semantic.update_decision(
-                fid,
-                {"status": "falsified", "enrichment_status": "completed"},
-                f"Aborted: {str(e)}",
-            )
-
     def _resolve_target_conflict(
         self,
         memory: Any,
@@ -747,7 +469,7 @@ class LLMEnricher:
                             "fid": fid,
                             "title": meta.get("title", ""),
                             "target": meta.get("target", ""),
-                            "rationale": meta.get("rationale", "")[:500],
+                            "rationale": meta.get("rationale", ""),
                         }
                     )
 
@@ -1148,10 +870,7 @@ class LLMEnricher:
 
             if parent_fid != "unknown":
                 meta = memory.semantic.meta.get_by_fid(parent_fid)
-                if meta and meta.get("target") in (
-                    "knowledge_merge",
-                    "knowledge_validation",
-                ):
+                if meta and meta.get("target") == "knowledge_merge":
                     memory.semantic.update_decision(
                         parent_fid,
                         {"status": "fulfilled", "enrichment_status": "completed"},

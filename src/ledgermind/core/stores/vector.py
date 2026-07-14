@@ -476,7 +476,7 @@ class VectorStore:
                 else:
                     self._doc_ids = np.load(legacy_meta_path, allow_pickle=True).tolist()
                     self._dirty = True
-                    self.save()
+                    self.save(rebuild_annoy=True)  # Migration: rebuild Annoy once
                     try:
                         os.remove(legacy_meta_path)
                     except Exception as e:
@@ -511,14 +511,15 @@ class VectorStore:
                 logger.error(f"Failed to load vector store: {e}")
                 self._vectors = None
 
-    def save(self):
+    def save(self, rebuild_annoy: bool = True):
         if self._vectors is not None and self._dirty:
             np.save(self.index_path, self._vectors)
             with open(self.meta_path, 'w', encoding='utf-8') as f:
                 json.dump(self._doc_ids, f)
 
-            # Rebuild Annoy index on save
-            self._build_annoy_index()
+            # Only rebuild Annoy when explicitly requested (batch ops)
+            if rebuild_annoy:
+                self._build_annoy_index()
 
             self._dirty = False
             self._unsaved_count = 0
@@ -556,7 +557,7 @@ class VectorStore:
             self._vectors = self._vectors[remaining_indices]
             self._doc_ids = [self._doc_ids[i] for i in remaining_indices]
             self._dirty = True
-            self.save()
+            self.save(rebuild_annoy=True)  # Compaction always rebuilds Annoy
 
         self._deleted_ids = set()
 
@@ -593,6 +594,11 @@ class VectorStore:
     def add_documents(self, documents: List[Dict[str, Any]], embeddings: Optional[List[np.ndarray]] = None, stop_event: Optional[threading.Event] = None):
         if not documents: return
         self._ensure_loaded()
+
+        # Skip documents that already exist in the index
+        existing = set(self._doc_ids)
+        documents = [d for d in documents if d.get("id") not in existing]
+        if not documents: return
         
         if embeddings is not None:
             new_embeddings = np.array(embeddings).astype('float32')
@@ -646,9 +652,9 @@ class VectorStore:
         self._dirty = True
         self._unsaved_count += len(documents)
         
-        # Performance optimization: Very high threshold for disk flushes to avoid IO bottleneck
+        # Performance optimization: flush to disk periodically without rebuilding Annoy
         if self._unsaved_count >= 500:
-            self.save()
+            self.save(rebuild_annoy=False)
 
     def get_vector(self, fid: str) -> Optional[np.ndarray]:
         """Retrieves the vector for a specific document ID."""
