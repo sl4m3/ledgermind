@@ -108,6 +108,11 @@ LedgerMind FastAPI server (separate process)
   ├── /memory/write
   ├── /worker/start
   └── /worker/stop
+
+Storage:
+  - Raw events: agent DB (state.db) — NOT copied
+  - Knowledge items: semantic store (proposals with phases)
+  - Embeddings: vector index
 ```
 
 The plugin is a thin HTTP bridge. No direct imports of ledgermind. Works with any Python version.
@@ -125,9 +130,8 @@ The plugin is a thin HTTP bridge. No direct imports of ledgermind. Works with an
 └── hermes/
     ├── config.json  # Mode, language, enrichment, import_limit
     └── <profile>/   # Per-profile memory storage
-        ├── episodic.db       # Events (SQLite)
-        ├── semantic/         # Decisions (Markdown + Git)
-        │   └── semantic_meta.db  # Decision metadata
+        ├── semantic/         # Knowledge items (Markdown + Git)
+        │   └── semantic_meta.db  # Knowledge item metadata
         ├── vector_index/     # Vector index
         │   ├── vectors.npy   # Embeddings
         │   ├── vectors.ann   # Annoy index
@@ -135,6 +139,8 @@ The plugin is a thin HTTP bridge. No direct imports of ledgermind. Works with an
         └── models/
             └── v5-small-text-matching-Q4_K_M.gguf  # Embedding model (~379MB)
 ```
+
+**Note:** Raw events stay in agent DB (state.db). No episodic store needed.
 
 ## What It Does
 
@@ -151,17 +157,18 @@ After every LLM turn, the interaction is recorded. In `agent` mode, the model pr
 
 ### 3. Autonomous Lifecycle
 Knowledge evolves through three phases:
-- **PATTERN**: Initial observation from interactions
-- **EMERGENT**: Reinforced pattern with growing confidence
-- **CANONICAL**: Stable, proven knowledge
+- **PATTERN**: Initial observation from interactions (easy merge)
+- **EMERGENT**: Reinforced pattern with growing confidence (medium merge)
+- **CANONICAL**: Stable, proven knowledge (hard merge)
 
-The `LifecycleEngine` manages transitions based on temporal signals — no manual cleanup needed.
+The `LifecyclePipeline` manages transitions: Merge → Decay → Promote.
 
 ### 4. Self-Healing
-- Conflict detection: finds contradictory decisions automatically
-- Resolution: vector similarity supersedes outdated knowledge (>70% threshold)
-- Decay: old, unused knowledge is archived and pruned
-- Index rebuild: SQLite metadata reconstructed from source files if corrupted
+- Profile gate: different profiles don't merge (hermes/openclaw isolation)
+- Session boost: same session items get merge priority
+- Phase-aware merge: PATTERN easy (0.5), CANONICAL hard (0.7)
+- Decay: confidence-based removal with superseded protection
+- Integrity rules: I1-I5 prevent data corruption
 
 ## Performance
 
@@ -181,18 +188,18 @@ User message → pre_llm_call → HTTP /memory/search → Inject context → LLM
                                               post_llm_call → HTTP /memory/write → Background worker processes
 ```
 
-**Background worker** (runs during session):
-- Enrichment: LLM processes pending knowledge items (every 60s)
-- Reflection: analyzes patterns, generates proposals (every 5min)
-- Lifecycle: promotes knowledge through phases
+**Background worker** (runs every 5 minutes):
+- Merge: finds similar knowledge items, claims candidates, executes supersede
+- Decay: confidence-based removal, vitality transitions
+- Promote: advances knowledge through phases (PATTERN → EMERGENT → CANONICAL)
 
 ## Configuration
 
 | File | Purpose |
 |------|---------|
-| `~/.ledgermind/hermes/.env` | API key (`LEDGERMIND_API_KEY`) |
+| `~/.hermes/plugins/ledgermind/.env` | API key (`LEDGERMIND_API_KEY`) |
 | `~/.ledgermind/hermes/config.json` | Mode, language, enrichment, import_limit |
-| `~/.ledgermind/hermes/hermes/models/` | Embedding model (auto-downloaded) |
+| `~/.ledgermind/hermes/<profile>/models/` | Embedding model (auto-downloaded) |
 
 ### config.json
 
@@ -222,10 +229,10 @@ Each Hermes profile (`hermes -p <name>`) gets isolated memory. The plugin detect
 After installation:
 1. Start the LedgerMind server (plugin does this automatically)
 2. Trigger import: `POST /import/state-db` (uses `import_limit` from config)
-3. Events are stored in episodic memory
-4. Enrichment worker processes them into structured knowledge
-5. Reflection worker discovers patterns and creates hypotheses
-6. Merging merges duplicates
+3. Raw events stay in agent DB (state.db)
+4. Enrichment creates knowledge items (proposals with phases)
+5. Lifecycle pipeline: Merge → Decay → Promote
+6. Knowledge evolves through PATTERN → EMERGENT → CANONICAL
 
 ## Requirements
 
