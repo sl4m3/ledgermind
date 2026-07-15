@@ -197,33 +197,17 @@ def get_state_db_stats() -> dict:
 
 
 def install_hermes(
-    mode: str = "agent",
     enrichment: str = "openrouter",
     api_key: str = None,
     base_url: str = None,
     language: str = "english",
-    import_limit: int = None,
     gpu_layers: int = 0,
 ) -> dict:
     """Install LedgerMind plugin for Hermes.
 
-    import_limit: REQUIRED. Number of recent events to import from state.db.
-        Use 0 to skip import, -1 for all, or a positive number for last N events.
-        Non-interactive mode MUST provide this — caller should ask the user first.
     gpu_layers: Number of GPU layers for GGUF model. 0 = CPU only, 99 = all layers on GPU.
     """
     result = {"success": False, "messages": [], "errors": []}
-
-    # Validate import_limit
-    if import_limit is None:
-        stats = get_state_db_stats()
-        if stats.get("exists") and stats.get("messages", 0) > 0:
-            result["errors"].append(
-                f"import_limit is required. state.db has {stats['messages']} messages. "
-                f"Ask the user how many recent events to import (0=skip, -1=all, N=last N)."
-            )
-            return result
-        import_limit = 0
 
     if not _detect_hermes():
         result["errors"].append(
@@ -292,12 +276,9 @@ def install_hermes(
     LEDGERMIND_HOME.mkdir(parents=True, exist_ok=True)
 
     lm_config = {
-        "default_mode": mode,
         "language": language,
         "enrichment": plugin_config,
-        "import_limit": import_limit,
         "gpu_layers": gpu_layers,
-        "initial_import_done": {},
     }
     lm_config_path = LEDGERMIND_HOME / "hermes" / "config.json"
     lm_config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -317,38 +298,19 @@ def install_hermes(
 
 def install_interactive() -> dict:
     """Interactive installation — asks questions via prompt."""
-    stats = get_state_db_stats()
-    total_messages = stats.get("messages", 0) if stats.get("exists") else 0
-
     try:
         import questionary
     except ImportError:
         print("LedgerMind Installer for Hermes\n")
 
-        mode = input("Mode (agent/core) [agent]: ").strip() or "agent"
         enrichment = input("Enrichment provider (openrouter/nvidia/aistudio/custom) [openrouter]: ").strip() or "openrouter"
         api_key = input(f"API key for {enrichment}: ").strip()
         base_url = input("Base URL (empty for default): ").strip() or None
         language = input("Language (english/russian) [english]: ").strip() or "english"
         gpu_input = input("Embedding model device (cpu/gpu) [cpu]: ").strip().lower() or "cpu"
         gpu_layers = 99 if gpu_input == "gpu" else 0
-
-        if total_messages > 0:
-            print(f"\nstate.db: {total_messages} messages in {stats.get('sessions', 0)} sessions")
-            limit_input = input("Import events (0=skip, -1=all, N=last N) [1000]: ").strip() or "1000"
-            import_limit = int(limit_input)
-        else:
-            import_limit = 0
     else:
         print("\nLedgerMind Installer for Hermes\n")
-
-        mode = questionary.select(
-            "Mode:",
-            choices=["agent", "core"],
-            default="agent",
-        ).ask()
-        if mode is None:
-            return {"success": False, "errors": ["Installation cancelled"]}
 
         enrichment = questionary.select(
             "Enrichment provider:",
@@ -389,38 +351,10 @@ def install_interactive() -> dict:
             return {"success": False, "errors": ["Installation cancelled"]}
         gpu_layers = 99 if "GPU" in gpu_choice else 0
 
-        if total_messages > 0:
-            import_limit = questionary.select(
-                f"Import events from state.db ({total_messages} messages in {stats.get('sessions', 0)} sessions):",
-                choices=[
-                    f"Last 1,000 (recommended)",
-                    f"Last 5,000",
-                    f"Last 10,000",
-                    f"All {total_messages}",
-                    "Skip import",
-                ],
-                default=f"Last 1,000 (recommended)",
-            ).ask()
-            if import_limit is None:
-                return {"success": False, "errors": ["Installation cancelled"]}
-
-            limit_map = {
-                "Last 1,000 (recommended)": 1000,
-                "Last 5,000": 5000,
-                "Last 10,000": 10000,
-                f"All {total_messages}": -1,
-                "Skip import": 0,
-            }
-            import_limit = limit_map.get(import_limit, 1000)
-        else:
-            import_limit = 0
-
     return install_hermes(
-        mode=mode,
         enrichment=enrichment,
         api_key=api_key or None,
         base_url=base_url or None,
         language=language,
-        import_limit=import_limit,
         gpu_layers=gpu_layers,
     )

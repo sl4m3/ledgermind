@@ -33,33 +33,24 @@ ledgermind install hermes
 
 **Non-interactive mode** (for agents — collect answers first, then run one command):
 ```bash
-ledgermind install hermes --mode agent --enrichment openrouter --api-key <KEY> --language english --import-limit 1000
+ledgermind install hermes --enrichment openrouter --api-key <KEY> --language english
 ```
 
 | Flag | Default | Options |
 |------|---------|---------|
-| `--mode` | `agent` | `agent` (structured summaries), `core` (full pipeline) |
 | `--enrichment` | `openrouter` | `openrouter`, `nvidia`, `aistudio`, `custom` |
 | `--api-key` | (prompts) | API key for the enrichment provider |
 | `--base-url` | (auto) | Custom API endpoint URL |
 | `--language` | `english` | `english`, `russian`, or any other language |
-| `--import-limit` | **required** | `0` = skip import, `-1` = all events, `N` = last N events |
 | `--gpu-layers` | `0` | `0` = CPU only, `99` = all layers on GPU (CUDA required) |
-
-**Non-interactive mode requires `--import-limit`**. To determine the right value:
-1. Check state.db: `sqlite3 ~/.hermes/state.db "SELECT COUNT(*) FROM messages"`
-2. Ask the user how many recent events to import
-3. Pass the answer as `--import-limit`
 
 Example agent workflow:
 ```
-Agent: "Your Hermes has 22,673 messages. How many recent events should I import?
-        1. Last 1,000 (quick start)
-        2. Last 5,000
-        3. Last 10,000
-        4. All"
-User: "1,000"
-Agent: ledgermind install hermes --mode agent --enrichment openrouter --api-key sk-... --import-limit 1000
+Agent: "What enrichment provider do you want? (openrouter/nvidia/aistudio/custom)"
+User: "openrouter"
+Agent: "What's your API key?"
+User: "sk-..."
+Agent: ledgermind install hermes --enrichment openrouter --api-key sk-... --language english
 ```
 
 The installer automatically:
@@ -76,26 +67,12 @@ After installation, restart Hermes to activate the plugin:
 /restart
 ```
 
-### Step 4: Import events
-
-Trigger the import via API:
-```bash
-curl -X POST http://localhost:8000/import/state-db -H "Content-Type: application/json" -d '{"profile":"default"}'
-```
-
-The server imports events based on the `import_limit` from config.json (set during installation). You can override with `{"limit": 5000}` in the request body.
-
-After import:
-1. Events are stored in episodic memory
-2. Enrichment worker processes them into structured knowledge
-3. Sets `initial_import_done: true`
-
-### Step 5: Use normally
+### Step 3: Use normally
 
 That's it. LedgerMind now:
-- Injects relevant context before every LLM turn
-- Records every interaction for future learning
-- Maintains knowledge in the background
+- Injects relevant context before every LLM turn (pre_llm_call)
+- Records every interaction for future learning (post_llm_call)
+- Maintains knowledge in the background (Merge → Decay → Promote)
 
 ## Architecture
 
@@ -205,9 +182,7 @@ User message → pre_llm_call → HTTP /memory/search → Inject context → LLM
 
 ```json
 {
-  "default_mode": "agent",
   "language": "english",
-  "import_limit": 1000,
   "gpu_layers": 0,
   "enrichment": {
     "provider": "openrouter",
@@ -228,11 +203,10 @@ Each Hermes profile (`hermes -p <name>`) gets isolated memory. The plugin detect
 
 After installation:
 1. Start the LedgerMind server (plugin does this automatically)
-2. Trigger import: `POST /import/state-db` (uses `import_limit` from config)
-3. Raw events stay in agent DB (state.db)
-4. Enrichment creates knowledge items (proposals with phases)
-5. Lifecycle pipeline: Merge → Decay → Promote
-6. Knowledge evolves through PATTERN → EMERGENT → CANONICAL
+2. Raw events stay in agent DB (state.db) — NOT copied
+3. Post-LLM hook creates knowledge items from interactions
+4. Lifecycle pipeline: Merge → Decay → Promote
+5. Knowledge evolves through PATTERN → EMERGENT → CANONICAL
 
 ## Requirements
 
