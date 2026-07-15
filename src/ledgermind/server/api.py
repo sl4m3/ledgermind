@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -81,11 +82,10 @@ def health():
 @app.post("/memory/search")
 def search(req: SearchRequest):
     memory = _get_memory()
-    results = memory.search_decisions(
+    results = memory.search_knowledge_items(
         req.query,
         limit=req.limit,
-        namespace=req.profile,
-        mode="lite",
+        profile=req.profile,
     )
     return {"results": results}
 
@@ -93,14 +93,32 @@ def search(req: SearchRequest):
 @app.post("/memory/write")
 def write(req: WriteRequest):
     memory = _get_memory()
-    memory.process_event(
-        source=req.source,
-        kind=req.kind,
-        content=req.content,
-        context=req.context or {},
-        namespace=req.profile,
+    
+    # Create KnowledgeItem from write request
+    from ledgermind.core.core.knowledge import KnowledgeItem, Phase, Vitality
+    import hashlib
+    
+    # Generate fid from content hash
+    content_hash = hashlib.md5(req.content.encode()).hexdigest()[:8]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    fid = f"pattern_{timestamp}_{content_hash}"
+    
+    item = KnowledgeItem(
+        fid=fid,
+        title=req.content[:50] if req.content else "Untitled",
+        target=req.context.get("target", "general") if req.context else "general",
+        profile=req.profile,
+        rationale=req.content,
+        compressive_rationale=req.content[:200] if req.content else "",
+        strengths=[],
+        objections=[],
+        consequences=[],
+        phase=Phase.PATTERN,
+        vitality=Vitality.ACTIVE,
     )
-    return {"status": "ok"}
+    
+    memory.save_knowledge_item(item)
+    return {"status": "ok", "fid": fid}
 
 
 @app.post("/worker/start")

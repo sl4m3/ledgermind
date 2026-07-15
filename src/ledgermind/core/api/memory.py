@@ -347,5 +347,93 @@ class Memory:
     def close(self):
         """Releases all resources."""
         if hasattr(self, 'vector'): self.vector.close()
+
+    # ========================================================================
+    # KnowledgeItem Methods (New Schema)
+    # ========================================================================
+
+    def save_knowledge_item(self, item: 'KnowledgeItem') -> bool:
+        """Save a KnowledgeItem to semantic store."""
+        from ledgermind.core.core.knowledge import KnowledgeItem
+        import json
+        
+        try:
+            # Save to metadata store
+            self.semantic.meta.upsert(
+                fid=item.fid,
+                title=item.title,
+                target=item.target,
+                content=item.rationale,
+                status=item.vitality.value,
+                kind="knowledge_item",
+                namespace=self.namespace,
+                confidence=item.confidence,
+                stability_score=item.stability_score,
+                phase=item.phase.value,
+                keywords=item.keywords if hasattr(item, 'keywords') else [],
+                superseded_by=item.superseded_by,
+                supersedes=json.dumps(item.supersedes),
+            )
+            
+            # Save to vector store if we have an embedding
+            if hasattr(self, 'vector') and self.vector:
+                try:
+                    embedding = self.vector.embed(item.rationale)
+                    self.vector.upsert(item.fid, embedding)
+                except Exception as e:
+                    logger.warning(f"Failed to embed knowledge item: {e}")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save knowledge item: {e}")
+            return False
+
+    def search_knowledge_items(self, query: str, limit: int = 5, profile: str = None) -> List[Dict[str, Any]]:
+        """Search for knowledge items."""
+        try:
+            # Use existing search_decisions method
+            results = self.search_decisions(
+                query,
+                limit=limit,
+                namespace=profile or self.namespace,
+                mode="lite",
+            )
+            return results
+        except Exception as e:
+            logger.error(f"Failed to search knowledge items: {e}")
+            return []
+
+    def get_knowledge_item(self, fid: str) -> Optional[Dict[str, Any]]:
+        """Get a single knowledge item by fid."""
+        try:
+            meta = self.semantic.meta.get_by_fid(fid)
+            if meta:
+                return meta
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get knowledge item: {e}")
+            return None
+
+    def update_knowledge_item(self, fid: str, updates: Dict[str, Any]) -> bool:
+        """Update a knowledge item."""
+        try:
+            self.semantic.update_decision(
+                fid,
+                updates,
+                commit_msg=f"Update knowledge item {fid}",
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update knowledge item: {e}")
+            return False
+
+    def delete_knowledge_item(self, fid: str) -> bool:
+        """Delete a knowledge item."""
+        try:
+            self.semantic.delete_decision(fid)
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete knowledge item: {e}")
+            return False
         if hasattr(self, 'semantic') and hasattr(self.semantic, 'meta'): self.semantic.meta.close()
         logger.info("Memory system closed.")
