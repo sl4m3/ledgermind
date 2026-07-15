@@ -358,6 +358,26 @@ class Memory:
         import json
         
         try:
+            # Build context_json
+            context = {
+                "phase": item.phase.value,
+                "vitality": item.vitality.value,
+                "confidence": item.confidence,
+                "stability_score": item.stability_score,
+                "estimated_utility": item.estimated_utility,
+                "coverage": item.coverage,
+                "total_evidence_count": item.total_evidence_count,
+                "hit_count": item.hit_count,
+                "first_seen": item.first_seen.isoformat() if item.first_seen else None,
+                "last_seen": item.last_seen.isoformat() if item.last_seen else None,
+                "last_hit_at": item.last_hit_at.isoformat() if item.last_hit_at else None,
+                "strengths": item.strengths,
+                "objections": item.objections,
+                "consequences": item.consequences,
+                "compressive_rationale": item.compressive_rationale,
+                "schema_version": item.schema_version,
+            }
+            
             # Save to metadata store
             self.semantic.meta.upsert(
                 fid=item.fid,
@@ -366,11 +386,12 @@ class Memory:
                 content=item.rationale,
                 status=item.vitality.value,
                 kind="knowledge_item",
+                timestamp=item.created_at,
+                context_json=json.dumps(context),
                 namespace=self.namespace,
                 confidence=item.confidence,
                 stability_score=item.stability_score,
                 phase=item.phase.value,
-                keywords=item.keywords if hasattr(item, 'keywords') else [],
                 superseded_by=item.superseded_by,
                 supersedes=json.dumps(item.supersedes),
             )
@@ -378,8 +399,10 @@ class Memory:
             # Save to vector store if we have an embedding
             if hasattr(self, 'vector') and self.vector:
                 try:
-                    embedding = self.vector.embed(item.rationale)
-                    self.vector.upsert(item.fid, embedding)
+                    # Use the vector store's embed method if available
+                    if hasattr(self.vector, 'embed'):
+                        embedding = self.vector.embed(item.rationale)
+                        self.vector.upsert(item.fid, embedding)
                 except Exception as e:
                     logger.warning(f"Failed to embed knowledge item: {e}")
             
