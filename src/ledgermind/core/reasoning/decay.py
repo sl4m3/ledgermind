@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Any, Tuple
 import math
 from ledgermind.core.utils.datetime_utils import to_naive_utc
+from ledgermind.core.core.knowledge import KnowledgeItem, Vitality, Phase
 
 class DecayReport:
     """
@@ -15,6 +16,88 @@ class DecayReport:
 
     def __repr__(self):
         return f"<DecayReport archived={self.archived}, pruned={self.pruned}, semantic_forgotten={self.semantic_forgotten}>"
+
+class NewDecayEngine:
+    """Confidence-based decay engine for KnowledgeItems."""
+    
+    def __init__(
+        self,
+        fast_threshold: float = 0.3,
+        medium_threshold: float = 0.7,
+        fast_rate: float = 0.15,
+        medium_rate: float = 0.05,
+        slow_rate: float = 0.01,
+        minimum_retention_days: int = 14,
+        minimum_evidence: int = 5,
+    ):
+        self.fast_threshold = fast_threshold
+        self.medium_threshold = medium_threshold
+        self.fast_rate = fast_rate
+        self.medium_rate = medium_rate
+        self.slow_rate = slow_rate
+        self.minimum_retention_days = minimum_retention_days
+        self.minimum_evidence = minimum_evidence
+    
+    def get_decay_rate(self, confidence: float) -> float:
+        """Get decay rate based on confidence."""
+        if confidence < self.fast_threshold:
+            return self.fast_rate
+        elif confidence < self.medium_threshold:
+            return self.medium_rate
+        else:
+            return self.slow_rate
+    
+    def apply_decay(self, item: KnowledgeItem) -> float:
+        """Apply decay to knowledge item confidence."""
+        # Skip superseded items (already merged)
+        if item.superseded_by:
+            return item.confidence
+        
+        # Minimum retention check
+        if item.total_evidence_count < self.minimum_evidence:
+            days_since_creation = (datetime.now() - item.first_seen).days
+            if days_since_creation < self.minimum_retention_days:
+                return item.confidence
+        
+        # Calculate decay
+        rate = self.get_decay_rate(item.confidence)
+        days_inactive = (datetime.now() - item.last_seen).days
+        steps = days_inactive // 7
+        
+        new_confidence = item.confidence - (rate * steps)
+        
+        # Auto-reinforce CANONICAL
+        if item.phase == Phase.CANONICAL and item.confidence > 0.9:
+            new_confidence = min(1.0, new_confidence + 0.01)
+        
+        return max(0.0, new_confidence)
+    
+    def calculate_vitality(self, item: KnowledgeItem) -> Vitality:
+        """Calculate new vitality based on confidence and activity."""
+        # Skip superseded items (already merged)
+        if item.superseded_by:
+            return item.vitality
+        
+        days_since_hit = 0
+        if item.last_hit_at:
+            days_since_hit = (datetime.now() - item.last_hit_at).days
+        
+        # ACTIVE -> DECAYING
+        if item.vitality == Vitality.ACTIVE:
+            if item.confidence < 0.5 or days_since_hit > 30:
+                return Vitality.DECAYING
+        
+        # DECAYING -> ACTIVE (re-activation)
+        if item.vitality == Vitality.DECAYING:
+            if days_since_hit < 7:
+                return Vitality.ACTIVE
+        
+        # DECAYING -> DORMANT
+        if item.vitality == Vitality.DECAYING:
+            if item.confidence < 0.2:
+                return Vitality.DORMANT
+        
+        return item.vitality
 
 class DecayEngine:
     """
