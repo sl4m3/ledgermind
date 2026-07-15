@@ -440,10 +440,23 @@ class Memory:
     def update_knowledge_item(self, fid: str, updates: Dict[str, Any]) -> bool:
         """Update a knowledge item."""
         try:
-            self.semantic.update_decision(
-                fid,
-                updates,
-                commit_msg=f"Update knowledge item {fid}",
+            # Get current item
+            current = self.semantic.meta.get_by_fid(fid)
+            if not current:
+                logger.warning(f"Knowledge item not found: {fid}")
+                return False
+            
+            # Update metadata
+            self.semantic.meta.upsert(
+                fid=fid,
+                title=updates.get("title", current.get("title", "")),
+                target=updates.get("target", current.get("target", "")),
+                content=updates.get("content", current.get("content", "")),
+                status=updates.get("status", current.get("status", "active")),
+                kind=current.get("kind", "knowledge_item"),
+                timestamp=current.get("timestamp", datetime.now()),
+                context_json=updates.get("context_json", current.get("context_json", "{}")),
+                namespace=current.get("namespace", self.namespace),
             )
             return True
         except Exception as e:
@@ -453,7 +466,18 @@ class Memory:
     def delete_knowledge_item(self, fid: str) -> bool:
         """Delete a knowledge item."""
         try:
-            self.semantic.delete_decision(fid)
+            # Mark as superseded instead of deleting
+            self.semantic.meta.upsert(
+                fid=fid,
+                title="",
+                target="",
+                content="",
+                status="deleted",
+                kind="knowledge_item",
+                timestamp=datetime.now(),
+                context_json="{}",
+                namespace=self.namespace,
+            )
             return True
         except Exception as e:
             logger.error(f"Failed to delete knowledge item: {e}")
