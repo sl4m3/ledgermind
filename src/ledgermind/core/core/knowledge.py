@@ -22,6 +22,7 @@ class KnowledgeItem(BaseModel):
     title: str
     target: str
     profile: str
+    session_id: Optional[str] = None
     
     # Content
     rationale: str
