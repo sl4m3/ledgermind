@@ -14,6 +14,12 @@ from .events import (
     KnowledgeDeleted,
     KnowledgeSuperseded,
 )
+from .policies import (
+    CreateNewPattern,
+    EvolutionDecision,
+    IsolatedPatternPolicy,
+    KnowledgeEvolutionPolicy,
+)
 
 __all__ = [
     "Atom",
@@ -35,4 +41,8 @@ __all__ = [
     "KnowledgeCreated",
     "KnowledgeSuperseded",
     "KnowledgeDeleted",
+    "KnowledgeEvolutionPolicy",
+    "IsolatedPatternPolicy",
+    "EvolutionDecision",
+    "CreateNewPattern",
 ]
