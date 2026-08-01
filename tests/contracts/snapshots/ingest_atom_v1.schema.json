@@ -1,0 +1,235 @@
+{
+  "$defs": {
+    "AtomContentV1": {
+      "additionalProperties": false,
+      "properties": {
+        "artifacts": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 500,
+          "title": "Artifacts",
+          "type": "array"
+        },
+        "rationale": {
+          "default": "",
+          "maxLength": 40000,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "result": {
+          "default": "",
+          "maxLength": 20000,
+          "title": "Result",
+          "type": "string"
+        },
+        "statement": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Statement",
+          "type": "string"
+        },
+        "target": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "target",
+        "statement"
+      ],
+      "title": "AtomContentV1",
+      "type": "object"
+    },
+    "ExtractionInfoV1": {
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Host",
+          "type": "string"
+        },
+        "model": {
+          "default": "",
+          "maxLength": 300,
+          "title": "Model",
+          "type": "string"
+        },
+        "prompt_version": {
+          "minimum": 1,
+          "title": "Prompt Version",
+          "type": "integer"
+        },
+        "provider": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Provider",
+          "type": "string"
+        },
+        "purpose": {
+          "default": "ledgermind.atom.extract",
+          "maxLength": 200,
+          "title": "Purpose",
+          "type": "string"
+        },
+        "schema_version": {
+          "minimum": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "host",
+        "prompt_version",
+        "schema_version"
+      ],
+      "title": "ExtractionInfoV1",
+      "type": "object"
+    },
+    "SourceReferenceV1": {
+      "additionalProperties": false,
+      "properties": {
+        "final_message_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final Message Id"
+        },
+        "first_message_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Message Id"
+        },
+        "message_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Message Ids",
+          "type": "array"
+        },
+        "resolver_version": {
+          "minimum": 1,
+          "title": "Resolver Version",
+          "type": "integer"
+        },
+        "source_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Source Digest",
+          "type": "string"
+        },
+        "source_instance_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Source Instance Id",
+          "type": "string"
+        },
+        "source_profile_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Source Profile Id",
+          "type": "string"
+        },
+        "source_round_id": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Source Round Id",
+          "type": "string"
+        },
+        "source_schema_version": {
+          "minimum": 1,
+          "title": "Source Schema Version",
+          "type": "integer"
+        },
+        "source_session_id": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Source Session Id",
+          "type": "string"
+        },
+        "source_system": {
+          "enum": [
+            "hermes",
+            "openclaw",
+            "legacy_import"
+          ],
+          "title": "Source System",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_system",
+        "source_instance_id",
+        "source_profile_id",
+        "source_session_id",
+        "source_round_id",
+        "source_digest",
+        "source_schema_version",
+        "resolver_version"
+      ],
+      "title": "SourceReferenceV1",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "api_version": {
+      "const": "1",
+      "default": "1",
+      "title": "Api Version",
+      "type": "string"
+    },
+    "atom": {
+      "$ref": "#/$defs/AtomContentV1"
+    },
+    "extraction": {
+      "$ref": "#/$defs/ExtractionInfoV1"
+    },
+    "idempotency_key": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "memory_space_id": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Memory Space Id",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/SourceReferenceV1"
+    }
+  },
+  "required": [
+    "idempotency_key",
+    "memory_space_id",
+    "source",
+    "extraction",
+    "atom"
+  ],
+  "title": "IngestAtomRequestV1",
+  "type": "object"
+}
