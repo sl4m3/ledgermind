@@ -7,6 +7,13 @@ from .knowledge import KnowledgeItem
 from .phase import Phase
 from .revision import KnowledgeRevision
 from .source_reference import SourceReference
+from .events import (
+    _BaseDomainEvent,
+    AtomCreated,
+    KnowledgeCreated,
+    KnowledgeDeleted,
+    KnowledgeSuperseded,
+)
 
 __all__ = [
     "Atom",
@@ -23,4 +30,9 @@ __all__ = [
     "KnowledgeEvidence",
     "EvidenceRelation",
     "KnowledgeRevision",
+    "_BaseDomainEvent",
+    "AtomCreated",
+    "KnowledgeCreated",
+    "KnowledgeSuperseded",
+    "KnowledgeDeleted",
 ]
