@@ -1,1 +1,0 @@
-"""LedgerMind core package."""
