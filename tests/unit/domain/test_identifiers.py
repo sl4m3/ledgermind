@@ -3,7 +3,7 @@
 import inspect
 from typing import NewType
 
-from domain.identifiers import (
+from ledgermind_core.domain.identifiers import (
     AtomId,
     EventId,
     KnowledgeId,
@@ -31,7 +31,7 @@ def test_identifier_type_names() -> None:
 
 
 def test_no_identifier_generation_inside_identifiers_module() -> None:
-    from domain import identifiers
+    from ledgermind_core.domain import identifiers
 
     source = inspect.getsource(identifiers)
     assert "uuid" not in source.lower()

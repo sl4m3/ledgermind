@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ports import IdentifierFactory
+from ledgermind_core.ports import IdentifierFactory
 
 
 class FakeIdentifierFactory(IdentifierFactory):

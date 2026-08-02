@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 import hypothesis.strategies as st
 from hypothesis import assume, given
 
-from domain import AtomContent, EvidenceRelation, ExtractionInfo, KnowledgeEvidence
-from domain.knowledge import KnowledgeItem
-from domain.phase import Phase
+from ledgermind_core.domain import AtomContent, EvidenceRelation, ExtractionInfo, KnowledgeEvidence
+from ledgermind_core.domain.knowledge import KnowledgeItem
+from ledgermind_core.domain.phase import Phase
 
 
 @given(
@@ -68,7 +68,7 @@ def test_atom_content_rejects_title_over_240_chars(title: str) -> None:
 
 
 @given(
-    host=st.text(min_size=1),
+    host=st.text(min_size=1).filter(lambda value: bool(value.strip())),
     provider=st.text(min_size=0),
     model=st.text(min_size=0),
     prompt_version=st.integers(min_value=1, max_value=999),

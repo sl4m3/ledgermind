@@ -5,7 +5,7 @@ from __future__ import annotations
 import pydantic
 import pytest
 
-from contracts.context import (
+from ledgermind_core.contracts.context import (
     ContextItem,
     RetrieveContextRequest,
     RetrieveContextResult,

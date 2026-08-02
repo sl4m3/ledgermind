@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from datetime import datetime, timezone
 
-from ports import (
+from ledgermind_core.ports import (
     AtomRepository,
     Clock,
     DomainEvent,

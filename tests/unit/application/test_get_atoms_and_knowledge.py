@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from application.get_atom import GetAtomHandler, GetAtomQuery
-from application.get_knowledge import GetKnowledgeHandler, GetKnowledgeQuery
-from domain import (
+from ledgermind_core.application.get_atom import GetAtomHandler, GetAtomQuery
+from ledgermind_core.application.get_knowledge import GetKnowledgeHandler, GetKnowledgeQuery
+from ledgermind_core.domain import (
     Atom,
     AtomContent,
     ExtractionInfo,

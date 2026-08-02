@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from application.mappers import RetrieveContextQuery
-from application.ranking import ContextRanking
-from application.retrieve_context import RetrieveContextHandler
-from domain import KnowledgeEvidence, KnowledgeItem
-from domain.phase import Phase
-from ports import SearchHit
+from ledgermind_core.application.mappers import RetrieveContextQuery
+from ledgermind_core.application.ranking import ContextRanking
+from ledgermind_core.application.retrieve_context import RetrieveContextHandler
+from ledgermind_core.domain import KnowledgeEvidence, KnowledgeItem
+from ledgermind_core.domain.phase import Phase
+from ledgermind_core.ports import SearchHit
 from tests.fakes import FakeClock, FakeUnitOfWork
 
 _NOW = datetime(2026, 8, 1, tzinfo=timezone.utc)

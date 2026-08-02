@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from domain import knowledge as knowledge_module
-from domain.phase import Phase
+from ledgermind_core.domain import knowledge as knowledge_module
+from ledgermind_core.domain.phase import Phase
 
 KnowledgeItem = knowledge_module.KnowledgeItem
 

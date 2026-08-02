@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from domain.revision import KnowledgeRevision
+from ledgermind_core.domain.revision import KnowledgeRevision
 
 
 def _base_time():

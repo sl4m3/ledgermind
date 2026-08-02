@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import pytest
-
-from domain.knowledge import KnowledgeItem
-from domain.phase import Phase
+from ledgermind_core.domain.knowledge import KnowledgeItem
+from ledgermind_core.domain.phase import Phase
 from tests.fakes.search import FakeKnowledgeSearch
 
 

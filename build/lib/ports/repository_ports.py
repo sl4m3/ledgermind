@@ -41,15 +41,41 @@ class SearchHit:
 
 
 class UnitOfWork(ABC):
-    atoms: AtomRepository
-    knowledge: KnowledgeRepository
-    evidence: EvidenceRepository
-    revisions: RevisionRepository
-    idempotency: IdempotencyRepository
-    events: EventRepository
-    search: KnowledgeSearch
-    clock: Clock
-    identifiers: IdentifierFactory
+    @property
+    @abstractmethod
+    def atoms(self) -> AtomRepository: ...
+
+    @property
+    @abstractmethod
+    def knowledge(self) -> KnowledgeRepository: ...
+
+    @property
+    @abstractmethod
+    def evidence(self) -> EvidenceRepository: ...
+
+    @property
+    @abstractmethod
+    def revisions(self) -> RevisionRepository: ...
+
+    @property
+    @abstractmethod
+    def idempotency(self) -> IdempotencyRepository: ...
+
+    @property
+    @abstractmethod
+    def events(self) -> EventRepository: ...
+
+    @property
+    @abstractmethod
+    def search(self) -> KnowledgeSearch: ...
+
+    @property
+    @abstractmethod
+    def clock(self) -> Clock: ...
+
+    @property
+    @abstractmethod
+    def identifiers(self) -> IdentifierFactory: ...
 
     @abstractmethod
     def __enter__(self) -> UnitOfWork: ...
@@ -113,6 +139,13 @@ class EvidenceRepository(ABC):
 
     @abstractmethod
     def list_atom_ids(self, memory_space_id: str, knowledge_id: str) -> list[str]: ...
+
+    @abstractmethod
+    def list_for_knowledge(
+        self,
+        memory_space_id: str,
+        knowledge_id: str,
+    ) -> list[KnowledgeEvidence]: ...
 
 
 class RevisionRepository(ABC):

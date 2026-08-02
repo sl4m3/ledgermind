@@ -7,13 +7,13 @@ from datetime import datetime, timezone
 
 import pytest
 
-from application.delete_knowledge import (
+from ledgermind_core.application.delete_knowledge import (
     DeleteKnowledgeCommand,
     DeleteKnowledgeError,
     DeleteKnowledgeHandler,
 )
-from domain import KnowledgeItem, Phase
-from domain.events import KnowledgeDeleted
+from ledgermind_core.domain import KnowledgeItem, Phase
+from ledgermind_core.domain.events import KnowledgeDeleted
 from tests.fakes import FakeClock, FakeUnitOfWork
 
 _SPACE = "space_01"

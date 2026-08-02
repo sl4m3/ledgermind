@@ -5,8 +5,9 @@ from __future__ import annotations
 import copy
 from collections.abc import Iterable, Mapping, Sequence
 
-from domain import Atom, KnowledgeEvidence, KnowledgeItem, KnowledgeRevision
-from ports import (
+from ledgermind_core.application.digests import calculate_source_round_key
+from ledgermind_core.domain import Atom, KnowledgeEvidence, KnowledgeItem, KnowledgeRevision
+from ledgermind_core.ports import (
     AtomRepository,
     EvidenceRepository,
     IdempotencyRepository,
@@ -63,7 +64,7 @@ class FakeAtomRepository(_TransactionalRepo, AtomRepository):
         self._fail("find_by_source_version")
         for atom in self._staged.get(memory_space_id, {}).values():
             if (
-                atom.source.source_round_id == source_round_key
+                calculate_source_round_key(atom.source) == source_round_key
                 and atom.extraction.prompt_version == prompt_version
                 and atom.extraction.schema_version == schema_version
             ):
@@ -131,6 +132,14 @@ class FakeEvidenceRepository(_TransactionalRepo, EvidenceRepository):
         self._fail("list_for_knowledge")
         return [link for link in self._staged if link.knowledge_id == knowledge_id]
 
+    def list_for_atom(
+        self,
+        memory_space_id: str,
+        atom_id: str,
+    ) -> list[KnowledgeEvidence]:
+        self._fail("list_for_atom")
+        return [link for link in self._staged if link.atom_id == atom_id]
+
 
 class FakeRevisionRepository(_TransactionalRepo, RevisionRepository):
     def __init__(self, seed: Sequence[KnowledgeRevision] | None = None, fail_steps=None):
@@ -157,13 +166,18 @@ class FakeIdempotencyRepository(_TransactionalRepo, IdempotencyRepository):
     def __init__(self, seed: Mapping[str, StoredIdempotencyResult] | None = None, fail_steps=None):
         super().__init__(source=dict(seed or {}), fail_steps=fail_steps, namespace="idempotency")
 
-    def get(self, key: str) -> StoredIdempotencyResult | None:
+    def get(self, memory_space_id: str, key: str) -> StoredIdempotencyResult | None:
         self._fail("get")
-        return self._staged.get(key)
+        result = self._staged.get((memory_space_id, key))
+        if result is None:
+            result = self._staged.get(key)
+        if result is not None and result.memory_space_id not in {"", memory_space_id}:
+            return None
+        return result
 
     def add(self, result: StoredIdempotencyResult) -> None:
         self._fail("add")
-        self._staged[result.key] = result
+        self._staged[(result.memory_space_id, result.key)] = result
 
 
 

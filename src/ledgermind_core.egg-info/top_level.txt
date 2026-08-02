@@ -1,4 +1,1 @@
-application
-contracts
-domain
-ports
+ledgermind_core

@@ -6,12 +6,12 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Self
 
-from domain import Atom, KnowledgeEvidence, KnowledgeItem, KnowledgeRevision
-from ports import (
+from ledgermind_core.domain import Atom, KnowledgeEvidence, KnowledgeItem, KnowledgeRevision
+from ledgermind_core.ports import (
     Clock,
     UnitOfWork,
 )
-from ports.repository_ports import (
+from ledgermind_core.ports.repository_ports import (
     DomainEvent,
     EventRepository,
     StoredIdempotencyResult,

@@ -4,7 +4,7 @@ import dataclasses
 
 import pytest
 
-from domain.source_reference import SourceReference
+from ledgermind_core.domain.source_reference import SourceReference
 
 
 def _make_reference(message_ids: tuple[str, ...] = ()) -> SourceReference:

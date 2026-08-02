@@ -6,10 +6,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from domain import Atom, AtomContent, ExtractionInfo, SourceReference
-from domain.knowledge import KnowledgeItem
-from domain.phase import Phase
-from ports.repository_ports import DomainEvent
+from ledgermind_core.domain import Atom, AtomContent, ExtractionInfo, SourceReference
+from ledgermind_core.domain.knowledge import KnowledgeItem
+from ledgermind_core.domain.phase import Phase
+from ledgermind_core.ports.repository_ports import DomainEvent
 from tests.fakes.clock import FakeClock
 from tests.fakes.identifiers import FakeIdentifierFactory
 from tests.fakes.search import FakeKnowledgeSearch

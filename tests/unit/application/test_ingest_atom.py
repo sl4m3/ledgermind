@@ -4,28 +4,30 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
 
-from application.digests import calculate_atom_content_digest
-from application.ingest_atom import (
+from ledgermind_core.application.digests import calculate_atom_content_digest
+from ledgermind_core.application.errors import SourceRoundConflict
+from ledgermind_core.application.ingest_atom import (
     IdempotencyConflict,
     IngestAtomHandler,
     IngestAtomResult,
     JsonIngestAtomResultSerializer,
 )
-from application.mappers import IngestAtomCommand
-from domain import (
+from ledgermind_core.application.mappers import IngestAtomCommand
+from ledgermind_core.domain import (
     AtomContent,
     EvidenceRelation,
     ExtractionInfo,
     Phase,
     SourceReference,
 )
-from domain.events import AtomCreated, KnowledgeCreated
-from domain.policies import IsolatedPatternPolicy
-from ports.repository_ports import StoredIdempotencyResult
+from ledgermind_core.domain.events import AtomCreated, KnowledgeCreated
+from ledgermind_core.domain.policies import IsolatedPatternPolicy
+from ledgermind_core.ports.repository_ports import StoredIdempotencyResult
 from tests.fakes import FakeClock, FakeIdentifierFactory, FakeUnitOfWork
 
 _NOW = datetime(2026, 8, 1, tzinfo=timezone.utc)
@@ -36,13 +38,14 @@ _REQUEST_HASH = "sha256:" + "b" * 64
 
 def _command(
     *,
+    memory_space_id: str = _MEMORY_SPACE_ID,
     idempotency_key: str = _IDEMPOTENCY_KEY,
     request_hash: str = _REQUEST_HASH,
 ) -> IngestAtomCommand:
     return IngestAtomCommand(
         idempotency_key=idempotency_key,
         request_hash=request_hash,
-        memory_space_id=_MEMORY_SPACE_ID,
+        memory_space_id=memory_space_id,
         source=SourceReference(
             source_system="hermes",
             source_instance_id="instance",
@@ -230,6 +233,67 @@ def test_ingest_atom_idempotent_repeat_returns_cached_response_without_new_recor
     assert uow.rollback_count == 0
 
 
+def test_ingest_atom_scopes_same_idempotency_key_by_memory_space() -> None:
+    handler, uow, _ = _setup()
+
+    first = handler.handle(_command(memory_space_id="space-a"))
+    second = handler.handle(_command(memory_space_id="space-b"))
+
+    assert first.duplicate is False
+    assert second.duplicate is False
+    assert first.atom_id != second.atom_id
+    assert set(uow.atoms.committed()) == {"space-a", "space-b"}
+    assert len(uow.idempotency.committed()) == 2
+
+
+def test_ingest_atom_reuses_same_source_round_with_a_new_idempotency_key() -> None:
+    handler, uow, _ = _setup()
+
+    first = handler.handle(_command())
+    second = handler.handle(
+        _command(
+            idempotency_key="sha256:" + "e" * 64,
+            request_hash="sha256:" + "f" * 64,
+        )
+    )
+
+    assert second == IngestAtomResult(
+        atom_id=first.atom_id,
+        knowledge_id=first.knowledge_id,
+        knowledge_version=first.knowledge_version,
+        phase=first.phase,
+        duplicate=True,
+        projections_pending=True,
+    )
+    assert uow.commit_count == 2
+    assert len(uow.atoms.committed()[_MEMORY_SPACE_ID]) == 1
+
+
+def test_ingest_atom_rejects_changed_data_for_existing_source_round() -> None:
+    handler, uow, _ = _setup()
+    handler.handle(_command())
+    changed = replace(
+        _command(
+            idempotency_key="sha256:" + "e" * 64,
+            request_hash="sha256:" + "f" * 64,
+        ),
+        content=AtomContent(
+            title="изменённый title",
+            target="architecture.storage.local",
+            statement="изменённое statement",
+            rationale="test rationale",
+            result="test result",
+            artifacts=("artifact",),
+        ),
+    )
+
+    with pytest.raises(SourceRoundConflict, match="round"):
+        handler.handle(changed)
+
+    assert uow.commit_count == 1
+    assert len(uow.atoms.committed()[_MEMORY_SPACE_ID]) == 1
+
+
 def test_ingest_atom_idempotent_conflict_on_different_request_hash() -> None:
     serializer = JsonIngestAtomResultSerializer()
     command = _command()
@@ -305,7 +369,7 @@ def test_ingest_atom_commit_failure_does_not_return_success() -> None:
 
 def test_stored_idempotency_response_is_exact_json_match() -> None:
     result, _, uow = _run_successful_ingest()
-    stored = uow.idempotency.committed()[_IDEMPOTENCY_KEY]
+    stored = uow.idempotency.committed()[(_MEMORY_SPACE_ID, _IDEMPOTENCY_KEY)]
 
     assert stored.response_json == JsonIngestAtomResultSerializer().result_to_json(result)
 

@@ -7,14 +7,14 @@ from datetime import datetime, timezone
 
 import pytest
 
-from application.mappers import SupersedeKnowledgeCommand
-from application.supersede_knowledge import (
+from ledgermind_core.application.mappers import SupersedeKnowledgeCommand
+from ledgermind_core.application.supersede_knowledge import (
     SupersedeKnowledgeError,
     SupersedeKnowledgeHandler,
 )
-from domain import KnowledgeItem
-from domain.events import KnowledgeCreated, KnowledgeSuperseded
-from domain.phase import Phase
+from ledgermind_core.domain import KnowledgeItem
+from ledgermind_core.domain.events import KnowledgeCreated, KnowledgeSuperseded
+from ledgermind_core.domain.phase import Phase
 from tests.fakes import FakeClock, FakeUnitOfWork
 
 _SPACE = "space_01"

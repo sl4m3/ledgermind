@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from domain import Atom, AtomContent, ExtractionInfo, SourceReference
-from domain.knowledge import KnowledgeItem
-from domain.phase import Phase
-from domain.policies import CreateNewPattern, IsolatedPatternPolicy
+from ledgermind_core.domain import Atom, AtomContent, ExtractionInfo, SourceReference
+from ledgermind_core.domain.knowledge import KnowledgeItem
+from ledgermind_core.domain.phase import Phase
+from ledgermind_core.domain.policies import CreateNewPattern, IsolatedPatternPolicy
 
 
 def _atom() -> Atom:

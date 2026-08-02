@@ -8,7 +8,7 @@ from pathlib import Path
 import pydantic
 import pytest
 
-from contracts.atom import IngestAtomRequest
+from ledgermind_core.contracts.atom import IngestAtomRequest
 
 
 def _fixture_request() -> dict:
@@ -93,7 +93,7 @@ def test_payload_size_limits_are_enforced() -> None:
 
 
 def test_no_circular_import_between_contract_modules() -> None:
-    from contracts import atom, common
+    from ledgermind_core.contracts import atom, common
 
     if not common.__file__ or not atom.__file__:
         raise AssertionError("contract module file path missing")

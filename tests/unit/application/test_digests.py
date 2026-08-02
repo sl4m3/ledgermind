@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from application.digests import (
+from ledgermind_core.application.digests import (
     calculate_atom_content_digest,
     calculate_idempotency_key,
     calculate_request_hash,
     calculate_source_round_key,
 )
-from domain import Atom, AtomContent, ExtractionInfo, SourceReference
+from ledgermind_core.domain import Atom, AtomContent, ExtractionInfo, SourceReference
 
 _RAW_INGEST_PAYLOAD = {
     "api_version": "1",

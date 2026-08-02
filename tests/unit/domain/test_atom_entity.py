@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from domain.atom import Atom, AtomContent, ExtractionInfo
-from domain.source_reference import SourceReference
+from ledgermind_core.domain.atom import Atom, AtomContent, ExtractionInfo
+from ledgermind_core.domain.source_reference import SourceReference
 
 
 def _source() -> SourceReference:
