@@ -16,8 +16,7 @@ from domain import (
     Phase,
     SourceReference,
 )
-from tests.fakes import FakeClock, FakeIdentifierFactory, FakeUnitOfWork
-
+from tests.fakes import FakeClock, FakeUnitOfWork
 
 _SPACE = "space_01"
 _OTHER_SPACE = "space_02"
@@ -94,7 +93,7 @@ def _setup(
 
 
 def test_get_atom_reads_by_space_and_id() -> None:
-    get_atom, get_knowledge, uow = _setup(
+    get_atom, _get_knowledge, uow = _setup(
         atom_store={_SPACE: {_atom().atom_id: _atom()}, _OTHER_SPACE: {_atom("atm_2", _OTHER_SPACE): _atom("atm_2", _OTHER_SPACE)}}
     )
 
@@ -148,7 +147,7 @@ def test_get_knowledge_reads_by_space_and_id() -> None:
 
 
 def test_get_knowledge_returns_none_if_not_in_memory_space() -> None:
-    get_atom, get_knowledge, _ = _setup(
+    _get_atom, get_knowledge, _ = _setup(
         knowledge_store={_SPACE: {_knowledge("knw_2").knowledge_id: _knowledge("knw_2")}}
     )
 

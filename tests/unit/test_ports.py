@@ -6,19 +6,19 @@ import inspect
 from datetime import datetime, timezone
 
 from ports import (
+    AtomRepository,
     Clock,
     DomainEvent,
     EventRepository,
+    EvidenceRepository,
     IdempotencyRepository,
     IdentifierFactory,
+    KnowledgeRepository,
     KnowledgeSearch,
+    RevisionRepository,
     SearchHit,
     StoredIdempotencyResult,
     UnitOfWork,
-    AtomRepository,
-    EvidenceRepository,
-    KnowledgeRepository,
-    RevisionRepository,
 )
 
 

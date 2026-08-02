@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ledgermind-core"
 version = "4.0.0a1"
 description = "Pure domain and application core for LedgerMind"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2.7,<3"
@@ -18,11 +19,11 @@ dev = [
     "hypothesis>=6,<7",
     "ruff>=0.6",
     "mypy>=1.10",
-    "build>=1.2"
+    "build>=1.2",
 ]
 
-[tool.setuptools]
-package-dir = {"" = "src"}
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

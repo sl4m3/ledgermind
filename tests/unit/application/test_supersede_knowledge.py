@@ -17,7 +17,6 @@ from domain.events import KnowledgeCreated, KnowledgeSuperseded
 from domain.phase import Phase
 from tests.fakes import FakeClock, FakeUnitOfWork
 
-
 _SPACE = "space_01"
 _NOW = datetime(2026, 8, 1, tzinfo=timezone.utc)
 
@@ -113,11 +112,11 @@ def test_supersede_knowledge_creates_replacement_and_marks_old_superseded() -> N
     assert committed["knw_2"].version == 2
 
     assert len(uow.revisions.committed()) == 3
-    assert len(uow.events.events) == 3
-    assert uow.events.events[0].event_type == KnowledgeCreated.EVENT_NAME
-    assert uow.events.events[1].event_type == KnowledgeSuperseded.EVENT_NAME
-    assert uow.events.events[2].event_type == KnowledgeSuperseded.EVENT_NAME
-    payload = json.loads(uow.events.events[1].payload_json)
+    assert len(uow.events.stored_events) == 3
+    assert uow.events.stored_events[0].event_type == KnowledgeCreated.EVENT_NAME
+    assert uow.events.stored_events[1].event_type == KnowledgeSuperseded.EVENT_NAME
+    assert uow.events.stored_events[2].event_type == KnowledgeSuperseded.EVENT_NAME
+    payload = json.loads(uow.events.stored_events[1].payload_json)
     assert payload["previous_knowledge_id"] == "knw_1"
     assert payload["next_knowledge_id"] == result.replacement_knowledge_id
     assert uow.commit_count == 1
@@ -134,7 +133,7 @@ def test_supersede_knowledge_fails_when_old_knowledge_missing() -> None:
     assert uow.rollback_count == 1
     assert uow.knowledge.committed() == stored
     assert uow.revisions.committed() == []
-    assert uow.events.events == []
+    assert uow.events.stored_events == []
 
 
 def test_supersede_knowledge_fails_when_knowledge_from_other_memory_space() -> None:
@@ -220,4 +219,4 @@ def test_supersede_knowledge_rolls_back_on_repository_failure() -> None:
     assert uow.rollback_count == 1
     assert uow.commit_count == 0
     assert uow.revisions.committed() == []
-    assert len(uow.events.events) == 0
+    assert len(uow.events.stored_events) == 0

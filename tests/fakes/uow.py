@@ -2,21 +2,22 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from datetime import datetime, timezone
+from typing import Self
 
 from domain import Atom, KnowledgeEvidence, KnowledgeItem, KnowledgeRevision
 from ports import (
     Clock,
-    IdempotencyRepository,
-    KnowledgeSearch,
     UnitOfWork,
 )
 from ports.repository_ports import (
-    StoredIdempotencyResult,
     DomainEvent,
     EventRepository,
+    StoredIdempotencyResult,
 )
+from tests.fakes.clock import FakeClock
+from tests.fakes.identifiers import FakeIdentifierFactory
 from tests.fakes.repositories import (
     FakeAtomRepository,
     FakeEvidenceRepository,
@@ -25,14 +26,12 @@ from tests.fakes.repositories import (
     FakeRevisionRepository,
 )
 from tests.fakes.search import FakeKnowledgeSearch
-from tests.fakes.identifiers import FakeIdentifierFactory
-from tests.fakes.clock import FakeClock
 
 
 class FakeEventRepository(EventRepository):
     def __init__(self, fail_steps: Iterable[str] | None = None) -> None:
         self._fail_steps = set(fail_steps or [])
-        self.events: list[DomainEvent] = []
+        self._events: list[DomainEvent] = []
 
     def _fail(self, step: str) -> None:
         if step in self._fail_steps or f"events.{step}" in self._fail_steps:
@@ -40,7 +39,12 @@ class FakeEventRepository(EventRepository):
 
     def add(self, event: DomainEvent) -> None:
         self._fail("add")
-        self.events.append(event)
+        self._events.append(event)
+
+    @property
+    def stored_events(self) -> Sequence[DomainEvent]:
+        self._fail("stored_events")
+        return list(self._events)
 
 
 class FakeUnitOfWork(UnitOfWork):
@@ -57,24 +61,63 @@ class FakeUnitOfWork(UnitOfWork):
         fail_steps: Iterable[str] | None = None,
     ) -> None:
         self._fail_steps = set(fail_steps or [])
-        self.clock = clock or FakeClock(datetime.min)
-        self.identifiers = FakeIdentifierFactory()
+        self._clock = clock or FakeClock(datetime.min.replace(tzinfo=timezone.utc))
+        self._identifiers = FakeIdentifierFactory()
 
-        self.atoms = FakeAtomRepository(atom_store, fail_steps=self._fail_steps)
-        self.knowledge = FakeKnowledgeRepository(knowledge_store, fail_steps=self._fail_steps)
-        self.evidence = FakeEvidenceRepository(evidence_store, fail_steps=self._fail_steps)
-        self.revisions = FakeRevisionRepository(revision_store, fail_steps=self._fail_steps)
-        self.idempotency = FakeIdempotencyRepository(
+        self._atoms = FakeAtomRepository(atom_store, fail_steps=self._fail_steps)
+        self._knowledge = FakeKnowledgeRepository(knowledge_store, fail_steps=self._fail_steps)
+        self._evidence = FakeEvidenceRepository(evidence_store, fail_steps=self._fail_steps)
+        self._revisions = FakeRevisionRepository(revision_store, fail_steps=self._fail_steps)
+        self._idempotency = FakeIdempotencyRepository(
             idempotency_store,
             fail_steps=self._fail_steps,
         )
-        self.events = FakeEventRepository(fail_steps=self._fail_steps)
-        self.search = FakeKnowledgeSearch(search_items or [])
+        self._events = FakeEventRepository(fail_steps=self._fail_steps)
+        self._search = FakeKnowledgeSearch(search_items or [])
 
-        self._committed_events = list(self.events.events)
-        self._entered = False
+        self._committed_events: list[DomainEvent] = []
         self._committed_count = 0
         self._rollback_count = 0
+
+    @property
+    def atoms(self) -> FakeAtomRepository:
+        return self._atoms
+
+    @property
+    def knowledge(self) -> FakeKnowledgeRepository:
+        return self._knowledge
+
+    @property
+    def evidence(self) -> FakeEvidenceRepository:
+        return self._evidence
+
+    @property
+    def revisions(self) -> FakeRevisionRepository:
+        return self._revisions
+
+    @property
+    def idempotency(self) -> FakeIdempotencyRepository:
+        return self._idempotency
+
+    @property
+    def events(self) -> FakeEventRepository:
+        return self._events
+
+    @property
+    def search(self) -> FakeKnowledgeSearch:
+        return self._search
+
+    @search.setter
+    def search(self, value: FakeKnowledgeSearch) -> None:
+        self._search = value
+
+    @property
+    def clock(self) -> FakeClock:
+        return self._clock
+
+    @property
+    def identifiers(self) -> FakeIdentifierFactory:
+        return self._identifiers
 
     def _fail(self, step: str) -> None:
         if step in self._fail_steps or f"uow.{step}" in self._fail_steps:
@@ -92,10 +135,16 @@ class FakeUnitOfWork(UnitOfWork):
     def rollback_count(self) -> int:
         return self._rollback_count
 
-    def __enter__(self) -> "FakeUnitOfWork":
+    def __enter__(self) -> Self:
         self._fail("enter")
         self._entered = True
-        for repo in (self.atoms, self.knowledge, self.evidence, self.revisions, self.idempotency):
+        for repo in (
+            self.atoms,
+            self.knowledge,
+            self.evidence,
+            self.revisions,
+            self.idempotency,
+        ):
             repo.begin()
         return self
 
@@ -110,14 +159,29 @@ class FakeUnitOfWork(UnitOfWork):
 
     def commit(self) -> None:
         self._fail("commit")
-        for repo in (self.atoms, self.knowledge, self.evidence, self.revisions, self.idempotency):
+        for repo in (
+            self.atoms,
+            self.knowledge,
+            self.evidence,
+            self.revisions,
+            self.idempotency,
+        ):
             repo.commit()
-        self._committed_events = list(self.events.events)
+        self._committed_events = list(self.events.stored_events)
         self._committed_count += 1
 
     def rollback(self) -> None:
         self._fail("rollback")
-        for repo in (self.atoms, self.knowledge, self.evidence, self.revisions, self.idempotency):
+        for repo in (
+            self._atoms,
+            self._knowledge,
+            self._evidence,
+            self._revisions,
+            self._idempotency,
+        ):
             repo.rollback()
-        self.events = FakeEventRepository()
+        self._events = FakeEventRepository()
         self._rollback_count += 1
+
+
+__all__ = ["FakeEventRepository", "FakeUnitOfWork"]

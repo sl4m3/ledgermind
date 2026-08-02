@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import json
+from datetime import datetime, timezone
 
 import pytest
 
@@ -80,7 +80,7 @@ def test_knowledge_revision_validates_json_and_time() -> None:
             event_type="knowledge.created",
             snapshot_json='{"title":"A"}',
             cause_atom_id=None,
-            created_at=datetime.now(),
+            created_at=datetime(2020, 1, 1),  # noqa: DTZ001
         )
 
 

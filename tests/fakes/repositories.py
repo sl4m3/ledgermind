@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from typing import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 
 from domain import Atom, KnowledgeEvidence, KnowledgeItem, KnowledgeRevision
 from ports import (
@@ -62,11 +62,11 @@ class FakeAtomRepository(_TransactionalRepo, AtomRepository):
     ) -> Atom | None:
         self._fail("find_by_source_version")
         for atom in self._staged.get(memory_space_id, {}).values():
-            if atom.source.source_round_id == source_round_key:
-                if (
-                    atom.extraction.prompt_version == prompt_version
-                    and atom.extraction.schema_version == schema_version
-                ):
+            if (
+                atom.source.source_round_id == source_round_key
+                and atom.extraction.prompt_version == prompt_version
+                and atom.extraction.schema_version == schema_version
+            ):
                     return atom
         return None
 
@@ -123,6 +123,14 @@ class FakeEvidenceRepository(_TransactionalRepo, EvidenceRepository):
         self._fail("list_atom_ids")
         return [link.atom_id for link in self._staged if link.knowledge_id == knowledge_id]
 
+    def list_for_knowledge(
+        self,
+        memory_space_id: str,
+        knowledge_id: str,
+    ) -> list[KnowledgeEvidence]:
+        self._fail("list_for_knowledge")
+        return [link for link in self._staged if link.knowledge_id == knowledge_id]
+
 
 class FakeRevisionRepository(_TransactionalRepo, RevisionRepository):
     def __init__(self, seed: Sequence[KnowledgeRevision] | None = None, fail_steps=None):
@@ -156,3 +164,6 @@ class FakeIdempotencyRepository(_TransactionalRepo, IdempotencyRepository):
     def add(self, result: StoredIdempotencyResult) -> None:
         self._fail("add")
         self._staged[result.key] = result
+
+
+

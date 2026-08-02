@@ -62,6 +62,6 @@ def test_events_require_timezone_aware_timestamp() -> None:
     with pytest.raises(ValueError):
         events.AtomCreated(
             event_id="e6",
-            happened_at=datetime.now(),
+            happened_at=datetime(2020, 1, 1),  # noqa: DTZ001
             atom_id="atom-1",
         )

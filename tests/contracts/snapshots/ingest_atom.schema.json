@@ -173,7 +173,6 @@
         "source_system": {
           "enum": [
             "hermes",
-            "openclaw",
             "legacy_import"
           ],
           "title": "Source System",

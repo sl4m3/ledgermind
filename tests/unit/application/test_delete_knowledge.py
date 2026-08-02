@@ -16,7 +16,6 @@ from domain import KnowledgeItem, Phase
 from domain.events import KnowledgeDeleted
 from tests.fakes import FakeClock, FakeUnitOfWork
 
-
 _SPACE = "space_01"
 _NOW = datetime(2026, 8, 1, tzinfo=timezone.utc)
 
@@ -98,7 +97,7 @@ def test_delete_knowledge_marks_deleted_and_records_revision_and_event() -> None
     assert revision.event_type == KnowledgeDeleted.EVENT_NAME
     assert revision.snapshot["deleted_at"] == _NOW.isoformat()
 
-    events = uow.events.events
+    events = uow.events.stored_events
     assert len(events) == 1
     assert events[0].event_type == KnowledgeDeleted.EVENT_NAME
     assert events[0].aggregate_id == "knw_1"
@@ -120,7 +119,7 @@ def test_delete_knowledge_fails_when_knowledge_not_found() -> None:
     assert uow.commit_count == 0
     assert uow.rollback_count == 1
     assert uow.revisions.committed() == []
-    assert uow.events.events == []
+    assert uow.events.stored_events == []
 
 
 def test_delete_knowledge_fails_when_knowledge_from_another_memory_space() -> None:
@@ -179,4 +178,4 @@ def test_delete_knowledge_rolls_back_on_repository_failure(fail_step: str) -> No
     assert uow.rollback_count == 1
     assert uow.knowledge.committed() == stored
     assert uow.revisions.committed() == []
-    assert uow.events.events == []
+    assert uow.events.stored_events == []

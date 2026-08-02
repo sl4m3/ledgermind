@@ -71,7 +71,7 @@ def test_knowledge_timestamps_must_be_timezone_aware() -> None:
             rationale="r",
             phase=Phase.PATTERN,
             version=1,
-            created_at=datetime.now(),
+            created_at=datetime(2020, 1, 1),  # noqa: DTZ001
             updated_at=updated_at,
         )
 
@@ -86,7 +86,7 @@ def test_knowledge_timestamps_must_be_timezone_aware() -> None:
             phase=Phase.PATTERN,
             version=1,
             created_at=created_at,
-            updated_at=datetime.now(),
+            updated_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
         )
 
 

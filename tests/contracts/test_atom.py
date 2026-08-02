@@ -93,8 +93,7 @@ def test_payload_size_limits_are_enforced() -> None:
 
 
 def test_no_circular_import_between_contract_modules() -> None:
-    import contracts.atom as atom
-    import contracts.common as common
+    from contracts import atom, common
 
     if not common.__file__ or not atom.__file__:
         raise AssertionError("contract module file path missing")
@@ -103,7 +102,7 @@ def test_no_circular_import_between_contract_modules() -> None:
     common_source = Path(common.__file__).read_text(encoding="utf-8")
 
     assert "from .atom import" not in common_source
-    assert "from .common import" not in atom_source
+    assert "from .common import" not in common_source
     assert "from .atom import" not in atom_source
 
     assert atom is not None

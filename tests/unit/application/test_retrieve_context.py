@@ -12,7 +12,6 @@ from domain.phase import Phase
 from ports import SearchHit
 from tests.fakes import FakeClock, FakeUnitOfWork
 
-
 _NOW = datetime(2026, 8, 1, tzinfo=timezone.utc)
 _SPACE = "space_01"
 _OTHER = "space_02"

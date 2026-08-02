@@ -1,6 +1,7 @@
 """Tests for source round reference domain object."""
 
 import dataclasses
+
 import pytest
 
 from domain.source_reference import SourceReference

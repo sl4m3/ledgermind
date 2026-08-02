@@ -3,6 +3,7 @@ Name: ledgermind-core
 Version: 4.0.0a1
 Summary: Pure domain and application core for LedgerMind
 Requires-Python: >=3.10
+Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pydantic<3,>=2.7
 Provides-Extra: dev
@@ -13,3 +14,10 @@ Requires-Dist: ruff>=0.6; extra == "dev"
 Requires-Dist: mypy>=1.10; extra == "dev"
 Requires-Dist: build>=1.2; extra == "dev"
 Dynamic: license-file
+
+# ledgermind-core
+
+Чистый ядро-корпус LedgerMind 4.0: домен, приложения и порты без привязки к локальной инфраструктуре.
+
+## Нельзя добавлять в ядро
+Hermes, HTTP, SQLite, Git, файловая система, векторы, фоновые процессы, переменные окружения, Path.home().

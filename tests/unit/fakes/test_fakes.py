@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from domain import Atom, AtomContent, ExtractionInfo, SourceReference
@@ -98,32 +99,29 @@ def test_fake_uow_rollback_reverts_uncommitted_state() -> None:
 
 def test_fake_uow_failure_is_injectable() -> None:
     uow = FakeUnitOfWork(fail_steps={"knowledge.add"})
-    with pytest.raises(RuntimeError, match="fake repository step failed"):
-        with uow:
-            uow.knowledge.add(_knowledge())
+    with pytest.raises(RuntimeError, match="fake repository step failed"), uow:
+        uow.knowledge.add(_knowledge())
 
 
 def test_fake_uow_enter_failure_is_injectable() -> None:
     uow = FakeUnitOfWork(fail_steps={"uow.enter"})
-    with pytest.raises(RuntimeError, match="fake uow step failed"):
-        with uow:
-            pass
+    with pytest.raises(RuntimeError, match="fake uow step failed"), uow:
+        pass
 
 
 def test_fake_event_add_failure_is_injectable() -> None:
     uow = FakeUnitOfWork(fail_steps={"events.add"})
-    with pytest.raises(RuntimeError, match="fake repository step failed"):
-        with uow:
-            uow.events.add(
-                DomainEvent(
-                    event_id="evt_1",
-                    event_type="atom_ingested",
-                    aggregate_id="atm_1",
-                    memory_space_id="space",
-                    payload_json='{"ok": true}',
-                    occurred_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
-                )
+    with pytest.raises(RuntimeError, match="fake repository step failed"), uow:
+        uow.events.add(
+            DomainEvent(
+                event_id="evt_1",
+                event_type="atom_ingested",
+                aggregate_id="atm_1",
+                memory_space_id="space",
+                payload_json='{"ok": true}',
+                occurred_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
             )
+        )
 
 
 def test_fake_clock_is_deterministic() -> None:

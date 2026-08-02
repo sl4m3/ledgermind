@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import Mapping
 
 import pytest
 
@@ -27,7 +27,6 @@ from domain.events import AtomCreated, KnowledgeCreated
 from domain.policies import IsolatedPatternPolicy
 from ports.repository_ports import StoredIdempotencyResult
 from tests.fakes import FakeClock, FakeIdentifierFactory, FakeUnitOfWork
-
 
 _NOW = datetime(2026, 8, 1, tzinfo=timezone.utc)
 _MEMORY_SPACE_ID = "hermes:src_01K0ABCDEF:default"
@@ -118,13 +117,13 @@ def test_ingest_atom_creates_atom_knowledge_origin_revision_and_two_events() -> 
     assert len(knowledge_items) == 1
     assert len(uow.evidence.committed()) == 1
     assert len(uow.revisions.committed()) == 1
-    assert len(uow.events.events) == 2
+    assert len(uow.events.stored_events) == 2
 
     atom = atoms[result.atom_id]
     knowledge = knowledge_items[result.knowledge_id]
     evidence = uow.evidence.committed()[0]
     revision = uow.revisions.committed()[0]
-    first_event, second_event = uow.events.events
+    first_event, second_event = uow.events.stored_events
 
     assert atom.source == command.source
     assert atom.content == command.content
@@ -178,7 +177,7 @@ def test_ingest_atom_keeps_all_objects_in_one_memory_space() -> None:
     atom = uow.atoms.committed()[_MEMORY_SPACE_ID][result.atom_id]
     knowledge = uow.knowledge.committed()[_MEMORY_SPACE_ID][result.knowledge_id]
     evidence = uow.evidence.committed()[0]
-    events = uow.events.events
+    events = uow.events.stored_events
 
     assert atom.memory_space_id == _MEMORY_SPACE_ID
     assert knowledge.memory_space_id == _MEMORY_SPACE_ID
@@ -227,7 +226,7 @@ def test_ingest_atom_idempotent_repeat_returns_cached_response_without_new_recor
     assert len(uow.knowledge.committed()[_MEMORY_SPACE_ID]) == 1
     assert len(uow.evidence.committed()) == 1
     assert len(uow.revisions.committed()) == 1
-    assert len(uow.events.events) == 2
+    assert len(uow.events.stored_events) == 2
     assert uow.rollback_count == 0
 
 
@@ -273,7 +272,7 @@ def _assert_rollback_on_fail(fail_step: str) -> None:
     assert uow.evidence.committed() == []
     assert uow.revisions.committed() == []
     assert uow.idempotency.committed() == {}
-    assert uow.events.events == []
+    assert uow.events.stored_events == []
 
 
 def test_ingest_atom_atoms_add_failure_rolls_back() -> None:

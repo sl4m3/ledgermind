@@ -2,8 +2,6 @@
 
 from tests.fakes.clock import FakeClock
 from tests.fakes.identifiers import FakeIdentifierFactory
-from tests.fakes.search import FakeKnowledgeSearch
-from tests.fakes.uow import FakeEventRepository, FakeUnitOfWork
 from tests.fakes.repositories import (
     FakeAtomRepository,
     FakeEvidenceRepository,
@@ -11,16 +9,18 @@ from tests.fakes.repositories import (
     FakeKnowledgeRepository,
     FakeRevisionRepository,
 )
+from tests.fakes.search import FakeKnowledgeSearch
+from tests.fakes.uow import FakeEventRepository, FakeUnitOfWork
 
 __all__ = [
-    "FakeClock",
-    "FakeIdentifierFactory",
-    "FakeKnowledgeSearch",
-    "FakeUnitOfWork",
-    "FakeEventRepository",
     "FakeAtomRepository",
-    "FakeKnowledgeRepository",
+    "FakeClock",
+    "FakeEventRepository",
     "FakeEvidenceRepository",
-    "FakeRevisionRepository",
     "FakeIdempotencyRepository",
+    "FakeIdentifierFactory",
+    "FakeKnowledgeRepository",
+    "FakeKnowledgeSearch",
+    "FakeRevisionRepository",
+    "FakeUnitOfWork",
 ]

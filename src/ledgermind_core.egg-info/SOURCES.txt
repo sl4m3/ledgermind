@@ -4,10 +4,12 @@ pyproject.toml
 src/application/__init__.py
 src/application/delete_knowledge.py
 src/application/digests.py
+src/application/errors.py
 src/application/get_atom.py
 src/application/get_knowledge.py
 src/application/ingest_atom.py
 src/application/mappers.py
+src/application/py.typed
 src/application/ranking.py
 src/application/retrieve_context.py
 src/application/supersede_knowledge.py
@@ -15,6 +17,7 @@ src/contracts/__init__.py
 src/contracts/atom.py
 src/contracts/common.py
 src/contracts/context.py
+src/contracts/py.typed
 src/domain/__init__.py
 src/domain/atom.py
 src/domain/events.py
@@ -23,6 +26,7 @@ src/domain/identifiers.py
 src/domain/knowledge.py
 src/domain/phase.py
 src/domain/policies.py
+src/domain/py.typed
 src/domain/revision.py
 src/domain/source_reference.py
 src/ledgermind_core.egg-info/PKG-INFO
@@ -31,4 +35,5 @@ src/ledgermind_core.egg-info/dependency_links.txt
 src/ledgermind_core.egg-info/requires.txt
 src/ledgermind_core.egg-info/top_level.txt
 src/ports/__init__.py
+src/ports/py.typed
 src/ports/repository_ports.py

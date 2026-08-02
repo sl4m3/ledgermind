@@ -23,7 +23,7 @@ def test_knowledge_evidence_is_immutable_and_validates() -> None:
         knowledge_id="kn_1",
         atom_id="at_1",
         relation=EvidenceRelation.ORIGIN,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
     )
     assert evidence.relation == EvidenceRelation.ORIGIN
 
@@ -32,7 +32,7 @@ def test_knowledge_evidence_is_immutable_and_validates() -> None:
             knowledge_id="",
             atom_id="at_1",
             relation=EvidenceRelation.ORIGIN,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
         )
 
     with pytest.raises(ValueError):
@@ -40,7 +40,7 @@ def test_knowledge_evidence_is_immutable_and_validates() -> None:
             knowledge_id="kn_1",
             atom_id="at_1",
             relation=EvidenceRelation.ORIGIN,
-            created_at=datetime.now(),
+            created_at=datetime(2020, 1, 1),  # noqa: DTZ001
         )
 
 
@@ -50,7 +50,7 @@ def test_knowledge_creation_requires_origin_evidence() -> None:
             knowledge_id="kn_1",
             atom_id="at_1",
             relation=EvidenceRelation.SUPPORTS,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
         ),
     ]
 
@@ -62,8 +62,8 @@ def test_knowledge_creation_requires_origin_evidence() -> None:
             knowledge_id="kn_1",
             atom_id="at_2",
             relation=EvidenceRelation.ORIGIN,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
         )
     )
 
-    assert_has_origin_relation(evidences) is None
+    assert_has_origin_relation(evidences)

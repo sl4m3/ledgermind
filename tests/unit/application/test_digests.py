@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from application.digests import (
     calculate_atom_content_digest,
     calculate_idempotency_key,
@@ -9,8 +11,6 @@ from application.digests import (
     calculate_source_round_key,
 )
 from domain import Atom, AtomContent, ExtractionInfo, SourceReference
-from datetime import datetime, timezone
-
 
 _RAW_INGEST_PAYLOAD = {
     "api_version": "1",

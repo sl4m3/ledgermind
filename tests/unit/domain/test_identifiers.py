@@ -1,7 +1,7 @@
 """Tests for identifier value primitives."""
 
 import inspect
-from typing import Any, NewType
+from typing import NewType
 
 from domain.identifiers import (
     AtomId,
