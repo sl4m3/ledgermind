@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from ledgermind_core.domain.evidence import (
+from domain.evidence import (
     EvidenceRelation,
     KnowledgeEvidence,
     assert_has_origin_relation,

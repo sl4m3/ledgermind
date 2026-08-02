@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ledgermind_core.application.mappers import (
+from application.mappers import (
     IngestAtomCommand,
     map_context_query,
     map_ingest_atom_request,

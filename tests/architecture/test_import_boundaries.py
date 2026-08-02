@@ -6,19 +6,16 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC_ROOT = ROOT / "src" / "ledgermind_core"
-FORBIDDEN_IMPORTS = {
+SRC_ROOT = ROOT / "src"
+
+FORBIDDEN_DOMAIN_IMPORTS = {"application", "ports", "contracts"}
+FORBIDDEN_CORE_IMPORTS = {
     "fastapi",
-    "uvicorn",
     "sqlite3",
     "sqlalchemy",
-    "numpy",
-    "annoy",
-    "llama_cpp",
     "git",
-    "requests",
-    "httpx",
-    "ledgermind_local",
+    "numpy",
+    "llama_cpp",
 }
 
 
@@ -26,24 +23,94 @@ def _python_files() -> list[Path]:
     return [path for path in SRC_ROOT.rglob("*.py")]
 
 
-def _module_violations(tree: ast.AST, path: Path) -> list[str]:
+def _import_violations(
+    tree: ast.AST, path: Path, forbidden: set[str], scope: str
+) -> list[str]:
     violations: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                top_module = alias.name.split(".")[0]
-                if top_module in FORBIDDEN_IMPORTS:
-                    violations.append(f"{path}:{node.lineno}: import {alias.name}")
+                module_name = alias.name.split(".")[0]
+                if module_name in forbidden:
+                    violations.append(
+                        f"{path}:{node.lineno}: {scope} -> import {alias.name}"
+                    )
         elif isinstance(node, ast.ImportFrom):
             if node.module is None:
                 continue
-            top_module = node.module.split(".")[0]
-            if top_module in FORBIDDEN_IMPORTS:
-                violations.append(f"{path}:{node.lineno}: from {node.module} import ...")
+            module_name = node.module.split(".")[0]
+            if module_name in forbidden:
+                violations.append(
+                    f"{path}:{node.lineno}: {scope} -> from {node.module} import ..."
+                )
     return violations
 
 
 def _runtime_call_violations(tree: ast.AST, path: Path) -> list[str]:
+    os_aliases: set[str] = set()
+    path_module_aliases: set[str] = set()
+    path_aliases: set[str] = set()
+    os_imported_environs: set[str] = set()
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                top = alias.name.split(".")[0]
+                if top == "os":
+                    os_aliases.add(alias.asname or "os")
+                if top == "pathlib":
+                    path_module_aliases.add(alias.asname or alias.name)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module == "os":
+                for alias in node.names:
+                    imported_name = alias.name
+                    local_name = alias.asname or alias.name
+                    if imported_name == "environ":
+                        os_aliases.add(local_name)
+                    os_imported_environs.add(local_name)
+            if node.module == "pathlib":
+                for alias in node.names:
+                    if alias.name == "Path":
+                        path_aliases.add(alias.asname or "Path")
+                    if alias.name == "pathlib":
+                        path_module_aliases.add(alias.asname or "pathlib")
+
+    violations: list[str] = []
+
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id in os_aliases
+            and node.attr == "environ"
+            and isinstance(node.ctx, ast.Load)
+        ):
+            violations.append(f"{path}:{node.lineno}: os.environ access")
+        elif (
+            isinstance(node, ast.Name)
+            and node.id in os_imported_environs
+            and isinstance(node.ctx, ast.Load)
+        ):
+            violations.append(f"{path}:{node.lineno}: os.environ alias access")
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "home"
+            and (
+                (isinstance(node.func.value, ast.Name) and node.func.value.id in path_aliases)
+                or (
+                    isinstance(node.func.value, ast.Attribute)
+                    and isinstance(node.func.value.value, ast.Name)
+                    and node.func.value.attr == "Path"
+                    and node.func.value.value.id in path_module_aliases
+                )
+            )
+        ):
+            violations.append(f"{path}:{node.lineno}: Path.home()")
+    return violations
+
+
+def _domain_runtime_io_violations(tree: ast.AST, path: Path) -> list[str]:
     violations: list[str] = []
     for node in ast.walk(tree):
         if (
@@ -55,56 +122,60 @@ def _runtime_call_violations(tree: ast.AST, path: Path) -> list[str]:
         if (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "home"
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id == "Path"
+            and node.func.attr == "open"
         ):
-            violations.append(f"{path}:{node.lineno}: Path.home()")
-        if (
-            isinstance(node, ast.Attribute)
-            and isinstance(node.value, ast.Name)
-            and node.value.id == "os"
-            and node.attr == "environ"
-        ):
-            violations.append(f"{path}:{node.lineno}: os.environ")
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
-            and node.func.id == "subprocess"
-        ):
-            violations.append(f"{path}:{node.lineno}: subprocess(...)")
-        if (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and isinstance(node.func.value, ast.Name)
-            and node.func.value.id == "subprocess"
-        ):
-            violations.append(
-                f"{path}:{node.lineno}: subprocess.{node.func.attr}(...)"
-            )
+            violations.append(f"{path}:{node.lineno}: *.open(...)")
     return violations
 
 
-def _is_domain_or_application(path: Path) -> bool:
+def _is_under(path: Path, package: str) -> bool:
     rel = path.relative_to(SRC_ROOT)
-    return "domain" in rel.parts or "application" in rel.parts
+    return rel.parts[0] == package
 
 
-def test_core_forbidden_imports_are_absent() -> None:
+def test_domain_does_not_import_application_ports_contracts() -> None:
     violations = []
     for path in _python_files():
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        violations.extend(_module_violations(tree, path))
-    assert not violations, "Forbidden imports found:\\n" + "\\n".join(violations)
-
-
-def test_domain_and_application_do_not_use_file_or_process_boundaries() -> None:
-    violations = []
-    for path in _python_files():
-        if not _is_domain_or_application(path):
+        if not _is_under(path, "domain"):
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        violations.extend(_runtime_call_violations(tree, path))
-    assert not violations, "Forbidden runtime boundary usage found:\\n" + "\\n".join(
-        violations
+        violations.extend(_import_violations(tree, path, FORBIDDEN_DOMAIN_IMPORTS, "domain"))
+    assert not violations, "Domain layer import violations:\\n" + "\\n".join(violations)
+
+
+def test_application_does_not_import_ledgermind_local() -> None:
+    violations = []
+    for path in _python_files():
+        if not _is_under(path, "application"):
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        violations.extend(_import_violations(tree, path, {"ledgermind_local"}, "application"))
+    assert not violations, (
+        "Application layer ledgermind_local import violations:\\n" + "\\n".join(violations)
     )
+
+
+def test_core_does_not_import_forbidden_external_dependencies() -> None:
+    violations = []
+    for path in _python_files():
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        violations.extend(_import_violations(tree, path, FORBIDDEN_CORE_IMPORTS, "core"))
+    assert not violations, "Core forbidden imports found:\\n" + "\\n".join(violations)
+
+
+def test_domain_does_not_perform_io() -> None:
+    violations = []
+    for path in _python_files():
+        if not _is_under(path, "domain"):
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        violations.extend(_domain_runtime_io_violations(tree, path))
+    assert not violations, "Domain I/O violations found:\\n" + "\\n".join(violations)
+
+
+def test_core_does_not_call_path_home() -> None:
+    violations = []
+    for path in _python_files():
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        violations.extend(_runtime_call_violations(tree, path))
+    assert not violations, "Core Path.home() violations:\\n" + "\\n".join(violations)

@@ -5,14 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Iterable, Mapping, Sequence
 
-from ledgermind_core.domain import Atom, KnowledgeEvidence, KnowledgeItem, KnowledgeRevision
-from ledgermind_core.ports import (
+from domain import Atom, KnowledgeEvidence, KnowledgeItem, KnowledgeRevision
+from ports import (
     Clock,
     IdempotencyRepository,
     KnowledgeSearch,
     UnitOfWork,
 )
-from ledgermind_core.ports.repository_ports import (
+from ports.repository_ports import (
     StoredIdempotencyResult,
     DomainEvent,
     EventRepository,

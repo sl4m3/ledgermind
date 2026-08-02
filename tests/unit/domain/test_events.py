@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from ledgermind_core.domain import events
+from domain import events
 
 
 def test_events_have_stable_serialized_names() -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from ledgermind_core.ports import Clock
+from ports import Clock
 
 
 class FakeClock(Clock):

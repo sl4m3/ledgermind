@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from datetime import datetime, timezone
 
-from ledgermind_core.ports import (
+from ports import (
     Clock,
     DomainEvent,
     EventRepository,

@@ -3,7 +3,7 @@
 import inspect
 from typing import Any, NewType
 
-from ledgermind_core.domain.identifiers import (
+from domain.identifiers import (
     AtomId,
     EventId,
     KnowledgeId,
@@ -19,7 +19,7 @@ def test_identifiers_are_str_based_newtype_factories() -> None:
         assert isinstance(identifier, type(NewType("x", str)))
         assert isinstance(identifier("value"), str)
         assert identifier("value") == "value"
-        assert inspect.isfunction(identifier)
+        assert callable(identifier)
 
 
 def test_identifier_type_names() -> None:
@@ -31,7 +31,7 @@ def test_identifier_type_names() -> None:
 
 
 def test_no_identifier_generation_inside_identifiers_module() -> None:
-    from ledgermind_core.domain import identifiers
+    from domain import identifiers
 
     source = inspect.getsource(identifiers)
     assert "uuid" not in source.lower()

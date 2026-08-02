@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from ledgermind_core.domain.revision import KnowledgeRevision
+from domain.revision import KnowledgeRevision
 
 
 def _base_time():

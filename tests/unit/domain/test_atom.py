@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from ledgermind_core.domain.atom import Atom, AtomContent, ExtractionInfo
-from ledgermind_core.domain.source_reference import SourceReference
+from domain.atom import Atom, AtomContent, ExtractionInfo
+from domain.source_reference import SourceReference
 
 
 def _source() -> SourceReference:
@@ -51,6 +51,19 @@ def test_atom_requires_memory_space() -> None:
             atom_id="atm",
             memory_space_id="",
             source=_source(),
+            content=_content(),
+            extraction=_extraction(),
+            content_digest="d",
+            created_at=datetime.now(timezone.utc),
+        )
+
+
+def test_atom_requires_source_reference() -> None:
+    with pytest.raises(ValueError):
+        Atom(
+            atom_id="atm",
+            memory_space_id="space",
+            source=None,  # type: ignore[arg-type]
             content=_content(),
             extraction=_extraction(),
             content_digest="d",

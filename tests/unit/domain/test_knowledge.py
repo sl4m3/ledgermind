@@ -4,8 +4,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from ledgermind_core.domain import knowledge as knowledge_module
-from ledgermind_core.domain.phase import Phase
+from domain import knowledge as knowledge_module
+from domain.phase import Phase
 
 KnowledgeItem = knowledge_module.KnowledgeItem
 
@@ -40,6 +40,54 @@ def test_version_starts_from_one() -> None:
     )
 
     assert item.version == 1
+
+
+def test_knowledge_requires_memory_space() -> None:
+    with pytest.raises(ValueError):
+        KnowledgeItem(
+            knowledge_id="k1",
+            memory_space_id="",
+            title="t",
+            target="tt",
+            statement="s",
+            rationale="r",
+            phase=Phase.PATTERN,
+            version=1,
+            created_at=_base_times()[0],
+            updated_at=_base_times()[1],
+        )
+
+
+def test_knowledge_timestamps_must_be_timezone_aware() -> None:
+    created_at, updated_at = _base_times()
+
+    with pytest.raises(ValueError):
+        KnowledgeItem(
+            knowledge_id="k1",
+            memory_space_id="space",
+            title="t",
+            target="tt",
+            statement="s",
+            rationale="r",
+            phase=Phase.PATTERN,
+            version=1,
+            created_at=datetime.now(),
+            updated_at=updated_at,
+        )
+
+    with pytest.raises(ValueError):
+        KnowledgeItem(
+            knowledge_id="k1",
+            memory_space_id="space",
+            title="t",
+            target="tt",
+            statement="s",
+            rationale="r",
+            phase=Phase.PATTERN,
+            version=1,
+            created_at=created_at,
+            updated_at=datetime.now(),
+        )
 
 
 def test_is_current_structural() -> None:

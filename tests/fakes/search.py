@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from ledgermind_core.domain import KnowledgeItem
-from ledgermind_core.ports import KnowledgeSearch, SearchHit
+from domain import KnowledgeItem
+from ports import KnowledgeSearch, SearchHit
 
 
 class FakeKnowledgeSearch(KnowledgeSearch):

@@ -5,8 +5,8 @@ from __future__ import annotations
 import copy
 from typing import Iterable, Mapping, Sequence
 
-from ledgermind_core.domain import Atom, KnowledgeEvidence, KnowledgeItem, KnowledgeRevision
-from ledgermind_core.ports import (
+from domain import Atom, KnowledgeEvidence, KnowledgeItem, KnowledgeRevision
+from ports import (
     AtomRepository,
     EvidenceRepository,
     IdempotencyRepository,

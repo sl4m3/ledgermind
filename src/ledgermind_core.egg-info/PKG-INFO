@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: ledgermind-core
+Version: 4.0.0a1
+Summary: Pure domain and application core for LedgerMind
+Requires-Python: >=3.10
+License-File: LICENSE
+Requires-Dist: pydantic<3,>=2.7
+Provides-Extra: dev
+Requires-Dist: pytest<9,>=8; extra == "dev"
+Requires-Dist: pytest-cov<7,>=5; extra == "dev"
+Requires-Dist: hypothesis<7,>=6; extra == "dev"
+Requires-Dist: ruff>=0.6; extra == "dev"
+Requires-Dist: mypy>=1.10; extra == "dev"
+Requires-Dist: build>=1.2; extra == "dev"
+Dynamic: license-file

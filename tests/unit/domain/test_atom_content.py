@@ -2,7 +2,7 @@
 
 import pytest
 
-from ledgermind_core.domain.atom import AtomContent, ExtractionInfo
+from domain.atom import AtomContent, ExtractionInfo
 
 
 def test_atom_content_validates_required_strings() -> None:

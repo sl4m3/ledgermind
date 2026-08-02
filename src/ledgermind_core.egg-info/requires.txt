@@ -1,0 +1,9 @@
+pydantic<3,>=2.7
+
+[dev]
+pytest<9,>=8
+pytest-cov<7,>=5
+hypothesis<7,>=6
+ruff>=0.6
+mypy>=1.10
+build>=1.2

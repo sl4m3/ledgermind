@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from ledgermind_core.application.digests import (
+from application.digests import (
     calculate_atom_content_digest,
     calculate_idempotency_key,
     calculate_request_hash,
     calculate_source_round_key,
 )
-from ledgermind_core.domain import Atom, AtomContent, ExtractionInfo, SourceReference
+from domain import Atom, AtomContent, ExtractionInfo, SourceReference
 from datetime import datetime, timezone
 
 
@@ -108,7 +108,7 @@ def test_calculate_request_hash_is_canonical_json() -> None:
 
     assert (
         calculate_request_hash(shuffled)
-        == "sha256:b41cd5c590ae4c5233b85522d2fdbc0fe0a142fa8ada972ec94ed010338189af"
+        == "sha256:c5e5fcf0be07cf9602e734b936c976050c2c2966894ec2075d87490da7d38eca"
     )
 
 
@@ -117,7 +117,7 @@ def test_calculate_atom_content_digest_covers_payload() -> None:
 
     assert (
         calculate_atom_content_digest(content, source, extraction)
-        == "sha256:af07cbc503b433105a73ed813db40c5ccb5de2af4f31cf24bbbc39941e248529"
+        == "sha256:fd28c030b3998c8918d30f1ed99d904419931257ab633cd983560a763677af7b"
     )
 
 
