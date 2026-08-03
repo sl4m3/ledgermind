@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = ROOT / "src"
+PACKAGE_ROOT = SRC_ROOT / "ledgermind_core"
 
 FORBIDDEN_DOMAIN_IMPORTS = {"application", "ports", "contracts"}
 FORBIDDEN_CORE_IMPORTS = {
@@ -20,7 +21,7 @@ FORBIDDEN_CORE_IMPORTS = {
 
 
 def _python_files() -> list[Path]:
-    return [path for path in SRC_ROOT.rglob("*.py")]
+    return [path for path in PACKAGE_ROOT.rglob("*.py")]
 
 
 def _import_violations(
@@ -129,8 +130,8 @@ def _domain_runtime_io_violations(tree: ast.AST, path: Path) -> list[str]:
 
 
 def _is_under(path: Path, package: str) -> bool:
-    rel = path.relative_to(SRC_ROOT)
-    return rel.parts[0] == package
+    rel = path.relative_to(PACKAGE_ROOT)
+    return bool(rel.parts) and rel.parts[0] == package
 
 
 def test_domain_does_not_import_application_ports_contracts() -> None:
@@ -141,6 +142,12 @@ def test_domain_does_not_import_application_ports_contracts() -> None:
         tree = ast.parse(path.read_text(encoding="utf-8"))
         violations.extend(_import_violations(tree, path, FORBIDDEN_DOMAIN_IMPORTS, "domain"))
     assert not violations, "Domain layer import violations:\\n" + "\\n".join(violations)
+
+
+def test_architecture_layer_discovery_is_not_empty() -> None:
+    for package in ("domain", "application", "contracts", "ports"):
+        matches = [path for path in _python_files() if _is_under(path, package)]
+        assert matches, f"architecture layer discovery returned no files for {package}"
 
 
 def test_application_does_not_import_ledgermind_local() -> None:
