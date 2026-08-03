@@ -13,13 +13,6 @@ from .context import (
     RetrieveContextRequest,
     RetrieveContextResult,
 )
-from .raw_round import (
-    RawContentPart,
-    RawRoundBody,
-    RawRoundEvent,
-    RawRoundRequest,
-    RawRoundSource,
-)
 
 __all__ = [
     "SHA256_CHECKSUM_PATTERN",
@@ -29,11 +22,6 @@ __all__ = [
     "ExtractionInfo",
     "IngestAtomRequest",
     "IngestAtomResult",
-    "RawContentPart",
-    "RawRoundBody",
-    "RawRoundEvent",
-    "RawRoundRequest",
-    "RawRoundSource",
     "RetrieveContextRequest",
     "RetrieveContextResult",
     "SourceReference",
