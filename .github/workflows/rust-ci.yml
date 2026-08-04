@@ -1,0 +1,35 @@
+name: Rust CI
+
+on:
+  push:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/**"
+      - "deny.toml"
+      - "rust-toolchain.toml"
+      - ".github/workflows/rust-ci.yml"
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "crates/**"
+      - "deny.toml"
+      - "rust-toolchain.toml"
+      - ".github/workflows/rust-ci.yml"
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check

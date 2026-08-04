@@ -8,8 +8,8 @@ current service and is not automatically migrated.
 
 ## Decision
 
-The current Python package is a transition reference. The target `ledgermind-core`
-is a closed Rust process with a narrow IPC boundary.
+The current `ledgermind-core` is a closed Rust process with a narrow IPC boundary.
+The historical Python package is not part of the runtime or package delivery.
 
 The closed Core owns SQLite `knowledge.db` inside its private data directory and
 applies its own migrations. SQL is limited to the Rust storage crate; domain and

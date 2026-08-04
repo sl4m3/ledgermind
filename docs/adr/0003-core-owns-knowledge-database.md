@@ -18,4 +18,4 @@ Local хранит свои данные в отдельной `rounds.db`.
 - KnowledgeItem, ревизии, evidence, фазы, идемпотентность Core и внутренние ModelTask принадлежат Core.
 - Local получает знания только через Core IPC и безопасные projection events.
 - Права каталога Core и файла базы устанавливаются как `0700` и `0600` соответственно.
-- Переходный Python backend может использовать отдельную временную knowledge.db, но не общую persistence Local.
+- Никакой Python backend или migration fallback не входит в текущую поставку.

@@ -171,10 +171,8 @@
           "type": "string"
         },
         "source_system": {
-          "enum": [
-            "hermes",
-            "legacy_import"
-          ],
+          "maxLength": 200,
+          "minLength": 1,
           "title": "Source System",
           "type": "string"
         }
