@@ -246,6 +246,46 @@ The runtime starts on demand when an enabled agent needs memory and shuts down
 after its leases expire. A normal uninstall preserves memory, configuration,
 and secrets; permanent deletion requires explicit purge flags.
 
+### 6. Remove LedgerMind
+
+Stop active Hermes, OpenClaw, and other connected agent sessions before
+removing their adapters. To preview the operation without changing anything:
+
+```bash
+ledgermind uninstall --dry-run --json
+```
+
+The normal uninstall stops the runtime, removes the installed release and
+agent adapters, and removes the `ledgermind` command link. It preserves the
+local memory database, configuration, provider secret references, models, and
+other user data so the platform can be reinstalled later:
+
+```bash
+ledgermind uninstall --json
+```
+
+To disconnect only one agent while keeping LedgerMind installed, use its
+integration command instead:
+
+```bash
+ledgermind integrations disconnect hermes --json
+ledgermind integrations disconnect openclaw --json
+```
+
+Permanent removal is separate and explicit. Create a backup first if the data
+may be needed again. `--purge-data` removes the memory database, model files,
+integration data, and any configured custom memory path. `--purge-config`
+removes the installer configuration, stored provider secret references, and
+Local runtime data. Each purge flag can be used independently; using both
+removes all LedgerMind-managed local data:
+
+```bash
+ledgermind uninstall --purge-data --purge-config --yes --json
+```
+
+The `--yes` flag is mandatory with either purge flag because this deletion is
+not recoverable through LedgerMind.
+
 <details>
 <summary><strong>What was installed on my machine?</strong></summary>
 
