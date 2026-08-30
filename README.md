@@ -4,12 +4,34 @@
 
 <h1 align="center">LedgerMind</h1>
 
+<p align="center">
+  <strong>Your agent solved it once. It should not have to solve it from scratch again.</strong>
+</p>
+
+<p align="center">
+  <img alt="Status: 4.0 alpha" src="https://img.shields.io/badge/status-4.0_alpha-f59e0b">
+  <img alt="Local first" src="https://img.shields.io/badge/memory-local--first-16a34a">
+  <img alt="Six agent integrations" src="https://img.shields.io/badge/integrations-6-2563eb">
+  <img alt="Core network access: none" src="https://img.shields.io/badge/Core_network_access-none-111827">
+</p>
+
+<p align="center">
+  <a href="#installation">Get started</a> ·
+  <a href="#same-outcomes-much-less-context">See the results</a> ·
+  <a href="#your-knowledge-stays-local-by-design">Security</a> ·
+  <a href="BENCHMARK.md">Benchmark</a> ·
+  <a href="mailto:s.zotov@ledgermind.org">Talk to us</a>
+</p>
+
 ## Agents should not have to relearn the same work
 
-LedgerMind turns completed agent workflows into compact, reusable knowledge.
-When a similar task appears later, the agent gets the relevant procedure,
-constraints, and current decisions without replaying the entire history that
-produced them.
+Your agent investigates a problem, tries an approach, fixes a mistake, and
+eventually gets the job done. The next time a similar task appears, replaying
+that entire journey is expensive and unnecessary.
+
+LedgerMind turns completed workflows into compact, reusable knowledge. The
+next agent receives the relevant procedure, constraints, and current decisions
+without dragging the whole transcript back into its context window.
 
 It is memory built for the next action—not a transcript archive and not a pile
 of extracted notes.
@@ -23,6 +45,216 @@ knowledge layer.
 
 > **Status:** LedgerMind 4.0 is under active development. The current Local
 > package is an alpha release (`4.0.0a1`).
+
+### The 30-second version
+
+| 1. The agent works | 2. LedgerMind learns | 3. The next task starts ahead |
+|---|---|---|
+| The workflow includes useful steps, investigation, corrections, and noise. | LedgerMind keeps reusable procedures, constraints, and current decisions. | The agent receives a focused memory instead of replaying the old transcript. |
+
+**Same result, less repeated investigation, less context.** That is the whole
+product promise—and the benchmark measures it at the next task, not by grading
+how impressive the stored notes sound.
+
+### Pick the path that sounds like you
+
+| You are… | Start here |
+|---|---|
+| Using an agent and tired of repeating yourself | [Follow the 4.0 release](https://github.com/sl4m3/ledgermind/releases), then use the interactive installer |
+| Building an agent, IDE, or local assistant | Explore [Integrations](https://github.com/sl4m3/ledgermind-integrations) and the [Local runtime](https://github.com/sl4m3/ledgermind-local) |
+| Running an AI platform or enterprise deployment | [Contact LedgerMind](mailto:s.zotov@ledgermind.org) for evaluation, deployment, and licensing |
+| Comparing memory systems | Jump to the [benchmark results](#same-outcomes-much-less-context) and [full methodology](BENCHMARK.md) |
+
+## Where LedgerMind is available
+
+LedgerMind is a self-hosted local product. It is not a hosted memory API and
+does not require a LedgerMind cloud account. You install it next to your agent,
+choose the models, and keep control of the memory database.
+
+| What is available | Where |
+|---|---|
+| Product page, documentation, benchmark, and release announcements | [github.com/sl4m3/ledgermind](https://github.com/sl4m3/ledgermind) |
+| Public agent adapters and protocol contracts | [github.com/sl4m3/ledgermind-integrations](https://github.com/sl4m3/ledgermind-integrations) |
+| Inspectable local runtime and installer source | [github.com/sl4m3/ledgermind-local](https://github.com/sl4m3/ledgermind-local) |
+| Signed self-hosted packages, when published | [GitHub Releases](https://github.com/sl4m3/ledgermind/releases) |
+| Alpha evaluation and enterprise deployment | [s.zotov@ledgermind.org](mailto:s.zotov@ledgermind.org) |
+
+The architecture described here belongs to LedgerMind 4.0. A public signed
+4.0 binary bundle has not been published yet. Existing 3.x release tags are
+legacy releases and should not be used as installation packages for this
+README. Until the first 4.0 release appears, follow Releases for availability
+or contact LedgerMind for an evaluation build.
+
+The current 4.0 build targets **Linux x86_64** and **Linux aarch64**.
+
+| Agent | Integration | Activation note |
+|---|---:|---|
+| Hermes | Available | Plugin activates after connection |
+| Codex (CLI) | Available | Review and trust the hooks with `/hooks` |
+| Claude Code СLI | Available | Restart an already running session |
+| Cursor | Available | Restart an already running session |
+| OpenCode | Available | Restart an already running session |
+| OpenClaw | Available | Restart an already running session |
+
+## Installation
+
+LedgerMind installs without root access into the current user's XDG
+directories. Docker is not required. The installer verifies the signed
+manifest, platform bundle, Core binary, and bundled model/runtime artifacts
+before switching the active version.
+
+> **Public-install status:** the commands below are the completed LedgerMind
+> 4.0 installer interface, but the public download becomes usable only after a
+> signed 4.0 package is published in GitHub Releases.
+
+### Choose your setup
+
+| Setup | Best for | What you do |
+|---|---|---|
+| Interactive | Individual users and first installations | Run one command and answer the wizard |
+| Agent-assisted | Coding agents and automated setup | Let the agent collect choices, write a private config, and run one command |
+| Managed | Teams and enterprise environments | Use the same non-interactive installer with controlled profiles and secrets |
+
+### 1. Prepare the deployment choices
+
+Before installation, decide:
+
+1. which supported agent or agents should use the memory;
+2. the language in which LedgerMind should form semantic knowledge;
+3. the OpenAI-compatible generation endpoint and model;
+4. whether embeddings come from an OpenAI-compatible API or a signed local
+   CPU/GPU catalog model;
+5. how provider credentials will be supplied.
+
+Supported semantic languages are English, Russian, Spanish, Portuguese,
+French, German, and Ukrainian. Provider credentials belong to Local and are
+never passed to Core. For automated installs, prefer `token_env`,
+`token_stdin`, or an existing `secret_ref`; do not place a plaintext token in
+the configuration file.
+
+### 2. Run the interactive installer
+
+For a normal user installation, this is the whole starting point:
+
+```bash
+curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh | sh
+```
+
+Then the installer:
+
+1. detects the Linux platform and installed agents;
+2. asks which agents should receive memory;
+3. asks for generation and embedding settings;
+4. downloads and verifies the signed platform bundle;
+5. installs LedgerMind without root access;
+6. connects the selected agents;
+7. runs installation checks and reports anything still requiring attention.
+
+### 3. Or let an agent install it non-interactively
+
+An agent or deployment system should first collect the same choices from the
+user. It then generates a private configuration file and performs one
+non-interactive installation.
+
+<details>
+<summary><strong>Show a complete API-based configuration example</strong></summary>
+
+<br>
+
+```json
+{
+  "schema_version": 2,
+  "semantic_language": "en",
+  "integrations": [
+    {"id": "codex", "enabled": true},
+    {"id": "claude-code", "enabled": true}
+  ],
+  "generation": {
+    "endpoint": "https://provider.example/v1",
+    "model": "provider/model-name",
+    "object_resolution_model": "provider/model-name",
+    "token_env": "LEDGERMIND_GENERATION_TOKEN"
+  },
+  "embedding": {
+    "mode": "api",
+    "api": {
+      "endpoint": "https://provider.example/v1",
+      "model": "provider/embedding-model",
+      "dimensions": 1024,
+      "token_env": "LEDGERMIND_EMBEDDING_TOKEN"
+    }
+  }
+}
+```
+
+</details>
+
+Use the real model's documented embedding dimensions. Store the file with
+owner-only permissions and run:
+
+```bash
+chmod 600 /secure/ledgermind-install.json
+curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh \
+  | sh -s -- install --non-interactive \
+      --config /secure/ledgermind-install.json --json
+```
+
+The JSON result reports every completed step, warning, error, installed path,
+provider profile, integration, and runtime state. The installer does not
+silently choose a provider, model, route, or fallback.
+
+> **For agents:** ask the user for missing deployment choices. Do not invent a
+> provider, model, endpoint, embedding dimension, route, or secret source.
+
+### 4. Connect additional agents
+
+One LedgerMind installation can serve several local agents. Integrations not
+selected during installation can be added independently:
+
+```bash
+ledgermind integrations discover --json
+ledgermind integrations connect hermes --json
+ledgermind integrations connect codex --json
+ledgermind integrations connect claude-code --json
+ledgermind integrations connect cursor --json
+ledgermind integrations connect opencode --json
+ledgermind integrations connect openclaw --json
+```
+
+Only run the `connect` commands for agents installed on the machine. Restart
+an already running agent after connecting it. Codex CLI additionally requires
+the user to open `/hooks` and explicitly trust the newly installed LedgerMind
+hooks; LedgerMind reports the integration as awaiting activation until that
+step is complete.
+
+### 5. Verify the installation
+
+```bash
+ledgermind doctor --json
+ledgermind integrations status --json
+ledgermind runtime status --json
+```
+
+The states have different meanings:
+
+- `installed` — the LedgerMind platform exists on the machine;
+- `connected` — the adapter is registered in the agent configuration;
+- `enabled` — the adapter will attach to future agent sessions;
+- `active` — the integration is enabled and has no remaining activation step.
+
+The runtime starts on demand when an enabled agent needs memory and shuts down
+after its leases expire. A normal uninstall preserves memory, configuration,
+and secrets; permanent deletion requires explicit purge flags.
+
+<details>
+<summary><strong>What was installed on my machine?</strong></summary>
+
+LedgerMind follows the XDG directory layout. The active release, Local runtime,
+signed Core binary, configuration, logs, and data remain under the current
+user's directories. Run `ledgermind status --json` to see the exact resolved
+paths on a particular machine.
+
+</details>
 
 ## Your knowledge stays local by design
 
@@ -240,7 +472,7 @@ license. The license file shipped with each release is authoritative.
 | Capability | Current support |
 |---|---|
 | Operating systems | Linux x86_64 and Linux aarch64 |
-| Agent integration | Hermes |
+| Agent integrations | Hermes, Codex CLI, Claude Code, Cursor, OpenCode, and OpenClaw |
 | Generation | Operator-selected OpenAI-compatible API |
 | Embeddings | Operator-selected OpenAI-compatible API or a signed local CPU/GPU model catalog entry |
 | Installation | Rootless, XDG directory layout, signed release artifacts |
@@ -270,34 +502,6 @@ task is completed correctly with less repeated investigation and less context.
   service, provider boundary, runtime supervision, and installer.
 - **`ledgermind-core`** — the private knowledge engine, distributed as a signed
   binary with authorized releases.
-
-## Installation
-
-The public release bundle and rootless installer are being prepared. The
-planned release interface is:
-
-```bash
-curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh | sh
-ledgermind doctor --json
-ledgermind runtime status --json
-```
-
-Until the first release is published, treat these commands as the intended
-interface rather than an available installation channel. Development setup is
-maintained in the component repositories.
-
-## Choose your path
-
-- **Using an agent yourself?** Follow
-  [LedgerMind releases](https://github.com/sl4m3/ledgermind/releases) for the
-  self-hosted local package.
-- **Building an agent or platform?** Start with the public
-  [Integrations](https://github.com/sl4m3/ledgermind-integrations) and
-  [Local runtime](https://github.com/sl4m3/ledgermind-local), or
-  [contact us](mailto:s.zotov@ledgermind.org) to discuss an integration.
-- **Evaluating LedgerMind for an organization?** Contact
-  [s.zotov@ledgermind.org](mailto:s.zotov@ledgermind.org) about deployment,
-  licensing, and enterprise requirements.
 
 ## License
 
