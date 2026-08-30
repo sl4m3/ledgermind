@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 529.16664 529.16664" role="img" aria-labelledby="title description">
+  <title id="title">LedgerMind</title>
+  <desc id="description">LedgerMind LM monogram</desc>
+  <defs>
+    <linearGradient id="gradient" x1="132.29165" y1="264.58331" x2="396.87499" y2="264.58331" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2563ed"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#gradient)" d="m132.29165 132.29165v264.58333l185.20832-.00001v-39.6875l-132.29165.00001V174.62499Zm79.37499 63.5v66.14583l52.91667 42.33333l79.375-63.49999v156.10416h52.91667v-264.58333l-52.91667 42.33333l-79.375 63.5Z"/>
+</svg>
