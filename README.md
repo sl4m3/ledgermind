@@ -156,6 +156,21 @@ An agent or deployment system should first collect the same choices from the
 user. It then generates a private configuration file and performs one
 non-interactive installation.
 
+#### Choose a generation model
+
+LedgerMind relies on the generation model for semantic extraction, Object
+Resolution, and Knowledge Resolution. For reliable production behavior, use a
+model with **120B parameters or more** and an endpoint that supports **strict
+JSON Schema structured outputs**. Plain JSON mode, prompt-only JSON, and
+provider-side best-effort formatting are not equivalent and are not sufficient.
+
+All full provider-backed benchmark and integration results published with the
+current implementation were produced with
+`deepseek/deepseek-v4-flash-0731`. This is the tested reference model, not a
+hard-coded dependency: another model may be used when it meets the same size
+and strict structured-output requirements. The installer probes strict JSON
+Schema support before completing the installation.
+
 <details>
 <summary><strong>Show a complete API-based configuration example</strong></summary>
 
@@ -165,14 +180,15 @@ non-interactive installation.
 {
   "schema_version": 2,
   "semantic_language": "en",
+  "memory_mode": "shared",
   "integrations": [
     {"id": "codex", "enabled": true},
     {"id": "claude-code", "enabled": true}
   ],
   "generation": {
     "endpoint": "https://provider.example/v1",
-    "model": "provider/model-name",
-    "object_resolution_model": "provider/model-name",
+    "model": "deepseek/deepseek-v4-flash-0731",
+    "object_resolution_model": "deepseek/deepseek-v4-flash-0731",
     "token_env": "LEDGERMIND_GENERATION_TOKEN"
   },
   "embedding": {
@@ -186,6 +202,11 @@ non-interactive installation.
   }
 }
 ```
+
+Choose `"memory_mode": "shared"` when all connected agents should read and
+write the same knowledge. Choose `"per_agent"` when every agent should have an
+independent logical memory. Both modes use one local LedgerMind runtime; the
+setting only controls the `memory_space_id` injected into each integration.
 
 </details>
 
