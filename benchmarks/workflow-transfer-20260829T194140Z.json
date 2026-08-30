@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "artifact_kind": "sanitized_workflow_transfer_summary",
+  "run_id": "workflow-transfer-20260829T194140Z",
+  "created_at": "2026-08-29T20:07:50Z",
+  "development_result": true,
+  "scenario": {
+    "manifest_digest": "sha256:ad87ded5fb8bb672c4041a6ed87f3228e585b88e92b28651c9d16d5038ffae0f",
+    "workflow_families": 4,
+    "sequential_transfers_per_family": 3,
+    "arms": [
+      "raw_history",
+      "mem0_oss",
+      "ledgermind"
+    ],
+    "trajectory_count": 36,
+    "semantic_oracle": false
+  },
+  "identities": {
+    "agent_and_generation_model": "deepseek/deepseek-v4-flash-0731",
+    "provider": "openrouter",
+    "route": "baidu/fp8",
+    "embedding_model": "nvidia/nemotron-3-embed-1b-local-bf16",
+    "embedding_dimensions": 2048,
+    "mem0_version": "2.0.18"
+  },
+  "results": {
+    "ledgermind": {
+      "successful_workflows": 12,
+      "total_workflows": 12,
+      "safety_violations": 0,
+      "agent_actions": 76,
+      "agent_input_tokens": 89710,
+      "agent_output_tokens": 6862,
+      "agent_execution_tokens": 96572,
+      "memory_injection_tokens": 5945,
+      "returned_context_tokens": 1289,
+      "initial_memory_formation_tokens": 28446,
+      "online_memory_update_tokens": 173229,
+      "authoritative_final_changes_retained": 4,
+      "authoritative_final_changes_checked": 4
+    },
+    "mem0_oss": {
+      "successful_workflows": 12,
+      "total_workflows": 12,
+      "safety_violations": 0,
+      "agent_actions": 76,
+      "agent_input_tokens": 97780,
+      "agent_output_tokens": 6954,
+      "agent_execution_tokens": 104734,
+      "memory_injection_tokens": 15690,
+      "returned_context_tokens": 2701,
+      "initial_memory_formation_tokens": 56313,
+      "online_memory_update_tokens": 138701,
+      "authoritative_final_changes_retained": 1,
+      "authoritative_final_changes_checked": 4
+    },
+    "raw_history": {
+      "successful_workflows": 12,
+      "total_workflows": 12,
+      "safety_violations": 0,
+      "agent_actions": 76,
+      "agent_input_tokens": 166195,
+      "agent_output_tokens": 7015,
+      "agent_execution_tokens": 173210,
+      "memory_injection_tokens": 82265,
+      "returned_context_tokens": 14957,
+      "initial_memory_formation_tokens": null,
+      "online_memory_update_tokens": null,
+      "authoritative_final_changes_retained": null,
+      "authoritative_final_changes_checked": null
+    }
+  },
+  "paired_agent_execution_savings": {
+    "ledgermind_vs_raw_history": {
+      "tokens": 76638,
+      "percent": 44.2
+    },
+    "ledgermind_vs_mem0_oss": {
+      "tokens": 8162,
+      "percent": 7.8
+    }
+  },
+  "manual_knowledge_audit": {
+    "part_of_success_gate": false,
+    "deterministic_semantic_oracle": false,
+    "families": {
+      "production_rollout": {
+        "final_change": "Immutable snapshot replaces legacy backup; CAB remains mandatory",
+        "ledgermind": "retained",
+        "mem0_oss": "missing"
+      },
+      "incident_recovery": {
+        "final_change": "Forensic snapshot is mandatory before failover",
+        "ledgermind": "retained",
+        "mem0_oss": "missing"
+      },
+      "secure_offboarding": {
+        "final_change": "Legal hold replaces wiping with archival",
+        "ledgermind": "retained",
+        "mem0_oss": "retained"
+      },
+      "business_data_processing": {
+        "final_change": "Preserve legacy_id; destructive deduplication is prohibited",
+        "ledgermind": "retained",
+        "mem0_oss": "missing"
+      }
+    }
+  },
+  "limitations": [
+    "Single development run; no statistical stability claim.",
+    "Synthetic deterministic workflow simulator.",
+    "Development worktrees contained uncommitted changes.",
+    "The provider returned 50 transient HTTP 429 responses; all scored workflows completed.",
+    "One post-task LedgerMind embedding queue error was fixed and verified with a targeted recovery, but a complete comparison rerun on the patched release binary remains required.",
+    "The final-change knowledge audit was manual and is not part of the deterministic task-success gate."
+  ]
+}
