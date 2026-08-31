@@ -44,7 +44,7 @@ knowledge layer.
 [See the benchmark](BENCHMARK.md) · [Follow releases](https://github.com/sl4m3/ledgermind/releases) · [Contact LedgerMind](mailto:s.zotov@ledgermind.org)
 
 > **Status:** LedgerMind 4.0 is under active development. The current Local
-> package is a beta release (`4.0.0b2`) for supported Linux hosts.
+> package is a beta release (`4.0.0b3`) for supported Linux hosts.
 
 ### The 30-second version
 
@@ -102,7 +102,7 @@ manifest, platform bundle, Core binary, and bundled model/runtime artifacts
 before switching the active version.
 
 > **Public-install status:** the signed LedgerMind 4.0 beta is available from
-> GitHub Releases. The `latest` installation URL below resolves to `4.0.0b2`.
+> GitHub Releases. The `latest` installation URL below resolves to `4.0.0b3`.
 
 ### Choose your setup
 
