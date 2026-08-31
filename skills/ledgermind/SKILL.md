@@ -42,8 +42,8 @@ LedgerMind runtime and it is not an MCP server.
 
 ## Before offering installation
 
-Explain that the current project is LedgerMind 4.0 alpha. The public signed
-4.0 package is not guaranteed to be available yet; check the
+Explain that the current project is LedgerMind 4.0 beta. Check the current
+signed package on the
 [GitHub Releases](https://github.com/sl4m3/ledgermind/releases) page before
 running an installer. The current supported platforms are Linux x86_64 and
 Linux aarch64.
