@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Status: 4.0 alpha" src="https://img.shields.io/badge/status-4.0_alpha-f59e0b">
+  <img alt="Status: 4.0 beta" src="https://img.shields.io/badge/status-4.0_beta-2563eb">
   <img alt="Local first" src="https://img.shields.io/badge/memory-local--first-16a34a">
   <img alt="Six agent integrations" src="https://img.shields.io/badge/integrations-6-2563eb">
   <img alt="Core network access: none" src="https://img.shields.io/badge/Core_network_access-none-111827">
@@ -44,7 +44,7 @@ knowledge layer.
 [See the benchmark](BENCHMARK.md) · [Follow releases](https://github.com/sl4m3/ledgermind/releases) · [Contact LedgerMind](mailto:s.zotov@ledgermind.org)
 
 > **Status:** LedgerMind 4.0 is under active development. The current Local
-> package is an alpha release (`4.0.0a1`).
+> package is a beta release (`4.0.0b1`) for supported Linux hosts.
 
 ### The 30-second version
 
@@ -60,7 +60,7 @@ how impressive the stored notes sound.
 
 | You are… | Start here |
 |---|---|
-| Using an agent and tired of repeating yourself | [Follow the 4.0 release](https://github.com/sl4m3/ledgermind/releases), then use the interactive installer |
+| Using an agent and tired of repeating yourself | [Install the 4.0 beta](https://github.com/sl4m3/ledgermind/releases), then connect your agent |
 | Building an agent, IDE, or local assistant | Explore [Integrations](https://github.com/sl4m3/ledgermind-integrations) and the [Local runtime](https://github.com/sl4m3/ledgermind-local) |
 | Running an AI platform or enterprise deployment | [Contact LedgerMind](mailto:s.zotov@ledgermind.org) for evaluation, deployment, and licensing |
 | Comparing memory systems | Jump to the [benchmark results](#same-outcomes-much-less-context) and [full methodology](BENCHMARK.md) |
@@ -77,13 +77,11 @@ choose the models, and keep control of the memory database.
 | Public agent adapters and protocol contracts | [github.com/sl4m3/ledgermind-integrations](https://github.com/sl4m3/ledgermind-integrations) |
 | Inspectable local runtime and installer source | [github.com/sl4m3/ledgermind-local](https://github.com/sl4m3/ledgermind-local) |
 | Signed self-hosted packages, when published | [GitHub Releases](https://github.com/sl4m3/ledgermind/releases) |
-| Alpha evaluation and enterprise deployment | [s.zotov@ledgermind.org](mailto:s.zotov@ledgermind.org) |
+| Beta evaluation and enterprise deployment | [s.zotov@ledgermind.org](mailto:s.zotov@ledgermind.org) |
 
-The architecture described here belongs to LedgerMind 4.0. A public signed
-4.0 binary bundle has not been published yet. Existing 3.x release tags are
-legacy releases and should not be used as installation packages for this
-README. Until the first 4.0 release appears, follow Releases for availability
-or contact LedgerMind for an evaluation build.
+The architecture described here belongs to LedgerMind 4.0. Signed beta bundles
+are published through GitHub Releases. Existing 3.x release tags are legacy
+releases and should not be used as installation packages for this README.
 
 The current 4.0 build targets **Linux x86_64** and **Linux aarch64**.
 
@@ -92,7 +90,7 @@ The current 4.0 build targets **Linux x86_64** and **Linux aarch64**.
 | Hermes | Available | Plugin activates after connection |
 | Codex (CLI) | Available | Review and trust the hooks with `/hooks` |
 | Claude Code СLI | Available | Restart an already running session |
-| Cursor | Available | Restart an already running session |
+| Cursor | Experimental | Deferred from the current Linux acceptance matrix |
 | OpenCode | Available | Restart an already running session |
 | OpenClaw | Available | Restart an already running session |
 
