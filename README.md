@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Stable release: 4.0.1" src="https://img.shields.io/badge/stable-4.0.1-2563eb">
+  <img alt="Stable release: 4.0.2" src="https://img.shields.io/badge/stable-4.0.2-2563eb">
   <img alt="Local first" src="https://img.shields.io/badge/memory-local--first-16a34a">
   <img alt="Five stable agent adapters" src="https://img.shields.io/badge/adapters-5_stable-2563eb">
   <img alt="Core network access: none" src="https://img.shields.io/badge/Core_network_access-none-111827">
@@ -43,7 +43,7 @@ knowledge layer.
 
 [See the benchmark](BENCHMARK.md) · [Follow releases](https://github.com/sl4m3/ledgermind/releases) · [Contact LedgerMind](mailto:s.zotov@ledgermind.org)
 
-> **Current stable release:** `4.0.1` for supported Linux hosts.
+> **Current stable release:** `4.0.2` for supported Linux hosts.
 
 ### The 30-second version
 
@@ -57,7 +57,7 @@ how impressive the stored notes sound.
 
 ### Install in one command
 
-LedgerMind 4.0.1 is available for Linux x86_64. The interactive installer
+LedgerMind 4.0.2 is available for Linux x86_64. The interactive installer
 detects supported agents, collects the model configuration, verifies the signed
 release, and connects the integrations you select:
 
@@ -72,7 +72,7 @@ non-interactive deployment.
 
 | You are… | Start here |
 |---|---|
-| Using an agent and tired of repeating yourself | [Install LedgerMind 4.0.1](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
+| Using an agent and tired of repeating yourself | [Install LedgerMind 4.0.2](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
 | Building an agent, IDE, or local assistant | Explore [Integrations](https://github.com/sl4m3/ledgermind-integrations) and the [Local runtime](https://github.com/sl4m3/ledgermind-local) |
 | Running an AI platform or enterprise deployment | [Contact LedgerMind](mailto:s.zotov@ledgermind.org) for evaluation, deployment, and licensing |
 | Comparing memory systems | Jump to the [benchmark results](#same-outcomes-much-less-context) and [full methodology](BENCHMARK.md) |
@@ -88,7 +88,7 @@ choose the models, and keep control of the memory database.
 | Product page, documentation, benchmark, and release announcements | [github.com/sl4m3/ledgermind](https://github.com/sl4m3/ledgermind) |
 | Public agent adapters and protocol contracts | [github.com/sl4m3/ledgermind-integrations](https://github.com/sl4m3/ledgermind-integrations) |
 | Inspectable local runtime and installer source | [github.com/sl4m3/ledgermind-local](https://github.com/sl4m3/ledgermind-local) |
-| Signed self-hosted 4.0.1 package | [GitHub Releases](https://github.com/sl4m3/ledgermind/releases/latest) |
+| Signed self-hosted 4.0.2 package | [GitHub Releases](https://github.com/sl4m3/ledgermind/releases/latest) |
 | Enterprise evaluation, deployment, and licensing | [s.zotov@ledgermind.org](mailto:s.zotov@ledgermind.org) |
 
 The architecture described here belongs to LedgerMind 4.0. Signed stable
@@ -96,7 +96,7 @@ packages are published through GitHub Releases. Existing 3.x release tags are
 legacy releases and should not be used as installation packages for this
 README.
 
-The published `4.0.1` package supports **Linux x86_64**. Linux aarch64 is part
+The published `4.0.2` package supports **Linux x86_64**. Linux aarch64 is part
 of the platform design, but no aarch64 package is included in this release.
 
 | Agent | Integration | Activation note |
@@ -116,7 +116,7 @@ directories. Docker is not required. The installer verifies the signed
 manifest, platform bundle, Core binary, and applicable runtime artifacts before
 switching the active version.
 
-> **Public-install status:** the signed LedgerMind `4.0.1` release is available
+> **Public-install status:** the signed LedgerMind `4.0.2` release is available
 > from GitHub Releases. The `latest` installation URL below resolves to this
 > stable release.
 
@@ -129,7 +129,7 @@ switching the active version.
 - a generation provider and model with strict JSON Schema structured outputs;
 - an OpenAI-compatible embedding API.
 
-Docker is not a supported secure deployment path for `4.0.1`.
+Docker is not a supported secure deployment path for `4.0.2`.
 
 ### Choose your setup
 
@@ -539,7 +539,7 @@ license. The license file shipped with each release is authoritative.
 
 | Capability | Current support |
 |---|---|
-| Operating systems | Linux x86_64; an aarch64 package is not published in 4.0.1 |
+| Operating systems | Linux x86_64; an aarch64 package is not published in 4.0.2 |
 | Agent integrations | Hermes, Codex CLI and Desktop, Claude Code, OpenCode, and OpenClaw |
 | Experimental integration | Cursor; excluded from the current acceptance matrix |
 | Generation | Operator-selected OpenAI-compatible API |
