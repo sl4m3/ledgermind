@@ -50,6 +50,15 @@ knowledge layer.
 - Simpler, more reliable Object Resolution: identity is decided from only the
   current object name, stable description, and Target. Knowledge content and
   historical facets cannot distort the identity decision.
+- One accepted identity decision is final. LedgerMind no longer spends a
+  second model call rechecking valid Object Resolution output, while Core still
+  rejects malformed references and stale snapshots.
+- Independent subjects stay independent: semantic extraction now gives files,
+  components, services, and other addressable subjects their own precise cards
+  instead of collecting unrelated knowledge under a broad umbrella object.
+- Overlapping model clusters are made structurally consistent in stable order,
+  preventing duplicate durable cards without asking Core to decide semantic
+  identity.
 - Safer updates: replacement selects one supported incoming claim and Core
   copies it verbatim. Only a genuine merge may generate combined knowledge.
 - More reliable candidate recall: stale object signatures and missing identity
