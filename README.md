@@ -17,7 +17,7 @@
 
 <p align="center">
   <a href="#installation">Get started</a> ·
-  <a href="#same-outcomes-much-less-context">See the results</a> ·
+  <a href="#workflow-memory-measured-end-to-end">See the results</a> ·
   <a href="#your-knowledge-stays-local-by-design">Security</a> ·
   <a href="BENCHMARK.md">Benchmark</a> ·
   <a href="mailto:s.zotov@ledgermind.org">Talk to us</a>
@@ -44,6 +44,56 @@ knowledge layer.
 [See the benchmark](BENCHMARK.md) · [Follow releases](https://github.com/sl4m3/ledgermind/releases) · [Contact LedgerMind](mailto:s.zotov@ledgermind.org)
 
 > **Current stable release:** `4.0.8` for supported Linux hosts.
+
+## Workflow memory, measured end to end
+
+The Workflow Transfer Benchmark measures the complete product loop: finished
+work is captured, memory is formed, and a later agent receives memory before
+acting on a related task. Success comes from hidden workflow state and safety
+predicates—not an LLM judge or a semantic answer key.
+
+These are averages from **three complete runs** using the same 12 workflows,
+frozen source snapshot, agent model, route, public prompts, tools, and action
+limit: **36 observations per arm and 216 scored trajectories overall**.
+
+| Mean per 12-workflow run | LedgerMind | Mem0 OSS | Supermemory Local | Claude-Mem | Raw history | ReMe |
+|---|---:|---:|---:|---:|---:|---:|
+| Successful workflows across all runs | **36 / 36** | **36 / 36** | 35 / 36 | 35 / 36 | **36 / 36** | 35 / 36 |
+| Finished workflows per run | 12.0 | 12.0 | 12.0 | 12.0 | 12.0 | 12.0 |
+| Safety violations across all runs | **0** | **0** | 1 | 1 | **0** | 1 |
+| Agent execution tokens | **131,094** | 133,651 | 136,701 | 154,524 | 182,817 | 227,757 |
+| Agent-token standard deviation | 5,836 | 5,116 | 5,245 | 3,837 | **3,398** | 10,934 |
+| Agent input tokens | **114,457** | 116,832 | 118,593 | 137,722 | 165,570 | 209,040 |
+| Agent output tokens | 16,637 | 16,819 | 18,108 | 16,802 | 17,247 | 18,716 |
+| Agent actions | 97.0 | 98.7 | 103.0 | 99.7 | **95.3** | 101.0 |
+| Invalid actions | 12.7 | 14.3 | 15.3 | 14.3 | **11.7** | 16.3 |
+| Repeated actions | 12.7 | 14.3 | 16.3 | 14.3 | **12.3** | 16.7 |
+| Context returned by recall | **1,008** | 1,536 | 1,094 | 2,588 | 13,733 | 15,383 |
+| Memory injected across prompts | 6,855 | 8,580 | **4,736** | 21,643 | 79,625 | 93,833 |
+| Retained working-set prompt tokens | 5,847 | 7,044 | **3,641** | 19,056 | 65,892 | 78,450 |
+| Scratchpad prompt tokens | **1,461** | 1,593 | 1,678 | 1,602 | 1,485 | 1,712 |
+| Initial memory formation tokens, once | **23,299** | 37,871 | 62,625 | 165,447 | Not applicable | 25,719 |
+| Memory recall processing tokens | 3,284 | 3,284 | 3,284 | Not separately reported | Not applicable | 5,879 |
+| Online memory update tokens | **61,903** | 120,240 | 298,672 | 614,590 | Not applicable | 74,650 |
+| Total backend tokens per run | **65,187** | 123,524 | 301,956 | 614,590 | Not applicable | 80,529 |
+| Recovered failed provider attempts | 7.7 | 4.7 | 4.3 | **3.3** | 4.7 | 8.3 |
+| Tokens spent on recovered attempts | 22,277 | 16,135 | 6,077 | **5,337** | 9,306 | 19,649 |
+| Terminal provider failures | **0** | **0** | **0** | **0** | **0** | **0** |
+| Agent execution cost | **$0.00707** | $0.00720 | $0.00746 | $0.00803 | $0.00921 | $0.01116 |
+
+LedgerMind, Mem0, and raw history are the only arms that completed all 36 tasks
+without a safety violation. LedgerMind used **28.3% fewer agent tokens and
+92.7% less returned context than raw history**. Against Mem0, agent execution
+was near parity—a 1.9% mean LedgerMind lead—while LedgerMind used **38.5% fewer
+formation tokens and 48.5% fewer online-update tokens**.
+
+Supermemory, Claude-Mem, and ReMe each failed the same difficult transfer class
+once: the agent reached the target state but also executed an unsafe legacy
+action after an authoritative rule changed. Their results, internal costs, and
+individual failure traces are analyzed separately rather than omitted.
+
+[Read the full benchmark report](BENCHMARK.md) or inspect the three sanitized
+[machine-readable run artifacts](benchmarks/README.md).
 
 ### The 30-second version
 
@@ -75,7 +125,7 @@ non-interactive deployment.
 | Using an agent and tired of repeating yourself | [Install LedgerMind 4.0.8](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
 | Building an agent, IDE, or local assistant | Explore [Integrations](https://github.com/sl4m3/ledgermind-integrations) and the [Local runtime](https://github.com/sl4m3/ledgermind-local) |
 | Running an AI platform or enterprise deployment | [Contact LedgerMind](mailto:s.zotov@ledgermind.org) for evaluation, deployment, and licensing |
-| Comparing memory systems | Jump to the [benchmark results](#same-outcomes-much-less-context) and [full methodology](BENCHMARK.md) |
+| Comparing memory systems | Jump to the [benchmark results](#workflow-memory-measured-end-to-end) and [full methodology](BENCHMARK.md) |
 
 ## Where LedgerMind is available
 
@@ -389,47 +439,6 @@ If an operator configures a remote model provider, the necessary model payload
 can leave the machine through Local. That egress is explicit, auditable, and
 limited to the endpoint selected by the operator; it never originates from
 Core itself.
-
-## Same outcomes. Much less context.
-
-In the published 12-workflow development benchmark, LedgerMind, Mem0 OSS, and
-raw history all completed every task with no safety violations. LedgerMind
-reached the same outcomes while sending substantially less context to the
-agent. This was a single controlled run, not an independent or statistical
-claim about stability.
-
-| Result | LedgerMind | Mem0 OSS | Raw history |
-|---|---:|---:|---:|
-| Successful workflows | **12 / 12** | 12 / 12 | 12 / 12 |
-| Safety violations | **0** | 0 | 0 |
-| Agent execution tokens | **96,572** | 104,734 | 173,210 |
-| Memory injected into agent prompts | **5,945** | 15,690 | 82,265 |
-| Returned memory context | **1,289** | 2,701 | 14,957 |
-| Agent actions | **76** | 76 | 76 |
-| Final authoritative changes retained (manual audit) | **4 / 4** | 1 / 4 | Not applicable |
-
-That means LedgerMind used:
-
-- **44.2% fewer agent tokens than raw history**;
-- **7.8% fewer agent tokens than Mem0 OSS**;
-- **92.8% less injected memory than raw history**;
-- **62.1% less injected memory than Mem0 OSS**;
-- **49.5% fewer tokens to form the initial memory than Mem0 OSS**.
-
-The output-token totals remained nearly identical. The reduction came from
-giving the agent less irrelevant input—not from shortening its work or
-accepting fewer completed tasks.
-
-LedgerMind did spend more tokens on online memory updates: 173,229 versus
-138,701 for Mem0 OSS. That number is reported, but it is not an apples-to-apples
-efficiency result. A separate manual inspection of the resulting memories
-found that LedgerMind retained the final authoritative change in all four
-workflow families; Mem0 retained one of four. This audit was not part of the
-deterministic success gate. It shows why backend token totals cannot be
-compared without also examining what each backend retained.
-
-[Read the benchmark methodology, calculations, manual audit, and
-limitations](BENCHMARK.md).
 
 ## Memory that compounds
 
