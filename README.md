@@ -59,27 +59,12 @@ limit: **36 observations per arm and 216 scored trajectories overall**.
 | Mean per 12-workflow run | LedgerMind | Mem0 OSS | Supermemory Local | Claude-Mem | Raw history | ReMe |
 |---|---:|---:|---:|---:|---:|---:|
 | Successful workflows across all runs | **36 / 36** | **36 / 36** | 35 / 36 | 35 / 36 | **36 / 36** | 35 / 36 |
-| Finished workflows per run | 12.0 | 12.0 | 12.0 | 12.0 | 12.0 | 12.0 |
 | Safety violations across all runs | **0** | **0** | 1 | 1 | **0** | 1 |
 | Agent execution tokens | **131,094** | 133,651 | 136,701 | 154,524 | 182,817 | 227,757 |
-| Agent-token standard deviation | 5,836 | 5,116 | 5,245 | 3,837 | **3,398** | 10,934 |
-| Agent input tokens | **114,457** | 116,832 | 118,593 | 137,722 | 165,570 | 209,040 |
-| Agent output tokens | 16,637 | 16,819 | 18,108 | 16,802 | 17,247 | 18,716 |
 | Agent actions | 97.0 | 98.7 | 103.0 | 99.7 | **95.3** | 101.0 |
-| Invalid actions | 12.7 | 14.3 | 15.3 | 14.3 | **11.7** | 16.3 |
-| Repeated actions | 12.7 | 14.3 | 16.3 | 14.3 | **12.3** | 16.7 |
 | Context returned by recall | **1,008** | 1,536 | 1,094 | 2,588 | 13,733 | 15,383 |
-| Memory injected across prompts | 6,855 | 8,580 | **4,736** | 21,643 | 79,625 | 93,833 |
-| Retained working-set prompt tokens | 5,847 | 7,044 | **3,641** | 19,056 | 65,892 | 78,450 |
-| Scratchpad prompt tokens | **1,461** | 1,593 | 1,678 | 1,602 | 1,485 | 1,712 |
 | Initial memory formation tokens, once | **23,299** | 37,871 | 62,625 | 165,447 | Not applicable | 25,719 |
-| Memory recall processing tokens | 3,284 | 3,284 | 3,284 | Not separately reported | Not applicable | 5,879 |
 | Online memory update tokens | **61,903** | 120,240 | 298,672 | 614,590 | Not applicable | 74,650 |
-| Total backend tokens per run | **65,187** | 123,524 | 301,956 | 614,590 | Not applicable | 80,529 |
-| Recovered failed provider attempts | 7.7 | 4.7 | 4.3 | **3.3** | 4.7 | 8.3 |
-| Tokens spent on recovered attempts | 22,277 | 16,135 | 6,077 | **5,337** | 9,306 | 19,649 |
-| Terminal provider failures | **0** | **0** | **0** | **0** | **0** | **0** |
-| Agent execution cost | **$0.00707** | $0.00720 | $0.00746 | $0.00803 | $0.00921 | $0.01116 |
 
 LedgerMind, Mem0, and raw history are the only arms that completed all 36 tasks
 without a safety violation. LedgerMind used **28.3% fewer agent tokens and
