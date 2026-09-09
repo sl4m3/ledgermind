@@ -1,0 +1,2562 @@
+{
+  "arms": {
+    "claude_mem": {
+      "actions": 99,
+      "attempted": 12,
+      "cost_status": "known",
+      "cost_usd": 0.00801386,
+      "cumulative_tokens": [
+        {
+          "task_index": 1,
+          "tokens": 11676
+        },
+        {
+          "task_index": 2,
+          "tokens": 22329
+        },
+        {
+          "task_index": 3,
+          "tokens": 37402
+        },
+        {
+          "task_index": 4,
+          "tokens": 52515
+        },
+        {
+          "task_index": 5,
+          "tokens": 68676
+        },
+        {
+          "task_index": 6,
+          "tokens": 86242
+        },
+        {
+          "task_index": 7,
+          "tokens": 92998
+        },
+        {
+          "task_index": 8,
+          "tokens": 99932
+        },
+        {
+          "task_index": 9,
+          "tokens": 110581
+        },
+        {
+          "task_index": 10,
+          "tokens": 125545
+        },
+        {
+          "task_index": 11,
+          "tokens": 137782
+        },
+        {
+          "task_index": 12,
+          "tokens": 154592
+        }
+      ],
+      "cumulative_tokens_after_transfer": [
+        {
+          "tokens": 48509,
+          "transfer": 1
+        },
+        {
+          "tokens": 94494,
+          "transfer": 2
+        },
+        {
+          "tokens": 154592,
+          "transfer": 3
+        }
+      ],
+      "errors": 13,
+      "finished": 12,
+      "input_tokens": 137954,
+      "memory_injection_tokens": 22305,
+      "memory_reinjection_count": 87,
+      "memory_scratchpad_occurrences": 87,
+      "memory_scratchpad_prompt_tokens": 1568,
+      "memory_working_set_occurrences": 87,
+      "memory_working_set_prompt_tokens": 19635,
+      "output_tokens": 16638,
+      "repeats": 13,
+      "returned_context_tokens": 2670,
+      "safety_violations": 0,
+      "successful": 12,
+      "tasks": 12,
+      "telemetry": {
+        "agent_execution_tokens": 154592,
+        "failed_attempts": 2,
+        "failed_calls": 0,
+        "memory_backend_current_run_tokens": 625172,
+        "memory_formation_current_run_tokens": 0,
+        "memory_formation_tokens": 165447,
+        "memory_injection_tokens": 22305,
+        "memory_online_update_tokens": 625172,
+        "memory_recall_tokens": 0,
+        "memory_scratchpad_tokens": 1568,
+        "memory_working_set_tokens": 19635,
+        "recovered_failed_attempts": 2,
+        "recovered_wasted_tokens": 3184,
+        "retry_calls": 0,
+        "terminal_failed_attempts": 0,
+        "terminal_failed_calls": 0,
+        "terminal_wasted_tokens": 0,
+        "wasted_tokens": 3184
+      },
+      "tokens": 154592
+    },
+    "ledgermind": {
+      "actions": 101,
+      "attempted": 12,
+      "cost_status": "known",
+      "cost_usd": 0.00735358,
+      "cumulative_tokens": [
+        {
+          "task_index": 1,
+          "tokens": 12089
+        },
+        {
+          "task_index": 2,
+          "tokens": 25902
+        },
+        {
+          "task_index": 3,
+          "tokens": 45175
+        },
+        {
+          "task_index": 4,
+          "tokens": 56546
+        },
+        {
+          "task_index": 5,
+          "tokens": 71414
+        },
+        {
+          "task_index": 6,
+          "tokens": 81828
+        },
+        {
+          "task_index": 7,
+          "tokens": 87953
+        },
+        {
+          "task_index": 8,
+          "tokens": 94357
+        },
+        {
+          "task_index": 9,
+          "tokens": 103623
+        },
+        {
+          "task_index": 10,
+          "tokens": 115390
+        },
+        {
+          "task_index": 11,
+          "tokens": 125859
+        },
+        {
+          "task_index": 12,
+          "tokens": 136204
+        }
+      ],
+      "cumulative_tokens_after_transfer": [
+        {
+          "tokens": 41352,
+          "transfer": 1
+        },
+        {
+          "tokens": 86906,
+          "transfer": 2
+        },
+        {
+          "tokens": 136204,
+          "transfer": 3
+        }
+      ],
+      "errors": 16,
+      "finished": 12,
+      "input_tokens": 118882,
+      "memory_injection_tokens": 6583,
+      "memory_reinjection_count": 89,
+      "memory_scratchpad_occurrences": 89,
+      "memory_scratchpad_prompt_tokens": 1610,
+      "memory_working_set_occurrences": 89,
+      "memory_working_set_prompt_tokens": 5720,
+      "output_tokens": 17322,
+      "repeats": 16,
+      "returned_context_tokens": 863,
+      "safety_violations": 0,
+      "successful": 12,
+      "tasks": 12,
+      "telemetry": {
+        "agent_execution_tokens": 136204,
+        "failed_attempts": 5,
+        "failed_calls": 0,
+        "memory_backend_current_run_tokens": 65241,
+        "memory_formation_current_run_tokens": 0,
+        "memory_formation_tokens": 23299,
+        "memory_injection_tokens": 6583,
+        "memory_online_update_tokens": 61957,
+        "memory_recall_tokens": 3284,
+        "memory_scratchpad_tokens": 1610,
+        "memory_working_set_tokens": 5720,
+        "recovered_failed_attempts": 5,
+        "recovered_wasted_tokens": 14253,
+        "retry_calls": 0,
+        "terminal_failed_attempts": 0,
+        "terminal_failed_calls": 0,
+        "terminal_wasted_tokens": 0,
+        "wasted_tokens": 14253
+      },
+      "tokens": 136204
+    },
+    "mem0_oss": {
+      "actions": 96,
+      "attempted": 12,
+      "cost_status": "known",
+      "cost_usd": 0.00699687,
+      "cumulative_tokens": [
+        {
+          "task_index": 1,
+          "tokens": 11708
+        },
+        {
+          "task_index": 2,
+          "tokens": 21996
+        },
+        {
+          "task_index": 3,
+          "tokens": 36216
+        },
+        {
+          "task_index": 4,
+          "tokens": 46607
+        },
+        {
+          "task_index": 5,
+          "tokens": 58834
+        },
+        {
+          "task_index": 6,
+          "tokens": 73156
+        },
+        {
+          "task_index": 7,
+          "tokens": 79424
+        },
+        {
+          "task_index": 8,
+          "tokens": 85879
+        },
+        {
+          "task_index": 9,
+          "tokens": 98849
+        },
+        {
+          "task_index": 10,
+          "tokens": 109199
+        },
+        {
+          "task_index": 11,
+          "tokens": 119729
+        },
+        {
+          "task_index": 12,
+          "tokens": 129456
+        }
+      ],
+      "cumulative_tokens_after_transfer": [
+        {
+          "tokens": 38717,
+          "transfer": 1
+        },
+        {
+          "tokens": 78217,
+          "transfer": 2
+        },
+        {
+          "tokens": 129456,
+          "transfer": 3
+        }
+      ],
+      "errors": 13,
+      "finished": 12,
+      "input_tokens": 112923,
+      "memory_injection_tokens": 8152,
+      "memory_reinjection_count": 84,
+      "memory_scratchpad_occurrences": 84,
+      "memory_scratchpad_prompt_tokens": 1528,
+      "memory_working_set_occurrences": 84,
+      "memory_working_set_prompt_tokens": 6590,
+      "output_tokens": 16533,
+      "repeats": 13,
+      "returned_context_tokens": 1562,
+      "safety_violations": 0,
+      "successful": 12,
+      "tasks": 12,
+      "telemetry": {
+        "agent_execution_tokens": 129456,
+        "failed_attempts": 3,
+        "failed_calls": 0,
+        "memory_backend_current_run_tokens": 123528,
+        "memory_formation_current_run_tokens": 0,
+        "memory_formation_tokens": 37871,
+        "memory_injection_tokens": 8152,
+        "memory_online_update_tokens": 120244,
+        "memory_recall_tokens": 3284,
+        "memory_scratchpad_tokens": 1528,
+        "memory_working_set_tokens": 6590,
+        "recovered_failed_attempts": 3,
+        "recovered_wasted_tokens": 13965,
+        "retry_calls": 0,
+        "terminal_failed_attempts": 0,
+        "terminal_failed_calls": 0,
+        "terminal_wasted_tokens": 0,
+        "wasted_tokens": 13965
+      },
+      "tokens": 129456
+    },
+    "raw_history": {
+      "actions": 95,
+      "attempted": 12,
+      "cost_status": "known",
+      "cost_usd": 0.00907807,
+      "cumulative_tokens": [
+        {
+          "task_index": 1,
+          "tokens": 14892
+        },
+        {
+          "task_index": 2,
+          "tokens": 27681
+        },
+        {
+          "task_index": 3,
+          "tokens": 47675
+        },
+        {
+          "task_index": 4,
+          "tokens": 64977
+        },
+        {
+          "task_index": 5,
+          "tokens": 80196
+        },
+        {
+          "task_index": 6,
+          "tokens": 98507
+        },
+        {
+          "task_index": 7,
+          "tokens": 106024
+        },
+        {
+          "task_index": 8,
+          "tokens": 115545
+        },
+        {
+          "task_index": 9,
+          "tokens": 134179
+        },
+        {
+          "task_index": 10,
+          "tokens": 147670
+        },
+        {
+          "task_index": 11,
+          "tokens": 164993
+        },
+        {
+          "task_index": 12,
+          "tokens": 180276
+        }
+      ],
+      "cumulative_tokens_after_transfer": [
+        {
+          "tokens": 53202,
+          "transfer": 1
+        },
+        {
+          "tokens": 108054,
+          "transfer": 2
+        },
+        {
+          "tokens": 180276,
+          "transfer": 3
+        }
+      ],
+      "errors": 11,
+      "finished": 12,
+      "input_tokens": 163303,
+      "memory_injection_tokens": 77161,
+      "memory_reinjection_count": 83,
+      "memory_scratchpad_occurrences": 83,
+      "memory_scratchpad_prompt_tokens": 1480,
+      "memory_working_set_occurrences": 83,
+      "memory_working_set_prompt_tokens": 63419,
+      "output_tokens": 16973,
+      "repeats": 12,
+      "returned_context_tokens": 13742,
+      "safety_violations": 0,
+      "successful": 12,
+      "tasks": 12,
+      "telemetry": {
+        "agent_execution_tokens": 180276,
+        "failed_attempts": 7,
+        "failed_calls": 0,
+        "memory_backend_current_run_tokens": 0,
+        "memory_formation_current_run_tokens": 0,
+        "memory_formation_tokens": 0,
+        "memory_injection_tokens": 77161,
+        "memory_online_update_tokens": 0,
+        "memory_recall_tokens": 0,
+        "memory_scratchpad_tokens": 1480,
+        "memory_working_set_tokens": 63419,
+        "recovered_failed_attempts": 7,
+        "recovered_wasted_tokens": 13963,
+        "retry_calls": 0,
+        "terminal_failed_attempts": 0,
+        "terminal_failed_calls": 0,
+        "terminal_wasted_tokens": 0,
+        "wasted_tokens": 13963
+      },
+      "tokens": 180276
+    },
+    "reme": {
+      "actions": 95,
+      "attempted": 12,
+      "cost_status": "known",
+      "cost_usd": 0.01061152,
+      "cumulative_tokens": [
+        {
+          "task_index": 1,
+          "tokens": 15702
+        },
+        {
+          "task_index": 2,
+          "tokens": 34633
+        },
+        {
+          "task_index": 3,
+          "tokens": 57532
+        },
+        {
+          "task_index": 4,
+          "tokens": 71878
+        },
+        {
+          "task_index": 5,
+          "tokens": 87728
+        },
+        {
+          "task_index": 6,
+          "tokens": 105099
+        },
+        {
+          "task_index": 7,
+          "tokens": 114506
+        },
+        {
+          "task_index": 8,
+          "tokens": 123218
+        },
+        {
+          "task_index": 9,
+          "tokens": 152640
+        },
+        {
+          "task_index": 10,
+          "tokens": 174208
+        },
+        {
+          "task_index": 11,
+          "tokens": 195374
+        },
+        {
+          "task_index": 12,
+          "tokens": 217988
+        }
+      ],
+      "cumulative_tokens_after_transfer": [
+        {
+          "tokens": 61023,
+          "transfer": 1
+        },
+        {
+          "tokens": 125682,
+          "transfer": 2
+        },
+        {
+          "tokens": 217988,
+          "transfer": 3
+        }
+      ],
+      "errors": 10,
+      "finished": 12,
+      "input_tokens": 200788,
+      "memory_injection_tokens": 93171,
+      "memory_reinjection_count": 83,
+      "memory_scratchpad_occurrences": 83,
+      "memory_scratchpad_prompt_tokens": 1487,
+      "memory_working_set_occurrences": 83,
+      "memory_working_set_prompt_tokens": 77547,
+      "output_tokens": 17200,
+      "repeats": 10,
+      "returned_context_tokens": 15624,
+      "safety_violations": 0,
+      "successful": 12,
+      "tasks": 12,
+      "telemetry": {
+        "agent_execution_tokens": 217988,
+        "failed_attempts": 8,
+        "failed_calls": 0,
+        "memory_backend_current_run_tokens": 82369,
+        "memory_formation_current_run_tokens": 0,
+        "memory_formation_tokens": 25719,
+        "memory_injection_tokens": 93171,
+        "memory_online_update_tokens": 76411,
+        "memory_recall_tokens": 5958,
+        "memory_scratchpad_tokens": 1487,
+        "memory_working_set_tokens": 77547,
+        "recovered_failed_attempts": 8,
+        "recovered_wasted_tokens": 18992,
+        "retry_calls": 0,
+        "terminal_failed_attempts": 0,
+        "terminal_failed_calls": 0,
+        "terminal_wasted_tokens": 0,
+        "wasted_tokens": 18992
+      },
+      "tokens": 217988
+    },
+    "supermemory_local": {
+      "actions": 106,
+      "attempted": 12,
+      "cost_status": "known",
+      "cost_usd": 0.00754958,
+      "cumulative_tokens": [
+        {
+          "task_index": 1,
+          "tokens": 8842
+        },
+        {
+          "task_index": 2,
+          "tokens": 20262
+        },
+        {
+          "task_index": 3,
+          "tokens": 34101
+        },
+        {
+          "task_index": 4,
+          "tokens": 48992
+        },
+        {
+          "task_index": 5,
+          "tokens": 59087
+        },
+        {
+          "task_index": 6,
+          "tokens": 72882
+        },
+        {
+          "task_index": 7,
+          "tokens": 81482
+        },
+        {
+          "task_index": 8,
+          "tokens": 87379
+        },
+        {
+          "task_index": 9,
+          "tokens": 103377
+        },
+        {
+          "task_index": 10,
+          "tokens": 116743
+        },
+        {
+          "task_index": 11,
+          "tokens": 127196
+        },
+        {
+          "task_index": 12,
+          "tokens": 139069
+        }
+      ],
+      "cumulative_tokens_after_transfer": [
+        {
+          "tokens": 45699,
+          "transfer": 1
+        },
+        {
+          "tokens": 83564,
+          "transfer": 2
+        },
+        {
+          "tokens": 139069,
+          "transfer": 3
+        }
+      ],
+      "errors": 19,
+      "finished": 12,
+      "input_tokens": 121007,
+      "memory_injection_tokens": 3971,
+      "memory_reinjection_count": 94,
+      "memory_scratchpad_occurrences": 94,
+      "memory_scratchpad_prompt_tokens": 1776,
+      "memory_working_set_occurrences": 94,
+      "memory_working_set_prompt_tokens": 2894,
+      "output_tokens": 18062,
+      "repeats": 19,
+      "returned_context_tokens": 1077,
+      "safety_violations": 1,
+      "successful": 11,
+      "tasks": 12,
+      "telemetry": {
+        "agent_execution_tokens": 139069,
+        "failed_attempts": 3,
+        "failed_calls": 0,
+        "memory_backend_current_run_tokens": 306557,
+        "memory_formation_current_run_tokens": 0,
+        "memory_formation_tokens": 62625,
+        "memory_injection_tokens": 3971,
+        "memory_online_update_tokens": 303273,
+        "memory_recall_tokens": 3284,
+        "memory_scratchpad_tokens": 1776,
+        "memory_working_set_tokens": 2894,
+        "recovered_failed_attempts": 3,
+        "recovered_wasted_tokens": 4112,
+        "retry_calls": 0,
+        "terminal_failed_attempts": 0,
+        "terminal_failed_calls": 0,
+        "terminal_wasted_tokens": 0,
+        "wasted_tokens": 4112
+      },
+      "tokens": 139069
+    }
+  },
+  "benchmark": "workflow_transfer_pilot",
+  "benchmark_validity_status": "passed",
+  "calibration": null,
+  "calibration_status": "not_applicable",
+  "canonical_knowledge_status": "not_configured",
+  "comparison": {
+    "comparisons": {
+      "claude_mem": {
+        "paired": [
+          {
+            "cumulative_user_visible_token_savings": -413,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -1,
+            "task_id": "WT01-T1",
+            "user_visible_token_savings": -413
+          },
+          {
+            "cumulative_user_visible_token_savings": -3573,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -3,
+            "task_id": "WT01-T2",
+            "user_visible_token_savings": -3160
+          },
+          {
+            "cumulative_user_visible_token_savings": -7773,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -4,
+            "task_id": "WT01-T3",
+            "user_visible_token_savings": -4200
+          },
+          {
+            "cumulative_user_visible_token_savings": -4031,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": 2,
+            "task_id": "WT02-T1",
+            "user_visible_token_savings": 3742
+          },
+          {
+            "cumulative_user_visible_token_savings": -2738,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": -1,
+            "task_id": "WT02-T2",
+            "user_visible_token_savings": 1293
+          },
+          {
+            "cumulative_user_visible_token_savings": 4414,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": 2,
+            "task_id": "WT02-T3",
+            "user_visible_token_savings": 7152
+          },
+          {
+            "cumulative_user_visible_token_savings": 5045,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT03-T1",
+            "user_visible_token_savings": 631
+          },
+          {
+            "cumulative_user_visible_token_savings": 5575,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT03-T2",
+            "user_visible_token_savings": 530
+          },
+          {
+            "cumulative_user_visible_token_savings": 6958,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT03-T3",
+            "user_visible_token_savings": 1383
+          },
+          {
+            "cumulative_user_visible_token_savings": 10155,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": 1,
+            "task_id": "WT04-T1",
+            "user_visible_token_savings": 3197
+          },
+          {
+            "cumulative_user_visible_token_savings": 11923,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT04-T2",
+            "user_visible_token_savings": 1768
+          },
+          {
+            "cumulative_user_visible_token_savings": 18388,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": 2,
+            "task_id": "WT04-T3",
+            "user_visible_token_savings": 6465
+          }
+        ],
+        "status": "qualified",
+        "step_savings": -2,
+        "successful_tasks": 12,
+        "user_visible_token_savings": 18388
+      },
+      "mem0_oss": {
+        "paired": [
+          {
+            "cumulative_user_visible_token_savings": -381,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT01-T1",
+            "user_visible_token_savings": -381
+          },
+          {
+            "cumulative_user_visible_token_savings": -3906,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -2,
+            "task_id": "WT01-T2",
+            "user_visible_token_savings": -3525
+          },
+          {
+            "cumulative_user_visible_token_savings": -8959,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -3,
+            "task_id": "WT01-T3",
+            "user_visible_token_savings": -5053
+          },
+          {
+            "cumulative_user_visible_token_savings": -9939,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT02-T1",
+            "user_visible_token_savings": -980
+          },
+          {
+            "cumulative_user_visible_token_savings": -12580,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": -2,
+            "task_id": "WT02-T2",
+            "user_visible_token_savings": -2641
+          },
+          {
+            "cumulative_user_visible_token_savings": -8672,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": 2,
+            "task_id": "WT02-T3",
+            "user_visible_token_savings": 3908
+          },
+          {
+            "cumulative_user_visible_token_savings": -8529,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT03-T1",
+            "user_visible_token_savings": 143
+          },
+          {
+            "cumulative_user_visible_token_savings": -8478,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT03-T2",
+            "user_visible_token_savings": 51
+          },
+          {
+            "cumulative_user_visible_token_savings": -4774,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 2,
+            "task_id": "WT03-T3",
+            "user_visible_token_savings": 3704
+          },
+          {
+            "cumulative_user_visible_token_savings": -6191,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": -1,
+            "task_id": "WT04-T1",
+            "user_visible_token_savings": -1417
+          },
+          {
+            "cumulative_user_visible_token_savings": -6130,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT04-T2",
+            "user_visible_token_savings": 61
+          },
+          {
+            "cumulative_user_visible_token_savings": -6748,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": -1,
+            "task_id": "WT04-T3",
+            "user_visible_token_savings": -618
+          }
+        ],
+        "status": "qualified",
+        "step_savings": -5,
+        "successful_tasks": 12,
+        "user_visible_token_savings": -6748
+      },
+      "raw_history": {
+        "paired": [
+          {
+            "cumulative_user_visible_token_savings": 2803,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT01-T1",
+            "user_visible_token_savings": 2803
+          },
+          {
+            "cumulative_user_visible_token_savings": 1779,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -3,
+            "task_id": "WT01-T2",
+            "user_visible_token_savings": -1024
+          },
+          {
+            "cumulative_user_visible_token_savings": 2500,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -3,
+            "task_id": "WT01-T3",
+            "user_visible_token_savings": 721
+          },
+          {
+            "cumulative_user_visible_token_savings": 8431,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": 2,
+            "task_id": "WT02-T1",
+            "user_visible_token_savings": 5931
+          },
+          {
+            "cumulative_user_visible_token_savings": 8782,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": -3,
+            "task_id": "WT02-T2",
+            "user_visible_token_savings": 351
+          },
+          {
+            "cumulative_user_visible_token_savings": 16679,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": 1,
+            "task_id": "WT02-T3",
+            "user_visible_token_savings": 7897
+          },
+          {
+            "cumulative_user_visible_token_savings": 18071,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT03-T1",
+            "user_visible_token_savings": 1392
+          },
+          {
+            "cumulative_user_visible_token_savings": 21188,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT03-T2",
+            "user_visible_token_savings": 3117
+          },
+          {
+            "cumulative_user_visible_token_savings": 30556,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 1,
+            "task_id": "WT03-T3",
+            "user_visible_token_savings": 9368
+          },
+          {
+            "cumulative_user_visible_token_savings": 32280,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": -1,
+            "task_id": "WT04-T1",
+            "user_visible_token_savings": 1724
+          },
+          {
+            "cumulative_user_visible_token_savings": 39134,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT04-T2",
+            "user_visible_token_savings": 6854
+          },
+          {
+            "cumulative_user_visible_token_savings": 44072,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT04-T3",
+            "user_visible_token_savings": 4938
+          }
+        ],
+        "status": "qualified",
+        "step_savings": -6,
+        "successful_tasks": 12,
+        "user_visible_token_savings": 44072
+      },
+      "reme": {
+        "paired": [
+          {
+            "cumulative_user_visible_token_savings": 3613,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -1,
+            "task_id": "WT01-T1",
+            "user_visible_token_savings": 3613
+          },
+          {
+            "cumulative_user_visible_token_savings": 8731,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -2,
+            "task_id": "WT01-T2",
+            "user_visible_token_savings": 5118
+          },
+          {
+            "cumulative_user_visible_token_savings": 12357,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -5,
+            "task_id": "WT01-T3",
+            "user_visible_token_savings": 3626
+          },
+          {
+            "cumulative_user_visible_token_savings": 15332,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT02-T1",
+            "user_visible_token_savings": 2975
+          },
+          {
+            "cumulative_user_visible_token_savings": 16314,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": -3,
+            "task_id": "WT02-T2",
+            "user_visible_token_savings": 982
+          },
+          {
+            "cumulative_user_visible_token_savings": 23271,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": 1,
+            "task_id": "WT02-T3",
+            "user_visible_token_savings": 6957
+          },
+          {
+            "cumulative_user_visible_token_savings": 26553,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT03-T1",
+            "user_visible_token_savings": 3282
+          },
+          {
+            "cumulative_user_visible_token_savings": 28861,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT03-T2",
+            "user_visible_token_savings": 2308
+          },
+          {
+            "cumulative_user_visible_token_savings": 49017,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 2,
+            "task_id": "WT03-T3",
+            "user_visible_token_savings": 20156
+          },
+          {
+            "cumulative_user_visible_token_savings": 58818,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": 2,
+            "task_id": "WT04-T1",
+            "user_visible_token_savings": 9801
+          },
+          {
+            "cumulative_user_visible_token_savings": 69515,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT04-T2",
+            "user_visible_token_savings": 10697
+          },
+          {
+            "cumulative_user_visible_token_savings": 81784,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT04-T3",
+            "user_visible_token_savings": 12269
+          }
+        ],
+        "status": "qualified",
+        "step_savings": -6,
+        "successful_tasks": 12,
+        "user_visible_token_savings": 81784
+      },
+      "supermemory_local": {
+        "paired": [
+          {
+            "cumulative_user_visible_token_savings": -3247,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -2,
+            "task_id": "WT01-T1",
+            "user_visible_token_savings": -3247
+          },
+          {
+            "cumulative_user_visible_token_savings": -5640,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -1,
+            "task_id": "WT01-T2",
+            "user_visible_token_savings": -2393
+          },
+          {
+            "cumulative_user_visible_token_savings": -11074,
+            "family_id": "WT01",
+            "pair_status": "comparable",
+            "step_savings": -3,
+            "task_id": "WT01-T3",
+            "user_visible_token_savings": -5434
+          },
+          {
+            "cumulative_user_visible_token_savings": -7554,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": 3,
+            "task_id": "WT02-T1",
+            "user_visible_token_savings": 3520
+          },
+          {
+            "cumulative_user_visible_token_savings": -12327,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": -3,
+            "task_id": "WT02-T2",
+            "user_visible_token_savings": -4773
+          },
+          {
+            "cumulative_user_visible_token_savings": -8946,
+            "family_id": "WT02",
+            "pair_status": "comparable",
+            "step_savings": 2,
+            "task_id": "WT02-T3",
+            "user_visible_token_savings": 3381
+          },
+          {
+            "cumulative_user_visible_token_savings": -6471,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 2,
+            "task_id": "WT03-T1",
+            "user_visible_token_savings": 2475
+          },
+          {
+            "cumulative_user_visible_token_savings": -6978,
+            "family_id": "WT03",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT03-T2",
+            "user_visible_token_savings": -507
+          },
+          {
+            "family_id": "WT03",
+            "pair_status": "not_comparable",
+            "task_id": "WT03-T3"
+          },
+          {
+            "cumulative_user_visible_token_savings": -5379,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": 1,
+            "task_id": "WT04-T1",
+            "user_visible_token_savings": 1599
+          },
+          {
+            "cumulative_user_visible_token_savings": -5395,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": 0,
+            "task_id": "WT04-T2",
+            "user_visible_token_savings": -16
+          },
+          {
+            "cumulative_user_visible_token_savings": -3867,
+            "family_id": "WT04",
+            "pair_status": "comparable",
+            "step_savings": 1,
+            "task_id": "WT04-T3",
+            "user_visible_token_savings": 1528
+          }
+        ],
+        "status": "not_qualified",
+        "step_savings": null,
+        "successful_tasks": 11,
+        "user_visible_token_savings": null
+      }
+    },
+    "headline_control": "raw_history",
+    "headline_token_savings_status": "qualified",
+    "no_memory_expected_successes": 12,
+    "no_memory_validity_status": "not_run",
+    "success_counts": {
+      "claude_mem": 12,
+      "ledgermind": 12,
+      "mem0_oss": 12,
+      "no_memory": 0,
+      "raw_history": 12,
+      "reme": 12,
+      "supermemory_local": 11
+    },
+    "success_gate_status": "passed"
+  },
+  "comparison_status": "qualified",
+  "comparison_token_basis": "user_visible_agent_execution_tokens",
+  "cost_telemetry_status": "known",
+  "created_at": "2026-09-09T12:47:47.494721Z",
+  "evaluation_mode": "comparison",
+  "execution_status": "completed",
+  "execution_telemetry_status": "known",
+  "failures": [],
+  "identities": {
+    "agent": {
+      "model": "inception/mercury-2.5",
+      "openrouter_require_parameters": true,
+      "profile_fingerprint": "sha256:eacdea5ef71c45ceba866bf9f19aa6de10f59dafff0e9fb2bb708c1a12669374",
+      "provider": "openrouter",
+      "route": "inception",
+      "schema_profile_version": "ledgermind-strict-schema",
+      "strict_structured_outputs": true
+    },
+    "benchmark_runtime": {
+      "ledgermind_recall_item_limit": 6,
+      "memory_injection_policy": "retrieval-once-sticky-exact-working-set-v3-unbounded"
+    },
+    "embedding": {
+      "embedding_dimensions": 2000,
+      "embedding_model_id": "nvidia/nemotron-3-embed-1b-local-bf16",
+      "embedding_model_version": "sha256:18201eecd7f26801293dd3451b187dada4816a48870ac457b9c3810cf4ab7bd5",
+      "embedding_profile_digest_algorithm": "sha256",
+      "embedding_profile_digest_algorithm_schema_version": 1,
+      "embedding_profile_fingerprint": "sha256:18201eecd7f26801293dd3451b187dada4816a48870ac457b9c3810cf4ab7bd5",
+      "embedding_profile_model_version": "nvidia/nemotron-3-embed-1b-local-bf16"
+    },
+    "generation": {
+      "model": "inception/mercury-2.5",
+      "openrouter_require_parameters": true,
+      "profile_fingerprint": "sha256:eacdea5ef71c45ceba866bf9f19aa6de10f59dafff0e9fb2bb708c1a12669374",
+      "provider": "openrouter",
+      "route": "inception",
+      "schema_profile_version": "ledgermind-strict-schema",
+      "strict_structured_outputs": true
+    },
+    "profiles": {
+      "agent": "openrouter-mercury",
+      "embedding": "local-nemotron-embed-2000",
+      "generation": "openrouter-mercury"
+    },
+    "redacted_provider_metadata": {
+      "agent_endpoint": "https://openrouter.ai/api/v1",
+      "embedding_endpoint": "http://127.0.0.1:8791/v1",
+      "generation_endpoint": "https://openrouter.ai/api/v1"
+    },
+    "runtime": {
+      "competitor_runtimes": {
+        "claude_mem": {
+          "binary_sha256": "sha256:9dca84076d29c661dfb8a032588de9db8f3fa46cad55c897d47e7427ed92cb22",
+          "command": "bun worker-service.cjs",
+          "resolved_path": "<local-bun-runtime>",
+          "version_output": "13.24.1",
+          "worker_script": "<local-claude-mem-worker>"
+        },
+        "reme": {
+          "binary_sha256": "sha256:f1719e8f82549c37f3966f794177f0954b81cfcfe1d0b83cc2a3a5a2eb35e348",
+          "command": "reme",
+          "resolved_path": "<local-reme-runtime>",
+          "version_output": "0.4.1.11"
+        },
+        "supermemory_local": {
+          "binary_sha256": "sha256:87f32433d0179be80bb9d8a1bafbac65af4128324342a27ecb8bd1a77b5506f3",
+          "command": "supermemory-server",
+          "resolved_path": "<local-supermemory-runtime>",
+          "version_output": "1.3.4"
+        }
+      },
+      "core": {
+        "binary": "<local-ledgermind-core>",
+        "sha256": "sha256:495833d24301c8aa7d4eb5d79dee7ac31e6c6cef0245e5eb4670f3a48d14dc71",
+        "signature_verified": false,
+        "unsigned_dev_core": true
+      },
+      "mem0_version": "2.0.18"
+    }
+  },
+  "knowledge_resolution_coverage_status": "passed",
+  "ledgermind_memory_pipeline": {
+    "canonical_knowledge_status": "not_configured",
+    "knowledge_resolution": {
+      "accepted_claims": 26,
+      "active_candidates": 0,
+      "adds": 26,
+      "cross_facet_operations": 0,
+      "deterministic_add_groups": 26,
+      "groups": 26,
+      "incoming_values": 26,
+      "initial_invalid_output_count": 0,
+      "merges": 0,
+      "model_reconciliation_groups": 0,
+      "recovered_root_task_count": 0,
+      "repair_attempt_count": 0,
+      "replaces": 0,
+      "resolved_claims": 26,
+      "superseded_values": 0,
+      "terminal_failed_root_task_count": 0
+    },
+    "knowledge_resolution_coverage_status": "passed",
+    "memory_expectation_status": "not_configured",
+    "memory_expectations": {},
+    "memory_structure": {
+      "canonical_knowledge_is_required": false,
+      "cross_facet_operations": 0,
+      "duplicate_active_exact_values": 0,
+      "duplicate_canonical_objects": 0,
+      "identity_conflicts": 0
+    },
+    "memory_structure_status": "passed",
+    "object_resolution": {
+      "applicable_rounds": 12,
+      "completed_applicable_rounds": 12,
+      "conflict_components": 0,
+      "existing_object_matches": 0,
+      "memory_candidates": 0,
+      "memory_linked_components": 0,
+      "new_components": 13,
+      "none_decisions": 13,
+      "queries": 13,
+      "rounds": 12
+    },
+    "object_resolution_coverage_status": "passed",
+    "resolver_trace_status": "known",
+    "rounds": [
+      {
+        "active_candidates": 0,
+        "adds": 3,
+        "assigned_objects": 1,
+        "candidates": 0,
+        "claim_bearing_objects": 1,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "7ebb1b46-e3ac-4376-8eaa-ff7f19b7e493",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT01",
+        "incoming_values": 3,
+        "merges": 0,
+        "new_components": 1,
+        "object_resolution_applicable": true,
+        "objects": 1,
+        "objects_created": 1,
+        "observations_created": 3,
+        "phase": "formation",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [
+          "deterministic_add"
+        ],
+        "resolved_claims": 3,
+        "trace_path": "memory-pipeline/formation/WT01-ledgermind.json",
+        "values_created": 3,
+        "values_superseded": 0,
+        "workflow_task_id": null
+      },
+      {
+        "active_candidates": 0,
+        "adds": 0,
+        "assigned_objects": 0,
+        "candidates": 0,
+        "claim_bearing_objects": 0,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "a257c9f3-4cd6-45f2-a05f-3d07311b15e6",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT01",
+        "incoming_values": 0,
+        "merges": 0,
+        "new_components": 0,
+        "object_resolution_applicable": false,
+        "objects": 0,
+        "objects_created": 0,
+        "observations_created": 0,
+        "phase": "online_update",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [],
+        "resolved_claims": 0,
+        "trace_path": "memory-pipeline/updates/WT01-WT01-T1-ledgermind.json",
+        "values_created": 0,
+        "values_superseded": 0,
+        "workflow_task_id": "WT01-T1"
+      },
+      {
+        "active_candidates": 0,
+        "adds": 3,
+        "assigned_objects": 1,
+        "candidates": 0,
+        "claim_bearing_objects": 1,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "d8394d02-2f7e-40d5-a44b-fb52936c1298",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT01",
+        "incoming_values": 3,
+        "merges": 0,
+        "new_components": 1,
+        "object_resolution_applicable": true,
+        "objects": 1,
+        "objects_created": 1,
+        "observations_created": 3,
+        "phase": "online_update",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [
+          "deterministic_add"
+        ],
+        "resolved_claims": 3,
+        "trace_path": "memory-pipeline/updates/WT01-WT01-T2-ledgermind.json",
+        "values_created": 3,
+        "values_superseded": 0,
+        "workflow_task_id": "WT01-T2"
+      },
+      {
+        "active_candidates": 0,
+        "adds": 0,
+        "assigned_objects": 0,
+        "candidates": 0,
+        "claim_bearing_objects": 0,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "9a696dd3-31c3-420a-90b8-3153dd4e7ab2",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT01",
+        "incoming_values": 0,
+        "merges": 0,
+        "new_components": 0,
+        "object_resolution_applicable": false,
+        "objects": 0,
+        "objects_created": 0,
+        "observations_created": 0,
+        "phase": "online_update",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [],
+        "resolved_claims": 0,
+        "trace_path": "memory-pipeline/updates/WT01-WT01-T3-ledgermind.json",
+        "values_created": 0,
+        "values_superseded": 0,
+        "workflow_task_id": "WT01-T3"
+      },
+      {
+        "active_candidates": 0,
+        "adds": 3,
+        "assigned_objects": 1,
+        "candidates": 0,
+        "claim_bearing_objects": 1,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "4dabe412-0041-4b2f-8615-c8bbf924ce70",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT02",
+        "incoming_values": 3,
+        "merges": 0,
+        "new_components": 1,
+        "object_resolution_applicable": true,
+        "objects": 1,
+        "objects_created": 1,
+        "observations_created": 3,
+        "phase": "formation",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [
+          "deterministic_add"
+        ],
+        "resolved_claims": 3,
+        "trace_path": "memory-pipeline/formation/WT02-ledgermind.json",
+        "values_created": 3,
+        "values_superseded": 0,
+        "workflow_task_id": null
+      },
+      {
+        "active_candidates": 0,
+        "adds": 2,
+        "assigned_objects": 1,
+        "candidates": 0,
+        "claim_bearing_objects": 1,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "9d9f6194-6534-485a-92f9-b8c77aa19ded",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT02",
+        "incoming_values": 2,
+        "merges": 0,
+        "new_components": 1,
+        "object_resolution_applicable": true,
+        "objects": 1,
+        "objects_created": 1,
+        "observations_created": 2,
+        "phase": "online_update",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [
+          "deterministic_add"
+        ],
+        "resolved_claims": 2,
+        "trace_path": "memory-pipeline/updates/WT02-WT02-T1-ledgermind.json",
+        "values_created": 2,
+        "values_superseded": 0,
+        "workflow_task_id": "WT02-T1"
+      },
+      {
+        "active_candidates": 0,
+        "adds": 2,
+        "assigned_objects": 1,
+        "candidates": 0,
+        "claim_bearing_objects": 1,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "204b9f0d-6741-495a-a666-50ab5e4fdf57",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT02",
+        "incoming_values": 2,
+        "merges": 0,
+        "new_components": 1,
+        "object_resolution_applicable": true,
+        "objects": 1,
+        "objects_created": 1,
+        "observations_created": 2,
+        "phase": "online_update",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [
+          "deterministic_add"
+        ],
+        "resolved_claims": 2,
+        "trace_path": "memory-pipeline/updates/WT02-WT02-T2-ledgermind.json",
+        "values_created": 2,
+        "values_superseded": 0,
+        "workflow_task_id": "WT02-T2"
+      },
+      {
+        "active_candidates": 0,
+        "adds": 2,
+        "assigned_objects": 1,
+        "candidates": 0,
+        "claim_bearing_objects": 1,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "7245a1fa-d0d4-4a8b-99ff-c3aa56174e7e",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT02",
+        "incoming_values": 2,
+        "merges": 0,
+        "new_components": 1,
+        "object_resolution_applicable": true,
+        "objects": 1,
+        "objects_created": 1,
+        "observations_created": 2,
+        "phase": "online_update",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [
+          "deterministic_add"
+        ],
+        "resolved_claims": 2,
+        "trace_path": "memory-pipeline/updates/WT02-WT02-T3-ledgermind.json",
+        "values_created": 2,
+        "values_superseded": 0,
+        "workflow_task_id": "WT02-T3"
+      },
+      {
+        "active_candidates": 0,
+        "adds": 1,
+        "assigned_objects": 1,
+        "candidates": 0,
+        "claim_bearing_objects": 1,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "181b7741-717b-4e01-9c97-f653feb02ec0",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT03",
+        "incoming_values": 1,
+        "merges": 0,
+        "new_components": 1,
+        "object_resolution_applicable": true,
+        "objects": 1,
+        "objects_created": 1,
+        "observations_created": 1,
+        "phase": "formation",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [
+          "deterministic_add"
+        ],
+        "resolved_claims": 1,
+        "trace_path": "memory-pipeline/formation/WT03-ledgermind.json",
+        "values_created": 1,
+        "values_superseded": 0,
+        "workflow_task_id": null
+      },
+      {
+        "active_candidates": 0,
+        "adds": 1,
+        "assigned_objects": 1,
+        "candidates": 0,
+        "claim_bearing_objects": 1,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "f9080aae-6e63-4da2-93e0-7f5e5a6aec79",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT03",
+        "incoming_values": 1,
+        "merges": 0,
+        "new_components": 1,
+        "object_resolution_applicable": true,
+        "objects": 1,
+        "objects_created": 1,
+        "observations_created": 1,
+        "phase": "online_update",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [
+          "deterministic_add"
+        ],
+        "resolved_claims": 1,
+        "trace_path": "memory-pipeline/updates/WT03-WT03-T1-ledgermind.json",
+        "values_created": 1,
+        "values_superseded": 0,
+        "workflow_task_id": "WT03-T1"
+      },
+      {
+        "active_candidates": 0,
+        "adds": 0,
+        "assigned_objects": 0,
+        "candidates": 0,
+        "claim_bearing_objects": 0,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "14b59c25-c66c-4901-8f4a-c94fdebf79f1",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT03",
+        "incoming_values": 0,
+        "merges": 0,
+        "new_components": 0,
+        "object_resolution_applicable": false,
+        "objects": 0,
+        "objects_created": 0,
+        "observations_created": 0,
+        "phase": "online_update",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [],
+        "resolved_claims": 0,
+        "trace_path": "memory-pipeline/updates/WT03-WT03-T2-ledgermind.json",
+        "values_created": 0,
+        "values_superseded": 0,
+        "workflow_task_id": "WT03-T2"
+      },
+      {
+        "active_candidates": 0,
+        "adds": 2,
+        "assigned_objects": 1,
+        "candidates": 0,
+        "claim_bearing_objects": 1,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "6aef52b4-f291-4e5a-b0f2-5a457f101b41",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT03",
+        "incoming_values": 2,
+        "merges": 0,
+        "new_components": 1,
+        "object_resolution_applicable": true,
+        "objects": 1,
+        "objects_created": 1,
+        "observations_created": 2,
+        "phase": "online_update",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [
+          "deterministic_add"
+        ],
+        "resolved_claims": 2,
+        "trace_path": "memory-pipeline/updates/WT03-WT03-T3-ledgermind.json",
+        "values_created": 2,
+        "values_superseded": 0,
+        "workflow_task_id": "WT03-T3"
+      },
+      {
+        "active_candidates": 0,
+        "adds": 1,
+        "assigned_objects": 1,
+        "candidates": 0,
+        "claim_bearing_objects": 1,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "a5e17939-998b-4510-8036-94bb8bb35323",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT04",
+        "incoming_values": 1,
+        "merges": 0,
+        "new_components": 1,
+        "object_resolution_applicable": true,
+        "objects": 1,
+        "objects_created": 1,
+        "observations_created": 1,
+        "phase": "formation",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [
+          "deterministic_add"
+        ],
+        "resolved_claims": 1,
+        "trace_path": "memory-pipeline/formation/WT04-ledgermind.json",
+        "values_created": 1,
+        "values_superseded": 0,
+        "workflow_task_id": null
+      },
+      {
+        "active_candidates": 0,
+        "adds": 0,
+        "assigned_objects": 0,
+        "candidates": 0,
+        "claim_bearing_objects": 0,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "5a76f74a-c090-4c32-9f5b-14bb38ff85ff",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT04",
+        "incoming_values": 0,
+        "merges": 0,
+        "new_components": 0,
+        "object_resolution_applicable": false,
+        "objects": 0,
+        "objects_created": 0,
+        "observations_created": 0,
+        "phase": "online_update",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [],
+        "resolved_claims": 0,
+        "trace_path": "memory-pipeline/updates/WT04-WT04-T1-ledgermind.json",
+        "values_created": 0,
+        "values_superseded": 0,
+        "workflow_task_id": "WT04-T1"
+      },
+      {
+        "active_candidates": 0,
+        "adds": 3,
+        "assigned_objects": 1,
+        "candidates": 0,
+        "claim_bearing_objects": 1,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "519f5ee3-8694-45b7-83ac-b3ade6ade9a5",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT04",
+        "incoming_values": 3,
+        "merges": 0,
+        "new_components": 1,
+        "object_resolution_applicable": true,
+        "objects": 1,
+        "objects_created": 1,
+        "observations_created": 3,
+        "phase": "online_update",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [
+          "deterministic_add"
+        ],
+        "resolved_claims": 3,
+        "trace_path": "memory-pipeline/updates/WT04-WT04-T2-ledgermind.json",
+        "values_created": 3,
+        "values_superseded": 0,
+        "workflow_task_id": "WT04-T2"
+      },
+      {
+        "active_candidates": 0,
+        "adds": 3,
+        "assigned_objects": 2,
+        "candidates": 0,
+        "claim_bearing_objects": 2,
+        "claim_set_preserved": true,
+        "conflicts": 0,
+        "core_raw_round_id": "c782aa62-cbe5-420a-9f40-5d48a87610ca",
+        "cross_facet_operations": 0,
+        "existing_matches": 0,
+        "family_id": "WT04",
+        "incoming_values": 3,
+        "merges": 0,
+        "new_components": 2,
+        "object_resolution_applicable": true,
+        "objects": 2,
+        "objects_created": 2,
+        "observations_created": 3,
+        "phase": "online_update",
+        "repair_attempts": 0,
+        "replaces": 0,
+        "resolution_modes": [
+          "deterministic_add"
+        ],
+        "resolved_claims": 3,
+        "trace_path": "memory-pipeline/updates/WT04-WT04-T3-ledgermind.json",
+        "values_created": 3,
+        "values_superseded": 0,
+        "workflow_task_id": "WT04-T3"
+      }
+    ],
+    "rounds_expected": 16,
+    "rounds_traced": 16,
+    "semantic": {
+      "execution_passes": 12,
+      "execution_passes_expected": 12,
+      "user_passes": 16
+    },
+    "structural_integrity_status": "passed",
+    "trace_status": "known"
+  },
+  "manifest_digest": "sha256:165efd53073718d7153975887d380e85d0b7de7ef5f5a904583ecffcf2536df5",
+  "memory_input_contract": {
+    "online_inputs": 72,
+    "schema_version": 1,
+    "simulator_only_fields_allowed": false,
+    "source_audit": {
+      "WT01": {
+        "expected": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80",
+        "observed_by_arm": {
+          "claude_mem": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80",
+          "ledgermind": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80",
+          "mem0_oss": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80",
+          "raw_history": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80",
+          "reme": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80",
+          "supermemory_local": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80"
+        }
+      },
+      "WT02": {
+        "expected": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50",
+        "observed_by_arm": {
+          "claude_mem": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50",
+          "ledgermind": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50",
+          "mem0_oss": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50",
+          "raw_history": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50",
+          "reme": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50",
+          "supermemory_local": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50"
+        }
+      },
+      "WT03": {
+        "expected": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901",
+        "observed_by_arm": {
+          "claude_mem": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901",
+          "ledgermind": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901",
+          "mem0_oss": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901",
+          "raw_history": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901",
+          "reme": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901",
+          "supermemory_local": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901"
+        }
+      },
+      "WT04": {
+        "expected": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a",
+        "observed_by_arm": {
+          "claude_mem": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a",
+          "ledgermind": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a",
+          "mem0_oss": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a",
+          "raw_history": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a",
+          "reme": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a",
+          "supermemory_local": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a"
+        }
+      }
+    }
+  },
+  "memory_input_contract_status": "passed",
+  "memory_snapshot": {
+    "data_digest": "sha256:0793d9275699c6a688d253320c49952f5746f0975bb16b6d4fa04a0b51e7d049",
+    "formation": {
+      "WT01": {
+        "claude_mem": {
+          "memory_input_digest": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "claude_mem_generation": {
+                "calls": 10,
+                "cost_usd": 0.00272394,
+                "tokens": 41075
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00272394,
+            "input_tokens": 30055,
+            "output_tokens": 11020,
+            "status": "known",
+            "successful_calls": 10,
+            "total_tokens": 41075
+          }
+        },
+        "ledgermind": {
+          "memory_input_digest": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80",
+          "pipeline_trace_digest": "sha256:5c206c519a5412fd9038e719fc41fc5c2d0f1908e63b4fbc887c142c3eeb7379",
+          "pipeline_trace_path": "memory-pipeline/formation/WT01-ledgermind.json",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "embedding:object_identity_passage": {
+                "calls": 1,
+                "cost_usd": 0.0,
+                "tokens": 78
+              },
+              "embedding:value_record": {
+                "calls": 2,
+                "cost_usd": 0.0,
+                "tokens": 166
+              },
+              "round_semantic": {
+                "calls": 1,
+                "cost_usd": 0.00034984,
+                "tokens": 5798
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00034984,
+            "input_tokens": 4970,
+            "output_tokens": 1072,
+            "status": "known",
+            "successful_calls": 4,
+            "total_tokens": 6042
+          }
+        },
+        "mem0_oss": {
+          "memory_input_digest": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "mem0_embedding": {
+                "calls": 2,
+                "cost_usd": 0.0,
+                "tokens": 561
+              },
+              "mem0_generation": {
+                "calls": 1,
+                "cost_usd": 0.00042234,
+                "tokens": 9244
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00042234,
+            "input_tokens": 9327,
+            "output_tokens": 478,
+            "status": "known",
+            "successful_calls": 3,
+            "total_tokens": 9805
+          }
+        },
+        "raw_history": {
+          "memory_input_digest": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80",
+          "status": "not_applicable",
+          "usage": {
+            "by_operation": {},
+            "cost_status": "known",
+            "cost_usd": 0.0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "status": "known",
+            "successful_calls": 0,
+            "total_tokens": 0
+          }
+        },
+        "reme": {
+          "memory_input_digest": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "reme_generation": {
+                "calls": 2,
+                "cost_usd": 0.00040304,
+                "tokens": 6237
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00040304,
+            "input_tokens": 4841,
+            "output_tokens": 1396,
+            "status": "known",
+            "successful_calls": 2,
+            "total_tokens": 6237
+          }
+        },
+        "supermemory_local": {
+          "memory_input_digest": "sha256:6d4539ca121caed610ed5009b9cf7c32150b8d131ed186a9e00ee0213f061a80",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "supermemory_local_embedding": {
+                "calls": 14,
+                "cost_usd": 0.0,
+                "tokens": 521
+              },
+              "supermemory_local_generation": {
+                "calls": 4,
+                "cost_usd": 0.00096397,
+                "tokens": 15104
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00096397,
+            "input_tokens": 12354,
+            "output_tokens": 3271,
+            "status": "known",
+            "successful_calls": 18,
+            "total_tokens": 15625
+          }
+        }
+      },
+      "WT02": {
+        "claude_mem": {
+          "memory_input_digest": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "claude_mem_generation": {
+                "calls": 10,
+                "cost_usd": 0.00326017,
+                "tokens": 43757
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00326017,
+            "input_tokens": 29780,
+            "output_tokens": 13977,
+            "status": "known",
+            "successful_calls": 10,
+            "total_tokens": 43757
+          }
+        },
+        "ledgermind": {
+          "memory_input_digest": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50",
+          "pipeline_trace_digest": "sha256:0511aae9f331ee9005173042346ccf2c1c5cf5b8a5eb8ea611df57b15b6572b5",
+          "pipeline_trace_path": "memory-pipeline/formation/WT02-ledgermind.json",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "embedding:object_card": {
+                "calls": 2,
+                "cost_usd": 0.0,
+                "tokens": 201
+              },
+              "embedding:object_identity_passage": {
+                "calls": 1,
+                "cost_usd": 0.0,
+                "tokens": 80
+              },
+              "round_semantic": {
+                "calls": 1,
+                "cost_usd": 0.00029965,
+                "tokens": 5613
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00029965,
+            "input_tokens": 5211,
+            "output_tokens": 683,
+            "status": "known",
+            "successful_calls": 4,
+            "total_tokens": 5894
+          }
+        },
+        "mem0_oss": {
+          "memory_input_digest": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "mem0_embedding": {
+                "calls": 2,
+                "cost_usd": 0.0,
+                "tokens": 483
+              },
+              "mem0_generation": {
+                "calls": 1,
+                "cost_usd": 0.00036333,
+                "tokens": 8822
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00036333,
+            "input_tokens": 9210,
+            "output_tokens": 95,
+            "status": "known",
+            "successful_calls": 3,
+            "total_tokens": 9305
+          }
+        },
+        "raw_history": {
+          "memory_input_digest": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50",
+          "status": "not_applicable",
+          "usage": {
+            "by_operation": {},
+            "cost_status": "known",
+            "cost_usd": 0.0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "status": "known",
+            "successful_calls": 0,
+            "total_tokens": 0
+          }
+        },
+        "reme": {
+          "memory_input_digest": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "reme_generation": {
+                "calls": 2,
+                "cost_usd": 0.00043474,
+                "tokens": 6540
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00043474,
+            "input_tokens": 4966,
+            "output_tokens": 1574,
+            "status": "known",
+            "successful_calls": 2,
+            "total_tokens": 6540
+          }
+        },
+        "supermemory_local": {
+          "memory_input_digest": "sha256:4ceaae06059474c92532a8f322e928b6d602279fa476e851c886ba34a2f08a50",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "supermemory_local_embedding": {
+                "calls": 15,
+                "cost_usd": 0.0,
+                "tokens": 569
+              },
+              "supermemory_local_generation": {
+                "calls": 4,
+                "cost_usd": 0.00101472,
+                "tokens": 16153
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00101472,
+            "input_tokens": 13126,
+            "output_tokens": 3596,
+            "status": "known",
+            "successful_calls": 19,
+            "total_tokens": 16722
+          }
+        }
+      },
+      "WT03": {
+        "claude_mem": {
+          "memory_input_digest": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "claude_mem_generation": {
+                "calls": 9,
+                "cost_usd": 0.0027425,
+                "tokens": 37288
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.0027425,
+            "input_tokens": 25328,
+            "output_tokens": 11960,
+            "status": "known",
+            "successful_calls": 9,
+            "total_tokens": 37288
+          }
+        },
+        "ledgermind": {
+          "memory_input_digest": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901",
+          "pipeline_trace_digest": "sha256:ca204c335d82ed0f99bd57cd8e95718798140291393e85bb1c54e568bd3bf258",
+          "pipeline_trace_path": "memory-pipeline/formation/WT03-ledgermind.json",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "embedding:object_card": {
+                "calls": 1,
+                "cost_usd": 0.0,
+                "tokens": 122
+              },
+              "embedding:object_identity_passage": {
+                "calls": 1,
+                "cost_usd": 0.0,
+                "tokens": 99
+              },
+              "round_semantic": {
+                "calls": 1,
+                "cost_usd": 0.00025777,
+                "tokens": 5391
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00025777,
+            "input_tokens": 5229,
+            "output_tokens": 383,
+            "status": "known",
+            "successful_calls": 3,
+            "total_tokens": 5612
+          }
+        },
+        "mem0_oss": {
+          "memory_input_digest": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "mem0_embedding": {
+                "calls": 2,
+                "cost_usd": 0.0,
+                "tokens": 511
+              },
+              "mem0_generation": {
+                "calls": 1,
+                "cost_usd": 0.00037225,
+                "tokens": 8902
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00037225,
+            "input_tokens": 9266,
+            "output_tokens": 147,
+            "status": "known",
+            "successful_calls": 3,
+            "total_tokens": 9413
+          }
+        },
+        "raw_history": {
+          "memory_input_digest": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901",
+          "status": "not_applicable",
+          "usage": {
+            "by_operation": {},
+            "cost_status": "known",
+            "cost_usd": 0.0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "status": "known",
+            "successful_calls": 0,
+            "total_tokens": 0
+          }
+        },
+        "reme": {
+          "memory_input_digest": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "reme_generation": {
+                "calls": 2,
+                "cost_usd": 0.00045801,
+                "tokens": 6822
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00045801,
+            "input_tokens": 5139,
+            "output_tokens": 1683,
+            "status": "known",
+            "successful_calls": 2,
+            "total_tokens": 6822
+          }
+        },
+        "supermemory_local": {
+          "memory_input_digest": "sha256:d096844494f6785f17e0a3d517bebea48ebaef80b6352f069f8905d9c3bc7901",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "supermemory_local_embedding": {
+                "calls": 16,
+                "cost_usd": 0.0,
+                "tokens": 514
+              },
+              "supermemory_local_generation": {
+                "calls": 4,
+                "cost_usd": 0.00085959,
+                "tokens": 14240
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00085959,
+            "input_tokens": 11633,
+            "output_tokens": 3121,
+            "status": "known",
+            "successful_calls": 20,
+            "total_tokens": 14754
+          }
+        }
+      },
+      "WT04": {
+        "claude_mem": {
+          "memory_input_digest": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "claude_mem_generation": {
+                "calls": 10,
+                "cost_usd": 0.00305386,
+                "tokens": 43327
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00305386,
+            "input_tokens": 30379,
+            "output_tokens": 12948,
+            "status": "known",
+            "successful_calls": 10,
+            "total_tokens": 43327
+          }
+        },
+        "ledgermind": {
+          "memory_input_digest": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a",
+          "pipeline_trace_digest": "sha256:8c276ab53e6637731e860f6b1b4324556262ff19a9a6c2e766859e2e0a64741a",
+          "pipeline_trace_path": "memory-pipeline/formation/WT04-ledgermind.json",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "embedding:object_identity_passage": {
+                "calls": 1,
+                "cost_usd": 0.0,
+                "tokens": 76
+              },
+              "embedding:object_signature": {
+                "calls": 1,
+                "cost_usd": 0.0,
+                "tokens": 117
+              },
+              "round_semantic": {
+                "calls": 1,
+                "cost_usd": 0.00029217,
+                "tokens": 5558
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00029217,
+            "input_tokens": 5116,
+            "output_tokens": 635,
+            "status": "known",
+            "successful_calls": 3,
+            "total_tokens": 5751
+          }
+        },
+        "mem0_oss": {
+          "memory_input_digest": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "mem0_embedding": {
+                "calls": 2,
+                "cost_usd": 0.0,
+                "tokens": 520
+              },
+              "mem0_generation": {
+                "calls": 1,
+                "cost_usd": 0.00038348,
+                "tokens": 8828
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00038348,
+            "input_tokens": 9072,
+            "output_tokens": 276,
+            "status": "known",
+            "successful_calls": 3,
+            "total_tokens": 9348
+          }
+        },
+        "raw_history": {
+          "memory_input_digest": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a",
+          "status": "not_applicable",
+          "usage": {
+            "by_operation": {},
+            "cost_status": "known",
+            "cost_usd": 0.0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "status": "known",
+            "successful_calls": 0,
+            "total_tokens": 0
+          }
+        },
+        "reme": {
+          "memory_input_digest": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "reme_generation": {
+                "calls": 2,
+                "cost_usd": 0.0003878,
+                "tokens": 6120
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.0003878,
+            "input_tokens": 4820,
+            "output_tokens": 1300,
+            "status": "known",
+            "successful_calls": 2,
+            "total_tokens": 6120
+          }
+        },
+        "supermemory_local": {
+          "memory_input_digest": "sha256:09ab749a118f5bcc2c590d5c91d1c186a997ce467f13adb7140951fc256fbc0a",
+          "status": "snapshot_reused",
+          "usage": {
+            "by_operation": {
+              "supermemory_local_embedding": {
+                "calls": 14,
+                "cost_usd": 0.0,
+                "tokens": 608
+              },
+              "supermemory_local_generation": {
+                "calls": 4,
+                "cost_usd": 0.00094556,
+                "tokens": 14916
+              }
+            },
+            "cost_status": "known",
+            "cost_usd": 0.00094556,
+            "input_tokens": 12352,
+            "output_tokens": 3172,
+            "status": "known",
+            "successful_calls": 18,
+            "total_tokens": 15524
+          }
+        }
+      }
+    },
+    "path": "<immutable-memory-snapshot:5fe65718bfc519848861ff5e>",
+    "schema_version": 2,
+    "snapshot_id": "5fe65718bfc519848861ff5e",
+    "status": "validated_and_cloned"
+  },
+  "memory_structure_status": "passed",
+  "memory_telemetry_status": "known",
+  "object_resolution_coverage_status": "passed",
+  "provider_attempt_diagnostics": {
+    "artifact": "provider-attempt-index.json",
+    "attempts": 679,
+    "by_error_code": {
+      "STRICT_OUTPUT_CONTRACT_VIOLATION": 3,
+      "invalid_generation_response": 24,
+      "none": 652
+    },
+    "by_status_code": {
+      "200": 679
+    },
+    "completed_attempts": 652,
+    "failed_attempts": 27,
+    "non_provider_overhead_seconds": 1526.026753,
+    "provider_request_seconds": 498.682721,
+    "raw_artifact_root": "provider-attempts",
+    "retry_wait_seconds": 0.0,
+    "wall_clock_seconds": 2024.709474
+  },
+  "resolver_trace_status": "known",
+  "run_scope": "full",
+  "schema_version": 2,
+  "source_digest_audit": {
+    "WT01": {
+      "expected": "sha256:7efdccae04e264cd7bab97134d90ea0845f54ded36f6348050304e479609ce46",
+      "observed_by_arm": {
+        "claude_mem": [
+          "sha256:7efdccae04e264cd7bab97134d90ea0845f54ded36f6348050304e479609ce46"
+        ],
+        "ledgermind": [
+          "sha256:7efdccae04e264cd7bab97134d90ea0845f54ded36f6348050304e479609ce46"
+        ],
+        "mem0_oss": [
+          "sha256:7efdccae04e264cd7bab97134d90ea0845f54ded36f6348050304e479609ce46"
+        ],
+        "raw_history": [
+          "sha256:7efdccae04e264cd7bab97134d90ea0845f54ded36f6348050304e479609ce46"
+        ],
+        "reme": [
+          "sha256:7efdccae04e264cd7bab97134d90ea0845f54ded36f6348050304e479609ce46"
+        ],
+        "supermemory_local": [
+          "sha256:7efdccae04e264cd7bab97134d90ea0845f54ded36f6348050304e479609ce46"
+        ]
+      }
+    },
+    "WT02": {
+      "expected": "sha256:d5b3c2e95a1014f74a44af4dabe126d18df53ced9db9f300e9a8af18b6cf9103",
+      "observed_by_arm": {
+        "claude_mem": [
+          "sha256:d5b3c2e95a1014f74a44af4dabe126d18df53ced9db9f300e9a8af18b6cf9103"
+        ],
+        "ledgermind": [
+          "sha256:d5b3c2e95a1014f74a44af4dabe126d18df53ced9db9f300e9a8af18b6cf9103"
+        ],
+        "mem0_oss": [
+          "sha256:d5b3c2e95a1014f74a44af4dabe126d18df53ced9db9f300e9a8af18b6cf9103"
+        ],
+        "raw_history": [
+          "sha256:d5b3c2e95a1014f74a44af4dabe126d18df53ced9db9f300e9a8af18b6cf9103"
+        ],
+        "reme": [
+          "sha256:d5b3c2e95a1014f74a44af4dabe126d18df53ced9db9f300e9a8af18b6cf9103"
+        ],
+        "supermemory_local": [
+          "sha256:d5b3c2e95a1014f74a44af4dabe126d18df53ced9db9f300e9a8af18b6cf9103"
+        ]
+      }
+    },
+    "WT03": {
+      "expected": "sha256:3ac5b5a134f61e454ad1ecc770a0be51015a1abfd730a77123ca2c0e433ec867",
+      "observed_by_arm": {
+        "claude_mem": [
+          "sha256:3ac5b5a134f61e454ad1ecc770a0be51015a1abfd730a77123ca2c0e433ec867"
+        ],
+        "ledgermind": [
+          "sha256:3ac5b5a134f61e454ad1ecc770a0be51015a1abfd730a77123ca2c0e433ec867"
+        ],
+        "mem0_oss": [
+          "sha256:3ac5b5a134f61e454ad1ecc770a0be51015a1abfd730a77123ca2c0e433ec867"
+        ],
+        "raw_history": [
+          "sha256:3ac5b5a134f61e454ad1ecc770a0be51015a1abfd730a77123ca2c0e433ec867"
+        ],
+        "reme": [
+          "sha256:3ac5b5a134f61e454ad1ecc770a0be51015a1abfd730a77123ca2c0e433ec867"
+        ],
+        "supermemory_local": [
+          "sha256:3ac5b5a134f61e454ad1ecc770a0be51015a1abfd730a77123ca2c0e433ec867"
+        ]
+      }
+    },
+    "WT04": {
+      "expected": "sha256:9e5df502d231a4ae0aaa784649c0583b8048295b230248b03822a9231ca87f32",
+      "observed_by_arm": {
+        "claude_mem": [
+          "sha256:9e5df502d231a4ae0aaa784649c0583b8048295b230248b03822a9231ca87f32"
+        ],
+        "ledgermind": [
+          "sha256:9e5df502d231a4ae0aaa784649c0583b8048295b230248b03822a9231ca87f32"
+        ],
+        "mem0_oss": [
+          "sha256:9e5df502d231a4ae0aaa784649c0583b8048295b230248b03822a9231ca87f32"
+        ],
+        "raw_history": [
+          "sha256:9e5df502d231a4ae0aaa784649c0583b8048295b230248b03822a9231ca87f32"
+        ],
+        "reme": [
+          "sha256:9e5df502d231a4ae0aaa784649c0583b8048295b230248b03822a9231ca87f32"
+        ],
+        "supermemory_local": [
+          "sha256:9e5df502d231a4ae0aaa784649c0583b8048295b230248b03822a9231ca87f32"
+        ]
+      }
+    }
+  },
+  "source_revisions": {
+    "core": {
+      "git_dirty": true,
+      "git_sha": "fd3329683e457eb318d113bbcf76e10b2f0598e3",
+      "worktree_status_digest": "sha256:fe3a01e043b190d1279ac3ddabdf99cd0e131de91f7448f295827e61d888bbc9"
+    },
+    "lab": {
+      "git_dirty": true,
+      "git_sha": "a8fb6954b4e56eb30ebdbeb7602edcff9d64f541",
+      "worktree_status_digest": "sha256:c42402bdac597e06f90d188de186fa4be1cde599132c0481380ecb77f702a811"
+    }
+  },
+  "structural_integrity_status": "passed",
+  "success_gate_status": "passed",
+  "task_count": 72,
+  "telemetry_status": "known",
+  "tokenizer": {
+    "id": "ledgermind-workflow-regex-v1",
+    "memory_injection_policy": "retrieval-once-sticky-exact-working-set-v3-unbounded"
+  },
+  "validation": null,
+  "validation_status": "not_applicable"
+}
