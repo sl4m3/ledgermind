@@ -59,8 +59,8 @@ limit: **36 observations per arm and 216 scored trajectories overall**.
 | Mean per 12-workflow run | LedgerMind | Mem0 OSS | Supermemory Local | Claude-Mem | Raw history | ReMe |
 |---|---:|---:|---:|---:|---:|---:|
 | Successful workflows across all runs | **36 / 36** | **36 / 36** | 35 / 36 | 35 / 36 | **36 / 36** | 35 / 36 |
-| Safety violations across all runs | **0** | **0** | 1 | 1 | **0** | 1 |
 | Agent execution tokens | **131,094** | 133,651 | 136,701 | 154,524 | 182,817 | 227,757 |
+| Agent execution cost | **$0.00707** | $0.00720 | $0.00746 | $0.00803 | $0.00921 | $0.01116 |
 | Agent actions | 97.0 | 98.7 | 103.0 | 99.7 | **95.3** | 101.0 |
 | Context returned by recall | **1,008** | 1,536 | 1,094 | 2,588 | 13,733 | 15,383 |
 | Initial memory formation tokens, once | **23,299** | 37,871 | 62,625 | 165,447 | Not applicable | 25,719 |
