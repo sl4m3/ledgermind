@@ -77,6 +77,12 @@ once: the agent reached the target state but also executed an unsafe legacy
 action after an authoritative rule changed. Their results, internal costs, and
 individual failure traces are analyzed separately rather than omitted.
 
+The Lab benchmark is now wired for three additional lifecycle arms—Cognee,
+Hindsight, and Zep—through isolated local HTTP services (capture and recall are
+automatic; MCP is not used). The table above remains the last completed
+provider-backed series and will be extended only after those arms produce a
+complete, auditable run.
+
 [Read the full benchmark report](BENCHMARK.md) or inspect the three sanitized
 [machine-readable run artifacts](benchmarks/README.md).
 
