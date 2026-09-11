@@ -1,5 +1,20 @@
 # Workflow Transfer Benchmark
 
+> **Method update (10 September 2026).** The Lab fixture has been advanced to
+> protocol `workflow-transfer-v9`: the same four families now contain five
+> transfer tasks each (T1–T5), with explicit load-variant metadata and honest
+> `not_measured` stress reporting. The tables below are the preserved,
+> reproducible `workflow-transfer-v8` three-task results (12 tasks per run);
+> they are not silently relabeled as v9 measurements. A new live v9 series is
+> published only after its provider calls and artifacts are complete.
+
+> **Adapter update (10 September 2026).** The Lab implementation now also has
+> lifecycle adapters for Cognee, Hindsight, and Zep. They are wired through
+> their local HTTP APIs (never MCP), with isolated dataset/bank/session scopes
+> and explicit preflight checks. The historical tables below intentionally do
+> not invent measurements for these newly connected arms; they remain a
+> reproducible v8 result until a complete provider-backed run is published.
+
 ## Abstract
 
 Most memory benchmarks ask whether a stored fact can be retrieved. That is not
@@ -263,6 +278,13 @@ calibration and is not repeatedly executed in the paid comparison.
 | **ReMe** | Uses automatic memory through its hook/HTTP integration. MCP or model-optional retrieval is excluded. |
 | **Supermemory Local** | Runs locally behind a mandatory lifecycle adapter; its reactive API is not exposed as an optional agent tool. |
 | **LedgerMind** | Integrations capture the completed round, Core forms or updates knowledge, and Local injects recall before the next model call. |
+
+The current Lab adapter set also includes **Cognee**, **Hindsight**, and
+**Zep**. Each is connected through its automatic local HTTP lifecycle (capture
+after a completed task and recall before the next task), with isolated
+dataset/bank/session state and no MCP calls. These three arms are newly wired;
+the numerical tables in this historical report intentionally contain no
+measurements for them.
 
 All arms receive identical source digests, goals, tools, observations, action
 limits, and public prompts apart from the memory payload. Online memory is
