@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Stable release: 4.0.8" src="https://img.shields.io/badge/stable-4.0.8-2563eb">
+  <img alt="Stable release: 4.1.0" src="https://img.shields.io/badge/stable-4.1.0-2563eb">
   <img alt="Local first" src="https://img.shields.io/badge/memory-local--first-16a34a">
   <img alt="Five stable agent adapters" src="https://img.shields.io/badge/adapters-5_stable-2563eb">
   <img alt="Core network access: none" src="https://img.shields.io/badge/Core_network_access-none-111827">
@@ -43,48 +43,49 @@ knowledge layer.
 
 [See the benchmark](BENCHMARK.md) · [Follow releases](https://github.com/sl4m3/ledgermind/releases) · [Contact LedgerMind](mailto:s.zotov@ledgermind.org)
 
-> **Current stable release:** `4.0.8` for supported Linux hosts.
+> **Current stable release:** `4.1.0` for supported Linux hosts.
 
 ## Workflow memory, measured end to end
 
-The Workflow Transfer Benchmark measures the complete product loop: finished
-work is captured, memory is formed, and a later agent receives memory before
-acting on a related task. Success comes from hidden workflow state and safety
-predicates—not an LLM judge or a semantic answer key.
+The Workflow Transfer Benchmark measures the complete product loop: completed
+work is captured, a later agent receives memory automatically, and the task is
+scored from hidden workflow state and safety predicates. An LLM does not judge
+whether the answer merely sounds correct.
 
-These are averages from **three complete runs** using the same 12 workflows,
-frozen source snapshot, agent model, route, public prompts, tools, and action
-limit: **36 observations per arm and 216 scored trajectories overall**.
+The current public matrix covers **nine configurations**, the same **20 tasks**
+for each configuration, four workflow families, and **180 task executions**.
+Every value below is an observed result from the 19 September 2026 matrix—not a
+linear projection.
 
-| Mean per 12-workflow run | LedgerMind | Mem0 OSS | Supermemory Local | Claude-Mem | Raw history | ReMe |
+| Configuration | Completed | Safety violations | Agent actions | Rejected actions | Agent tokens | Returned context |
 |---|---:|---:|---:|---:|---:|---:|
-| Successful workflows across all runs | **36 / 36** | **36 / 36** | 35 / 36 | 35 / 36 | **36 / 36** | 35 / 36 |
-| Agent execution tokens | **131,094** | 133,651 | 136,701 | 154,524 | 182,817 | 227,757 |
-| Agent execution cost | **$0.00707** | $0.00720 | $0.00746 | $0.00803 | $0.00921 | $0.01116 |
-| Agent actions | 97.0 | 98.7 | 103.0 | 99.7 | **95.3** | 101.0 |
-| Context returned by recall | **1,008** | 1,536 | 1,094 | 2,588 | 13,733 | 15,383 |
-| Initial memory formation tokens, once | **23,299** | 37,871 | 62,625 | 165,447 | Not applicable | 25,719 |
-| Online memory update tokens | **61,903** | 120,240 | 298,672 | 614,590 | Not applicable | 74,650 |
+| **LedgerMind** | **20 / 20** | **0** | **140** | **8** | 232,429 | 5,916 |
+| Mem0 OSS | 20 / 20 | 0 | 142 | 12 | **188,072** | 4,144 |
+| Budget-limited history | 17 / 20 | 2 | 167 | 32 | 308,131 | 13,244 |
+| Supermemory Local | 19 / 20 | 0 | 150 | 20 | 197,503 | 3,243 |
+| Claude-Mem | 20 / 20 | 0 | 146 | 12 | 293,371 | 16,593 |
+| ReMe | 20 / 20 | 0 | 148 | 12 | 293,445 | 16,072 |
+| Cognee | 19 / 20 | 0 | 147 | 10 | **185,507** | **2,569** |
+| Hindsight | 20 / 20 | 0 | 144 | 13 | 261,406 | 12,502 |
+| Zep CE | 20 / 20 | 0 | 145 | 15 | 222,773 | 7,881 |
 
-LedgerMind, Mem0, and raw history are the only arms that completed all 36 tasks
-without a safety violation. LedgerMind used **28.3% fewer agent tokens and
-92.7% less returned context than raw history**. Against Mem0, agent execution
-was near parity—a 1.9% mean LedgerMind lead—while LedgerMind used **38.5% fewer
-formation tokens and 48.5% fewer online-update tokens**.
+Against budget-limited history, LedgerMind completed **three more tasks**, used
+**24.6% fewer agent tokens**, required **16.2% fewer actions**, and produced
+**75% fewer rejected actions**. It completed all 20 tasks with no observed
+safety violation.
 
-Supermemory, Claude-Mem, and ReMe each failed the same difficult transfer class
-once: the agent reached the target state but also executed an unsafe legacy
-action after an authoritative rule changed. Their results, internal costs, and
-individual failure traces are analyzed separately rather than omitted.
+The comparison does **not** claim that LedgerMind used the fewest tokens in
+every row. Mem0 used fewer agent tokens while also completing 20/20; Cognee
+used the fewest tokens overall but completed 19/20. LedgerMind's measured
+distinction in this matrix is the combination of 20/20 completion with the
+fewest agent actions and rejected actions among the fully completed systems.
 
-The Lab benchmark is now wired for three additional lifecycle arms—Cognee,
-Hindsight, and Zep—through isolated local HTTP services (capture and recall are
-automatic; MCP is not used). The table above remains the last completed
-provider-backed series and will be extended only after those arms produce a
-complete, auditable run.
+The public artifact includes the actual per-task token sequence used by the
+interactive comparison, not prompts, responses, provider endpoints, request
+identifiers, or local paths.
 
-[Read the full benchmark report](BENCHMARK.md) or inspect the three sanitized
-[machine-readable run artifacts](benchmarks/README.md).
+[Read the full benchmark report](BENCHMARK.md) or inspect the sanitized
+[machine-readable result](benchmarks/workflow-transfer-20260919.json).
 
 ### The 30-second version
 
@@ -98,7 +99,7 @@ how impressive the stored notes sound.
 
 ### Install in one command
 
-LedgerMind 4.0.8 is available for Linux x86_64. The interactive installer
+LedgerMind 4.1.0 is available for Linux x86_64. The interactive installer
 detects supported agents, collects the model configuration, verifies the signed
 release, and connects the integrations you select:
 
@@ -113,23 +114,26 @@ non-interactive deployment.
 
 | You are… | Start here |
 |---|---|
-| Using an agent and tired of repeating yourself | [Install LedgerMind 4.0.8](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
+| Using an agent and tired of repeating yourself | [Install LedgerMind 4.1.0](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
 | Building an agent, IDE, or local assistant | Explore [Integrations](https://github.com/sl4m3/ledgermind-integrations) and the [Local runtime](https://github.com/sl4m3/ledgermind-local) |
 | Running an AI platform or enterprise deployment | [Contact LedgerMind](mailto:s.zotov@ledgermind.org) for evaluation, deployment, and licensing |
 | Comparing memory systems | Jump to the [benchmark results](#workflow-memory-measured-end-to-end) and [full methodology](BENCHMARK.md) |
 
 ## Where LedgerMind is available
 
-LedgerMind is a self-hosted local product. It is not a hosted memory API and
-does not require a LedgerMind cloud account. You install it next to your agent,
-choose the models, and keep control of the memory database.
+LedgerMind is available as two clearly separated products. **LedgerMind
+Local** is the self-hosted runtime: it runs next to your agent, uses models you
+configure, and keeps the memory boundary on your host. **LedgerMind Cloud** is
+the managed API: the user plugin connects the agent with a workspace API key,
+while memory processing and storage run in the managed service.
 
 | What is available | Where |
 |---|---|
 | Product page, documentation, benchmark, and release announcements | [github.com/sl4m3/ledgermind](https://github.com/sl4m3/ledgermind) |
+| LedgerMind Cloud account and managed workspaces | [ledgermind.org](https://ledgermind.org) |
 | Public agent adapters and protocol contracts | [github.com/sl4m3/ledgermind-integrations](https://github.com/sl4m3/ledgermind-integrations) |
 | Inspectable local runtime and installer source | [github.com/sl4m3/ledgermind-local](https://github.com/sl4m3/ledgermind-local) |
-| Signed self-hosted 4.0.8 package | [GitHub Releases](https://github.com/sl4m3/ledgermind/releases/latest) |
+| Signed self-hosted 4.1.0 package | [GitHub Releases](https://github.com/sl4m3/ledgermind/releases/latest) |
 | Enterprise evaluation, deployment, and licensing | [s.zotov@ledgermind.org](mailto:s.zotov@ledgermind.org) |
 
 The architecture described here belongs to LedgerMind 4.0. Signed stable
@@ -137,7 +141,7 @@ packages are published through GitHub Releases. Existing 3.x release tags are
 legacy releases and should not be used as installation packages for this
 README.
 
-The published `4.0.8` package supports **Linux x86_64**. Linux aarch64 is part
+The published `4.1.0` package supports **Linux x86_64**. Linux aarch64 is part
 of the platform design, but no aarch64 package is included in this release.
 
 | Agent | Integration | Activation note |
@@ -157,7 +161,7 @@ directories. Docker is not required. The installer verifies the signed
 manifest, platform bundle, Core binary, and applicable runtime artifacts before
 switching the active version.
 
-> **Public-install status:** the signed LedgerMind `4.0.8` release is available
+> **Public-install status:** the signed LedgerMind `4.1.0` release is available
 > from GitHub Releases. The `latest` installation URL below resolves to this
 > stable release.
 
@@ -170,7 +174,7 @@ switching the active version.
 - a generation provider and model with strict JSON Schema structured outputs;
 - an OpenAI-compatible embedding API.
 
-Docker is not a supported secure deployment path for `4.0.8`.
+Docker is not a supported secure deployment path for `4.1.0`.
 
 ### Choose your setup
 
@@ -187,8 +191,10 @@ Before installation, decide:
 1. which supported agent or agents should use the memory;
 2. the language in which LedgerMind should form semantic knowledge;
 3. the OpenAI-compatible generation endpoint and model;
-4. which OpenAI-compatible embedding API and dimensions to use;
-5. how provider credentials will be supplied.
+4. whether embeddings should use an API or a signed local CPU/GPU runtime;
+5. whether retrieval reranking is disabled, provided by an API, or performed
+   by a separately installed local CPU/GPU runtime;
+6. how provider credentials will be supplied.
 
 Supported semantic languages are English, Russian, Spanish, Portuguese,
 French, German, and Ukrainian. Provider credentials belong to Local and are
@@ -208,7 +214,7 @@ Then the installer:
 
 1. detects the Linux platform and installed agents;
 2. asks which agents should receive memory;
-3. asks for generation and embedding settings;
+3. asks for generation, embedding, and optional reranker settings;
 4. downloads and verifies the signed platform bundle;
 5. installs LedgerMind without root access;
 6. connects the selected agents;
@@ -272,6 +278,9 @@ provider selection.
       "dimensions": 2048,
       "token_env": "LEDGERMIND_EMBEDDING_TOKEN"
     }
+  },
+  "reranker": {
+    "mode": "disabled"
   }
 }
 ```
@@ -280,6 +289,24 @@ The route names above reproduce the tested configuration and may change on the
 provider side. Confirm current model and provider availability before
 installation. Remove `fallback_routes` to pin OpenRouter to the primary route
 only.
+
+#### Choose a retrieval reranker
+
+Reranking is optional and never changes stored knowledge. Core forms the
+eligible candidate set; the reranker may only reorder it before context is
+packed. The installer offers three modes:
+
+- **Disabled:** use the deterministic Core ranking only;
+- **API:** use a configured Cohere-compatible or NVIDIA NIM reranking endpoint;
+- **Local:** use the separately downloaded signed Qwen3-Reranker-0.6B runtime
+  on CPU, NVIDIA CUDA, or AMD ROCm.
+
+Local model weights are not embedded in the main platform package. API
+credentials remain in LedgerMind's private secret store. If reranking fails or
+times out, context selection falls back to Core order rather than blocking the
+agent. Injection always keeps the first six complete knowledge items and may
+add further complete items while they fit the soft context target; stored
+knowledge is never cut in the middle.
 
 Choose `"memory_mode": "shared"` when all connected agents should read and
 write the same knowledge. Choose `"per_agent"` when every agent should have an
@@ -539,11 +566,12 @@ license. The license file shipped with each release is authoritative.
 
 | Capability | Current support |
 |---|---|
-| Operating systems | Linux x86_64; an aarch64 package is not published in 4.0.8 |
+| Operating systems | Linux x86_64; an aarch64 package is not published in 4.1.0 |
 | Agent integrations | Hermes, Codex CLI and Desktop, Claude Code, OpenCode, and OpenClaw |
 | Experimental integration | Cursor; excluded from the current acceptance matrix |
 | Generation | Operator-selected OpenAI-compatible API |
-| Embeddings | Operator-selected OpenAI-compatible API |
+| Embeddings | Operator-selected OpenAI-compatible API or signed local CPU/GPU runtime |
+| Retrieval reranker | Disabled, operator-selected API, or separately installed signed local CPU/GPU runtime |
 | Installation | Rootless, XDG directory layout, signed release artifacts |
 | Runtime mode | On demand through client TTL leases |
 
