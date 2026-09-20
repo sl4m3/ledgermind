@@ -1,18 +1,25 @@
 # Benchmark artifacts
 
-The complete analysis is published in [BENCHMARK.md](../BENCHMARK.md).
+The current analysis and measurement boundary are documented in
+[`BENCHMARK.md`](../BENCHMARK.md).
 
-The checked-in JSON files are the preserved protocol-v8 three-task runs. The
-current Lab pilot is protocol-v9 (four families × five tasks); its results are
-not mixed into these historical artifacts until a complete provider-backed
-series is available.
+## Current public matrix
 
-The Lab adapter set now includes Cognee, Hindsight, and Zep in addition to the
-historical arms. Their lifecycle integrations are implemented and preflighted,
-but no measurements are added here until a complete run produces immutable
-artifacts for all selected arms.
+- [Workflow Transfer v11 — 19 September 2026](workflow-transfer-20260919.json)
 
-## Full run artifacts
+This sanitized artifact contains aggregate results for nine configurations and
+the actual ordered 20-task series used by the public comparison. It includes
+per-task agent-token totals and outcomes, but excludes prompts, responses,
+provider endpoints, request identifiers, credentials, and local paths.
+
+The final cumulative token value for every configuration is validated against
+its published aggregate before release.
+
+## Historical series
+
+These three files are preserved protocol-v8 runs from 9 September 2026. They
+use 12 tasks per arm and belong to a different benchmark protocol. They are not
+combined with the current v11 matrix.
 
 - [Run 1 — workflow-transfer-20260909T121403Z](workflow-transfer-20260909T121403Z.json)
 - [Run 2 — workflow-transfer-20260909T130444Z](workflow-transfer-20260909T130444Z.json)
