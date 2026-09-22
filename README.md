@@ -307,6 +307,11 @@ agent. Injection always keeps the first six complete knowledge items and may
 add further complete items while they fit the soft context target; stored
 knowledge is never cut in the middle.
 
+For local mode, download the CPU runtime archive, its `.json` manifest and
+`.sig` signature, and `install-reranker-runtime.py` from the [4.1.0 release](https://github.com/sl4m3/ledgermind/releases/tag/v4.1.0).
+The script verifies them against the installed `signatures/manifest.pub` before
+installation. Select the installed runtime directory in the setup wizard.
+
 Choose `"memory_mode": "shared"` when all connected agents should read and
 write the same knowledge. Choose `"per_agent"` when every agent should have an
 independent logical memory. Both modes use one local LedgerMind runtime; the
