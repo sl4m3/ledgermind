@@ -172,7 +172,7 @@ switching the active version.
   fail-closed when the required isolation probe does not pass;
 - an installed supported agent;
 - a generation provider and model with strict JSON Schema structured outputs;
-- an OpenAI-compatible embedding API.
+- an OpenAI-compatible embedding API or the supported local embedding runtime.
 
 Docker is not a supported secure deployment path for `4.1.0`.
 
@@ -191,9 +191,9 @@ Before installation, decide:
 1. which supported agent or agents should use the memory;
 2. the language in which LedgerMind should form semantic knowledge;
 3. the OpenAI-compatible generation endpoint and model;
-4. whether embeddings should use an API or a signed local CPU/GPU runtime;
+4. whether embeddings should use an API or the signed local CPU runtime;
 5. whether retrieval reranking is disabled, provided by an API, or performed
-   by a separately installed local CPU/GPU runtime;
+   by the separately installed local CPU runtime;
 6. how provider credentials will be supplied.
 
 Supported semantic languages are English, Russian, Spanish, Portuguese,
@@ -298,8 +298,7 @@ packed. The installer offers three modes:
 
 - **Disabled:** use the deterministic Core ranking only;
 - **API:** use a configured Cohere-compatible or NVIDIA NIM reranking endpoint;
-- **Local:** use the separately downloaded signed Qwen3-Reranker-0.6B runtime
-  on CPU, NVIDIA CUDA, or AMD ROCm.
+- **Local:** use the separately downloaded signed Qwen3-Reranker-0.6B CPU runtime.
 
 Local model weights are not embedded in the main platform package. API
 credentials remain in LedgerMind's private secret store. If reranking fails or
@@ -367,17 +366,21 @@ The states have different meanings:
 - `enabled` — the adapter will attach to future agent sessions;
 - `active` — the integration is enabled and has no remaining activation step.
 
-The runtime starts on demand when an enabled agent needs memory and shuts down
-after its leases expire. A normal uninstall preserves memory, configuration,
-and secrets; permanent deletion requires explicit purge flags.
+The installer offers three residency modes for local embedding and reranker
+models: `Session` keeps them loaded for the complete agent turn, `Idle timeout`
+keeps them warm for a selected period, and `Always on` keeps them resident for
+the lowest recall latency. Session mode is recommended and uses an emergency
+TTL to recover from a crashed agent. A normal uninstall preserves memory,
+configuration, and secrets; permanent deletion requires explicit purge flags.
 
 ### 6. Update LedgerMind
 
 The updater verifies the signed release and preserves configuration, memory,
-secrets, and connected integrations:
+secrets, and connected integrations. Rerun the installer and choose **Update
+LedgerMind**, then check the installation:
 
 ```bash
-ledgermind update --json
+curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh | sh
 ledgermind doctor --json
 ```
 
@@ -570,10 +573,10 @@ license. The license file shipped with each release is authoritative.
 | Agent integrations | Hermes, Codex CLI and Desktop, Claude Code, OpenCode, and OpenClaw |
 | Experimental integration | Cursor; excluded from the current acceptance matrix |
 | Generation | Operator-selected OpenAI-compatible API |
-| Embeddings | Operator-selected OpenAI-compatible API or signed local CPU/GPU runtime |
-| Retrieval reranker | Disabled, operator-selected API, or separately installed signed local CPU/GPU runtime |
+| Embeddings | Operator-selected OpenAI-compatible API or signed local CPU runtime |
+| Retrieval reranker | Disabled, operator-selected API, or separately installed signed local CPU runtime |
 | Installation | Rootless, XDG directory layout, signed release artifacts |
-| Runtime mode | On demand through client TTL leases |
+| Runtime mode | Session, idle-timeout, or always-on residency selected during installation |
 
 This table describes the current implementation, not a promise of unlisted
 platforms or integrations.
