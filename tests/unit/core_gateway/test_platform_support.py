@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import platform
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -39,6 +40,32 @@ def test_real_bwrap_secure_probe_or_explicit_unavailable_skip(tmp_path: Path) ->
     bwrap = shutil.which("bwrap")
     if bwrap is None:
         pytest.skip("bwrap is unavailable; secure production launch must fail closed")
+
+    # A container or runner may ship bwrap while withholding the namespaces the
+    # secure probe needs. That is an environment limit, not a product defect:
+    # production still fails closed. Skip only when the kernel refuses the
+    # namespaces themselves, so a genuine probe regression still fails here.
+    namespaced = subprocess.run(
+        (
+            bwrap,
+            "--unshare-user",
+            "--unshare-net",
+            "--ro-bind",
+            "/",
+            "/",
+            "--die-with-parent",
+            sys.executable,
+            "-c",
+            "pass",
+        ),
+        capture_output=True,
+        text=True,
+    )
+    if namespaced.returncode != 0:
+        pytest.skip(
+            "bwrap cannot unshare user/network namespaces in this environment: "
+            f"{(namespaced.stderr or namespaced.stdout).strip() or 'no diagnostic'}"
+        )
 
     core_data_dir = tmp_path / "core"
     core_data_dir.mkdir(mode=0o700)
