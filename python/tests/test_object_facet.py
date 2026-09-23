@@ -307,7 +307,7 @@ def test_context_view_rejects_legacy_public_item_fields() -> None:
         ContextView.model_validate(payload)
 
 
-def test_context_view_accepts_retrieval_schema_v3() -> None:
+def test_context_view_accepts_current_retrieval_schema() -> None:
     payload = _load_valid("v_context_view.json")
     payload["schema_version"] = 3
 
