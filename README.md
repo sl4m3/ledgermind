@@ -122,8 +122,8 @@ and protocol live in adjacent directories. Rust Core is compiled in a separate
 multi-stage builder; the legacy Python runtime is not included in the image:
 
 ```bash
-cd /path/to/ledgermind
-docker build -f ledgermind-engine/ledgermind-local/Dockerfile \
+cd /path/to/ledgermind-engine
+docker build -f local/Dockerfile \
   -t ledgermind-local .
 ```
 
