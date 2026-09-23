@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "semantic_language", "generation", "embedding"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": 2},
+    "semantic_language": {
+      "type": "string",
+      "pattern": "^[A-Za-z]{2,8}(?:[-_][A-Za-z0-9]{1,8})*$",
+      "examples": ["en", "pt", "uk", "zh-Hans"]
+    },
+    "memory_mode": {"enum": ["shared", "per_agent"]},
+    "integrations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/integration"}
+    },
+    "memory_data_path": {"type": ["string", "null"]},
+    "generation": {
+      "$ref": "#/$defs/generation"
+    },
+    "embedding": {
+      "oneOf": [
+        {
+          "required": ["mode", "api"],
+          "properties": {"mode": {"const": "api"}, "api": {"$ref": "#/$defs/embeddingApi"}},
+          "not": {"required": ["local"]}
+        },
+        {
+          "required": ["mode", "local"],
+          "properties": {"mode": {"const": "local"}, "local": {"$ref": "#/$defs/embeddingLocal"}},
+          "not": {"required": ["api"]}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "reranker": {
+      "oneOf": [
+        {"required": ["mode"], "properties": {"mode": {"const": "disabled"}}, "not": {"anyOf": [{"required": ["api"]}, {"required": ["local"]}]}},
+        {"required": ["mode", "api"], "properties": {"mode": {"const": "api"}, "api": {"$ref": "#/$defs/rerankerApi"}}, "not": {"required": ["local"]}},
+        {"required": ["mode", "local"], "properties": {"mode": {"const": "local"}, "local": {"$ref": "#/$defs/rerankerLocal"}}, "not": {"required": ["api"]}}
+      ],
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "residency_mode": {"type": "string", "enum": ["session", "idle", "always_on"]},
+        "idle_timeout_seconds": {"type": "number", "minimum": 0},
+        "session_safety_ttl_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "idle_shutdown_seconds": {"type": "number", "minimum": 0},
+        "lease_ttl_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "heartbeat_seconds": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "advanced": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "generation_max_input": {"type": ["integer", "null"], "minimum": 1},
+        "generation_max_output": {"type": ["integer", "null"], "minimum": 1},
+        "embedding_max_text_length": {"type": ["integer", "null"], "minimum": 1},
+        "retry_attempts": {"type": "integer", "minimum": 0, "maximum": 10},
+        "allow_custom_model": {"type": "boolean"},
+        "custom_model_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-fA-F]{64}$"},
+        "custom_runtime_compatibility": {"type": ["string", "null"]}
+      }
+    }
+  },
+  "$defs": {
+    "integration": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"enum": ["hermes", "codex", "claude-code", "cursor", "opencode", "openclaw"]},
+        "enabled": {"type": "boolean"}
+      }
+    },
+    "generation": {
+      "type": "object",
+      "required": ["endpoint", "model"],
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {"type": "string", "format": "uri"},
+        "provider_profile": {"enum": ["openai_compatible", "openrouter", "nvidia_nim"]},
+        "route": {"type": ["string", "null"]},
+        "fallback_routes": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "maxItems": 1,
+          "uniqueItems": true
+        },
+        "token": {"type": ["string", "null"]},
+        "token_env": {"type": ["string", "null"]},
+        "token_stdin": {"type": "boolean"},
+        "secret_ref": {"type": ["string", "null"]},
+        "model": {"type": "string"},
+        "operational_model": {"type": ["string", "null"]},
+        "object_resolution_model": {"type": ["string", "null"]},
+        "background_model": {"type": ["string", "null"]},
+        "timeout_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "max_concurrency": {"type": "integer", "minimum": 1},
+        "structured_json_support": {"type": "boolean"}
+      }
+    },
+    "embeddingApi": {
+      "type": "object",
+      "required": ["endpoint", "model", "dimensions"],
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {"type": "string", "format": "uri"},
+        "token": {"type": ["string", "null"]},
+        "token_env": {"type": ["string", "null"]},
+        "token_stdin": {"type": "boolean"},
+        "secret_ref": {"type": ["string", "null"]},
+        "model": {"type": "string"},
+        "dimensions": {"type": "integer", "minimum": 1},
+        "batch_size": {"type": "integer", "minimum": 1},
+        "concurrency": {"type": "integer", "minimum": 1},
+        "timeout_seconds": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "embeddingLocal": {
+      "type": "object",
+      "required": ["catalog_id"],
+      "additionalProperties": false,
+      "properties": {
+        "catalog_id": {"type": "string"},
+        "device": {"enum": ["auto", "cpu", "cuda", "rocm"]},
+        "model_path": {"type": ["string", "null"]},
+        "model_storage_path": {"type": ["string", "null"]},
+        "runtime_id": {"type": ["string", "null"]},
+        "runtime_path": {"type": ["string", "null"]},
+        "dimensions": {"type": "integer", "minimum": 1},
+        "batch_size": {"type": "integer", "minimum": 1},
+        "concurrency": {"type": "integer", "minimum": 1},
+        "threads": {"type": "integer", "minimum": 0},
+        "gpu_allocation": {"type": "string"},
+        "auto_start": {"type": "boolean"}
+      }
+    },
+    "rerankerApi": {
+      "type": "object",
+      "required": ["endpoint", "model"],
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {"type": "string", "format": "uri"},
+        "token": {"type": ["string", "null"]},
+        "token_env": {"type": ["string", "null"]},
+        "secret_ref": {"type": ["string", "null"]},
+        "model": {"type": "string"},
+        "timeout_seconds": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "rerankerLocal": {
+      "type": "object",
+      "required": ["model_path", "runtime_path"],
+      "additionalProperties": false,
+      "properties": {
+        "model_path": {"type": "string"},
+        "runtime_path": {"type": "string"},
+        "device": {"enum": ["cpu", "cuda", "rocm"]}
+      }
+    }
+  }
+}
