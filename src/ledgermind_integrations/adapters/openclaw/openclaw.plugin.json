@@ -1,0 +1,7 @@
+{
+  "id": "ledgermind-memory",
+  "name": "LedgerMind Memory",
+  "description": "Local durable memory for OpenClaw agents",
+  "activation": {"onStartup": true},
+  "configSchema": {"type": "object", "additionalProperties": false}
+}
