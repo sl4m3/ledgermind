@@ -1,0 +1,5 @@
+{
+  "schema_version": 2,
+  "objects": [{"ref": "o1", "mention_ref": "m-existing", "resolution": "existing", "existing_object_id": "obj-not-offered", "ambiguous_candidate_ids": [], "aliases_from_source": [], "source_event_ids": ["event-1"]}],
+  "values": []
+}

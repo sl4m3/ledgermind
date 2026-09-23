@@ -1,0 +1,36 @@
+{
+  "schema_version": 2,
+  "idempotency_key": "sha256:f5ca1aed3d274db9e12e29aebed230efcb9e5a678ebff38cedf0138c0dc81579",
+  "memory_space_id": "workspace_01",
+  "source": {
+    "system": "hermes",
+    "instance_id": "src_hermes_local",
+    "profile_id": "default",
+    "session_id": "session_01",
+    "round_id": "1001:1003",
+    "first_event_id": "1001",
+    "final_event_id": "1003",
+    "event_ids": ["1001", "1002", "1003"],
+    "source_schema_version": 1,
+    "adapter_version": "hermes-python/0.1.0",
+    "extensions": {
+      "ledgermind_resolution": {
+        "schema_version": 1,
+        "project_id": "aliadoai",
+        "repository_id": "aliadoai-next",
+        "task_id": null,
+        "conversation_id": "session_01"
+      }
+    }
+  },
+  "round": {
+    "started_at": "2026-08-02T20:00:00Z",
+    "completed_at": "2026-08-02T20:01:05Z",
+    "events": [
+      {"event_id": "1001", "sequence": 0, "kind": "message", "role": "user", "content": [{"type": "text", "text": "Use the repository conventions."}]},
+      {"event_id": "1002", "sequence": 1, "kind": "tool_call", "tool_call_id": "call_1", "tool_name": "read_file", "arguments": {"path": "README.md"}},
+      {"event_id": "1003", "sequence": 2, "kind": "message", "role": "assistant", "final": true, "content": [{"type": "text", "text": "The conventions are applied."}]}
+    ]
+  },
+  "payload_digest": "sha256:f5ca1aed3d274db9e12e29aebed230efcb9e5a678ebff38cedf0138c0dc81579"
+}

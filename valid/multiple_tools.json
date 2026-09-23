@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "idempotency_key": "sha256:9cf967e30a647c332e6a713785c567eca7ed0395ca45ae408484620a47dbbd5f",
+  "memory_space_id": "workspace_01",
+  "source": {
+    "system": "hermes",
+    "instance_id": "src_hermes_local",
+    "profile_id": "default",
+    "session_id": "multiple_tools_session",
+    "round_id": "multiple_tools_round",
+    "first_event_id": "multi_user",
+    "final_event_id": "multi_assistant",
+    "event_ids": ["multi_user", "multi_call_a", "multi_result_a", "multi_call_b", "multi_result_b", "multi_assistant"],
+    "source_schema_version": 1,
+    "adapter_version": "hermes-python/0.1.0"
+  },
+  "round": {
+    "started_at": "2026-08-03T10:03:00Z",
+    "completed_at": "2026-08-03T10:03:20Z",
+    "events": [
+      {"event_id": "multi_user", "sequence": 0, "kind": "message", "role": "user", "content": [{"type": "text", "text": "Inspect two files."}]},
+      {"event_id": "multi_call_a", "sequence": 1, "kind": "tool_call", "tool_call_id": "call_a", "tool_name": "read_file", "arguments": {"path": "README.md"}},
+      {"event_id": "multi_result_a", "sequence": 2, "kind": "tool_result", "tool_call_id": "call_a", "status": "success", "content": [{"type": "text", "text": "readme"}]},
+      {"event_id": "multi_call_b", "sequence": 3, "kind": "tool_call", "tool_call_id": "call_b", "tool_name": "read_file", "arguments": {"path": "CHANGELOG.md"}},
+      {"event_id": "multi_result_b", "sequence": 4, "kind": "tool_result", "tool_call_id": "call_b", "status": "success", "content": [{"type": "text", "text": "changelog"}]},
+      {"event_id": "multi_assistant", "sequence": 5, "kind": "message", "role": "assistant", "final": true, "content": [{"type": "text", "text": "Both files were inspected."}]}
+    ]
+  },
+  "payload_digest": "sha256:9cf967e30a647c332e6a713785c567eca7ed0395ca45ae408484620a47dbbd5f"
+}

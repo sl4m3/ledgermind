@@ -1,0 +1,19 @@
+{
+  "schema_version": 2,
+  "task_id": "task-subject-query-1",
+  "task_kind": "embed_texts",
+  "operation": "embed_texts",
+  "profile_slot": "embedding",
+  "memory_space_id": "workspace-1",
+  "expires_at": "2026-08-08T12:00:00Z",
+  "embedding_request": {
+    "texts": ["language LocaleProvider"],
+    "subject_refs": ["subject:language"],
+    "purpose": "subject_query",
+    "dimensions": 3
+  },
+  "operation_input": {
+    "raw_round_id": "round-1",
+    "subject_seeds": []
+  }
+}

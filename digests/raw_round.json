@@ -1,0 +1,11 @@
+{
+  "protocol": "raw-round",
+  "schema_sha256": "fcdd468134433053b9ed0b400721f09292e8316c15763c4fca25df1d4e1de327",
+  "valid": {
+    "hermes_complete.json": "sha256:f5ca1aed3d274db9e12e29aebed230efcb9e5a678ebff38cedf0138c0dc81579",
+    "multiple_tools.json": "sha256:9cf967e30a647c332e6a713785c567eca7ed0395ca45ae408484620a47dbbd5f",
+    "simple_round.json": "sha256:48a6c40d767bc382b70e2d319584ce8820775547e3c2576da5fc0ce291a3d1b4",
+    "tool_error.json": "sha256:015a10f0e6c543dbe1cdbfce2fde043970dc0752b0ae20386145bab1dfbfdf83",
+    "tool_success.json": "sha256:dc443eb3ce99e4536a930c12851390aa7ba2560282757f66192427afe68e7465"
+  }
+}

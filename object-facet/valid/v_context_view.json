@@ -1,0 +1,43 @@
+{
+  "schema_version": 2,
+  "retrieval_request_id": "retrieval-1",
+  "delivered_value_ids": ["value-1"],
+  "items": [
+    {
+      "value_id": "value-1",
+      "primary_object_id": "obj-postgresql",
+      "object_name": "PostgreSQL",
+      "facet": "function",
+      "content": "PostgreSQL accepts SQL queries.",
+      "source_event_ids": ["event-1"],
+      "relevance": 0.5874,
+      "explanation": {
+        "object_reasons": ["direct_value_semantic"],
+        "item_facet": "function",
+        "activated_facets": [
+          {"facet": "procedure", "score": 0.44, "signals": ["how"]}
+        ],
+        "score_components": {
+          "semantic_similarity": 0.92,
+          "semantic_contribution": 0.3864,
+          "object_similarity": 0.0,
+          "object_contribution": 0.0,
+          "facet_compatibility": 0.44,
+          "facet_compatibility_raw": 0.44,
+          "facet_contribution": 0.044,
+          "scope_time_compatibility": 1.0,
+          "scope_time_contribution": 0.1,
+          "context_compatibility": 0.0,
+          "context_contribution": 0.0,
+          "recency_component": 0.5,
+          "recency_contribution": 0.035,
+          "support_component": 0.4,
+          "support_contribution": 0.02,
+          "usage_component": 0.1,
+          "usage_contribution": 0.002,
+          "final_score": 0.5874
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "claims": [
+    {
+      "claim_ref": "c1",
+      "subject": {
+        "source_event_id": "event-2",
+        "surface_text": "LedgerMind Local",
+        "span_start": 18,
+        "span_end": 34
+      },
+      "facet": "constraint",
+      "content": "The user selected LedgerMind Local for this repository.",
+      "conditions": [
+        {
+          "source_event_id": "event-2",
+          "surface_text": "The user selected"
+        }
+      ],
+      "context_anchor_refs": ["a-repository"],
+      "source_event_ids": ["event-2"]
+    }
+  ],
+  "coverage": [
+    {
+      "anchor_ref": "r1",
+      "disposition": "claim",
+      "claim_refs": ["c1"]
+    }
+  ]
+}
