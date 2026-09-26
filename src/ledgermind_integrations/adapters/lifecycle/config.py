@@ -18,6 +18,8 @@ class LifecycleConfig:
     profile_id: str
     spool_dir: str
     runtime_command: str
+    runtime_state_file: str | None = None
+    config_file: str | None = None
     enabled: bool = True
     context_limit: int = 5
     request_timeout_seconds: float = 5.0
@@ -61,6 +63,12 @@ def load_lifecycle_config(path: str | Path) -> LifecycleConfig:
         profile_id=str(payload["profile_id"]),
         spool_dir=str(payload["spool_dir"]),
         runtime_command=str(payload["runtime_command"]),
+        runtime_state_file=(
+            str(payload["runtime_state_file"])
+            if isinstance(payload.get("runtime_state_file"), str)
+            else None
+        ),
+        config_file=str(Path(path).expanduser().absolute()),
         enabled=bool(payload.get("enabled", True)),
         context_limit=max(int(payload.get("context_limit", 5)), 1),
         request_timeout_seconds=max(float(payload.get("request_timeout_seconds", 5.0)), 0.1),

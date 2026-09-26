@@ -32,6 +32,7 @@ class HermesConfig:
     max_spool_files: int = 1_000
     inflight_ttl_seconds: float = 300.0
     runtime_endpoint: str | None = None
+    runtime_state_file: str | None = None
     runtime_command: str | None = None
     runtime_heartbeat_seconds: float = 10.0
     model_residency_mode: Literal["session", "idle", "always_on"] = "idle"
@@ -110,6 +111,11 @@ def load_config(path: str | Path) -> HermesConfig:
         runtime_endpoint=(
             str(payload["runtime_endpoint"]).rstrip("/")
             if payload.get("runtime_endpoint")
+            else None
+        ),
+        runtime_state_file=(
+            str(payload["runtime_state_file"])
+            if isinstance(payload.get("runtime_state_file"), str)
             else None
         ),
         runtime_command=(

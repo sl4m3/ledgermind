@@ -86,6 +86,17 @@ def test_client_returns_strict_context_view(monkeypatch: pytest.MonkeyPatch) -> 
     assert requests == [{"memory_space_id": "space-1", "query": "protocol", "limit": 5}]
 
 
+def test_client_preserves_explicit_recall_scope(monkeypatch):
+    client = _client()
+    requests = []
+    monkeypatch.setattr(client, "_request", lambda method, path, payload: requests.append(payload) or _response())
+    client.retrieve_context(memory_space_id="space", query="continue", project_id="p",
+        repository_id="r", conversation_id="c", task_id="t", query_context="Release procedure")
+    assert requests[0] == {"memory_space_id": "space", "query": "continue", "limit": 5,
+        "project_id": "p", "repository_id": "r", "conversation_id": "c", "task_id": "t",
+        "query_context": "Release procedure"}
+
+
 def test_client_uses_stable_http_surface(monkeypatch: pytest.MonkeyPatch) -> None:
     client = _client()
     paths: list[str] = []
@@ -198,6 +209,65 @@ def test_runtime_bootstrap_updates_endpoint_and_waits_for_health(
     )
 
     assert result["lease_id"] == "lease-1"
+
+
+def test_runtime_lease_bootstraps_when_foreign_server_returns_404(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ForeignClient:
+        endpoint = "http://127.0.0.1:8765"
+
+        def runtime_acquire(self, **_kwargs: object) -> dict[str, str]:
+            raise LedgerMindResponseError("server returned 404")
+
+        def runtime_heartbeat(self, _lease_id: str) -> dict[str, str]:
+            return {}
+
+        def runtime_release(self, _lease_id: str) -> dict[str, str]:
+            return {}
+
+    def bootstrap(client: ForeignClient, **_kwargs: object) -> dict[str, str]:
+        client.endpoint = "http://127.0.0.1:8767"
+        return {"lease_id": "lease-recovered"}
+
+    monkeypatch.setattr(lease_module, "_bootstrap_runtime", bootstrap)
+    client = ForeignClient()
+    lease = lease_module.RuntimeLease.acquire(
+        cast(Any, client),
+        client_id="opencode",
+        session_id="one",
+        heartbeat_seconds=10,
+        bootstrap_command="ledgermind",
+        start_heartbeat=False,
+    )
+    assert lease.lease_id == "lease-recovered"
+    assert client.endpoint == "http://127.0.0.1:8767"
+
+
+def test_cold_runtime_bootstraps_without_contacting_occupied_port(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ColdClient:
+        endpoint = "http://127.0.0.1:8765"
+
+        def runtime_acquire(self, **_kwargs: object) -> dict[str, str]:
+            raise AssertionError("cold start must not send a token to another service")
+
+    monkeypatch.setattr(
+        lease_module,
+        "_bootstrap_runtime",
+        lambda _client, **_kwargs: {"lease_id": "lease-safe"},
+    )
+    lease = lease_module.RuntimeLease.acquire(
+        cast(Any, ColdClient()),
+        client_id="opencode",
+        session_id="one",
+        heartbeat_seconds=10,
+        bootstrap_command="ledgermind",
+        start_heartbeat=False,
+        prefer_bootstrap=True,
+    )
+    assert lease.lease_id == "lease-safe"
 
 
 def test_runtime_bootstrap_releases_lease_when_service_never_becomes_ready(

@@ -7,6 +7,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from ledgermind_integrations.adapters.lifecycle import LifecycleConfig, handle_hook
 from ledgermind_integrations.adapters.lifecycle import bridge as bridge_module
 
@@ -48,6 +50,127 @@ def _config(tmp_path: Path, *, enabled: bool = True) -> LifecycleConfig:
         runtime_command="ledgermind",
         enabled=enabled,
     )
+
+
+def test_recall_scope_matches_captured_round_and_trace_is_private(tmp_path, monkeypatch):
+    class Client(_Client):
+        def __init__(self):
+            super().__init__()
+            self.queries = []
+
+        def retrieve_context(self, **kwargs):
+            self.queries.append(kwargs)
+            return {**super().retrieve_context(), "retrieval_request_id": "retrieval-1",
+                    "delivered_value_ids": ["value-one"], "selection_diagnostics": {"status": "reranked"}}
+
+    client = Client()
+    config = _config(tmp_path)
+    monkeypatch.setattr(bridge_module, "_client", lambda config: client)
+    response = handle_hook(config, "UserPromptSubmit", {"session_id": "session-1",
+        "prompt": "continue", "project_id": "p", "repository_id": "r", "task_id": "t",
+        "task_description": "Release service"})
+    assert client.queries[0]["query"] == "continue"
+    assert client.queries[0]["conversation_id"] == "session-1"
+    assert client.queries[0]["repository_id"] == "r"
+    assert client.queries[0]["query_context"] == "Release service"
+    handle_hook(config, "Stop", {"session_id": "session-1", "last_assistant_message": "done"})
+    raw = client.submitted[0]
+    resolution = raw["source"]["extensions"]["ledgermind_resolution"]
+    assert resolution["conversation_id"] == "session-1"
+    assert resolution["repository_id"] == "r"
+    assert raw["extensions"]["ledgermind_context"]["delivered_value_ids"] == ["value-one"]
+    trace = Path(config.spool_dir) / "retrieval-trace.jsonl"
+    assert trace.stat().st_mode & 0o777 == 0o600
+    assert json.loads(trace.read_text().splitlines()[0])["additional_context"] == response["additional_context"]
+    handle_hook(config, "UserPromptSubmit", {"session_id": "session-2", "prompt": "other task"})
+    assert "repository_id" not in client.queries[-1]
+    assert "query_context" not in client.queries[-1]
+
+
+def test_recall_trace_failure_does_not_suppress_injection(tmp_path, monkeypatch):
+    monkeypatch.setattr(bridge_module, "_client", lambda config: _Client())
+    def fail(*args):
+        raise OSError("disk full")
+    monkeypatch.setattr(bridge_module, "_record_recall_trace", fail)
+    assert handle_hook(_config(tmp_path), "UserPromptSubmit", {
+        "session_id": "s", "prompt": "query"})["additional_context"]
+
+
+@pytest.mark.parametrize("target", ["codex", "opencode"])
+def test_native_hook_scope_tracks_repository_changes_without_invented_task_context(
+    tmp_path, monkeypatch, target,
+):
+    class Client(_Client):
+        def __init__(self):
+            super().__init__()
+            self.queries = []
+
+        def retrieve_context(self, **kwargs):
+            self.queries.append(kwargs)
+            return super().retrieve_context()
+
+    client = Client()
+    config = replace(_config(tmp_path), target=target)
+    monkeypatch.setattr(bridge_module, "_client", lambda config: client)
+    for index in range(2):
+        repository = tmp_path / f"repo-{index}"
+        (repository / ".git").mkdir(parents=True)
+        cwd = repository / "src"
+        cwd.mkdir()
+        # These are the fields emitted by the command hook/native OpenCode bridge.
+        payload = {"session_id": "same-session", "cwd": str(cwd), "prompt": "continue"}
+        assert handle_hook(config, "UserPromptSubmit", payload)["additional_context"]
+        query = client.queries[-1]
+        assert query["repository_id"] == str(repository)
+        assert query["conversation_id"] == "same-session"
+        assert "project_id" not in query
+        assert "task_id" not in query
+        assert "query_context" not in query
+        handle_hook(config, "Stop", {**payload, "last_assistant_message": "done"})
+        resolution = client.submitted[-1]["source"]["extensions"]["ledgermind_resolution"]
+        assert resolution["repository_id"] == query["repository_id"]
+        assert resolution["conversation_id"] == query["conversation_id"]
+
+
+def test_background_drain_delivers_every_queued_round(tmp_path: Path, monkeypatch) -> None:
+    config = _config(tmp_path)
+    spool = bridge_module._spool(config)
+    for index in range(45):
+        spool.enqueue_ready(f"round-{index}", {"round": index})
+    client = _Client()
+
+    @contextmanager
+    def leased(_config: LifecycleConfig, _session_id: str):
+        yield client
+
+    monkeypatch.setattr(bridge_module, "_leased_client", leased)
+    assert bridge_module.drain_ready(config) == 45
+    assert spool.stats().ready_delivery == 0
+    assert len(client.submitted) == 45
+
+
+def test_hook_launches_detached_drain_for_remaining_queue(tmp_path: Path, monkeypatch) -> None:
+    executable = tmp_path / "ledgermind"
+    executable.touch()
+    config_file = tmp_path / "config.json"
+    config_file.touch()
+    config = replace(
+        _config(tmp_path),
+        runtime_command=str(executable),
+        config_file=str(config_file),
+    )
+    bridge_module._spool(config).enqueue_ready("round-1", {"round": 1})
+    launches: list[tuple[list[str], dict[str, Any]]] = []
+
+    def launch(command: list[str], **kwargs: Any) -> object:
+        launches.append((command, kwargs))
+        return object()
+
+    monkeypatch.setattr(bridge_module.subprocess, "Popen", launch)
+    bridge_module._launch_delivery_drain(config)
+    assert len(launches) == 1
+    assert launches[0][0][-3:] == ["drain", "--config", str(config_file)]
+    assert launches[0][1]["start_new_session"] is True
 
 
 def test_managed_runtime_skips_local_lease(tmp_path: Path, monkeypatch) -> None:

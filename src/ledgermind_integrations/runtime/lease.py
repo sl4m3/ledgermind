@@ -12,7 +12,12 @@ import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from .client import LedgerMindClient, LedgerMindNetworkError
+from .client import (
+    LedgerMindClient,
+    LedgerMindNetworkError,
+    LedgerMindResponseError,
+    LedgerMindUnauthorizedError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +46,9 @@ class RuntimeLease:
         bootstrap_command: str | Sequence[str] | None = None,
         ttl_seconds: float | None = None,
         start_heartbeat: bool = True,
+        prefer_bootstrap: bool = False,
     ) -> RuntimeLease:
-        try:
-            response = client.runtime_acquire(
-                client=client_id,
-                session_id=session_id,
-                ttl_seconds=ttl_seconds,
-            )
-        except LedgerMindNetworkError:
+        if prefer_bootstrap:
             response = _bootstrap_runtime(
                 client,
                 client_id=client_id,
@@ -56,9 +56,33 @@ class RuntimeLease:
                 command=bootstrap_command,
                 ttl_seconds=ttl_seconds,
             )
+        else:
+            try:
+                response = client.runtime_acquire(
+                client=client_id,
+                session_id=session_id,
+                ttl_seconds=ttl_seconds,
+                )
+            except (LedgerMindNetworkError, LedgerMindResponseError, LedgerMindUnauthorizedError):
+                response = _bootstrap_runtime(
+                    client,
+                    client_id=client_id,
+                    session_id=session_id,
+                    command=bootstrap_command,
+                    ttl_seconds=ttl_seconds,
+                )
         lease_id = response.get("lease_id")
         if not isinstance(lease_id, str) or not lease_id:
-            raise RuntimeError("runtime acquire returned no lease_id")
+            response = _bootstrap_runtime(
+                client,
+                client_id=client_id,
+                session_id=session_id,
+                command=bootstrap_command,
+                ttl_seconds=ttl_seconds,
+            )
+            lease_id = response.get("lease_id")
+            if not isinstance(lease_id, str) or not lease_id:
+                raise RuntimeError("runtime acquire returned no lease_id")
         lease = cls(client, lease_id, max(float(heartbeat_seconds), 0.1))
         if start_heartbeat:
             lease.start()
@@ -178,7 +202,7 @@ def _bootstrap_runtime(
                 client.health_live()
                 ready = True
                 break
-            except LedgerMindNetworkError:
+            except (LedgerMindNetworkError, LedgerMindResponseError, LedgerMindUnauthorizedError):
                 time.sleep(0.1)
         if not ready:
             rollback()

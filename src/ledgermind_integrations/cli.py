@@ -23,6 +23,8 @@ def main(argv: list[str] | None = None) -> int:
     hook = subparsers.add_parser("hook", help=argparse.SUPPRESS)
     hook.add_argument("--config", required=True)
     hook.add_argument("--event", required=True)
+    drain = subparsers.add_parser("drain", help=argparse.SUPPRESS)
+    drain.add_argument("--config", required=True)
     args = parser.parse_args(argv)
     if args.command == "install" and args.adapter == "hermes":
         print(install_hermes(args.destination))
@@ -42,6 +44,12 @@ def main(argv: list[str] | None = None) -> int:
             result = {}
         if result:
             print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        return 0
+    if args.command == "drain":
+        from .adapters.lifecycle.bridge import drain_ready
+        from .adapters.lifecycle.config import load_lifecycle_config
+
+        print(json.dumps({"delivered": drain_ready(load_lifecycle_config(args.config))}))
         return 0
     parser.error("unsupported command")
 

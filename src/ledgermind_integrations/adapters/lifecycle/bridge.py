@@ -6,6 +6,9 @@ import fcntl
 import hashlib
 import json
 import os
+import subprocess
+import sys
+import time
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -13,8 +16,11 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from ledgermind_protocol import build_resolution_extension
+
 from ...runtime.client import LedgerMindClient, LedgerMindClientError
 from ...runtime.delivery import DeliveryWorker
+from ...runtime.endpoint import resolve_runtime_endpoint, runtime_state_running
 from ...runtime.lease import RuntimeLease
 from ...runtime.spool import FileSpool, SpoolFullError
 from ..hermes.round_capture import build_raw_round
@@ -168,7 +174,7 @@ def _locked_state(config: LifecycleConfig, session_id: str) -> Iterator[dict[str
 
 def _client(config: LifecycleConfig) -> LedgerMindClient:
     return LedgerMindClient(
-        endpoint=config.endpoint,
+        endpoint=resolve_runtime_endpoint(config.endpoint, config.runtime_state_file),
         token_file=config.token_file or None,
         timeout=config.request_timeout_seconds,
         allow_remote=config.allow_remote,
@@ -180,6 +186,41 @@ def _spool(config: LifecycleConfig) -> FileSpool:
         config.spool_dir,
         max_bytes=config.spool_max_bytes,
         max_files=config.spool_max_files,
+    )
+
+
+def _record_recall_trace(
+    config: LifecycleConfig, session_id: str, round_id: str, query: str,
+    scope: Mapping[str, Any], response: Mapping[str, Any], context: str,
+) -> None:
+    """Private bounded delivery trace; not a claim that the host used the context."""
+    root = Path(config.spool_dir).expanduser()
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    record = {
+        "schema_version": 1, "recorded_at": _now(), "stage": "hook_response_prepared",
+        "session_id": session_id, "round_id": round_id, "query": query,
+        "scope": dict(scope), "retrieval_request_id": response.get("retrieval_request_id"),
+        "delivered_value_ids": response.get("delivered_value_ids", []),
+        "selection_diagnostics": response.get("selection_diagnostics"),
+        "additional_context": context,
+    }
+    # No credentials, HTTP headers, provider responses or configuration secrets.
+    with (root / "retrieval-trace.lock").open("a") as lock:
+        os.chmod(lock.name, 0o600)
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        path = root / "retrieval-trace.jsonl"
+        if path.exists() and path.stat().st_size >= 5_000_000:
+            path.replace(root / "retrieval-trace.previous.jsonl")
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        with os.fdopen(fd, "a", encoding="utf-8") as handle:
+            os.fchmod(handle.fileno(), 0o600)
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _prefer_runtime_bootstrap(config: LifecycleConfig) -> bool:
+    return (
+        Path(config.runtime_command).is_absolute()
+        and not runtime_state_running(config.runtime_state_file)
     )
 
 
@@ -195,6 +236,7 @@ def _leased_client(config: LifecycleConfig, session_id: str) -> Iterator[LedgerM
         session_id=session_id,
         heartbeat_seconds=config.heartbeat_seconds,
         bootstrap_command=config.runtime_command,
+        prefer_bootstrap=_prefer_runtime_bootstrap(config),
     )
     try:
         yield client
@@ -224,6 +266,7 @@ def _session_client(config: LifecycleConfig, session_id: str) -> LedgerMindClien
             bootstrap_command=config.runtime_command,
             ttl_seconds=config.session_safety_ttl_seconds,
             start_heartbeat=False,
+            prefer_bootstrap=_prefer_runtime_bootstrap(config),
         )
         state["runtime_lease_id"] = lease.lease_id
     return client
@@ -418,6 +461,9 @@ def _enqueue_finished_round(
             completed_at=_now(),
             events=candidate_events,
             adapter_version=config.adapter_version,
+            resolution=state.get("resolution"),
+            extensions={"ledgermind_context": state["delivered_context"]}
+            if state.get("delivered_context") else None,
         )
 
     candidate_events = _compact_tool_events(
@@ -455,6 +501,76 @@ def _deliver_ready(config: LifecycleConfig, session_id: str) -> None:
         spool.note_delivery_failure(type(exc).__name__)
 
 
+def drain_ready(config: LifecycleConfig, *, max_seconds: float = 120.0) -> int:
+    """Drain one integration's durable queue in a single detached worker."""
+
+    spool = _spool(config)
+    spool.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lock_path = spool.root / "delivery-worker.lock"
+    delivered = 0
+    with lock_path.open("a+b") as lock:
+        os.fchmod(lock.fileno(), 0o600)
+        try:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return 0
+        try:
+            with _leased_client(config, f"delivery-{os.getpid()}") as client:
+                worker = DeliveryWorker(spool, client)
+                deadline = time.monotonic() + max(float(max_seconds), 0.1)
+                while time.monotonic() < deadline:
+                    before = spool.stats().ready_delivery
+                    if not before:
+                        spool.clear_delivery_failure()
+                        break
+                    if not worker.run_once(limit=20):
+                        break
+                    after = spool.stats().ready_delivery
+                    delivered += max(before - after, 0)
+                    if after >= before:
+                        break  # A rejected or deferred batch must not spin.
+                if spool.stats().ready_delivery:
+                    spool.note_delivery_failure("delivery_pending_retry")
+        except (LedgerMindClientError, OSError, RuntimeError, ValueError) as exc:
+            spool.note_delivery_failure(type(exc).__name__)
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+    return delivered
+
+
+def _launch_delivery_drain(config: LifecycleConfig) -> None:
+    if not config.config_file or not _spool(config).stats().ready_delivery:
+        return
+    # Installed hooks have an absolute, trusted runtime command. Avoid
+    # background children from ad-hoc or test configurations.
+    command = Path(config.runtime_command).expanduser()
+    if not command.is_absolute() or not command.is_file():
+        return
+    environment = {
+        key: value
+        for key in (
+            "HOME", "PATH", "LANG", "LC_ALL", "PYTHONPATH",
+            "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME",
+        )
+        if (value := os.environ.get(key)) is not None
+    }
+    try:
+        subprocess.Popen(
+            [
+                sys.executable, "-m", "ledgermind_integrations.cli",
+                "drain", "--config", config.config_file,
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+            start_new_session=True,
+            env=environment,
+        )
+    except OSError:
+        _spool(config).note_delivery_failure("delivery_worker_start_failed")
+
+
 def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any]) -> dict[str, Any]:
     """Process one normalized lifecycle event and return a host-neutral result."""
 
@@ -469,8 +585,18 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
             state.setdefault("round_id", uuid4().hex)
             state.setdefault("started_at", _now())
             prompt = _prompt(payload)
+            resolution = build_resolution_extension(session_id, metadata=payload)
+            state["resolution"] = resolution
+            round_id = state["round_id"]
             if prompt:
                 _append(state, {"kind": "message", "role": "user", "content": prompt})
+        recall_context = {key: value for key, value in resolution.items()
+                          if key != "schema_version" and value is not None}
+        # Only explicit host-supplied task context. Never guess a task from
+        # "continue", carry an old subject into a new task, or copy chat history.
+        task_description = payload.get("task_description", payload.get("task_summary"))
+        if isinstance(task_description, str) and 0 < len(task_description.strip()) <= 4000:
+            recall_context["query_context"] = task_description.strip()
         try:
             if config.model_residency_mode == "session":
                 client = _session_client(config, session_id)
@@ -478,6 +604,7 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
                     memory_space_id=config.memory_space_id,
                     query=prompt,
                     limit=config.context_limit,
+                    **recall_context,
                 )
             else:
                 with _leased_client(config, session_id) as client:
@@ -485,14 +612,30 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
                         memory_space_id=config.memory_space_id,
                         query=prompt,
                         limit=config.context_limit,
+                        **recall_context,
                     )
             context = _format_context(response)
+            try:
+                _record_recall_trace(config, session_id, round_id, prompt, recall_context, response, context)
+            except OSError:
+                # Optional diagnostic I/O must not suppress a valid injection.
+                pass
+            retrieval_id = response.get("retrieval_request_id")
+            delivered_ids = response.get("delivered_value_ids")
+            if context and isinstance(retrieval_id, str) and isinstance(delivered_ids, list):
+                with _locked_state(config, session_id) as state:
+                    if state.get("round_id") == round_id:
+                        state["delivered_context"] = {
+                            "schema_version": 1, "retrieval_request_id": retrieval_id,
+                            "delivered_value_ids": delivered_ids,
+                        }
             spool = _spool(config)
             if not spool.stats().ready_delivery:
                 spool.clear_delivery_failure()
         except (LedgerMindClientError, OSError, RuntimeError, ValueError) as exc:
             _spool(config).note_delivery_failure(type(exc).__name__)
             context = ""
+        _launch_delivery_drain(config)
         return {"additional_context": context} if context else {}
     if normalized in {"pretooluse", "beforetoolcall"}:
         _refresh_session_lease(config, session_id)
@@ -557,11 +700,13 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
             enqueued = _enqueue_finished_round(config, session_id, state)
         # SessionEnd has a host-enforced maximum of three seconds. Its job is
         # the durable local handoff; a normal background Stop performs delivery.
-        if enqueued and normalized != "sessionend":
-            _deliver_ready(config, session_id)
+        if enqueued:
+            if normalized != "sessionend":
+                _deliver_ready(config, session_id)
+            _launch_delivery_drain(config)
         _release_session_lease(config, runtime_lease_id)
         return {}
     return {}
 
 
-__all__ = ["handle_hook"]
+__all__ = ["drain_ready", "handle_hook"]

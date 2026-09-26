@@ -71,7 +71,10 @@ class LedgerMindClient:
         self._token = _read_token(self.token_file) if self.token_file else None
 
     def retrieve_context(
-        self, *, memory_space_id: str, query: str, limit: int = 5
+        self, *, memory_space_id: str, query: str, limit: int = 5,
+        project_id: str | None = None, repository_id: str | None = None,
+        task_id: str | None = None, conversation_id: str | None = None,
+        query_context: str | None = None,
     ) -> dict[str, Any]:
         payload = self._request(
             "POST",
@@ -80,6 +83,11 @@ class LedgerMindClient:
                 "memory_space_id": memory_space_id,
                 "query": query,
                 "limit": int(limit),
+                **{key: value for key, value in {
+                    "project_id": project_id, "repository_id": repository_id,
+                    "task_id": task_id, "conversation_id": conversation_id,
+                    "query_context": query_context,
+                }.items() if value is not None},
             },
         )
         try:

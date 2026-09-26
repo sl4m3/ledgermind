@@ -20,6 +20,7 @@ from ledgermind_protocol import ContextView
 from ...runtime.client import LedgerMindClient
 from ...runtime.delivery import DeliveryWorker
 from ...runtime.lease import RuntimeLease
+from ...runtime.endpoint import resolve_runtime_endpoint, runtime_state_running
 from ...runtime.spool import FileSpool
 from ...runtime.spool_migration import migrate_spool
 from ...runtime.worker_loop import HermesWorkerLoop
@@ -163,7 +164,7 @@ class HermesPluginRuntime:
             config_path = _hermes_home() / "plugins" / "ledgermind-hermes" / "config.json"
         config = load_config(config_path)
         client = LedgerMindClient(
-            endpoint=config.endpoint,
+            endpoint=resolve_runtime_endpoint(config.endpoint, config.runtime_state_file),
             token_file=config.token_file,
             timeout=config.request_timeout_seconds,
             allow_remote=config.allow_remote,
@@ -241,7 +242,9 @@ class HermesPluginRuntime:
             return
         try:
             lease_client = LedgerMindClient(
-                endpoint=self.config.runtime_endpoint,
+                endpoint=resolve_runtime_endpoint(
+                    self.config.runtime_endpoint, self.config.runtime_state_file
+                ),
                 token_file=self.config.token_file,
                 timeout=self.config.request_timeout_seconds,
                 allow_remote=self.config.allow_remote,
@@ -256,6 +259,11 @@ class HermesPluginRuntime:
                     self.config.session_safety_ttl_seconds
                     if self.config.model_residency_mode == "session"
                     else None
+                ),
+                prefer_bootstrap=(
+                    bool(self.config.runtime_command)
+                    and Path(self.config.runtime_command).is_absolute()
+                    and not runtime_state_running(self.config.runtime_state_file)
                 ),
             )
             self.client.endpoint = lease_client.endpoint
