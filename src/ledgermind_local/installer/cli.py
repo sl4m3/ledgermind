@@ -694,6 +694,15 @@ def _emit_integration_details(result: InstallResult) -> None:
     if step is None:
         return
     integrations = step.data["integrations"]
+    if result.operation == "integrations status":
+        runtime = step.data.get("runtime")
+        if isinstance(runtime, dict):
+            state = "running" if runtime.get("running") else "sleeping"
+            endpoint = runtime.get("preferred_endpoint") or "unavailable"
+            suffix = " (fallback port)" if runtime.get("endpoint_failover") else ""
+            print(f"\nMemory runtime: {state} at {endpoint}{suffix}")
+            if runtime.get("endpoint_conflict"):
+                print("  warning: configured port is occupied by another process")
     heading = (
         "Detected agents:"
         if result.operation == "integrations discover"
@@ -731,7 +740,14 @@ def _emit_integration_details(result: InstallResult) -> None:
         verification = raw_item.get("verify")
         if isinstance(verification, dict) and verification.get("status"):
             fields.append(f"verify={verification['status']}")
+        delivery = raw_item.get("delivery")
+        if isinstance(delivery, dict) and delivery.get("queued_rounds"):
+            fields.append(f"queued={delivery['queued_rounds']}")
         print(f"  {label} ({target_id}): {', '.join(fields)}")
+        if raw_item.get("orphaned_hook_config"):
+            print("    warning: hook config exists but this agent is not selected")
+        if isinstance(delivery, dict) and delivery.get("last_failure_reason"):
+            print(f"    delivery: {delivery['last_failure_reason']}")
         if not detected and discovery.get("detail"):
             print(f"    {discovery['detail']}")
         if isinstance(verification, dict) and verification.get("activation_required"):

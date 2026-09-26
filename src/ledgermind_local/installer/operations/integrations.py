@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from ledgermind_local.runtime.supervisor import RuntimeSupervisor
+
 from ..config_writer import bind_existing_profiles_for_agent, load_installer_config, persist_installer_config
 from ..errors import AdapterError, ConfigurationError
 from ..models import InstallerConfig, IntegrationConfig
@@ -234,14 +236,39 @@ def integration_status(*, paths: InstallerPaths) -> dict[str, Any]:
     config = _installed_config(paths)
     selected = {item.id: item for item in config.integrations}
     results: dict[str, Any] = {}
+    runtime = RuntimeSupervisor(paths).status()
     for target_id in target_ids():
         adapter = get_target_adapter(target_id)
         discovery = adapter.discover()
+        integration_dir = paths.integrations_dir / target_id
+        spool_dir = (
+            integration_dir / "spool"
+            if (integration_dir / "spool").is_dir()
+            else integration_dir
+        )
+        ready_dir = spool_dir / "ready-delivery"
+        queued_rounds = sum(1 for _ in ready_dir.glob("*.json"))
+        delivery_reason: str | None = None
+        delivery_status = spool_dir / "delivery-status.json"
+        try:
+            delivery_payload = json.loads(delivery_status.read_text(encoding="utf-8"))
+            if isinstance(delivery_payload, dict):
+                reason = delivery_payload.get("reason")
+                delivery_reason = reason if isinstance(reason, str) else None
+        except (OSError, ValueError):
+            pass
         item: dict[str, Any] = {
             "installed_agent": discovery.detected,
             "connected": target_id in selected,
             "enabled": selected[target_id].enabled if target_id in selected else False,
             "active": False,
+            "orphaned_hook_config": (
+                target_id not in selected and (integration_dir / "config.json").is_file()
+            ),
+            "delivery": {
+                "queued_rounds": queued_rounds,
+                "last_failure_reason": delivery_reason,
+            },
             "discovery": discovery.as_dict(),
         }
         if target_id in selected and discovery.detected:
@@ -256,7 +283,16 @@ def integration_status(*, paths: InstallerPaths) -> dict[str, Any]:
             except Exception as exc:  # noqa: BLE001
                 item["verify"] = {"status": "failed", "error": str(exc)}
         results[target_id] = item
-    return {"status": "passed", "integrations": results}
+    return {
+        "status": "passed",
+        "runtime": {
+            "running": runtime.get("running"),
+            "preferred_endpoint": runtime.get("preferred_endpoint"),
+            "endpoint_conflict": runtime.get("endpoint_conflict"),
+            "endpoint_failover": runtime.get("endpoint_failover"),
+        },
+        "integrations": results,
+    }
 
 
 __all__ = [

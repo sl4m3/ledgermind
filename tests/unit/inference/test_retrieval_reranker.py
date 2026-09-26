@@ -4,7 +4,6 @@ import os
 import time
 
 import pytest
-
 from ledgermind_local.config import RerankerConfig
 from ledgermind_local.inference.retrieval_reranker import (
     TOKEN_RE,
@@ -12,7 +11,9 @@ from ledgermind_local.inference.retrieval_reranker import (
     QwenWorkerReranker,
     candidate_document,
     pack_items,
+    pack_items_with_dependencies,
     rank_items,
+    rank_items_with_scores,
     render_injection,
 )
 
@@ -103,7 +104,9 @@ def _fake_worker(connection: object, model_path: str, device: str) -> None:
     connection.send(("ready", None))
     while True:
         query, documents = connection.recv()
-        if query == "hang":
+        if query is None:
+            connection.send(("counts", [len(text) for text in documents]))
+        elif query == "hang":
             time.sleep(3)
         else:
             connection.send(("scores", [float(index) for index, _ in enumerate(documents)]))
@@ -138,6 +141,92 @@ def test_reranking_stable_ties_and_complete_items() -> None:
     assert "Rule 5 is required." not in injection["text"]
 
 
+def test_rank_scores_preserved_without_mutating_candidates():
+    import copy
+    items = _items()
+    original = copy.deepcopy(items)
+    ranked, scores = rank_items_with_scores("rules", items, _Scores())
+    assert items == original
+    assert [r["value_id"] for r in ranked] == [r["value_id"] for r in scores]
+    assert scores[0]["reranker_score"] == 0.9
+    assert scores[0]["core_position"] == 1
+
+
+def test_packer_uses_injected_tokenizer_and_keeps_minimum_whole():
+    counter = lambda text: len(text.encode("utf-8"))
+    minimum = counter(render_injection(_items()[:6], _injection(), "ru")["text"])
+    items, injection, tokens = pack_items(_items(), _injection(), "ru",
+        soft_budget=minimum, token_counter=counter)
+    assert len(items) == 6
+    assert tokens == counter(injection["text"])
+
+
+def test_injection_groups_repeated_object_facets_without_losing_ranked_claims():
+    items = [
+        {"value_id": "v1", "primary_object_id": "object-a", "object_name": "Agent A",
+         "facet": "state", "content": "Initial state is retained.", "conditions": []},
+        {"value_id": "v2", "primary_object_id": "object-b", "object_name": "Agent B",
+         "facet": "event", "content": "An independent event happened.", "conditions": []},
+        {"value_id": "v3", "primary_object_id": "object-a", "object_name": "Agent A",
+         "facet": "state", "content": "Current state is healthy.",
+         "conditions": [{"surface_text": "after verification"}]},
+    ]
+    original = {
+        "text": "How to read memory:\nThese are saved facts.\nstate — current state.\nevent — history.",
+        "legend": ["state — current state.", "event — history."],
+    }
+
+    rendered = render_injection(items, original, "en")
+    text = rendered["text"]
+
+    assert rendered["item_count"] == 3
+    assert text.count("[state] Agent A") == 1
+    assert text.count("[event] Agent B") == 1
+    assert "M1: Initial state is retained." in text
+    assert "M2: [event] Agent B: An independent event happened." in text
+    assert "M3: Current state is healthy. | when after verification" in text
+    assert text.index("G1: [state] Agent A:") < text.index("M2: [event] Agent B:")
+    assert render_injection(items, original, "en") == rendered
+
+
+def test_grouped_packing_preserves_whole_long_claim_and_uses_final_rendering_budget():
+    items = _items()
+    for item in items:
+        item["primary_object_id"] = "project"
+    items[0]["content"] = "begin " + ("unchanged-token " * 80) + "end"
+    minimum = len(TOKEN_RE.findall(render_injection(items[:6], _injection(), "en")["text"]))
+
+    selected, injection, tokens = pack_items(
+        items, _injection(), "en", soft_budget=minimum + 12,
+    )
+
+    assert [item["value_id"] for item in selected[:6]] == [f"item{i}" for i in range(1, 7)]
+    assert "begin " in injection["text"] and " end" in injection["text"]
+    assert injection["text"].count("unchanged-token") == 80
+    assert tokens == len(TOKEN_RE.findall(injection["text"]))
+    assert tokens <= minimum + 12 or len(selected) == 6
+
+
+def test_same_display_name_with_distinct_core_objects_is_not_grouped():
+    items = [
+        {"value_id": "v1", "primary_object_id": "object-a", "object_name": "Worker",
+         "facet": "state", "content": "First worker is ready.", "conditions": []},
+        {"value_id": "v2", "primary_object_id": "object-b", "object_name": "Worker",
+         "facet": "state", "content": "Second worker is paused.", "conditions": []},
+    ]
+    original = {
+        "text": "How to read memory:\nThese are saved facts.\nstate — current state.",
+        "legend": ["state — current state."],
+    }
+
+    rendered = render_injection(items, original, "en")["text"]
+
+    assert rendered.count("[state] Worker") == 2
+    assert "G1:" not in rendered
+    assert "M1: [state] Worker: First worker is ready." in rendered
+    assert "M2: [state] Worker: Second worker is paused." in rendered
+
+
 def test_candidate_document_prefers_exact_value_scope() -> None:
     item = {**_items()[0], "scope_text": "only repository A",
             "target_breadcrumb": ["other", "scope"]}
@@ -152,6 +241,41 @@ def test_long_seventh_is_skipped_for_short_eighth() -> None:
     minimum = len(TOKEN_RE.findall(render_injection(items[:6], _injection(), "en")["text"]))
     selected, _, _ = pack_items(items, _injection(), "en", soft_budget=minimum + 12)
     assert [row["value_id"] for row in selected] == ["item1", "item2", "item3", "item4", "item5", "item6", "item8"]
+
+
+def test_core_dependencies_survive_soft_budget_without_recursion_or_score_boost():
+    import copy
+    items = _items()
+    original = copy.deepcopy(items)
+    base, _, before = pack_items(items, _injection(), "en", soft_budget=1)
+    selected, injection, count, diagnostics = pack_items_with_dependencies(
+        items, _injection(), "en", soft_budget=1,
+        dependency_links={"item1": ["item7", "item7"], "item7": ["item8"]},
+    )
+    assert selected[:6] == base
+    assert [item["value_id"] for item in selected] == [f"item{i}" for i in range(1, 8)]
+    assert diagnostics["dependency_value_ids"] == ["item7"]
+    assert diagnostics["context_tokens_before_expansion"] == before
+    assert diagnostics["context_tokens_after_expansion"] == count > before
+    assert count == len(TOKEN_RE.findall(injection["text"]))
+    assert diagnostics["dependency_items_omitted"] == 0
+    assert diagnostics["injection_rendering"] == "object_facet_groups_v1"
+    assert diagnostics["injection_group_count"] == 1
+    assert diagnostics["injection_claim_count"] == 7
+    assert items == original
+
+
+def test_dependency_budget_omissions_are_explicit_and_minimum_stays_whole():
+    selected, _, count, diagnostics = pack_items_with_dependencies(
+        _items(), _injection(), "en", soft_budget=1, hard_budget=5,
+        dependency_links={"item1": ["item7", "not-in-pool"]},
+    )
+    assert len(selected) == 6 and count > 5
+    assert diagnostics["minimum_exceeds_hard_budget"] is True
+    assert diagnostics["omitted_dependencies"] == [
+        {"value_id": "not-in-pool", "reason": "outside_candidate_pool"},
+        {"value_id": "item7", "reason": "whole_dependency_exceeds_budget"},
+    ]
 
 
 def test_invalid_scores_rejected() -> None:
@@ -184,6 +308,7 @@ def test_worker_timeout_terminates_child_and_next_request_recovers() -> None:
     )
     try:
         assert worker.score("ok", ["a", "b"]) == [0.0, 1.0]
+        assert worker.count_tokens("abc") == 3
         try:
             worker.score("hang", ["a"])
         except TimeoutError:

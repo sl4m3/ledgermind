@@ -19,8 +19,8 @@ from ledgermind_local.core_gateway import (
 )
 from ledgermind_local.inference.retrieval_reranker import (
     Reranker,
-    pack_items,
-    rank_items,
+    pack_items_with_dependencies,
+    rank_items_with_scores,
 )
 
 from .http import build_request_id, error_payload, validate_json_request_headers
@@ -50,6 +50,7 @@ class ContextRetrieveRequest(BaseModel):
     schema_version: Literal[2] = 2
     memory_space_id: str = Field(min_length=1, max_length=200)
     query: str = Field(min_length=1, max_length=20_000)
+    query_context: str | None = Field(default=None, min_length=1, max_length=4_000)
     limit: int = Field(default=5, ge=1, le=50)
     query_embedding: list[float] | None = Field(default=None, min_length=1, max_length=8_192)
     object_query_embedding: list[float] | None = Field(
@@ -57,10 +58,10 @@ class ContextRetrieveRequest(BaseModel):
     )
     embedding_model_id: str | None = Field(default=None, min_length=1, max_length=200)
     embedding_model_version: str | None = Field(default=None, min_length=1, max_length=200)
-    project_id: str | None = Field(default=None, min_length=1, max_length=200)
-    repository_id: str | None = Field(default=None, min_length=1, max_length=200)
-    task_id: str | None = Field(default=None, min_length=1, max_length=200)
-    conversation_id: str | None = Field(default=None, min_length=1, max_length=200)
+    project_id: str | None = Field(default=None, min_length=1, max_length=500)
+    repository_id: str | None = Field(default=None, min_length=1, max_length=500)
+    task_id: str | None = Field(default=None, min_length=1, max_length=500)
+    conversation_id: str | None = Field(default=None, min_length=1, max_length=500)
     query_language: str | None = Field(default=None, min_length=1, max_length=32)
     target_id: str | None = Field(default=None, min_length=1, max_length=200)
     target_alias: str | None = Field(default=None, min_length=1, max_length=200)
@@ -133,6 +134,11 @@ def create_context_router(
             )
         request_id = build_request_id(request.headers)
         response.headers["X-Request-ID"] = request_id
+        effective_query = payload.query if not payload.query_context else (
+            f"{payload.query}\n\nCurrent task context supplied by host:\n{payload.query_context}"
+        )
+        if len(effective_query) > 20_000:
+            raise HTTPException(status_code=422, detail="query and task context exceed 20000 characters")
         try:
             embedding_model_id = payload.embedding_model_id or "retrieval-embedder"
             embedding_model_version = payload.embedding_model_version or "1"
@@ -142,14 +148,14 @@ def create_context_router(
                 embed_with_metadata = getattr(query_embedder, "embed_query_with_metadata", None)
                 if callable(embed_with_metadata):
                     embedded, embedding_model_id, embedding_model_version = embed_with_metadata(
-                        payload.memory_space_id, payload.query
+                        payload.memory_space_id, effective_query
                     )
                     query_embedding = [float(component) for component in embedded]
                 else:
                     query_embedding = [
                         float(component)
                         for component in query_embedder.embed_query(
-                            payload.memory_space_id, payload.query
+                            payload.memory_space_id, effective_query
                         )
                     ]
                 embed_object_with_metadata = getattr(
@@ -157,7 +163,7 @@ def create_context_router(
                 )
                 if callable(embed_object_with_metadata):
                     object_embedded, object_model_id, object_model_version = (
-                        embed_object_with_metadata(payload.memory_space_id, payload.query)
+                        embed_object_with_metadata(payload.memory_space_id, effective_query)
                     )
                     if (
                         object_model_id != embedding_model_id
@@ -170,6 +176,8 @@ def create_context_router(
                         float(component) for component in object_embedded
                     ]
             else:
+                if payload.query_context:
+                    raise HTTPException(status_code=422, detail="task context requires server-side query embedding")
                 if payload.query_embedding is None:
                     raise TransientCoreError("embedding profile is unavailable")
                 query_embedding = payload.query_embedding
@@ -181,7 +189,7 @@ def create_context_router(
                 RetrieveContextCommand(
                     request_id=request_id,
                     memory_space_id=payload.memory_space_id,
-                    query_text=payload.query,
+                    query_text=effective_query,
                     query_embedding=tuple(query_embedding),
                     object_query_embedding=(
                         tuple(object_query_embedding)
@@ -202,7 +210,7 @@ def create_context_router(
                     target_alias=payload.target_alias,
                     related_object_ids=tuple(payload.related_object_ids or ()),
                     requested_facets=tuple(payload.requested_facets or ()),
-                    explanation_level=payload.explanation_level,
+                    explanation_level="compact" if reranker is not None else payload.explanation_level,
                 )
             )
             response_payload = _context_response(result.payload)
@@ -212,8 +220,10 @@ def create_context_router(
                 original = response_payload.get("memory_injection") or {}
                 started = time.monotonic()
                 fallback_reason: str | None = None
+                ranking: list[dict[str, Any]] = []
+                min_k = int(getattr(reranker_config, "min_k", 6))
                 try:
-                    ranked = rank_items(payload.query, core_items, reranker)
+                    ranked, ranking = rank_items_with_scores(effective_query, core_items, reranker)
                     selection_status = "reranked"
                 except (
                     ImportError,
@@ -228,18 +238,31 @@ def create_context_router(
                     selection_status = "core_fallback"
                     fallback_reason = type(exc).__name__
                 try:
-                    selected, injection, tokens = pack_items(
+                    counter = getattr(reranker, "count_tokens", None) if selection_status == "reranked" else None
+                    counter = counter if callable(counter) else None
+                    # Diagnostics are internal selection metadata, deliberately
+                    # not copied into the public ContextView by _context_response.
+                    pipeline = (result.payload.get("retrieval_diagnostics") or {}).get("pipeline") or {}
+                    selected, injection, tokens, packing = pack_items_with_dependencies(
                         ranked, original, payload.query_language,
-                        min_k=int(getattr(reranker_config, "min_k", 6)),
+                        min_k=min_k,
                         soft_budget=int(getattr(reranker_config, "soft_budget", 400)),
+                        token_counter=counter,
+                        dependency_links=pipeline.get("dependency_links"),
                     )
                     response_payload["items"] = selected
                     response_payload["memory_injection"] = injection
                     response_payload["selection_diagnostics"] = {
+                        **packing,
                         "status": selection_status,
                         "candidate_count": len(core_items),
                         "injected_count": len(selected),
-                        "estimated_injection_tokens": tokens,
+                        "estimated_injection_tokens": tokens if counter else None,
+                        "injection_size": tokens,
+                        "injection_size_unit": "qwen3_tokens" if counter else "word_punctuation_units",
+                        "host_agent_tokens": None,
+                        "ranking": ranking,
+                        "selected_value_ids": [str(item["value_id"]) for item in selected],
                         "latency_ms": round((time.monotonic() - started) * 1000, 2),
                         "fallback_reason": fallback_reason,
                     }
@@ -248,17 +271,21 @@ def create_context_router(
                         "retrieval selection status=%s candidates=%d injected=%d tokens=%d",
                         selection_status, len(core_items), len(selected), tokens,
                     )
-                except (KeyError, TypeError, ValueError) as exc:
-                    # A formatting mismatch must not suppress recall. Keep
-                    # Core's intact response and make the fallback visible.
+                except (KeyError, TypeError, ValueError, OSError, RuntimeError, TimeoutError) as exc:
+                    # Do not leak the whole 32-item candidate pool when packing
+                    # fails. The host can render the minimum set of intact items.
                     logger.warning("local injection fallback to Core: %s", type(exc).__name__)
+                    response_payload["items"] = ranked[:min_k]
+                    response_payload["memory_injection"] = None
                     response.headers["X-LedgerMind-Selection"] = "core_fallback"
                     response_payload["selection_diagnostics"] = {
                         "status": "core_fallback", "candidate_count": len(core_items),
-                        "injected_count": len(core_items),
+                        "injected_count": len(response_payload["items"]),
                         "estimated_injection_tokens": None,
                         "latency_ms": round((time.monotonic() - started) * 1000, 2),
                         "fallback_reason": type(exc).__name__,
+                        "ranking": ranking,
+                        "injection_size_unit": "unknown",
                     }
             record_outcome = getattr(
                 context_gateway, "record_retrieval_outcome", None

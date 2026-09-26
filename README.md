@@ -27,6 +27,22 @@ backups.
 
 ## Readiness is deliberately split
 
+### Local port recovery
+
+The on-demand Local API normally listens on `127.0.0.1:8765`. If another
+process takes that port while LedgerMind is asleep, the runtime supervisor
+selects a free loopback port without stopping the other process. It records
+the selected endpoint in its private runtime state; installed lifecycle hooks
+resolve that endpoint before recall and delivery. `ledgermind status --json`
+reports `runtime.endpoint_conflict` while a stopped runtime's preferred port
+is occupied, and `runtime.endpoint_failover` after a fallback is selected.
+Captured rounds remain in the private spool and a detached, single-owner
+delivery worker drains the queue after connectivity returns.
+
+The fallback is limited to local ports. If no port is free or startup fails for
+another reason, the agent hook remains fail-open, but no queued RawRound is
+discarded; check the runtime status and integration spool before retrying.
+
 ### Capture-ready
 
 Capture-ready means an integration can observe a completed round, create a
@@ -95,12 +111,24 @@ installations migrate to disabled/Core ranking unless they had already enabled
 the local runtime. When enabled, Core first supplies up to 32 eligible
 candidates and the selected reranker reorders only those candidates. Injection keeps
 the first six complete knowledge items, then adds later complete items while
-the rendered context fits the 400-token soft target. A long seventh item can
+the rendered context fits the 400-unit soft target. Local Qwen uses its own
+tokenizer; API rerankers and Core-order fallback use the existing word/punctuation
+estimate, explicitly labelled in diagnostics. Neither measure is an exact count
+for the host agent's tokenizer. The final renderer prints each object/facet
+heading once while retaining every selected claim, condition, and original
+rank; packing measures this exact grouped text. A long seventh item can
 be skipped for a shorter eighth. A failed or timed-out reranker falls back to
 Core order; `selection_diagnostics` reports the fallback. API credentials are
 stored only in LedgerMind's private secret store. The endpoint must be the full
 Cohere-compatible `/rerank` operation URL or NVIDIA NIM `/ranking` or
 `/reranking` URL.
+
+Selection diagnostics include reranker scores, original Core positions,
+selected value IDs and the size-counting unit. If packing or token counting
+fails, the response retains only the minimum set of complete items rather than
+injecting the entire candidate pool. The minimum-six policy is unchanged.
+An optional explicit host task description may accompany the query; Local
+uses the same combined text for embeddings, Core retrieval and reranking.
 
 The reranker runtime is a separate downloadable, signed archive, not part of
 the main platform bundle. Download its `.tar.zst`, `.json`, and `.sig` files

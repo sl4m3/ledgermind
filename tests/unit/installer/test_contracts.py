@@ -137,12 +137,21 @@ def test_integrations_status_human_output_lists_connection_state(
         "integrations status",
         payload={
             "status": "passed",
+            "runtime": {
+                "running": False,
+                "preferred_endpoint": "http://127.0.0.1:8767",
+                "endpoint_failover": True,
+            },
             "integrations": {
                 "codex": {
                     "installed_agent": True,
                     "connected": True,
                     "enabled": True,
                     "active": False,
+                    "delivery": {
+                        "queued_rounds": 12,
+                        "last_failure_reason": "runtime_unavailable",
+                    },
                     "discovery": {"label": "Codex CLI", "detected": True},
                     "verify": {
                         "status": "passed",
@@ -161,6 +170,9 @@ def test_integrations_status_human_output_lists_connection_state(
     )
     assert "active=" not in output
     assert "note: Review hooks" in output
+    assert "Memory runtime: sleeping at http://127.0.0.1:8767 (fallback port)" in output
+    assert "queued=12" in output
+    assert "delivery: runtime_unavailable" in output
 
 
 def test_config_writer_uses_0600_file_fallback_and_strips_tokens(
@@ -445,6 +457,94 @@ def test_runtime_reuses_lease_for_the_same_client_session(tmp_path: Path) -> Non
         assert len(supervisor.status()["active_leases"]) == 1
     finally:
         supervisor.stop(force=True)
+
+
+def test_runtime_selects_free_port_without_displacing_another_listener(
+    tmp_path: Path,
+) -> None:
+    import socket
+
+    paths = InstallerPaths(home_override=tmp_path)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as occupied:
+        occupied.bind(("127.0.0.1", 0))
+        port = occupied.getsockname()[1]
+        supervisor = RuntimeSupervisor(
+            paths,
+            endpoint=f"http://127.0.0.1:{port}",
+            commands={"local": ("/test/ledgermind-local", "serve")},
+        )
+        assert supervisor.status()["endpoint_conflict"] is True
+        supervisor._select_start_endpoint()
+        assert supervisor.endpoint != f"http://127.0.0.1:{port}"
+        assert supervisor.commands["local"][-2:] == (
+            "--port", str(int(supervisor.endpoint.rsplit(":", 1)[1]))
+        )
+        supervisor._write(running=False)
+        recovered = RuntimeSupervisor(paths)
+        assert recovered.endpoint == supervisor.endpoint
+
+
+def test_explicit_new_runtime_endpoint_overrides_previous_fallback(tmp_path: Path) -> None:
+    paths = InstallerPaths(home_override=tmp_path)
+    paths.ensure()
+    paths.runtime_state.write_text(
+        json.dumps(
+            {
+                "configured_endpoint": "http://127.0.0.1:8765",
+                "preferred_endpoint": "http://127.0.0.1:8767",
+            }
+        ),
+        encoding="utf-8",
+    )
+    supervisor = RuntimeSupervisor(paths, endpoint="http://127.0.0.1:9000")
+    assert supervisor.endpoint == "http://127.0.0.1:9000"
+
+
+def test_runtime_acquire_starts_on_fallback_port_after_real_bind_conflict(
+    tmp_path: Path,
+) -> None:
+    import socket
+
+    paths = InstallerPaths(home_override=tmp_path)
+    paths.ensure()
+    token_file = paths.data_dir / "local" / "server.token"
+    token_file.parent.mkdir(parents=True)
+    token_file.write_text("test-token", encoding="utf-8")
+    fake_local = tmp_path / "ledgermind-local"
+    fake_local.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "from http.server import BaseHTTPRequestHandler, HTTPServer\n"
+        "class Handler(BaseHTTPRequestHandler):\n"
+        " def log_message(self, *args): pass\n"
+        " def do_GET(self):\n"
+        "  body = json.dumps({'pong': 'true'}).encode()\n"
+        "  self.send_response(200)\n"
+        "  self.send_header('Content-Length', str(len(body)))\n"
+        "  self.end_headers()\n"
+        "  self.wfile.write(body)\n"
+        "port = int(sys.argv[sys.argv.index('--port') + 1])\n"
+        "HTTPServer(('127.0.0.1', port), Handler).serve_forever()\n",
+        encoding="utf-8",
+    )
+    fake_local.chmod(0o700)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as occupied:
+        occupied.bind(("127.0.0.1", 0))
+        occupied.listen()
+        port = occupied.getsockname()[1]
+        supervisor = RuntimeSupervisor(
+            paths,
+            endpoint=f"http://127.0.0.1:{port}",
+            commands={"local": (str(fake_local), "serve")},
+            automatic_shutdown=False,
+        )
+        try:
+            result = supervisor.acquire(client="opencode", session_id="test")
+            assert result["endpoint"] != f"http://127.0.0.1:{port}"
+            assert supervisor.status()["endpoint_failover"] is True
+            assert supervisor.status()["running"] is True
+        finally:
+            supervisor.stop(force=True)
 
 
 def test_runtime_lease_bridge_does_not_mutate_process_ownership(

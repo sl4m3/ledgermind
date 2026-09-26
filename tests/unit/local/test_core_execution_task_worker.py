@@ -188,6 +188,21 @@ def test_invalid_request_distinguishes_round_semantic_validation_failures() -> N
     assert "o9" not in unknown_object.error_code
 
 
+def test_semantic_incomplete_rejection_keeps_a_precise_content_free_reason() -> None:
+    classification = classify_execution_error(
+        DomainRejectedError(
+            "INVALID_REQUEST",
+            "round_semantic_semantic_incomplete: private evidence details",
+        )
+    )
+
+    assert (
+        classification.error_code
+        == "core_rejected_round_semantic_semantic_incomplete"
+    )
+    assert classification.retryable is False
+
+
 def test_unknown_invalid_request_does_not_persist_remote_detail() -> None:
     classification = classify_execution_error(
         DomainRejectedError("INVALID_REQUEST", "unexpected private payload value")

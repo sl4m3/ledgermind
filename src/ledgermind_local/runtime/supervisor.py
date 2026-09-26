@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import socket
 import subprocess
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from ledgermind_inference.provider_telemetry import TELEMETRY_ENV
@@ -74,7 +76,31 @@ class RuntimeSupervisor:
         activity_probe: Callable[[], Mapping[str, object]] | None = None,
     ) -> None:
         self.paths = paths
-        self.endpoint = validate_endpoint(endpoint)
+        configured_endpoint = validate_endpoint(endpoint)
+        self.configured_endpoint = configured_endpoint
+        previous = load_state(paths.runtime_state)
+        preferred = previous.get("preferred_endpoint")
+        try:
+            candidate = (
+                validate_endpoint(preferred)
+                if isinstance(preferred, str)
+                else configured_endpoint
+            )
+            configured_url = urlparse(configured_endpoint)
+            candidate_url = urlparse(candidate)
+            if (
+                candidate_url.scheme != configured_url.scheme
+                or candidate_url.hostname != configured_url.hostname
+                or candidate_url.port is None
+                or (
+                    configured_endpoint != DEFAULT_ENDPOINT
+                    and previous.get("configured_endpoint") != configured_endpoint
+                )
+            ):
+                candidate = configured_endpoint
+            self.endpoint = candidate
+        except ValueError:
+            self.endpoint = configured_endpoint
         self.idle_shutdown_seconds = max(float(idle_shutdown_seconds), 0.0)
         self.automatic_shutdown = bool(automatic_shutdown)
         self.process_owner = bool(process_owner)
@@ -96,6 +122,7 @@ class RuntimeSupervisor:
         )
         if self.embedding_command is not None:
             self.commands.setdefault("embedding", self.embedding_command)
+        self._local_base_command = self.commands.get("local")
         # Provider telemetry is part of the installed runtime's local audit
         # trail.  The child environment is deliberately sanitized, so pass
         # the content-free journal path explicitly instead of relying on an
@@ -421,6 +448,8 @@ class RuntimeSupervisor:
                 "schema_version": 1,
                 "running": running,
                 "endpoint": self.endpoint if running else None,
+                "preferred_endpoint": self.endpoint,
+                "configured_endpoint": self.configured_endpoint,
                 "active_leases": len(self.leases.active()),
                 "processes": processes,
                 "last_transition": time.time(),
@@ -443,6 +472,7 @@ class RuntimeSupervisor:
         if survivors:
             ProcessManager.stop_external(survivors)
             self._register_processes({})
+        self._select_start_endpoint()
         self.processes.start(self.commands)
         self._register_processes(
             {name: item.as_dict() for name, item in self.processes.running().items()}
@@ -455,6 +485,52 @@ class RuntimeSupervisor:
             self._write(running=False)
             raise
         self._write(running=True)
+
+    def _select_start_endpoint(self) -> None:
+        """Keep the configured address when free; never displace another listener."""
+
+        command = self._local_base_command
+        if not command or os.path.basename(str(command[0])) != "ledgermind-local":
+            return
+        parsed = urlparse(self.endpoint)
+        host = parsed.hostname
+        port = parsed.port
+        if host is None or port is None:
+            raise RuntimeError("invalid Local runtime endpoint")
+        candidates = [port]
+        if port == 8765:
+            candidates.extend(range(8767, 8800))  # 8766 belongs to local embeddings.
+        else:
+            candidates.extend(range(port + 1, min(port + 33, 65536)))
+            candidates.extend(candidate for candidate in range(8767, 8800) if candidate != port)
+        for candidate in candidates:
+            if not self._port_available(host, candidate):
+                continue
+            address = f"[{host}]" if ":" in host else host
+            self.endpoint = f"{parsed.scheme}://{address}:{candidate}"
+            self.commands["local"] = (*command, "--port", str(candidate))
+            return
+        raise RuntimeError(
+            f"runtime endpoint conflict at {self.endpoint}: no free local fallback port"
+        )
+
+    @staticmethod
+    def _port_available(host: str, port: int) -> bool:
+        family = socket.AF_INET6 if ":" in host else socket.AF_INET
+        with socket.socket(family, socket.SOCK_STREAM) as probe:
+            try:
+                probe.bind((host, port))
+            except OSError:
+                return False
+        return True
+
+    def _endpoint_conflict(self, *, running: bool) -> bool:
+        if running:
+            return False
+        parsed = urlparse(self.endpoint)
+        if parsed.hostname is None or parsed.port is None:
+            return False
+        return not self._port_available(parsed.hostname, parsed.port)
 
     def _wait_for_owned_local(self, *, timeout_seconds: float = 30.0) -> None:
         """Verify that the authenticated endpoint belongs to this installation."""
@@ -662,6 +738,11 @@ class RuntimeSupervisor:
                     "running": bool(state.get("running")),
                     "residency_mode": self.residency_mode,
                     "endpoint": state.get("endpoint") or self.endpoint,
+                    "preferred_endpoint": self.endpoint,
+                    "endpoint_failover": self.endpoint != self.configured_endpoint,
+                    "endpoint_conflict": self._endpoint_conflict(
+                        running=bool(state.get("running"))
+                    ),
                     "active_leases": [lease.as_dict() for lease in active],
                     "expired_leases": list(expired),
                     "processes": state.get("processes", {}),
@@ -705,6 +786,11 @@ class RuntimeSupervisor:
                 "running": bool(state.get("running")),
                 "residency_mode": self.residency_mode,
                 "endpoint": state.get("endpoint"),
+                "preferred_endpoint": self.endpoint,
+                "endpoint_failover": self.endpoint != self.configured_endpoint,
+                "endpoint_conflict": self._endpoint_conflict(
+                    running=bool(state.get("running"))
+                ),
                 "active_leases": [lease.as_dict() for lease in active],
                 "expired_leases": list(expired),
                 "processes": state.get("processes", {}),

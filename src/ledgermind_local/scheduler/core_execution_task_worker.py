@@ -123,6 +123,7 @@ _SAFE_ERROR_CODES = frozenset(
         "core_rejected_round_semantic_claim_content_invalid",
         "core_rejected_round_semantic_claim_evidence_missing",
         "core_rejected_round_semantic_claim_refs_invalid",
+        "core_rejected_round_semantic_semantic_incomplete",
         "core_rejected_structured_contract_digest_missing",
         "core_rejected_structured_contract_digest_mismatch",
         "core_rejected_structured_contract_missing",
@@ -141,6 +142,10 @@ _SAFE_ERROR_CODES = frozenset(
 
 
 _INVALID_REQUEST_REASON_MARKERS: tuple[tuple[str, str], ...] = (
+    (
+        "round_semantic_semantic_incomplete:",
+        "core_rejected_round_semantic_semantic_incomplete",
+    ),
     (
         "round_semantic_user_provenance_invalid:",
         "core_rejected_round_semantic_user_provenance_invalid",

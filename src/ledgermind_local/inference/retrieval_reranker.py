@@ -1,29 +1,35 @@
 """Compatibility imports for shared retrieval selection."""
 
 from ledgermind_inference.retrieval_reranker import (
-    ApiReranker,
     MODEL_ID,
     MODEL_REVISION,
+    TOKEN_RE,
+    ApiReranker,
     QwenLocalReranker,
     QwenWorkerReranker,
     Reranker,
-    TOKEN_RE,
     candidate_document,
     pack_items,
+    pack_items_with_dependencies,
     rank_items,
+    rank_items_with_scores,
     render_injection,
+    render_item,
 )
 
 __all__ = [
-    "ApiReranker",
     "MODEL_ID",
     "MODEL_REVISION",
+    "TOKEN_RE",
+    "ApiReranker",
     "QwenLocalReranker",
     "QwenWorkerReranker",
     "Reranker",
-    "TOKEN_RE",
     "candidate_document",
     "pack_items",
+    "pack_items_with_dependencies",
     "rank_items",
+    "rank_items_with_scores",
     "render_injection",
+    "render_item",
 ]
