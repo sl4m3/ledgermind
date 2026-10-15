@@ -40,20 +40,17 @@ ENV HOME=/home/smoke \
     HERMES_HOME=/home/smoke/.hermes \
     CODEX_HOME=/home/smoke/.codex \
     CLAUDE_CONFIG_DIR=/home/smoke/.claude \
-    CURSOR_HOME=/home/smoke/.cursor \
     OPENCODE_CONFIG_DIR=/home/smoke/.config/opencode
 
 RUN curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- \
         --commit "${HERMES_REF}" --force-commit --skip-setup \
         --skip-browser --skip-computer-use --no-skills --non-interactive \
-    && curl -fsSL https://cursor.com/install | bash \
     && mkdir -p \
         "$HERMES_HOME" "$CODEX_HOME" "$CLAUDE_CONFIG_DIR" \
-        "$CURSOR_HOME" "$OPENCODE_CONFIG_DIR" \
+        "$OPENCODE_CONFIG_DIR" \
     && hermes --version \
     && codex --version \
     && claude --version \
-    && cursor-agent --version \
     && opencode --version \
     && openclaw --version
 

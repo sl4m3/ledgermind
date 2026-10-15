@@ -73,6 +73,39 @@ _STRICT_PROBE_SCHEMA: dict[str, object] = {
 _GENERATION_PROBE_MAX_TOKENS = 256
 
 
+def probe_resolution_decision(config, *, token: str = "") -> dict[str, Any]:
+    """Technical transport probe only; never an assertion of semantic accuracy."""
+    from ledgermind_inference.decision_provider import jev_decide
+    from ledgermind_inference.kev_runtime import kev_decide
+    from ledgermind_inference.profiles import InferenceProfile
+    from ledgermind_inference.provider_telemetry import operation_context
+
+    from .resolution_decision import build_resolution_profile
+
+    spec = build_resolution_profile(config)
+    if spec is None:
+        return {"status": "legacy", "backend": None}
+    if spec["decision_backend"] == "generative":
+        # The installer separately verifies this exact generation model's
+        # closed strict-schema transport, then persists its fingerprint.
+        return {"status": "passed", "backend": "generative", "probe": "generation_strict_contract"}
+    profile = InferenceProfile(profile_id=spec["profile_id"], base_url=spec["endpoint"],
+        model=spec["model"], secret_ref=spec["secret_ref"],
+        timeout_seconds=spec["timeout_seconds"], max_output_tokens=6144,
+        extra_body=spec["extra_body"], decision_backend=spec["decision_backend"])
+    packet = {"schema_version": 1, "state": {"transport_probe": "ready"}, "questions": {
+        "probe": {"type": "choice", "instructions": "Select the transport_probe value present in state.",
+                  "criteria": {"ready": "The state value is ready.", "absent": "The state value is absent."}}}}
+    with operation_context("capability_probe"):
+        result = (jev_decide(profile, token, packet) if spec["decision_backend"] == "jev"
+                  else kev_decide(profile, packet))
+    if result["data"] != {"choices": {"probe": "ready"}}:
+        raise ProviderProbeError("decision backend returned an invalid technical probe result")
+    return {"status": "passed", "backend": spec["decision_backend"],
+            "model": result["body"]["model"], "latency_ms": result["latency_ms"],
+            "request_id": result["request_id"], "usage": result["body"].get("usage")}
+
+
 def _strict_probe_output(payload: object) -> bool:
     if not isinstance(payload, dict):
         return False

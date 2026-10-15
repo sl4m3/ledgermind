@@ -214,7 +214,7 @@ def normalize_error(error: BaseException) -> dict[str, object]:
     if not isinstance(code, str) or not code.strip():
         code = "provider_error"
     status_code = getattr(error, "status_code", None)
-    return {
+    normalized = {
         "code": code,
         "retryable": bool(
             isinstance(error, (ProviderTimeoutError, ProviderTransportError, TransientProviderError))
@@ -223,6 +223,15 @@ def normalize_error(error: BaseException) -> dict[str, object]:
         ),
         "status_code": status_code if isinstance(status_code, int) else None,
     }
+    http_status = getattr(error, "http_status", None)
+    if isinstance(http_status, int):
+        normalized["http_status"] = http_status
+    request_id = getattr(error, "request_id", None)
+    if isinstance(request_id, str):
+        normalized["request_id"] = request_id[:500]
+    if error.__cause__ is not None:
+        normalized["cause_type"] = type(error.__cause__).__name__
+    return normalized
 
 
 class ProviderError(RuntimeError):

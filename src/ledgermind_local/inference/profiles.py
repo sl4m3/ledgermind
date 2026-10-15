@@ -316,6 +316,7 @@ class InferenceProfile(BaseModel):
 
     profile_id: str = Field(min_length=1, max_length=200)
     provider_kind: ProviderKind = "openai_compatible"
+    decision_backend: Literal["jev", "kev", "generative"] | None = None
     base_url: str = Field(min_length=1, max_length=2_000)
     model: str = Field(min_length=1, max_length=500)
     secret_ref: str = Field(min_length=1, max_length=200)

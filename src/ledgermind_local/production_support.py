@@ -35,6 +35,7 @@ from .config import (
 )
 from .inference.profile_slots import (
     DatabaseBackedProfileResolver,
+    MissingProfileError,
     ProfileSlot,
 )
 from .inference.profile_store import (
@@ -153,6 +154,9 @@ def config_for(*, home: Path, lab_config: Any, port: int) -> LocalConfig:
         provider_capability_ttl_seconds=86_400,
         inference_secrets_path=str(home / "secrets.json"),
         profile_slots=ProfileSlotsConfig(
+            resolution_decision="resolution-decision"
+            if getattr(lab_config, "resolution_decision", None) is not None
+            else None,
             operational="generation-operational",
             object_resolution="generation-object-resolution",
             background="generation-background",
@@ -184,9 +188,7 @@ def seed_local(
     """Create the migration-owned seed state and bind all inference slots."""
 
     generation = _generation_for_task(lab_config, "round_semantic")
-    object_resolution_generation = _generation_for_task(
-        lab_config, "object_resolution"
-    )
+    object_resolution_generation = _generation_for_task(lab_config, "object_resolution")
     background_generation = _generation_for_task(lab_config, "execution_semantic")
     embedding = lab_config.embedding
     configured_output_modes = tuple(generation.structured_output_modes)
@@ -222,7 +224,12 @@ def seed_local(
                 object_resolution_generation,
                 "generation-object-resolution-api",
             ),
-            ("generation-background", "background", background_generation, "generation-api"),
+            (
+                "generation-background",
+                "background",
+                background_generation,
+                "generation-api",
+            ),
         ):
             reasoning_profile = selected_generation.reasoning.for_provider_model(
                 selected_generation.provider,
@@ -233,7 +240,9 @@ def seed_local(
                 reasoning_profile.reasoning_effort is not None
                 and "reasoning_effort" not in generation_extra_body
             ):
-                generation_extra_body["reasoning_effort"] = reasoning_profile.reasoning_effort
+                generation_extra_body["reasoning_effort"] = (
+                    reasoning_profile.reasoning_effort
+                )
             store.upsert(
                 InferenceProfile(
                     profile_id=profile_id,
@@ -256,9 +265,7 @@ def seed_local(
                     # through the same closed Core contract and validation
                     # layer.
                     structured_output_preference=(
-                        background_output_preference
-                        if slot == "background"
-                        else "auto"
+                        background_output_preference if slot == "background" else "auto"
                     ),
                     token_parameter="max_tokens",
                     supports_system_role=True,
@@ -266,6 +273,64 @@ def seed_local(
                 )
             )
             store.bind_slot(memory_space_id, slot=slot, profile_id=profile_id)
+        decision = getattr(lab_config, "resolution_decision", None)
+        if decision is not None:
+            operational = store.get("generation-operational")
+            assert operational is not None
+            if decision.backend == "generative":
+                extra = dict(operational.extra_body)
+                if generation.route:
+                    extra["provider"] = {
+                        "order": [generation.route],
+                        "only": [generation.route],
+                        "allow_fallbacks": False,
+                        "require_parameters": True,
+                    }
+                elif "openrouter.ai" in operational.base_url:
+                    extra["provider"] = {
+                        "allow_fallbacks": False,
+                        "require_parameters": True,
+                    }
+                profile = operational.model_copy(
+                    update={
+                        "profile_id": "resolution-decision",
+                        "decision_backend": "generative",
+                        "extra_body": extra,
+                    }
+                )
+            elif decision.backend == "jev":
+                secret_store.put(
+                    "resolution-decision-api", decision.token.get_secret_value()
+                )
+                profile = InferenceProfile(
+                    profile_id="resolution-decision",
+                    decision_backend="jev",
+                    base_url="https://openrouter.ai/api/alpha/decisions",
+                    model="typesafe/jev-1.13",
+                    secret_ref="resolution-decision-api",
+                    max_output_tokens=6144,
+                )
+            else:
+                profile = InferenceProfile(
+                    profile_id="resolution-decision",
+                    decision_backend="kev",
+                    base_url="http://127.0.0.1",
+                    model="jaredpalmer/kev-4b",
+                    secret_ref="local-decision-unused",
+                    timeout_seconds=600,
+                    max_output_tokens=6144,
+                    extra_body={
+                        "runtime_path": decision.runtime_path,
+                        "residency_mode": decision.residency_mode,
+                        "idle_timeout_seconds": decision.idle_timeout_seconds,
+                    },
+                )
+            store.upsert(profile)
+            store.bind_slot(
+                memory_space_id,
+                slot="resolution_decision",
+                profile_id=profile.profile_id,
+            )
         store.upsert(
             InferenceProfile(
                 profile_id="embedding-api",
@@ -287,7 +352,7 @@ def seed_local(
 def probe_generation_profiles(
     *, paths: ServicePaths, database: Path, memory_space_id: str
 ) -> dict[str, Any]:
-    """Warm all three generation-slot capability rows using the actual provider."""
+    """Verify configured generation profiles, including optional closed decisions."""
 
     resolver = DatabaseBackedProfileResolver(database)
     probe = ProviderProbe(
@@ -297,11 +362,23 @@ def probe_generation_profiles(
         capability_ttl_seconds=86_400,
     )
     results: dict[str, Any] = {}
-    for slot in (
+    slots = [
         ProfileSlot.OPERATIONAL,
         ProfileSlot.OBJECT_RESOLUTION,
         ProfileSlot.BACKGROUND,
+    ]
+    try:
+        decision_profile = resolver.resolve_profile(
+            memory_space_id, ProfileSlot.RESOLUTION_DECISION
+        )
+    except MissingProfileError:
+        decision_profile = None
+    if (
+        decision_profile is not None
+        and decision_profile.decision_backend == "generative"
     ):
+        slots.append(ProfileSlot.RESOLUTION_DECISION)
+    for slot in slots:
         result = probe.probe(memory_space_id, slot, force=False, reprobe=False)
         results[slot.value] = {
             "status": result.status,
@@ -328,7 +405,9 @@ def http_json(
     body = (
         None
         if payload is None
-        else json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        else json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode(
+            "utf-8"
+        )
     )
     headers = {"accept": "application/json", "authorization": f"Bearer {token}"}
     if body is not None:

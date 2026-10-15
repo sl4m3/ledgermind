@@ -101,6 +101,7 @@ def test_context_embeds_query_returns_provenance_and_records_outcome() -> None:
             "repository_id": "repository-1",
             "task_id": "task-1",
             "conversation_id": "conversation-1",
+            "visible_value_ids": ["already-shown"],
         },
     )
 
@@ -122,8 +123,37 @@ def test_context_embeds_query_returns_provenance_and_records_outcome() -> None:
     assert gateway.request.object_query_embedding == (0.3, 0.4)
     assert gateway.request.embedding_model_id == "embedder"
     assert gateway.request.repository_id == "repository-1"
+    assert gateway.request.visible_value_ids == ("already-shown",)
     assert gateway.outcomes[0].candidate_value_ids == ("value-1",)
     assert gateway.outcomes[0].delivered_value_ids == ("value-1",)
+
+
+def test_injection_event_receipt_is_idempotent_and_distinct_from_selection() -> None:
+    app = FastAPI()
+    app.include_router(create_context_router(lambda: "token", _Gateway(), max_body_bytes=100_000))
+    payload = {
+        "event_id": "event-1", "retrieval_request_id": "retrieval-1",
+        "memory_space_id": "space", "session_id": "session-1",
+        "stage": "hook_returned_assumed_visible", "value_ids": ["value-1"],
+    }
+    first = TestClient(app).post("/context/injection-events", json=payload)
+    second = TestClient(app).post("/context/injection-events", json=payload)
+    assert first.status_code == second.status_code == 202
+    assert first.json() == second.json() == {"status": "accepted", "event_id": "event-1"}
+
+
+def test_visible_value_ids_reject_duplicates_before_core() -> None:
+    gateway = _Gateway()
+    app = FastAPI()
+    app.include_router(create_context_router(
+        lambda: "token", gateway, max_body_bytes=100_000, query_embedder=_Embedder(),
+    ))
+    response = TestClient(app).post("/context/retrieve", json={
+        "memory_space_id": "space", "query": "deployment",
+        "visible_value_ids": ["value-1", "value-1"],
+    })
+    assert response.status_code == 422
+    assert gateway.request is None
 
 
 def test_optional_reranker_uses_core_pool_and_records_only_injected_values() -> None:
@@ -155,7 +185,9 @@ def test_optional_reranker_uses_core_pool_and_records_only_injected_values() -> 
     assert response.status_code == 200
     assert response.headers["X-LedgerMind-Selection"] == "reranked"
     payload = response.json()
-    assert len(payload["items"]) >= 6
+    assert len(payload["items"]) == 1
+    assert payload["selection_diagnostics"]["selection_policy"] == "adaptive_k"
+    assert payload["selection_diagnostics"]["adaptive_k_cutoff"] == 1
     assert payload["items"][0]["value_id"] == "value-8"
     assert payload["delivered_value_ids"] == [item["value_id"] for item in payload["items"]]
     assert payload["selection_diagnostics"]["status"] == "reranked"
@@ -212,7 +244,7 @@ def test_internal_core_dependency_links_survive_public_context_projection():
     gateway = Gateway()
     app.include_router(create_context_router(lambda: "token", gateway, max_body_bytes=100000,
         query_embedder=_Embedder(), reranker=Reranker(),
-        reranker_config=SimpleNamespace(min_k=6, soft_budget=1)))
+        reranker_config=SimpleNamespace(min_k=6, soft_budget=1, selection_policy="hybrid")))
     response = TestClient(app).post("/context/retrieve", json={"memory_space_id": "space", "query": "deployment"})
     assert response.status_code == 200
     payload = response.json()

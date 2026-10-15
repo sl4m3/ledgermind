@@ -1,7 +1,7 @@
 # Agent integration container smoke
 
-This image installs real Hermes, Codex CLI, Claude Code, Cursor Agent,
-OpenCode, and OpenClaw distributions. The runtime test then installs a signed
+This image installs real Hermes, Codex CLI, Claude Code, OpenCode, and
+OpenClaw distributions. The runtime test then installs a signed
 LedgerMind bundle, connects all detected clients, executes lifecycle hooks,
 validates the JavaScript plugins, and runs the Hermes and OpenClaw plugin
 diagnostics without provider calls.

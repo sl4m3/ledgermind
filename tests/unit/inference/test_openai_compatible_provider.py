@@ -28,6 +28,20 @@ def _request() -> ModelRequest:
     )
 
 
+@pytest.mark.parametrize('code,expected', [(502, TransientProviderError), (429, TransientProviderError),
+                                         (401, ProviderAuthenticationError), (400, ProviderResponseError)])
+def test_error_envelope_inside_http_200(code, expected):
+    provider = OpenAICompatibleProvider(base_url='https://provider.example/v1', api_key='secret', max_retries=0,
+        client=httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200,
+            json={'id': 'upstream-failure', 'error': {'code': code}}))))
+    with pytest.raises(expected) as raised:
+        provider.complete_json(_request())
+    assert raised.value.status_code == code
+    assert raised.value.http_status == 200
+    assert raised.value.request_id == 'upstream-failure'
+    provider.close()
+
+
 def test_openai_compatible_provider_posts_minimal_json_request_and_parses_response() -> (
     None
 ):

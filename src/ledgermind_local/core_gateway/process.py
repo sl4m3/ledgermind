@@ -55,6 +55,7 @@ from .supervisor import (
 )
 
 _CAPABILITY_REQUIREMENTS: dict[str, tuple[frozenset[str], frozenset[str]]] = {
+    "resolution_decision": (frozenset({"poll_execution_tasks", "submit_execution_result"}), frozenset({"resolution_decision"})),
     "base": (
         frozenset({"health"}),
         frozenset(),
@@ -462,7 +463,7 @@ class ProcessCoreGateway(CoreGateway):
         try:
             from datetime import datetime, timezone
 
-            created_at = datetime.now(timezone.utc).isoformat()
+            created_at = command.created_at or datetime.now(timezone.utc).isoformat()
             _validate_retrieval_outcome_payload({**payload, "created_at": created_at})
         except (TypeError, ValueError) as exc:
             raise DomainRejectedError("invalid_retrieval_outcome", str(exc)) from exc

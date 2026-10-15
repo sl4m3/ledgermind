@@ -9,6 +9,7 @@ from ledgermind_local.inference.retrieval_reranker import (
     TOKEN_RE,
     ApiReranker,
     QwenWorkerReranker,
+    adaptive_k_cutoff,
     candidate_document,
     pack_items,
     pack_items_with_dependencies,
@@ -108,6 +109,12 @@ def _fake_worker(connection: object, model_path: str, device: str) -> None:
             connection.send(("counts", [len(text) for text in documents]))
         elif query == "hang":
             time.sleep(3)
+        elif query == "slow":
+            time.sleep(0.3)
+            connection.send(("scores", [1.0 for _ in documents]))
+        elif query == "exit":
+            connection.close()
+            return
         else:
             connection.send(("scores", [float(index) for index, _ in enumerate(documents)]))
 
@@ -121,6 +128,55 @@ def _items() -> list[dict[str, object]]:
 def _injection() -> dict[str, object]:
     return {"text": "How to read memory:\nThese are saved facts.\nconstraint — a rule.\n\nM1: x",
             "legend": ["constraint — a rule."]}
+
+
+def test_adaptive_k_largest_drop_and_flat_distribution():
+    assert adaptive_k_cutoff([0.95, 0.9, 0.3, 0.2]) == (2, pytest.approx(0.6))
+    assert adaptive_k_cutoff([1.0, 0.5, 0.0]) == (1, 0.5)
+    assert adaptive_k_cutoff([0.5, 0.5, 0.5]) == (3, 0.0)
+    assert adaptive_k_cutoff([]) == (0, 0.0)
+    assert adaptive_k_cutoff([0.7]) == (1, 0.0)
+    with pytest.raises(ValueError, match="finite"):
+        adaptive_k_cutoff([float("nan")])
+    with pytest.raises(ValueError, match="descending"):
+        adaptive_k_cutoff([0.1, 0.9])
+
+
+def test_adaptive_k_is_default_with_explicit_legacy_opt_out():
+    assert RerankerConfig().selection_policy == "adaptive_k"
+    assert RerankerConfig(selection_policy="hybrid").selection_policy == "hybrid"
+    with pytest.raises(ValueError):
+        RerankerConfig(selection_policy="unknown")
+
+
+def test_adaptive_k_preserves_whole_records_and_one_hop_dependencies():
+    items = _items()
+    original_contents = [item["content"] for item in items]
+    scores = dict(zip([item["value_id"] for item in items],
+                      [0.95, 0.9, 0.3, 0.25, 0.2, 0.15, 0.1, 0.05]))
+    selected, _, tokens, diagnostics = pack_items_with_dependencies(
+        items, _injection(), None, selection_policy="adaptive_k", reranker_scores=scores,
+        dependency_links={"item1": ["item7"], "item7": ["item8"]},
+    )
+    assert [item["value_id"] for item in selected] == ["item1", "item2", "item7"]
+    assert diagnostics["base_value_ids"] == ["item1", "item2"]
+    assert diagnostics["dependency_value_ids"] == ["item7"]
+    assert diagnostics["adaptive_k_cutoff"] == 2
+    assert tokens <= 1024
+    assert [item["content"] for item in items] == original_contents
+
+
+def test_adaptive_k_hard_budget_omits_without_truncation():
+    items = _items()
+    selected, _, tokens, diagnostics = pack_items_with_dependencies(
+        items, _injection(), None, selection_policy="adaptive_k",
+        reranker_scores={item["value_id"]: 0.5 for item in items},
+        token_counter=lambda text: text.count("is required.") * 100,
+        hard_budget=250,
+    )
+    assert len(selected) == 2
+    assert tokens == 200
+    assert len(diagnostics["omitted_base"]) == 6
 
 
 class _Scores:
@@ -299,6 +355,19 @@ def test_reranker_requires_explicit_local_model_when_enabled() -> None:
         assert "model_path" in str(exc)
     else:
         raise AssertionError("missing local model path was accepted")
+
+
+def test_cpu_worker_default_wait_is_unlimited_and_dead_worker_is_detected() -> None:
+    worker = QwenWorkerReranker("unused", "cpu", worker_target=_fake_worker)
+    try:
+        assert worker.startup_timeout is None
+        assert worker.score_timeout is None
+        assert worker.score("slow", ["a"]) == [1.0]
+        with pytest.raises((EOFError, RuntimeError)):
+            worker.score("exit", ["a"])
+        assert worker.score("ok", ["a"]) == [0.0]
+    finally:
+        worker.close()
 
 
 def test_worker_timeout_terminates_child_and_next_request_recovers() -> None:

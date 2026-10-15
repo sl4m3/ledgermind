@@ -27,6 +27,7 @@ from .models import InstallerConfig
 from .paths import InstallerPaths
 from .permissions import ensure_private_dir
 from .profiles.generation import build_generation_profiles
+from .profiles.resolution_decision import build_resolution_profile, build_runtime_profiles, DECISION_SECRET_REF
 from .secret_refs import (
     EMBEDDING_SECRET_REF,
     GENERATION_SECRET_REF,
@@ -137,6 +138,15 @@ def _stored_secret_value(
     return None
 
 
+def resolve_decision_token(config: InstallerConfig, paths: InstallerPaths) -> str:
+    decision = config.resolution_decision
+    if decision is None or decision.backend != "jev":
+        return ""
+    return _secret_value(decision.token, decision.token_env, None,
+                         secret_ref=decision.secret_ref or DECISION_SECRET_REF,
+                         backend=select_secret_backend(paths))
+
+
 def resolve_provider_tokens(
     config: InstallerConfig,
     paths: InstallerPaths,
@@ -211,6 +221,12 @@ def _safe_config_payload(config: InstallerConfig) -> dict[str, Any]:
     generation.pop("token_stdin", None)
     generation["secret_ref"] = GENERATION_SECRET_REF
     payload["generation"] = generation
+    decision = payload.get("resolution_decision")
+    if isinstance(decision, dict):
+        decision.pop("token", None)
+        decision.pop("token_env", None)
+        if decision.get("backend") == "jev":
+            decision["secret_ref"] = DECISION_SECRET_REF
     embedding = dict(payload.get("embedding", {}))
     api = embedding.get("api")
     if isinstance(api, dict):
@@ -269,6 +285,17 @@ def write_installer_config(
                 "secret_ref": generation_ref,
             }
         )
+    decision_profile = build_resolution_profile(config)
+    if decision_profile is not None:
+        if config.resolution_decision.backend == "jev":
+            if preserve_provider_credentials:
+                if not backend.get(DECISION_SECRET_REF):
+                    raise ValueError("installed decision credential is missing")
+            else:
+                decision_token = _secret_value(config.resolution_decision.token, config.resolution_decision.token_env,
+                    None, secret_ref=config.resolution_decision.secret_ref, backend=backend)
+                backend.put(DECISION_SECRET_REF, decision_token)
+        profiles.append(decision_profile)
     if config.reranker.mode == "api" and config.reranker.api is not None:
         reranker_token = _secret_value(
             config.reranker.api.token,
@@ -421,6 +448,7 @@ def build_local_config(
         profile_slots=ProfileSlotsConfig(
             operational="generation-operational",
             object_resolution="generation-object-resolution",
+            resolution_decision="resolution-decision" if config.resolution_decision is not None else None,
             background="generation-background",
             embedding=(
                 "embedding-default"
@@ -502,7 +530,7 @@ def write_local_profiles(
             config.advanced.generation_max_input or DEFAULT_GENERATION_MAX_INPUT_TOKENS
         )
         profile_ids: list[str] = []
-        for profile in build_generation_profiles(config.generation):
+        for profile in build_runtime_profiles(config):
             # Each built-in slot declares the largest request Core may send to
             # it.  Keep an explicit user ceiling when it is larger, but never
             # materialize a profile that rejects a built-in contract locally.
@@ -511,10 +539,11 @@ def write_local_profiles(
             max_output = max(required_output, configured_output)
             materialized = InferenceProfile(
                 profile_id=str(profile["profile_id"]),
+                decision_backend=profile.get("decision_backend"),
                 provider_kind=cast(ProviderKind, profile["provider_kind"]),
                 base_url=str(profile["endpoint"]),
                 model=str(profile["model"]),
-                secret_ref=GENERATION_SECRET_REF,
+                secret_ref=str(profile.get("secret_ref", GENERATION_SECRET_REF)),
                 timeout_seconds=config.generation.timeout_seconds,
                 max_retries=max_retries,
                 max_input_tokens=max_input,
@@ -562,6 +591,12 @@ def write_local_profiles(
                 slot="embedding",
                 profile_id=embedding_profile.profile_id,
             )
+        # Explicit installation-wide encoder changes also apply to previously
+        # connected agents no longer present in the wizard's target selection.
+        # User-named per-space profiles remain independent and untouched.
+        rebound_embedding_spaces = rebind_managed_embedding_slots(
+            store, connection, embedding_profile.profile_id
+        )
         profile_ids.append(embedding_profile.profile_id)
         connection.commit()
     finally:
@@ -571,7 +606,25 @@ def write_local_profiles(
         "memory_space_id": config.memory_space_id_for("hermes"),
         "memory_space_ids": sorted(memory_spaces.values()),
         "profile_ids": profile_ids,
+        "rebound_embedding_spaces": rebound_embedding_spaces,
     }
+
+
+def rebind_managed_embedding_slots(store, connection, selected_profile_id: str) -> list[str]:
+    """Align built-in default bindings only, never custom per-space encoders."""
+    if selected_profile_id not in {"embedding-default", "embedding-local"}:
+        raise ValueError("selected profile must be a managed embedding profile")
+    if store.get(selected_profile_id) is None:
+        raise ValueError("selected managed embedding profile is missing")
+    rows = connection.execute(
+        "SELECT memory_space_id FROM memory_space_model_profiles "
+        "WHERE profile_slot='embedding' AND profile_id IN ('embedding-default','embedding-local') "
+        "AND profile_id != ? ORDER BY memory_space_id", (selected_profile_id,),
+    ).fetchall()
+    rebound = [str(row[0]) for row in rows]
+    for memory_space_id in rebound:
+        store.bind_slot(memory_space_id, slot="embedding", profile_id=selected_profile_id)
+    return rebound
 
 
 def bind_existing_profiles_for_agent(
@@ -605,7 +658,7 @@ def bind_existing_profiles_for_agent(
             )
         profile_ids = {
             str(profile["slot"]): str(profile["profile_id"])
-            for profile in build_generation_profiles(config.generation)
+            for profile in build_runtime_profiles(config)
         }
         profile_ids["embedding"] = (
             "embedding-default" if config.embedding.mode == "api" else "embedding-local"
@@ -667,7 +720,9 @@ def persist_generation_probe(
         store = InferenceProfileStore(connection)
         now = datetime.now(timezone.utc)
         timestamp = now.isoformat(timespec="seconds")
-        for profile_spec in build_generation_profiles(config.generation):
+        for profile_spec in build_runtime_profiles(config):
+            if profile_spec.get("decision_backend") in {"jev", "kev"}:
+                continue
             profile_id = str(profile_spec["profile_id"])
             profile = store.get(profile_id)
             if profile is None:

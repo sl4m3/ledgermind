@@ -27,6 +27,7 @@ from .models import (
     RerankerApiConfig,
     RerankerConfig,
     RerankerLocalConfig,
+    ResolutionDecisionConfig,
     RuntimeConfig,
 )
 from .openrouter import OpenRouterEndpoint, list_openrouter_model_endpoints
@@ -813,6 +814,16 @@ def build_interactive_config(
                 idle_timeout_seconds=idle_timeout_seconds,
             )
 
+        resolution_decision = existing_config.resolution_decision if existing_config is not None else None
+        if existing_config is None:
+            decision_backend = ui.choose("Object / Knowledge Resolution decisions", (
+                _Choice("jev", "Jev API (recommended)", "typesafe/jev-1.13; independent OpenRouter credential"),
+                _Choice("kev", "Kev-4B local CPU/BF16", "OR 84%, KR 58.9%, replace 5/28 in the measured stand; lower quality"),
+                _Choice("generative", "Generative decision", "current generation profile; separate KR text generation still required"),
+            ))
+            decision_token = ui.secret("OpenRouter decision API key") if decision_backend == "jev" else None
+            runtime_path = ui.required("Installed signed Kev r10 runtime directory") if decision_backend == "kev" else None
+            resolution_decision = ResolutionDecisionConfig(backend=decision_backend, token=decision_token, runtime_path=runtime_path)
         draft = InstallerConfig(
             semantic_language=semantic_language,
             integrations=integrations,
@@ -830,6 +841,7 @@ def build_interactive_config(
                 token=token,
                 model=model,
             ),
+            resolution_decision=resolution_decision,
             embedding=embedding,
             reranker=reranker,
             runtime=runtime,

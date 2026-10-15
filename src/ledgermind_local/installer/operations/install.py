@@ -11,6 +11,7 @@ from ..config_writer import (
     build_local_config,
     persist_generation_probe,
     resolve_provider_tokens,
+    resolve_decision_token,
     resolve_reranker_token,
     write_installer_config,
     write_local_config,
@@ -30,7 +31,8 @@ from ..paths import InstallerPaths
 from ..preflight import check_preflight
 from ..profiles.embedding_local import build_local_embedding_plan
 from ..profiles.generation import build_generation_profiles
-from ..profiles.probes import probe_embedding_api, probe_generation
+from ..profiles.resolution_decision import build_runtime_profiles
+from ..profiles.probes import probe_embedding_api, probe_generation, probe_resolution_decision
 from ..transaction import InstallTransaction
 from ..verify import (
     public_key_from_environment,
@@ -59,7 +61,7 @@ def install_plan(
     paths: InstallerPaths,
     manifest: InstallManifest | None = None,
 ) -> dict[str, Any]:
-    profiles = list(build_generation_profiles(config.generation))
+    profiles = build_runtime_profiles(config)
     if config.embedding.mode == "api" and config.embedding.api is not None:
         profiles.append(
             {
@@ -235,6 +237,10 @@ def install(
         provider_probes["generation_probe"] = probe_generation(
             config.generation, token=generation_token
         )
+        if config.resolution_decision is not None:
+            provider_probes["resolution_decision_probe"] = probe_resolution_decision(
+                config, token=resolve_decision_token(config, paths)
+            )
         if config.embedding.mode == "api" and config.embedding.api is not None:
             assert embedding_token is not None
             provider_probes["embedding_probe"] = probe_embedding_api(

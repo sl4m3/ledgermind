@@ -56,6 +56,7 @@ def main(argv: list[str] | None = None) -> int:
         host=args.host,
         port=args.port,
         token=token,
+        embedding_fingerprint=vectorizer.fingerprint,
     )
     stopped = Event()
 

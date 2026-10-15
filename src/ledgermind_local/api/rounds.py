@@ -68,6 +68,9 @@ def create_rounds_router(
         response.headers["Cache-Control"] = "no-store"
         return {
             "schema_version": 2,
+            # Capture is committed. `status` describes subsequent processing,
+            # not whether the client may release its durable delivery copy.
+            "accepted": True,
             "raw_round_id": result.raw_round_id,
             "core_command_id": result.core_command_id,
             "duplicate": result.duplicate,

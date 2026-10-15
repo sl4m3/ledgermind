@@ -75,6 +75,7 @@ class CoreSupervisor:
         strict_isolation: bool | None = None,
         binary_signature_verified: bool = False,
         semantic_language: str | None = None,
+        resolution_pipeline: str | None = None,
     ) -> None:
         if not command or any(not str(part) for part in command):
             raise ValueError("Core command must not be empty")
@@ -120,6 +121,9 @@ class CoreSupervisor:
         if semantic_language is None or not semantic_language.strip():
             raise ValueError("semantic_language must be supplied by LocalConfig")
         self._semantic_language = semantic_language
+        if resolution_pipeline not in {None, "legacy", "decision_v1"}:
+            raise ValueError("invalid resolution pipeline")
+        self._resolution_pipeline = resolution_pipeline
         self._isolation_capabilities = IsolationCapabilities(
             sandbox_backend="unavailable",
             detail="Core has not been launched",
@@ -294,6 +298,7 @@ class CoreSupervisor:
                 requirements=self._isolation_requirements,
                 strict=self._strict_isolation,
                 semantic_language=self._semantic_language,
+                resolution_pipeline=self._resolution_pipeline,
             )
         except SandboxUnavailableError as exc:
             self._isolation_capabilities = IsolationCapabilities(
@@ -338,6 +343,8 @@ class CoreSupervisor:
             "LEDGERMIND_SEMANTIC_LANGUAGE": self._semantic_language,
             "PWD": str(self._core_data_dir),
         }
+        if self._resolution_pipeline is not None:
+            environment["LEDGERMIND_RESOLUTION_PIPELINE"] = self._resolution_pipeline
         for name in ("LANG", "LC_ALL"):
             value = os.environ.get(name)
             if value:

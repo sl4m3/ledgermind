@@ -245,6 +245,7 @@ def test_terminal_wizard_uses_reference_openrouter_configuration(
             "",  # reference embedding model
             "",  # keep Core ranking; reranker is opt-in
             "",  # session model residency
+            "",  # recommended Jev resolution decisions
             "",  # install
         )
     )
@@ -399,6 +400,7 @@ def test_terminal_wizard_offers_local_embedding_only_from_signed_catalog(
             "",  # automatic device
             "",  # keep Core ranking; reranker is opt-in
             "",  # session model residency
+            "",  # recommended Jev resolution decisions
             "",  # install
         )
     )

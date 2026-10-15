@@ -26,8 +26,6 @@ class LifecycleTargetSpec:
     default_home: tuple[str, ...]
     config_name: str
     events: tuple[tuple[str, str, int], ...]
-    format: str = "claude"
-    executable_aliases: tuple[str, ...] = ()
     background_events: tuple[str, ...] = ()
 
 
@@ -40,9 +38,11 @@ SPECS = (
         (".codex",),
         "hooks.json",
         (
+            ("SessionStart", "SessionStart", 5),
             ("UserPromptSubmit", "UserPromptSubmit", 60),
             ("PreToolUse", "PreToolUse", 5),
             ("PostToolUse", "PostToolUse", 5),
+            ("PostCompact", "PostCompact", 5),
             ("Stop", "Stop", 600),
             ("SessionEnd", "SessionEnd", 3),
         ),
@@ -56,32 +56,15 @@ SPECS = (
         (".claude",),
         "settings.json",
         (
+            ("SessionStart", "SessionStart", 5),
             ("UserPromptSubmit", "UserPromptSubmit", 60),
             ("PreToolUse", "PreToolUse", 5),
             ("PostToolUse", "PostToolUse", 5),
             ("PostToolUseFailure", "PostToolUseFailure", 5),
+            ("PostCompact", "PostCompact", 5),
             ("Stop", "Stop", 60),
             ("SessionEnd", "SessionEnd", 3),
         ),
-    ),
-    LifecycleTargetSpec(
-        "cursor",
-        "Cursor",
-        "cursor",
-        "CURSOR_HOME",
-        (".cursor",),
-        "hooks.json",
-        (
-            ("beforeSubmitPrompt", "UserPromptSubmit", 60),
-            ("preToolUse", "PreToolUse", 5),
-            ("postToolUse", "PostToolUse", 5),
-            ("postToolUseFailure", "PostToolUseFailure", 5),
-            ("afterAgentResponse", "afterAgentResponse", 5),
-            ("stop", "Stop", 60),
-            ("sessionEnd", "SessionEnd", 3),
-        ),
-        format="cursor",
-        executable_aliases=("cursor-agent",),
     ),
 )
 
@@ -147,22 +130,6 @@ def _merge_hooks(
     hooks = payload.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         raise AdapterError("agent hooks configuration must be an object")
-    if spec.format == "cursor":
-        payload.setdefault("version", 1)
-        for host_event, (command, timeout) in commands.items():
-            entries = hooks.setdefault(host_event, [])
-            if not isinstance(entries, list):
-                raise AdapterError(f"agent hook {host_event} must be a list")
-            entries[:] = [
-                entry
-                for entry in entries
-                if not (isinstance(entry, dict) and _owned(entry.get("command")))
-            ]
-            handler: dict[str, Any] = {"command": command, "timeout": timeout}
-            if host_event in spec.background_events:
-                handler["async"] = True
-            entries.append(handler)
-        return
     for host_event, (command, timeout) in commands.items():
         groups = hooks.setdefault(host_event, [])
         if not isinstance(groups, list):
@@ -236,7 +203,7 @@ class LifecycleTargetAdapter(BaseTargetAdapter):
         executable = next(
             (
                 resolved
-                for name in (self.spec.executable, *self.spec.executable_aliases)
+                for name in (self.spec.executable,)
                 if (resolved := shutil.which(name)) is not None
             ),
             None,

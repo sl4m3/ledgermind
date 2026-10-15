@@ -48,6 +48,7 @@ class InferenceProfileStore:
             {
                 "profile_id": row["profile_id"],
                 "provider_kind": row["provider_kind"],
+                "decision_backend": row["decision_backend"] if "decision_backend" in row.keys() else None,
                 "base_url": row["base_url"],
                 "model": row["model"],
                 "secret_ref": row["secret_ref"],
@@ -145,10 +146,11 @@ class InferenceProfileStore:
                 profile_id, provider_kind, base_url, model, secret_ref,
                 timeout_seconds, max_retries, max_input_tokens, max_output_tokens,
                 extra_body_json, structured_output_preference, token_parameter,
-                supports_system_role, supports_seed, enabled, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                supports_system_role, supports_seed, enabled, created_at, updated_at, decision_backend
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(profile_id) DO UPDATE SET
                 provider_kind = excluded.provider_kind,
+                decision_backend = excluded.decision_backend,
                 base_url = excluded.base_url,
                 model = excluded.model,
                 secret_ref = excluded.secret_ref,
@@ -182,6 +184,7 @@ class InferenceProfileStore:
                 int(values["enabled"]),
                 now,
                 now,
+                values["decision_backend"],
             ),
         )
         result = self.get(profile.profile_id)
@@ -457,7 +460,7 @@ class InferenceProfileStore:
     def bind_slot(
         self, memory_space_id: str, *, slot: str, profile_id: str
     ) -> str:
-        if slot not in {"operational", "object_resolution", "background", "embedding"}:
+        if slot not in {"operational", "object_resolution", "background", "embedding", "resolution_decision"}:
             raise ValueError(
                 "slot must be operational, object_resolution, background, or embedding"
             )

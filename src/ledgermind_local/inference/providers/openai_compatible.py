@@ -14,6 +14,10 @@ from collections.abc import Mapping
 from urllib.parse import urlparse
 
 import httpx
+from ledgermind_inference.providers.error_envelope import (
+    envelope_error_status,
+    retry_after_seconds,
+)
 
 from ..cancellation import CancellationToken
 from ..profiles import TokenParameter
@@ -589,7 +593,16 @@ class OpenAICompatibleProvider(InferenceProvider):
                 or response.headers.get("request-id")
                 or f"local-{uuid.uuid4().hex}"
             )
-            if response.status_code >= 400:
+            try:
+                envelope = response.json() if len(response.content) <= self.max_response_bytes else None
+            except ValueError:
+                envelope = None
+            envelope_failed, upstream_status = envelope_error_status(envelope)
+            if isinstance(envelope, Mapping) and isinstance(envelope.get("id"), str):
+                request_id = envelope["id"]
+            effective_status = upstream_status if envelope_failed and 200 <= response.status_code <= 299 else response.status_code
+            if response.status_code >= 400 or envelope_failed:
+                failed_usage = normalize_usage(envelope) if isinstance(envelope, Mapping) else {}
                 record_http_attempt(
                     kind="generation",
                     operation=operation,
@@ -603,20 +616,33 @@ class OpenAICompatibleProvider(InferenceProvider):
                     retry_index=attempt - 1,
                     metadata=prepared.metadata,
                     configured_routes=configured_routes,
+                    upstream_status=upstream_status if envelope_failed else None,
+                    input_tokens=failed_usage.get("input_tokens"),
+                    output_tokens=failed_usage.get("output_tokens"),
+                    cached_input_tokens=failed_usage.get("cached_input_tokens"),
+                    reported_cost=failed_usage.get("reported_cost"),
                 )
-            if response.status_code in {401, 403}:
-                raise ProviderAuthenticationError("provider authentication failed")
-            if response.status_code == 429 or 500 <= response.status_code <= 599:
-                if attempt <= self.max_retries:
-                    self._sleep_before_retry(attempt, token=token)
+            error = None
+            if effective_status in {401, 403}:
+                error = ProviderAuthenticationError("provider authentication failed")
+            elif effective_status in {408, 504}:
+                error = ProviderTimeoutError("provider returned a timeout status")
+            elif effective_status == 429 or (effective_status is not None and 500 <= effective_status <= 599):
+                error = TransientProviderError(
+                    f"provider returned temporary upstream status {effective_status}"
+                )
+            elif response.status_code >= 400 or envelope_failed:
+                error = ProviderResponseError(
+                    f"provider returned failed response (status {effective_status})"
+                )
+            if error is not None:
+                if isinstance(error, (ProviderTimeoutError, TransientProviderError)) and attempt <= self.max_retries:
+                    self._sleep_before_retry(attempt, token=token, response_headers=response.headers)
                     continue
-                raise TransientProviderError(
-                    f"provider returned temporary HTTP status {response.status_code}"
-                )
-            if response.status_code >= 400:
-                raise ProviderResponseError(
-                    f"provider returned HTTP status {response.status_code}"
-                )
+                error.status_code = effective_status
+                error.http_status = response.status_code
+                error.request_id = request_id
+                raise error
 
             response_bytes = len(response.content)
             if response_bytes > self.max_response_bytes:
@@ -717,8 +743,9 @@ class OpenAICompatibleProvider(InferenceProvider):
         attempt: int,
         *,
         token: CancellationToken | None = None,
+        response_headers: Mapping[str, str] | None = None,
     ) -> None:
-        delay = min(self.retry_delay_seconds * attempt, 30.0)
+        delay = max(min(self.retry_delay_seconds * attempt, 30.0), retry_after_seconds(response_headers))
         if token is not None:
             _raise_if_cancelled(token)
             if token.wait(delay):

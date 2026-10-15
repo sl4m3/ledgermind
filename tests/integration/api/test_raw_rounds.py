@@ -92,6 +92,7 @@ def test_post_round_queues_raw_round_for_core(tmp_path) -> None:
     assert response.status_code == 202
     payload = response.json()
     assert payload["duplicate"] is False
+    assert payload["accepted"] is True
     assert payload["status"] == "queued_for_core"
     assert payload["core_command_id"]
     with sqlite3.connect(database) as connection:
@@ -121,6 +122,7 @@ def test_post_round_duplicate_returns_existing_ids(tmp_path) -> None:
     assert first.status_code == 202
     assert second.status_code == 200
     assert second.json()["duplicate"] is True
+    assert second.json()["accepted"] is True
     assert second.json()["raw_round_id"] == first.json()["raw_round_id"]
 
 

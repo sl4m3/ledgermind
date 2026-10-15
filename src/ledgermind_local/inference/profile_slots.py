@@ -17,6 +17,7 @@ class ProfileSlot(str, Enum):
 
     OPERATIONAL = "operational"
     OBJECT_RESOLUTION = "object_resolution"
+    RESOLUTION_DECISION = "resolution_decision"
     BACKGROUND = "background"
     EMBEDDING = "embedding"
 

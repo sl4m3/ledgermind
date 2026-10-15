@@ -39,6 +39,7 @@ def _assert_generation_capabilities_ready(database: Path) -> None:
             ProfileSlot.OPERATIONAL,
             ProfileSlot.OBJECT_RESOLUTION,
             ProfileSlot.BACKGROUND,
+            ProfileSlot.RESOLUTION_DECISION,
         ):
             rows = connection.execute(
                 "SELECT DISTINCT profile_id FROM memory_space_model_profiles "
@@ -46,6 +47,8 @@ def _assert_generation_capabilities_ready(database: Path) -> None:
                 (slot.value,),
             ).fetchall()
             if not rows:
+                if slot == ProfileSlot.RESOLUTION_DECISION:
+                    continue
                 missing.append(f"{slot.value}:unbound")
                 continue
             for row in rows:
@@ -53,6 +56,11 @@ def _assert_generation_capabilities_ready(database: Path) -> None:
                 profile = store.get(profile_id)
                 if profile is None:
                     missing.append(f"{slot.value}:{profile_id}:missing_profile")
+                    continue
+                if (
+                    slot == ProfileSlot.RESOLUTION_DECISION
+                    and profile.decision_backend != "generative"
+                ):
                     continue
                 capabilities = store.get_capabilities(
                     profile_id,

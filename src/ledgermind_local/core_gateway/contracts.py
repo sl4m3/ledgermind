@@ -157,9 +157,9 @@ class CoreExecutionTask:
 
     schema_version: int
     task_id: str
-    task_kind: Literal["generate_json", "object_resolution", "embed_texts"]
+    task_kind: Literal["generate_json", "object_resolution", "embed_texts", "decide"]
     operation: str
-    profile_slot: Literal["operational", "object_resolution", "background", "embedding"]
+    profile_slot: Literal["operational", "object_resolution", "background", "embedding", "resolution_decision"]
     memory_space_id: str
     expires_at: str
     lease: str | None
@@ -167,6 +167,7 @@ class CoreExecutionTask:
     embedding_request: dict[str, Any] | None
     operation_input: dict[str, Any] | None
     structured_generation: dict[str, Any] | None = None
+    decision_request: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.schema_version != 2:
@@ -185,15 +186,23 @@ class CoreExecutionTask:
         ):
             if value is not None and not isinstance(value, dict):
                 raise TypeError(f"{name} must be an object")
-        if self.task_kind not in {"generate_json", "object_resolution", "embed_texts"}:
+        if self.task_kind not in {"generate_json", "object_resolution", "embed_texts", "decide"}:
             raise ValueError(
                 "task_kind must be generate_json, object_resolution, or embed_texts"
             )
-        if self.task_kind in {"generate_json", "object_resolution"}:
+        if self.task_kind == "decide":
+            if self.profile_slot != "resolution_decision" or not isinstance(self.decision_request, dict):
+                raise ValueError("decide requires resolution_decision profile and decision_request")
+            from ledgermind_inference.decision_provider import validate_request
+            validate_request(self.decision_request)
+        elif self.decision_request is not None:
+            raise ValueError("decision_request belongs only to decide tasks")
+        if self.task_kind in {"generate_json", "object_resolution", "decide"}:
             if self.profile_slot not in {
                 "operational",
                 "object_resolution",
                 "background",
+                "resolution_decision",
             }:
                 raise ValueError(
                     "generate_json task requires an operational, object_resolution, or background profile slot"
@@ -275,6 +284,8 @@ class CoreExecutionTask:
                 "user_semantic",
                 "execution_semantic",
                 "object_resolution",
+                "knowledge_resolution",
+                "knowledge_rendering",
             }:
                 if mode != STRICT_JSON_SCHEMA_MODE:
                     raise ValueError(
@@ -425,11 +436,12 @@ class CoreExecutionTask:
                 "embedding_request",
                 "operation_input",
                 "structured_generation",
+                "decision_request",
             },
             "object-facet execution task",
         )
         task_kind = payload.get("task_kind")
-        if task_kind not in {"generate_json", "object_resolution", "embed_texts"}:
+        if task_kind not in {"generate_json", "object_resolution", "embed_texts", "decide"}:
             raise ValueError(
                 "task_kind must be generate_json, object_resolution, or embed_texts"
             )
@@ -439,6 +451,7 @@ class CoreExecutionTask:
             "object_resolution",
             "background",
             "embedding",
+            "resolution_decision",
         }:
             raise ValueError("profile_slot is invalid")
         model_request = payload.get("model_request")
@@ -470,6 +483,7 @@ class CoreExecutionTask:
                 else None
             ),
             model_request=dict(model_request) if model_request is not None else None,
+            decision_request=dict(payload["decision_request"]) if isinstance(payload.get("decision_request"), dict) else None,
             embedding_request=(
                 dict(embedding_request) if embedding_request is not None else None
             ),
@@ -498,6 +512,8 @@ class CoreExecutionTask:
         }
         if self.structured_generation is not None:
             payload["structured_generation"] = self.structured_generation
+        if self.decision_request is not None:
+            payload["decision_request"] = self.decision_request
         if self.lease is not None:
             payload["lease"] = self.lease
         return payload
@@ -508,7 +524,7 @@ class CoreExecutionResult:
     """Strict generic result envelope sent back to Core."""
 
     task_id: str
-    task_kind: Literal["generate_json", "object_resolution", "embed_texts"]
+    task_kind: Literal["generate_json", "object_resolution", "embed_texts", "decide"]
     status: Literal["completed"]
     operation: str
     operation_input: dict[str, Any] | None
@@ -525,7 +541,7 @@ class CoreExecutionResult:
     def __post_init__(self) -> None:
         _required(self.task_id, "result.task_id")
         _required(self.operation, "result.operation")
-        if self.task_kind not in {"generate_json", "object_resolution", "embed_texts"}:
+        if self.task_kind not in {"generate_json", "object_resolution", "embed_texts", "decide"}:
             raise ValueError("result.task_kind is invalid")
         if self.status != "completed":
             raise ValueError("result.status must be completed")
@@ -541,7 +557,7 @@ class CoreExecutionResult:
             raise TypeError("result.embedding_result must be an object")
         if not isinstance(self.egress_audit, dict):
             raise TypeError("result.egress_audit must be an object")
-        if self.task_kind in {"generate_json", "object_resolution"}:
+        if self.task_kind in {"generate_json", "object_resolution", "decide"}:
             if self.output is None or self.embedding_result is not None:
                 raise ValueError("generate_json result has an invalid output shape")
         elif self.embedding_result is None or self.output is not None:
@@ -606,7 +622,7 @@ class CoreExecutionResult:
             "object-facet execution result",
         )
         task_kind = payload.get("task_kind")
-        if task_kind not in {"generate_json", "object_resolution", "embed_texts"}:
+        if task_kind not in {"generate_json", "object_resolution", "embed_texts", "decide"}:
             raise ValueError("result.task_kind is invalid")
         if payload.get("status") != "completed":
             raise ValueError("result.status must be completed")
@@ -630,7 +646,7 @@ class CoreExecutionResult:
         metadata = payload.get("metadata")
         if metadata is not None and not isinstance(metadata, dict):
             raise TypeError("result.metadata must be an object")
-        if task_kind in {"generate_json", "object_resolution"}:
+        if task_kind in {"generate_json", "object_resolution", "decide"}:
             if not isinstance(output, dict) or embedding_result is not None:
                 raise ValueError("generate_json result has an invalid output shape")
         elif not isinstance(embedding_result, dict) or output is not None:
@@ -772,6 +788,7 @@ class RetrieveContextCommand:
     target_id: str | None = None
     target_alias: str | None = None
     related_object_ids: tuple[str, ...] = ()
+    visible_value_ids: tuple[str, ...] = ()
     requested_facets: tuple[str, ...] = ()
     explanation_level: str = "compact"
 
@@ -816,6 +833,8 @@ class RetrieveContextCommand:
             raise ValueError("explanation_level must be compact or none")
         if len(set(self.related_object_ids)) != len(self.related_object_ids):
             raise ValueError("related_object_ids must be unique")
+        if len(self.visible_value_ids) > 4096 or len(set(self.visible_value_ids)) != len(self.visible_value_ids) or any(not value_id or len(value_id) > 200 for value_id in self.visible_value_ids):
+            raise ValueError("visible_value_ids must contain at most 4096 unique non-empty ids")
         if len(set(self.requested_facets)) != len(self.requested_facets):
             raise ValueError("requested_facets must be unique")
 
@@ -841,6 +860,7 @@ class RetrieveContextCommand:
             "target_id": self.target_id,
             "target_alias": self.target_alias,
             "related_object_ids": list(self.related_object_ids),
+            "visible_value_ids": list(self.visible_value_ids),
             "requested_facets": list(self.requested_facets),
             "explanation_level": self.explanation_level,
         }
@@ -857,6 +877,7 @@ class RecordRetrievalOutcomeCommand:
     retrieval_request_id: str
     candidate_value_ids: tuple[str, ...]
     delivered_value_ids: tuple[str, ...]
+    created_at: str | None = None
 
     def __post_init__(self) -> None:
         _required(self.request_id, "request_id")

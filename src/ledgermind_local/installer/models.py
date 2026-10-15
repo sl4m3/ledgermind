@@ -428,8 +428,28 @@ class IntegrationConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    id: Literal["hermes", "codex", "claude-code", "cursor", "opencode", "openclaw"]
+    id: Literal["hermes", "codex", "claude-code", "opencode", "openclaw"]
     enabled: bool = True
+
+
+class ResolutionDecisionConfig(BaseModel):
+    """Explicit opt-in; absent in old configs means the legacy resolution pipeline."""
+    model_config = ConfigDict(extra="forbid")
+    backend: Literal["jev", "kev", "generative"] = "jev"
+    token: str | None = None
+    token_env: str | None = None
+    secret_ref: str | None = None
+    runtime_path: str | None = None
+
+    @model_validator(mode="after")
+    def validate_backend(self):
+        if self.backend == "kev" and not self.runtime_path:
+            raise ValueError("Kev requires the separately installed signed CPU/BF16 runtime")
+        if self.backend != "kev" and self.runtime_path is not None:
+            raise ValueError("runtime_path belongs only to Kev")
+        if self.backend != "jev" and any((self.token, self.token_env, self.secret_ref)):
+            raise ValueError("only Jev accepts a separate API credential")
+        return self
 
 
 class InstallerConfig(BaseModel):
@@ -447,6 +467,7 @@ class InstallerConfig(BaseModel):
     memory_mode: Literal["shared", "per_agent"] = "per_agent"
     memory_data_path: str | None = None
     generation: GenerationConfig
+    resolution_decision: ResolutionDecisionConfig | None = None
     embedding: EmbeddingConfig
     reranker: RerankerConfig = Field(default_factory=RerankerConfig)
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)

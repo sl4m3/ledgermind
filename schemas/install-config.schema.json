@@ -4,6 +4,17 @@
   "required": ["schema_version", "semantic_language", "generation", "embedding"],
   "additionalProperties": false,
   "properties": {
+    "resolution_decision": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "backend": {"enum": ["jev", "kev", "generative"]},
+        "token": {"type": ["string", "null"]},
+        "token_env": {"type": ["string", "null"]},
+        "secret_ref": {"type": ["string", "null"]},
+        "runtime_path": {"type": ["string", "null"]}
+      }
+    },
     "schema_version": {"const": 2},
     "semantic_language": {
       "type": "string",
@@ -75,7 +86,7 @@
       "required": ["id"],
       "additionalProperties": false,
       "properties": {
-        "id": {"enum": ["hermes", "codex", "claude-code", "cursor", "opencode", "openclaw"]},
+        "id": {"enum": ["hermes", "codex", "claude-code", "opencode", "openclaw"]},
         "enabled": {"type": "boolean"}
       }
     },

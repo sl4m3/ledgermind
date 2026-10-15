@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping, Sequence
 from typing import Protocol
 
@@ -261,6 +262,57 @@ class StructuredJsonProvider:
         self._capability_store = capability_store or capabilities_store
         self.max_output_bytes = max_output_bytes
         self._token_budget_estimator = token_budget_estimator or TokenBudgetEstimator()
+
+    def decide(self, *, decision_request: dict[str, object] | None, **kwargs: object) -> StructuredJsonResult:
+        from ledgermind_inference.decision_provider import jev_decide, validate_request
+        if decision_request is None:
+            raise ProviderConfigurationError("decision request missing")
+        validate_request(decision_request)
+        profile = self._profile_resolver.resolve_profile(str(kwargs["memory_space_id"]), kwargs["profile_slot"])
+        backend = getattr(profile, "decision_backend", None)
+        if backend == "generative":
+            if kwargs.get("force_provider_fallback"):
+                raise ProviderConfigurationError("decision fallback prohibited")
+            routes = profile.extra_body.get("provider")
+            if "openrouter.ai" in profile.base_url and (
+                    not isinstance(routes, dict) or routes.get("allow_fallbacks") is not False):
+                raise ProviderConfigurationError("decision profile requires explicit no-fallback routing")
+            if isinstance(routes, dict) and (routes.get("allow_fallbacks") is True
+                    or len(routes.get("only") or routes.get("order") or []) > 1):
+                raise ProviderConfigurationError("decision profile must not permit route fallback")
+            return self.generate_json(**kwargs)
+        if backend not in {"jev", "kev"}:
+            raise ProviderConfigurationError("selected decision runtime is not configured")
+        from ledgermind_inference.token_budget import InputBudgetExceededError
+        estimate = self._token_budget_estimator.estimate_text(json.dumps(decision_request, ensure_ascii=False))
+        if estimate > profile.max_input_tokens:
+            raise InputBudgetExceededError(estimate, profile.max_input_tokens)
+        secret = self._secret_store.get(profile.secret_ref) if backend == "jev" else ""
+        context = kwargs.get("telemetry_context") or {}
+        with operation_context(kwargs.get("telemetry_operation"), **context):
+            if backend == "kev":
+                from ledgermind_inference.kev_runtime import kev_decide
+                result = kev_decide(profile, decision_request, kwargs.get("cancellation_token"))
+            else:
+                result = jev_decide(profile, secret, decision_request, kwargs.get("cancellation_token"))
+        body = result["body"]
+        usage = body.get("usage") if isinstance(body.get("usage"), dict) else None
+        contract = kwargs.get("output_contract") or {}
+        raw = json.dumps(body, ensure_ascii=False)
+        if secret:
+            raw = raw.replace(secret, "[REDACTED]")
+        return StructuredJsonResult(
+            data=result["data"], raw_text=raw, profile_id=profile.profile_id,
+            provider=body["provider"], model=body["model"], attempts=1,
+            request_bytes=result["request_bytes"], response_bytes=result["response_bytes"],
+            status_code=200, structured_output_mode="strict_json_schema",
+            contract_digest=contract.get("schema_digest"),
+            token_usage=usage, normalized_usage=normalize_usage(body),
+            metadata={"provider_request_id": result["request_id"], "usage": usage,
+                      "provider_raw_response": json.loads(raw),
+                      "decision_backend": backend, "decision_question_version": "resolution_decision_v1",
+                      "latency_ms": result["latency_ms"]},
+        )
 
     def generate_json(
         self,

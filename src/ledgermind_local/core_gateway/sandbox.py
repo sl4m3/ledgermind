@@ -143,6 +143,7 @@ def build_sandbox_plan(
     requirements: IsolationRequirements | None = None,
     strict: bool | None = None,
     semantic_language: str | None = None,
+    resolution_pipeline: str | None = None,
 ) -> SandboxPlan:
     """Build a Core command and measure independent isolation capabilities.
 
@@ -180,6 +181,7 @@ def build_sandbox_plan(
                 core_dir,
                 original,
                 semantic_language=semantic_language,
+                resolution_pipeline=resolution_pipeline,
             )
             bwrap_prefix = _build_bwrap_prefix(
                 bwrap,
@@ -707,10 +709,15 @@ def _sandbox_environment(
     command: Sequence[str],
     *,
     semantic_language: str | None = None,
+    resolution_pipeline: str | None = None,
 ) -> dict[str, str]:
     environment = _sanitized_environment(core_data_dir)
     if semantic_language:
         environment["LEDGERMIND_SEMANTIC_LANGUAGE"] = semantic_language
+    if resolution_pipeline is not None:
+        if resolution_pipeline not in {"legacy", "decision_v1"}:
+            raise ValueError("invalid resolution pipeline")
+        environment["LEDGERMIND_RESOLUTION_PIPELINE"] = resolution_pipeline
     python_home = _python_runtime_home(command)
     if python_home is not None:
         # Only a Python test/runtime shim needs this.  The production Rust

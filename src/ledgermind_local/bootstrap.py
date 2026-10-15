@@ -17,6 +17,7 @@ from typing import Any
 
 from ledgermind_inference.core_task_executor import CoreTaskExecutor
 from ledgermind_inference.embedding_provider import EmbeddingProvider
+from ledgermind_inference.embedding_purpose import KNOWLEDGE_QUERY_ROLE, OBJECT_QUERY_ROLE
 from ledgermind_inference.openai_vectorizer import OpenAIEmbeddingVectorizer
 from ledgermind_inference.strict import STRICT_JSON_SCHEMA_MODE
 from ledgermind_inference.structured_json_provider import StructuredJsonProvider
@@ -187,6 +188,7 @@ def build_process_core_gateway(
         ),
         binary_signature_verified=signature_verified,
         semantic_language=config.semantic_language,
+        resolution_pipeline="decision_v1" if config.profile_slots.resolution_decision is not None else None,
     )
     return ProcessCoreGateway(supervisor)
 
@@ -523,7 +525,7 @@ class LocalRuntime:
         provider = EmbeddingProvider(
             vectorizer_factory=_build_runtime_vectorizer_factory(self.config)
         )
-        batch = provider.embed((query,), profile, "retrieval_query")
+        batch = provider.embed((query,), profile, "retrieval_query", role=KNOWLEDGE_QUERY_ROLE)
         return batch.vectors[0], batch.model, batch.model_version
 
     def embed_object_query_with_metadata(
@@ -540,7 +542,7 @@ class LocalRuntime:
             (query,),
             profile,
             "object_candidate_query",
-            role="query",
+            role=OBJECT_QUERY_ROLE,
         )
         return batch.vectors[0], batch.model, batch.model_version
 
@@ -628,6 +630,8 @@ class LocalRuntime:
         self._shutdown_timed_out_workers = []
         self._workers.clear()
         reranker = getattr(self, "_retrieval_reranker", None)
+        from ledgermind_inference.kev_runtime import close_all as close_decision_models
+        close_decision_models()
         if reranker is not None:
             reranker.close()
             self._retrieval_reranker = None
@@ -1279,6 +1283,8 @@ class LocalRuntime:
             workers = self.config.workers
             if workers.core_model_tasks.enabled:
                 required.append("execution_tasks")
+            if self.config.profile_slots.resolution_decision is not None:
+                required.append("resolution_decision")
             self._required_core_capabilities = tuple(required)
             start = getattr(self.core_gateway, "start", None)
             if callable(start):
@@ -1793,7 +1799,16 @@ class LocalRuntime:
         if self.core_gateway is None:
             self._context_gateway = None
             return
-        self._context_gateway = self.core_gateway
+        if self.config.workers.core_commands.enabled:
+            from .core_gateway.queued_context import QueuedContextGateway
+
+            self._context_gateway = QueuedContextGateway(
+                self.core_gateway, self.database_path
+            )
+        else:
+            # Explicitly disabled command delivery must not create an outbox
+            # which nobody drains. Core's incremental usage path remains cheap.
+            self._context_gateway = self.core_gateway
 
     def _configured_workers(self) -> tuple[tuple[str, WorkerConfig], ...]:
         return tuple(
@@ -1803,7 +1818,8 @@ class LocalRuntime:
     def _profile_slots_report(self) -> dict[str, object]:
         """Check all four enabled profile slots without legacy fallbacks."""
 
-        slots = tuple(slot.value for slot in ProfileSlot)
+        slots = tuple(slot.value for slot in ProfileSlot
+            if slot != ProfileSlot.RESOLUTION_DECISION or self.config.profile_slots.resolution_decision is not None)
         missing: dict[str, list[str]] = {}
         connection = self.connection_factory(self.database_path)
         try:

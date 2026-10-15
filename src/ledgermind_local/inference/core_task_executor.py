@@ -23,7 +23,7 @@ from .provider_telemetry import record_task
 from .providers.base import ChatMessage, ProviderCancelledError, ProviderTimeoutError
 from .structured_json_provider import StructuredJsonProvider
 
-TaskKind = Literal["generate_json", "object_resolution", "embed_texts"]
+TaskKind = Literal["generate_json", "object_resolution", "embed_texts", "decide"]
 ExecutionStatus = Literal[
     "completed", "failed", "unknown_task_kind", "cancelled", "timeout"
 ]
@@ -87,6 +87,7 @@ class GenericExecutionTask(BaseModel):
     operation: str | None = Field(default=None, max_length=200)
     profile_slot: ProfileSlot
     model_request: ModelRequestSpec | None = None
+    decision_request: dict[str, object] | None = None
     embedding_request: EmbeddingRequestSpec | None = None
     expires_at: str | None = Field(default=None, max_length=64)
     lease: dict[str, object] | None = None
@@ -198,7 +199,7 @@ class CoreTaskExecutor:
         *,
         force_provider_fallback: bool = False,
     ) -> GenericExecutionResult:
-        if task.task_kind in {"generate_json", "object_resolution"}:
+        if task.task_kind in {"generate_json", "object_resolution", "decide"}:
             return self._execute_generate_json(
                 task,
                 cancellation_token,
@@ -256,7 +257,7 @@ class CoreTaskExecutor:
             else None
         )
         root_task_id = (
-            structured_metadata.get("root_task_id")
+            structured_metadata.get("chain_root_task_id") or structured_metadata.get("root_task_id")
             if isinstance(structured_metadata, dict)
             else None
         )
@@ -266,7 +267,7 @@ class CoreTaskExecutor:
             else ("agent_generation" if telemetry_operation == "agent_generation" else "primary")
         )
         record_task(
-            kind="generation",
+            kind="decision" if task.task_kind == "decide" else "generation",
             operation=telemetry_operation,
             task_count=1,
             task_id=task.task_id,
@@ -277,7 +278,8 @@ class CoreTaskExecutor:
         )
         try:
             result = self._run_bounded(
-                lambda: self._json_provider.generate_json(
+                lambda: (self._json_provider.decide if task.task_kind == "decide" else self._json_provider.generate_json)(
+                    **({"decision_request": task.decision_request} if task.task_kind == "decide" else {}),
                     memory_space_id=_memory_space_id(task),
                     messages=spec.messages,
                     max_output_tokens=spec.max_output_tokens,
@@ -335,6 +337,8 @@ class CoreTaskExecutor:
             tool_name=result.tool_name,
             metadata={
                 **result.metadata,
+                "decision_task_id": (task.operation_input or {}).get("decision_task_id"),
+                "decision_question_version": (task.operation_input or {}).get("decision_question_version"),
                 "parsed_json": result.parsed_json,
                 "raw_text": result.raw_text,
                 "provider_request_id": result.provider_request_id,
@@ -678,6 +682,15 @@ def _telemetry_operation(task: GenericExecutionTask) -> object:
         "empty_recheck",
     }:
         return "semantic_repair"
+    if task.task_kind == "decide":
+        return f"{task.operation}_decision"
+    memory = (task.operation_input or {}).get("round_memory")
+    if isinstance(memory, dict) and memory.get("version") in {
+        "round_memory_two_stage_v1", "round_memory_two_stage_v2",
+    }:
+        stage = memory.get("stage")
+        if stage in {"preparation", "packaging"}:
+            return f"round_memory_{stage}"
     return task.operation
 
 

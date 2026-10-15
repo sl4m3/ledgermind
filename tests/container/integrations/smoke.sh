@@ -52,7 +52,6 @@ export LEDGERMIND_SMOKE_EMBEDDING_TOKEN=container-smoke-only
     hermes --version
     codex --version
     claude --version
-    cursor-agent --version
     opencode --version
     openclaw --version
 } > "$report_root/agent-versions.txt"
@@ -74,12 +73,11 @@ jq -e '
   ($i.hermes.detected == true) and
   ($i.codex.detected == true) and
   ($i["claude-code"].detected == true) and
-  ($i.cursor.detected == true) and
   ($i.opencode.detected == true) and
   ($i.openclaw.detected == true)
 ' "$report_root/discovery.json" >/dev/null
 
-for target in hermes codex claude-code cursor opencode openclaw; do
+for target in hermes codex claude-code opencode openclaw; do
     "$ledgermind_bin" integrations connect "$target" --json \
         > "$report_root/connect-$target.json"
 done
@@ -90,12 +88,11 @@ jq -e '
   ($i.hermes.connected == true) and
   ($i.codex.connected == true) and
   ($i["claude-code"].connected == true) and
-  ($i.cursor.connected == true) and
   ($i.opencode.connected == true) and
   ($i.openclaw.connected == true)
 ' "$report_root/status.json" >/dev/null
 
-for target in codex claude-code cursor; do
+for target in codex claude-code; do
     config="$HOME/.local/share/ledgermind/integrations/$target/config.json"
     printf '%s' '{"session_id":"container-smoke","prompt":"Recall the rollout procedure"}' |
         timeout 20s "$ledgermind_bin" integration-hook \

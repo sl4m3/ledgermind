@@ -5,6 +5,10 @@
 Rust Core over IPC. Core owns the domain-level object-facet state and its
 processing; Local performs only technical generic execution tasks.
 
+For the optional Jev, isolated Kev, or generative OR/KR decision backend, see
+[Resolution decisions](../docs/resolution-decisions.md). Existing installations
+retain their legacy selection until explicitly configured.
+
 ## Trust boundaries and data ownership
 
 - Local owns `rounds.db`: raw-round metadata and payloads, durable Core command
@@ -109,16 +113,20 @@ pytest -q
 The setup wizard offers three explicit modes: disabled, API, or local. Existing
 installations migrate to disabled/Core ranking unless they had already enabled
 the local runtime. When enabled, Core first supplies up to 32 eligible
-candidates and the selected reranker reorders only those candidates. Injection keeps
-the first six complete knowledge items, then adds later complete items while
-the rendered context fits the 400-unit soft target. Local Qwen uses its own
+candidates and the selected reranker reorders only those candidates. By default,
+Adaptive-k selects the prefix before the largest adjacent reranker-score drop
+(ties choose the earlier boundary; flat scores retain the pool). Whole items
+and Core-approved one-hop dependencies are packed under a 1024-unit safety cap.
+This is a relative selection boundary, not a calibrated relevance threshold.
+`reranker.selection_policy="hybrid"` retains the legacy minimum-six/400-unit
+soft-target policy. Local Qwen uses its own
 tokenizer; API rerankers and Core-order fallback use the existing word/punctuation
 estimate, explicitly labelled in diagnostics. Neither measure is an exact count
 for the host agent's tokenizer. The final renderer prints each object/facet
 heading once while retaining every selected claim, condition, and original
-rank; packing measures this exact grouped text. A long seventh item can
-be skipped for a shorter eighth. A failed or timed-out reranker falls back to
-Core order; `selection_diagnostics` reports the fallback. API credentials are
+rank; packing measures this exact grouped text. Items never get truncated.
+A failed or timed-out reranker falls back to Core order and legacy hybrid
+packing; `selection_diagnostics` reports the fallback. API credentials are
 stored only in LedgerMind's private secret store. The endpoint must be the full
 Cohere-compatible `/rerank` operation URL or NVIDIA NIM `/ranking` or
 `/reranking` URL.
@@ -126,9 +134,35 @@ Cohere-compatible `/rerank` operation URL or NVIDIA NIM `/ranking` or
 Selection diagnostics include reranker scores, original Core positions,
 selected value IDs and the size-counting unit. If packing or token counting
 fails, the response retains only the minimum set of complete items rather than
-injecting the entire candidate pool. The minimum-six policy is unchanged.
+injecting the entire candidate pool. Diagnostics also record the Adaptive-k
+cutoff, score gap, and omitted base/dependency IDs.
 An optional explicit host task description may accompany the query; Local
 uses the same combined text for embeddings, Core retrieval and reranking.
+
+### Retrieval usage delivery
+
+With the Core command worker enabled, retrieval persists an identifier-only
+`record_retrieval_outcome` event in the existing Local outbox before returning
+the ContextView. Statistics are delivered asynchronously through the normal
+lease, retry and recovery path. A lost Core acknowledgement replays the same
+event; Core increments counters only for newly inserted usage events. The
+original event timestamp survives retries. Terminal delivery failures retain
+their payload and error in the outbox rather than silently dropping statistics.
+
+`X-LedgerMind-Usage-Status: queued` and
+`selection_diagnostics.usage_status` distinguish pending statistics from
+`recorded`. Both describe **service selection**, not confirmed visibility in
+the host's model context. Failure to persist the event fails the request; an
+in-memory background task is not sufficient for durability. With the command
+worker explicitly disabled, usage is recorded synchronously instead.
+
+SQLite Core updates only the affected usage counters in one transaction; it
+does not rebuild all evidence and lineage statistics for each retrieval item.
+Missing projections can still be repaired through the canonical rebuild.
+Ranking, knowledge text, reranker selection and Adaptive-k are unchanged by
+this delivery mechanism. A Cloud proxy backed by Local uses the same path;
+native PostgreSQL already records usage with an incremental idempotent SQL
+statement and is not converted to a Local outbox by this change.
 
 The reranker runtime is a separate downloadable, signed archive, not part of
 the main platform bundle. Download its `.tar.zst`, `.json`, and `.sig` files
@@ -254,9 +288,7 @@ ledgermind integrations enable hermes --json
 ledgermind integrations disconnect hermes --json
 ```
 
-Cursor integration is retained as experimental code but is not part of the
-current Linux acceptance matrix; it will be validated separately. The other
-listed agents have dedicated lifecycle adapters. Human-readable `discover`,
+The listed agents have dedicated lifecycle adapters. Human-readable `discover`,
 `status`, and `connect` output identifies the detected installation, hook
 verification, memory space, and any activation step. Add `--json` for
 automation.

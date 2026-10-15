@@ -864,7 +864,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                             "additionalContext": context,
                         }
                     }
-                print(json.dumps(response, ensure_ascii=False, separators=(",", ":")))
+            # Stop requires JSON stdout, including the no-context success path.
+            # Always emit an object so failures remain fail-open, not malformed
+            # host responses. Diagnostic errors are still recorded separately.
+            print(json.dumps(response, ensure_ascii=False, separators=(",", ":")))
             return 0
         paths = _paths(args)
         if operation == "install" and args.install_command == "schema":

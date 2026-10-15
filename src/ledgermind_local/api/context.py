@@ -66,8 +66,20 @@ class ContextRetrieveRequest(BaseModel):
     target_id: str | None = Field(default=None, min_length=1, max_length=200)
     target_alias: str | None = Field(default=None, min_length=1, max_length=200)
     related_object_ids: list[str] | None = None
+    visible_value_ids: list[str] = Field(default_factory=list, max_length=4096)
     requested_facets: list[str] | None = None
     explanation_level: Literal["compact", "none"] = "compact"
+
+
+class InjectionEventRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    event_id: str = Field(min_length=1, max_length=200)
+    retrieval_request_id: str = Field(min_length=1, max_length=200)
+    memory_space_id: str = Field(min_length=1, max_length=200)
+    session_id: str = Field(min_length=1, max_length=500)
+    stage: Literal["hook_returned_assumed_visible", "hook_returned_turn_scoped", "host_confirmed_visible"]
+    value_ids: list[str] = Field(default_factory=list, max_length=100)
 
 
 class ContextItemResponse(BaseModel):
@@ -118,6 +130,18 @@ def create_context_router(
     reranker_config: object | None = None,
 ) -> APIRouter:
     router = APIRouter()
+
+    @router.post("/context/injection-events", status_code=202)
+    def injection_event(
+        payload: InjectionEventRequest,
+        request: Request,
+        _token: str = Depends(require_token),
+    ) -> dict[str, str]:
+        validate_json_request_headers(request.headers, max_bytes=max_body_bytes)
+        # This receipt has no mutation of Core knowledge or visibility state.
+        # Replaying an event_id is therefore safe across restarts.
+        logger.info("host injection event stage=%s event_id=%s count=%d", payload.stage, payload.event_id, len(payload.value_ids))
+        return {"status": "accepted", "event_id": payload.event_id}
 
     @router.post("/context/retrieve", response_model=ContextViewResponse)
     def retrieve_context(
@@ -209,11 +233,15 @@ def create_context_router(
                     target_id=payload.target_id,
                     target_alias=payload.target_alias,
                     related_object_ids=tuple(payload.related_object_ids or ()),
+                    visible_value_ids=tuple(payload.visible_value_ids),
                     requested_facets=tuple(payload.requested_facets or ()),
                     explanation_level="compact" if reranker is not None else payload.explanation_level,
                 )
             )
             response_payload = _context_response(result.payload)
+            core_diagnostics = (result.payload.get("retrieval_diagnostics") or {}).get("pipeline") or {}
+            suppressed_visible_count = int(core_diagnostics.get("suppressed_visible_count", 0))
+            response_payload["selection_diagnostics"] = {"stage": "service_selected", "suppressed_visible_count": suppressed_visible_count}
             core_items = response_payload["items"]
             candidate_ids = tuple(str(item["value_id"]) for item in core_items)
             if reranker is not None and core_items:
@@ -249,11 +277,16 @@ def create_context_router(
                         soft_budget=int(getattr(reranker_config, "soft_budget", 400)),
                         token_counter=counter,
                         dependency_links=pipeline.get("dependency_links"),
+                        selection_policy=(getattr(reranker_config, "selection_policy", "adaptive_k")
+                                          if selection_status == "reranked" else "hybrid"),
+                        reranker_scores={row["value_id"]: row["reranker_score"] for row in ranking},
                     )
                     response_payload["items"] = selected
                     response_payload["memory_injection"] = injection
                     response_payload["selection_diagnostics"] = {
                         **packing,
+                        "stage": "service_selected",
+                        "suppressed_visible_count": suppressed_visible_count,
                         "status": selection_status,
                         "candidate_count": len(core_items),
                         "injected_count": len(selected),
@@ -280,6 +313,8 @@ def create_context_router(
                     response.headers["X-LedgerMind-Selection"] = "core_fallback"
                     response_payload["selection_diagnostics"] = {
                         "status": "core_fallback", "candidate_count": len(core_items),
+                        "stage": "service_selected",
+                        "suppressed_visible_count": suppressed_visible_count,
                         "injected_count": len(response_payload["items"]),
                         "estimated_injection_tokens": None,
                         "latency_ms": round((time.monotonic() - started) * 1000, 2),
@@ -292,19 +327,32 @@ def create_context_router(
             )
             retrieval_request_id = response_payload["retrieval_request_id"]
             response_items = response_payload["items"]
+            # Compatibility wire name: these IDs were selected by Local, not
+            # independently confirmed as present in the host's model input.
             delivered_ids = tuple(str(item["value_id"]) for item in response_items)
-            if callable(record_outcome) and candidate_ids:
-                # Core's candidate set and the injected subset are distinct.
-                record_outcome(
-                    RecordRetrievalOutcomeCommand(
-                        request_id=request_id,
-                        retrieval_request_id=retrieval_request_id,
-                        candidate_value_ids=candidate_ids,
-                        delivered_value_ids=delivered_ids,
-                    )
-                )
             response_payload["delivered_value_ids"] = list(delivered_ids)
-            return ContextViewResponse.model_validate(response_payload)
+            # Reject malformed views before acknowledging a prepared outcome.
+            validated_response = ContextViewResponse.model_validate(response_payload)
+            enqueue_outcome = getattr(context_gateway, "enqueue_retrieval_outcome", None)
+            if candidate_ids and (callable(enqueue_outcome) or callable(record_outcome)):
+                # Core's candidate set and the injected subset are distinct.
+                outcome = RecordRetrievalOutcomeCommand(
+                    request_id=request_id,
+                    retrieval_request_id=retrieval_request_id,
+                    candidate_value_ids=candidate_ids,
+                    delivered_value_ids=delivered_ids,
+                )
+                if callable(enqueue_outcome):
+                    enqueue_outcome(payload.memory_space_id, outcome)
+                    usage_status = "queued"
+                else:
+                    record_outcome(outcome)
+                    usage_status = "recorded"
+                diagnostics = validated_response.selection_diagnostics or {}
+                diagnostics.update(usage_status=usage_status, stage="service_selected")
+                validated_response.selection_diagnostics = diagnostics
+                response.headers["X-LedgerMind-Usage-Status"] = usage_status
+            return validated_response
         except DomainRejectedError as exc:
             logger.warning("context retrieval rejected: %s", exc.code)
             raise HTTPException(

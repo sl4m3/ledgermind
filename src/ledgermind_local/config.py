@@ -53,6 +53,7 @@ class RerankerConfig(BaseModel):
     timeout_seconds: float = Field(default=30.0, gt=0, le=600)
     min_k: int = Field(default=6, ge=1, le=32)
     soft_budget: int = Field(default=400, ge=1)
+    selection_policy: Literal["adaptive_k", "hybrid"] = "adaptive_k"
 
     @model_validator(mode="before")
     @classmethod
@@ -199,10 +200,11 @@ class ProfileSlotsConfig(BaseModel):
 
     operational: str | None = None
     object_resolution: str | None = None
+    resolution_decision: str | None = None
     background: str | None = None
     embedding: str | None = None
 
-    @field_validator("operational", "object_resolution", "background", "embedding")
+    @field_validator("operational", "object_resolution", "background", "embedding", "resolution_decision")
     @classmethod
     def _normalize_profile_id(cls, value: str | None) -> str | None:
         if value is None:

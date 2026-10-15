@@ -25,6 +25,7 @@ class EmbeddingService:
         host: str = "127.0.0.1",
         port: int = 0,
         token: str | None = None,
+        embedding_fingerprint: str | None = None,
     ) -> None:
         self.backend = backend
         self.model = model
@@ -33,6 +34,8 @@ class EmbeddingService:
         self.host = host
         self.port = int(port)
         self.token = token
+        # Supplied by the loaded vectorizer, never derived from a served alias.
+        self.embedding_fingerprint = embedding_fingerprint
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
 
@@ -59,6 +62,20 @@ class EmbeddingService:
 
             def do_GET(self) -> None:
                 path = self.path.split("?", 1)[0].rstrip("/")
+                if path in {"/health/ready", "/v1/health/ready"}:
+                    fingerprint = service.embedding_fingerprint
+                    if not isinstance(fingerprint, str) or not fingerprint.strip() or fingerprint.strip() == "unknown":
+                        self._json(503, {"error": "embedding_identity_unavailable"})
+                        return
+                    self._json(200, {
+                        "status": "ready", "embedding_model": service.model,
+                        "embedding_dimensions": service.dimensions,
+                        "embedding_fingerprint": fingerprint.strip(), "device": service.device,
+                    })
+                    return
+                if path in {"/health/live", "/v1/health/live"}:
+                    self._json(200, {"status": "ok"})
+                    return
                 if path == "/health" or path.endswith("/health"):
                     self._json(
                         200,

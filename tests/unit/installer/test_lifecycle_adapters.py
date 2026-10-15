@@ -10,6 +10,7 @@ from ledgermind_local.installer.models import (
     EmbeddingConfig,
     GenerationConfig,
     InstallerConfig,
+    IntegrationConfig,
 )
 from ledgermind_local.installer.paths import InstallerPaths
 from ledgermind_local.installer.targets.base import AdapterContext
@@ -152,10 +153,15 @@ def test_registry_exposes_all_supported_clients() -> None:
         "hermes",
         "codex",
         "claude-code",
-        "cursor",
         "opencode",
         "openclaw",
     }
+
+
+def test_cursor_is_not_an_installable_integration() -> None:
+    assert "cursor" not in target_ids()
+    with pytest.raises(ValueError):
+        IntegrationConfig.model_validate({"id": "cursor"})
 
 
 @pytest.mark.parametrize("spec", SPECS, ids=lambda spec: spec.target_id)
@@ -178,20 +184,3 @@ def test_command_adapters_use_the_shared_memory_space(
     assert json.loads(runtime_config.read_text(encoding="utf-8"))[
         "memory_space_id"
     ] == "shared-default"
-
-
-def test_cursor_discovery_accepts_official_cursor_agent_binary(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    cursor_spec = next(spec for spec in SPECS if spec.target_id == "cursor")
-    binary_dir = tmp_path / "bin"
-    binary_dir.mkdir()
-    cursor_agent = binary_dir / "cursor-agent"
-    cursor_agent.write_text("#!/bin/sh\n", encoding="utf-8")
-    cursor_agent.chmod(0o700)
-    monkeypatch.setenv("PATH", str(binary_dir))
-    monkeypatch.setenv("CURSOR_HOME", str(tmp_path / "missing-home"))
-
-    discovery = LifecycleTargetAdapter(cursor_spec).discover()
-
-    assert discovery.detected is True

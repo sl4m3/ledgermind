@@ -21,6 +21,7 @@ CORE_ALLOWED_STATIC_ENVIRONMENT_KEYS: Final[frozenset[str]] = frozenset(
         "RUST_BACKTRACE",
         "LEDGERMIND_CORE_DATA_DIR",
         "LEDGERMIND_SEMANTIC_LANGUAGE",
+        "LEDGERMIND_RESOLUTION_PIPELINE",
         "PWD",
     }
 )

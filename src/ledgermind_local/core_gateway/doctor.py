@@ -167,6 +167,7 @@ def build_core_doctor_report(
             ),
             binary_signature_verified=signature_verified,
             semantic_language=config.semantic_language,
+            resolution_pipeline="decision_v1" if config.profile_slots.resolution_decision is not None else None,
         )
         try:
             health = supervisor.request("health", {})

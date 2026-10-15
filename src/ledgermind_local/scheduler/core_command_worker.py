@@ -15,6 +15,7 @@ from ledgermind_local.core_gateway.contracts import (
     DomainRejectedError,
     IngestRawRoundCommand,
     IngestRawRoundResult,
+    RecordRetrievalOutcomeCommand,
     TransientCoreError,
 )
 from ledgermind_local.persistence import CoreCommandRecord, SQLiteUnitOfWork
@@ -72,6 +73,12 @@ class CoreCommandWorker:
         if command is None:
             return None
         try:
+            if command.command_type == "record_retrieval_outcome":
+                self._deliver_retrieval_outcome(command)
+                return self._finish(
+                    command.command_id, status="completed",
+                    result_json='{"status":"recorded","stage":"service_selected"}',
+                )
             if command.command_type == "ingest_raw_round":
                 raw_result = self._deliver_raw_round(command)
                 if not raw_result.accepted:
@@ -215,6 +222,32 @@ class CoreCommandWorker:
                 embedding_profile=embedding_profile,
             )
         )
+
+    def _deliver_retrieval_outcome(self, command: CoreCommandRecord) -> None:
+        try:
+            payload = json.loads(command.payload_json)
+            if not isinstance(payload, dict) or set(payload) != {
+                "schema_version", "retrieval_request_id",
+                "candidate_value_ids", "delivered_value_ids",
+            } or payload["schema_version"] != 2:
+                raise ValueError("invalid outcome envelope")
+            for field in ("candidate_value_ids", "delivered_value_ids"):
+                if not isinstance(payload[field], list) or any(
+                    not isinstance(value_id, str) for value_id in payload[field]
+                ):
+                    raise ValueError("invalid outcome identifiers")
+            outcome = RecordRetrievalOutcomeCommand(
+                request_id=command.command_id,
+                retrieval_request_id=payload["retrieval_request_id"],
+                candidate_value_ids=tuple(payload["candidate_value_ids"]),
+                delivered_value_ids=tuple(payload["delivered_value_ids"]),
+                created_at=command.created_at,
+            )
+        except (KeyError, TypeError, ValueError) as exc:
+            raise DomainRejectedError(
+                "invalid_retrieval_outcome", "Queued retrieval identifiers are invalid"
+            ) from exc
+        self.gateway.record_retrieval_outcome(outcome)
 
     def _finish_retry_or_failure(
         self,

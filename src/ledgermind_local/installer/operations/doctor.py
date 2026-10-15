@@ -9,12 +9,13 @@ from ledgermind_local.runtime.supervisor import RuntimeSupervisor
 from ..config_writer import (
     load_installer_config,
     resolve_provider_tokens,
+    resolve_decision_token,
     select_secret_backend,
 )
 from ..paths import InstallerPaths
 from ..permissions import assert_private
 from ..preflight import platform_id
-from ..profiles.probes import probe_embedding_api, probe_generation
+from ..profiles.probes import probe_embedding_api, probe_generation, probe_resolution_decision
 from ..smoke import run_sandbox_smoke
 from ..targets.base import AdapterContext
 from ..targets.registry import get_target_adapter
@@ -134,6 +135,10 @@ def doctor(
                     report["providers"]["generation"] = probe_generation(
                         config.generation, token=generation_token
                     )
+                    if config.resolution_decision is not None:
+                        report["providers"]["resolution_decision"] = probe_resolution_decision(
+                            config, token=resolve_decision_token(config, paths)
+                        )
                     if (
                         config.embedding.mode == "api"
                         and config.embedding.api is not None

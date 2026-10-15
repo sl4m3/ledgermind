@@ -99,7 +99,9 @@ def test_integration_hook_records_redacted_import_failure(
     assert diagnostic["error"] == "missing lifecycle package"
     assert "secret prompt" not in diagnostic_path.read_text(encoding="utf-8")
     assert stat.S_IMODE(diagnostic_path.stat().st_mode) == 0o600
-    assert "UserPromptSubmit hook failed" in capsys.readouterr().err
+    output = capsys.readouterr()
+    assert "UserPromptSubmit hook failed" in output.err
+    assert json.loads(output.out) == {}
 
 
 def test_integrations_discover_human_output_lists_agents(
@@ -379,6 +381,72 @@ def test_installer_persists_verified_generation_capabilities(tmp_path: Path) -> 
                 profile
             )
             assert capabilities.expires_at is None
+    finally:
+        connection.close()
+
+
+def test_encoder_switch_rebinds_previously_connected_managed_spaces_only(tmp_path: Path) -> None:
+    from ledgermind_local.inference.profile_store import InferenceProfileStore
+    from ledgermind_local.persistence import open_sqlite_connection
+
+    paths = InstallerPaths(home_override=tmp_path)
+    api_config = _config()
+    result = write_local_profiles(api_config, paths)
+    assert bind_existing_profiles_for_agent(api_config, paths, "opencode")
+    connection = open_sqlite_connection(result["database"])
+    try:
+        store = InferenceProfileStore(connection)
+        custom = store.get("embedding-default").model_copy(update={"profile_id": "my-encoder"})
+        store.upsert(custom)
+        connection.execute(
+            "INSERT INTO memory_spaces (memory_space_id, source_client, created_at, updated_at) "
+            "VALUES ('custom-space', 'test', 'now', 'now')"
+        )
+        store.bind_slot("custom-space", slot="embedding", profile_id="my-encoder")
+        before = store.list_slots("opencode-default")
+        connection.commit()
+    finally:
+        connection.close()
+
+    local_config = api_config.model_copy(update={
+        "embedding": EmbeddingConfig(mode="local", local=InstallerLocalEmbeddingConfig(
+            catalog_id="nemotron-3-embed-1b-bf16", device="cuda",
+        )),
+    })
+    switched = write_local_profiles(local_config, paths)
+    assert switched["rebound_embedding_spaces"] == ["opencode-default"]
+    assert write_local_profiles(local_config, paths)["rebound_embedding_spaces"] == []
+    connection = open_sqlite_connection(result["database"])
+    try:
+        store = InferenceProfileStore(connection)
+        assert store.list_slots("opencode-default") == {**before, "embedding": "embedding-local"}
+        assert store.list_slots("custom-space")["embedding"] == "my-encoder"
+    finally:
+        connection.close()
+
+    assert write_local_profiles(api_config, paths)["rebound_embedding_spaces"] == ["opencode-default"]
+    connection = open_sqlite_connection(result["database"])
+    try:
+        store = InferenceProfileStore(connection)
+        assert store.list_slots("opencode-default") == before
+        assert store.list_slots("custom-space")["embedding"] == "my-encoder"
+    finally:
+        connection.close()
+
+
+def test_managed_encoder_rebind_rejects_unknown_or_missing_profile(tmp_path: Path) -> None:
+    from ledgermind_local.inference.profile_store import InferenceProfileStore
+    from ledgermind_local.installer.config_writer import rebind_managed_embedding_slots
+    from ledgermind_local.persistence import open_sqlite_connection
+
+    result = write_local_profiles(_config(), InstallerPaths(home_override=tmp_path))
+    connection = open_sqlite_connection(result["database"])
+    try:
+        store = InferenceProfileStore(connection)
+        with pytest.raises(ValueError, match="managed embedding profile"):
+            rebind_managed_embedding_slots(store, connection, "custom")
+        with pytest.raises(ValueError, match="missing"):
+            rebind_managed_embedding_slots(store, connection, "embedding-local")
     finally:
         connection.close()
 

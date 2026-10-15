@@ -554,7 +554,7 @@ class CoreExecutionTaskWorker:
         # rejection.  This branch is failure-only: a successful normal task
         # still consumes exactly one provider call.
         if (
-            task.task_kind in {"generate_json", "object_resolution"}
+            task.task_kind in {"generate_json", "object_resolution", "decide"}
             and getattr(result, "status", None) == "failed"
             and getattr(result, "error_code", None)
             in {
@@ -583,7 +583,7 @@ class CoreExecutionTaskWorker:
             self._deliver_result(task, result, memory_space_id)
         except DomainRejectedError as exc:
             if (
-                task.task_kind not in {"generate_json", "object_resolution"}
+                task.task_kind not in {"generate_json", "object_resolution", "decide"}
                 or exc.code == "invalid_execution_result"
             ):
                 raise
@@ -904,6 +904,7 @@ def execution_task_from_wire(
         operation=wire.operation,
         profile_slot=ProfileSlot(wire.profile_slot),
         model_request=model_request,
+        decision_request=wire.decision_request,
         embedding_request=embedding_request,
         expires_at=wire.expires_at,
         lease={"memory_space_id": memory_space_id, "value": wire.lease},

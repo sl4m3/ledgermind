@@ -211,6 +211,7 @@ def record_http_attempt(
     served_by: object = None,
     wire_reasoning_effort: object = None,
     wire_thinking: object = None,
+    upstream_status: int | None = None,
 ) -> None:
     """Record one actual HTTP attempt using only safe scalar metadata."""
 
@@ -303,6 +304,8 @@ def record_http_attempt(
         "wire_thinking": _text(wire_thinking) or None,
         "operation_item_counts": safe_item_counts,
     }
+    if isinstance(upstream_status, int) and not isinstance(upstream_status, bool):
+        payload["upstream_status"] = upstream_status
     _append(
         payload,
         keep_null_keys={

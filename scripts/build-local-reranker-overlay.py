@@ -29,8 +29,19 @@ def main() -> None:
     parser.add_argument("--inference-package", type=Path, required=True)
     parser.add_argument("--protocol-package", type=Path, required=True)
     parser.add_argument("--integrations-package", type=Path, required=True)
+    parser.add_argument(
+        "--local-file-overlay", nargs=2, action="append", default=[],
+        metavar=("RELATIVE_PATH", "SOURCE"),
+        help="Apply a narrowly scoped Local file patch without upgrading other packages",
+    )
+    parser.add_argument(
+        "--local-file-addition", nargs=2, action="append", default=[],
+        metavar=("RELATIVE_PATH", "SOURCE"),
+        help="Add a new Local module; never overwrite an existing file",
+    )
     parser.add_argument("--core-binary", type=Path)
     parser.add_argument("--core-signing-key", type=Path)
+    parser.add_argument("--installer-launcher", type=Path)
     parser.add_argument("--signing-key", type=Path, required=True)
     parser.add_argument("--version", required=True)
     args = parser.parse_args()
@@ -39,13 +50,41 @@ def main() -> None:
     destination = args.destination.expanduser().absolute()
     if destination.exists():
         raise SystemExit(f"destination already exists: {destination}")
+    for source_package in (args.local_package, args.inference_package,
+                           args.protocol_package, args.integrations_package):
+        if not source_package.is_dir():
+            raise SystemExit(f"package source is missing: {source_package}")
+    if bool(args.core_binary) != bool(args.core_signing_key):
+        raise SystemExit("core binary and signing key must be supplied together")
+    if args.installer_launcher and not args.installer_launcher.is_file():
+        raise SystemExit("installer launcher is missing")
+    file_overlays = []
+    for relative_name, file_name, addition in (
+        [(r, f, False) for r, f in args.local_file_overlay]
+        + [(r, f, True) for r, f in args.local_file_addition]
+    ):
+        relative = Path(relative_name)
+        file_path = Path(file_name).resolve(strict=True)
+        if relative.is_absolute() or ".." in relative.parts or not file_path.is_file():
+            raise SystemExit("invalid Local file overlay")
+        target = args.local_package.resolve() / relative
+        if not target.resolve().is_relative_to(args.local_package.resolve()):
+            raise SystemExit("invalid Local file overlay")
+        if addition and target.exists():
+            raise SystemExit("Local file addition must not overwrite an existing file")
+        if not addition and not target.is_file():
+            raise SystemExit("Local file overlay must replace an existing in-package file")
+        file_overlays.append((relative, file_path, addition))
     key = Ed25519PrivateKey.from_private_bytes(args.signing_key.read_bytes())
     public = key.public_key().public_bytes(
         serialization.Encoding.Raw, serialization.PublicFormat.Raw
     )
     if public != (source / "signatures" / "manifest.pub").read_bytes():
         raise SystemExit("signing key does not match installed release")
-    shutil.copytree(source, destination, symlinks=True)
+    # Python regenerates bytecode on import. It must not be shipped as a signed
+    # immutable artifact, or the first hook invalidates its own release.
+    shutil.copytree(source, destination, symlinks=True,
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"))
     for source_path, target in (
         (args.local_package, destination / "python" / "local" / "ledgermind_local"),
         (args.inference_package, destination / "python" / "site-packages" / "ledgermind_inference"),
@@ -56,6 +95,18 @@ def main() -> None:
             source_path.resolve(strict=True), target, dirs_exist_ok=True,
             ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
         )
+    local_root = destination / "python" / "local" / "ledgermind_local"
+    for relative, source_path, addition in file_overlays:
+        target = local_root / relative
+        if not target.resolve().is_relative_to(local_root.resolve()):
+            raise SystemExit("invalid Local file overlay")
+        if addition:
+            if target.exists():
+                raise SystemExit("Local file addition must not overwrite an existing file")
+            target.parent.mkdir(parents=True, exist_ok=True)
+        elif not target.is_file():
+            raise SystemExit("Local file overlay must replace an existing in-package file")
+        shutil.copy2(source_path, target)
     if bool(args.core_binary) != bool(args.core_signing_key):
         raise SystemExit("core binary and signing key must be supplied together")
     if args.core_binary:
@@ -72,6 +123,8 @@ def main() -> None:
         (destination / "signatures" / "ledgermind-core.sig").write_bytes(
             core_key.sign(core_path.read_bytes())
         )
+    if args.installer_launcher:
+        shutil.copy2(args.installer_launcher.resolve(strict=True), destination / "bin" / "ledgermind")
     artifacts = {}
     for path in sorted(destination.rglob("*")):
         if not path.is_file() or path.is_symlink():
