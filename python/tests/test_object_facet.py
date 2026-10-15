@@ -357,6 +357,33 @@ def test_generic_task_keeps_operation_opaque_and_rejects_cross_kind_requests() -
     assert embedding_task.embedding_request.purpose == "subject_query"
 
 
+def test_generic_task_accepts_closed_resolution_decision_request() -> None:
+    payload = _load_valid("v_task_generate.json")
+    payload.update(
+        task_kind="decide",
+        profile_slot="resolution_decision",
+        model_request=_load_valid("v_task_generate.json")["model_request"],
+        decision_request={
+            "schema_version": 1,
+            "state": {"objects": []},
+            "questions": {
+                "q1": {
+                    "type": "choice",
+                    "instructions": "Choose the supported relation.",
+                    "criteria": {"same": "Same identity", "different": "Different identity"},
+                }
+            },
+        },
+    )
+    task = GenericExecutionTask.model_validate(payload)
+    assert task.task_kind == "decide"
+    assert task.decision_request is not None
+    with pytest.raises(ValidationError, match="decision_request"):
+        GenericExecutionTask.model_validate({**payload, "decision_request": None})
+    with pytest.raises(ValidationError, match="requires model_request"):
+        GenericExecutionTask.model_validate({**payload, "model_request": None})
+
+
 def test_retrieval_request_requires_project_for_repository() -> None:
     payload = _load_valid("v_retrieval_request.json")
     payload.pop("project_id")

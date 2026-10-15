@@ -82,8 +82,10 @@ ObjectReason: TypeAlias = Literal[
     "direct_value_semantic",
 ]
 IngestStatus: TypeAlias = Literal["queued", "processing", "completed", "failed"]
-TaskKind: TypeAlias = Literal["generate_json", "embed_texts"]
-ProfileSlot: TypeAlias = Literal["operational", "background", "embedding"]
+TaskKind: TypeAlias = Literal["generate_json", "object_resolution", "embed_texts", "decide"]
+ProfileSlot: TypeAlias = Literal[
+    "operational", "object_resolution", "background", "embedding", "resolution_decision"
+]
 EmbeddingPurpose: TypeAlias = Literal[
     "object_query",
     "subject_query",
@@ -381,6 +383,7 @@ class GenericExecutionTask(ProtocolModel):
     lease: str | None = None
     model_request: ModelRequest | None = None
     embedding_request: EmbeddingRequest | None = None
+    decision_request: dict[str, Any] | None = None
     operation_input: dict[str, Any] | None = None
     structured_generation: dict[str, Any] | None = None
 
@@ -389,22 +392,49 @@ class GenericExecutionTask(ProtocolModel):
         _parse_rfc3339(self.expires_at, "expires_at")
         if self.lease is not None:
             _parse_rfc3339(self.lease, "lease")
-        if self.task_kind == "generate_json":
-            if self.profile_slot not in {"operational", "background"}:
+        if self.task_kind == "decide":
+            if self.profile_slot != "resolution_decision":
+                raise ValueError("decide task requires the resolution_decision profile slot")
+            request = self.decision_request
+            if not isinstance(request, dict) or request.get("schema_version") != 1:
+                raise ValueError("decide task requires a versioned decision_request")
+            if not isinstance(request.get("state"), dict):
+                raise ValueError("decision_request state must be an object")
+            questions = request.get("questions")
+            if not isinstance(questions, dict) or not questions:
+                raise ValueError("decision_request requires closed questions")
+            for reference, question in questions.items():
+                if not isinstance(reference, str) or not reference.strip():
+                    raise ValueError("decision question reference must not be empty")
+                if not isinstance(question, dict) or question.get("type") != "choice":
+                    raise ValueError("decision question must be a choice")
+                if not isinstance(question.get("instructions"), str) or not question["instructions"].strip():
+                    raise ValueError("decision question instructions must not be empty")
+                criteria = question.get("criteria")
+                if not isinstance(criteria, dict) or not criteria or any(
+                    not isinstance(key, str) or not key.strip()
+                    or not isinstance(value, str) or not value.strip()
+                    for key, value in criteria.items()
+                ):
+                    raise ValueError("decision question criteria must be closed and non-empty")
+            if self.model_request is None or self.embedding_request is not None:
+                raise ValueError("decide task requires model_request and forbids embedding_request")
+        elif self.task_kind in {"generate_json", "object_resolution"}:
+            if self.profile_slot not in {"operational", "object_resolution", "background"}:
                 raise ValueError(
-                    "generate_json task requires an operational or background profile slot"
+                    "generation task requires an operational, object_resolution, or background profile slot"
                 )
             if self.model_request is None:
-                raise ValueError("generate_json task requires model_request")
-            if self.embedding_request is not None:
-                raise ValueError("generate_json task forbids embedding_request")
+                raise ValueError("generation task requires model_request")
+            if self.embedding_request is not None or self.decision_request is not None:
+                raise ValueError("generation task forbids embedding and decision requests")
         else:
             if self.profile_slot != "embedding":
                 raise ValueError("embed_texts task requires the embedding profile slot")
             if self.embedding_request is None:
                 raise ValueError("embed_texts task requires embedding_request")
-            if self.model_request is not None:
-                raise ValueError("embed_texts task forbids model_request")
+            if self.model_request is not None or self.decision_request is not None:
+                raise ValueError("embed_texts task forbids model and decision requests")
         if self.operation_input is not None and not isinstance(self.operation_input, dict):
             raise TypeError("operation_input must be an object")
         return self
@@ -1192,6 +1222,7 @@ class RetrievalRequest(ProtocolModel):
     target_alias: str | None = Field(default=None, min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     query_language: str | None = Field(default=None, min_length=1, max_length=32)
     related_object_ids: list[str] | None = None
+    visible_value_ids: list[str] | None = Field(default=None, max_length=4096)
     requested_facets: list[Facet] | None = None
     explanation_level: ExplanationLevel = "compact"
 
@@ -1208,6 +1239,8 @@ class RetrievalRequest(ProtocolModel):
             raise ValueError("base_limit must not exceed limit")
         if self.related_object_ids is not None:
             _validate_ids(self.related_object_ids, "related_object_ids", MAX_RELATED_REFS, minimum=0)
+        if self.visible_value_ids is not None:
+            _validate_ids(self.visible_value_ids, "visible_value_ids", 4096, minimum=0)
         if self.requested_facets is not None:
             if len(self.requested_facets) > MAX_REQUESTED_FACETS:
                 raise ValueError(f"requested_facets must not exceed {MAX_REQUESTED_FACETS} entries")

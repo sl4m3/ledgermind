@@ -42,6 +42,7 @@ class ContextView(ProtocolModel):
     schema_version: Literal[2, 3] = 2
     retrieval_request_id: str = Field(min_length=1, max_length=500)
     items: list[ContextViewItem] = Field(max_length=100)
+    # Compatibility name: service-selected IDs, not proof of host visibility.
     delivered_value_ids: list[str] = Field(default_factory=list, max_length=MAX_CONTEXT_IDS)
     memory_injection: MemoryInjection | None = None
     selection_diagnostics: dict[str, object] | None = None
