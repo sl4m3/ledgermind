@@ -42,6 +42,7 @@ _REQUIRED = (
     "spool_dir",
     "runtime_command",
 )
+_SUPPORTED_TARGETS = frozenset({"codex", "claude-code", "opencode", "openclaw"})
 
 
 def load_lifecycle_config(path: str | Path) -> LifecycleConfig:
@@ -51,6 +52,8 @@ def load_lifecycle_config(path: str | Path) -> LifecycleConfig:
     for key in _REQUIRED:
         if not isinstance(payload.get(key), str) or not payload[key].strip():
             raise ValueError(f"integration config requires {key}")
+    if payload["target"] not in _SUPPORTED_TARGETS:
+        raise ValueError(f"unsupported integration target: {payload['target']}")
     residency_mode = str(payload.get("model_residency_mode", "idle"))
     if residency_mode not in {"session", "idle", "always_on"}:
         raise ValueError("integration config has invalid model_residency_mode")

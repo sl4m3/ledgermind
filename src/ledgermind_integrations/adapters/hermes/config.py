@@ -18,6 +18,7 @@ class HermesConfig:
     profile_id: str
     state_db_path: str
     spool_dir: str
+    target: str = "hermes"
     enabled: bool = True
     adapter_version: str = "hermes-python/0.1.0"
     source_schema_version: int = 1

@@ -74,10 +74,12 @@ class _Client:
     def __init__(self, responses: list[dict[str, Any] | None]) -> None:
         self.responses = responses
         self.context_calls = 0
+        self.context_requests: list[dict[str, Any]] = []
         self.submitted: list[dict[str, Any]] = []
 
-    def retrieve_context(self, **_: Any) -> dict[str, Any] | None:
+    def retrieve_context(self, **kwargs: Any) -> dict[str, Any] | None:
         self.context_calls += 1
+        self.context_requests.append(kwargs)
         response = self.responses.pop(0)
         return response
 
@@ -271,7 +273,31 @@ def test_new_user_turn_refreshes_context_snapshot(tmp_path: Path) -> None:
         assert first is not None and "Content for value-1" in first["context"]
         assert second is not None and "Content for value-2" in second["context"]
         assert client.context_calls == 2
+        assert client.context_requests[0]["visible_value_ids"] == []
+        assert client.context_requests[1]["visible_value_ids"] == ["value-1"]
         assert client.responses == []
+    finally:
+        runtime.shutdown()
+
+
+def test_hermes_reset_allows_previous_value_to_be_retrieved_again(tmp_path: Path) -> None:
+    client = _Client([
+        _response("retrieval-1", ["value-1"]),
+        _response("retrieval-2", ["value-1"]),
+    ])
+    runtime = HermesPluginRuntime(
+        config=_config(tmp_path), client=client, spool=FileSpool(tmp_path / "spool")  # type: ignore[arg-type]
+    )
+    try:
+        assert runtime.on_pre_llm_call(
+            session_id="session-1", turn_id="turn-1", user_message="question"
+        ) is not None
+        _complete(runtime, "session-1", "turn-1")
+        runtime.on_session_end(session_id="session-1", reason="reset")
+        assert runtime.on_pre_llm_call(
+            session_id="session-1", turn_id="turn-2", user_message="question again"
+        ) is not None
+        assert client.context_requests[1]["visible_value_ids"] == []
     finally:
         runtime.shutdown()
 

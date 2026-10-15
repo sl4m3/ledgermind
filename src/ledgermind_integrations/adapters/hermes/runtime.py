@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import atexit
+import hashlib
 import json
 import logging
 import os
@@ -19,11 +20,12 @@ from ledgermind_protocol import ContextView
 
 from ...runtime.client import LedgerMindClient
 from ...runtime.delivery import DeliveryWorker
-from ...runtime.lease import RuntimeLease
 from ...runtime.endpoint import resolve_runtime_endpoint, runtime_state_running
+from ...runtime.lease import RuntimeLease
 from ...runtime.spool import FileSpool
 from ...runtime.spool_migration import migrate_spool
 from ...runtime.worker_loop import HermesWorkerLoop
+from ..lifecycle.visibility import advance_epoch, assume_hook_returned, note_content, visible_ids
 from .config import HermesConfig, load_config
 from .hook_contracts import HermesPluginContext
 from .hooks import HermesRoundCapture, PendingCaptureWorker
@@ -62,6 +64,11 @@ def _append_hook_trace(event: Mapping[str, Any]) -> None:
             for value_id in list(event.get("delivered_value_ids", []))[:_MAX_CONTEXT_IDS]
         ],
         "context_injected": bool(event.get("context_injected", False)),
+        "visibility_stage": (
+            "hook_returned_assumed_visible"
+            if bool(event.get("context_injected", False))
+            else "not_injected"
+        ),
         "captured": bool(event.get("captured", False)),
         "ready_files": int(event.get("ready_files", 0) or 0),
     }
@@ -312,6 +319,10 @@ class HermesPluginRuntime:
             self._ensure_user_event(state, query, kwargs)
         if not isinstance(query, str) or not query.strip():
             return None
+        note_content(
+            self.config, state.session_id, f"{state.round_id}:user",
+            query,
+        )
         context_turn_key = self._context_turn_key(kwargs)
         session_state = self.session_states[state.session_id]
         with self._lock:
@@ -343,6 +354,7 @@ class HermesPluginRuntime:
                     memory_space_id=self.config.memory_space_id,
                     query=query,
                     limit=self.config.context_limit,
+                    visible_value_ids=visible_ids(self.config, state.session_id),
                 )
             except RuntimeError:
                 _append_hook_trace(
@@ -407,6 +419,28 @@ class HermesPluginRuntime:
             return None
         self._record_context_retrieval(state, context_view)
         context = self._format_context(context_view)
+        if context and state.retrieval_request_id and state.delivered_value_ids:
+            assume_hook_returned(
+                self.config, state.session_id, state.retrieval_request_id,
+                state.delivered_value_ids,
+            )
+            try:
+                report_event = getattr(self.client, "report_injection_event", None)
+                if callable(report_event):
+                    report_event(
+                        event_id=hashlib.sha256(
+                            f"hermes:{self.config.memory_space_id}:{state.session_id}:"
+                            f"{state.retrieval_request_id}".encode()
+                        ).hexdigest(),
+                        retrieval_request_id=state.retrieval_request_id,
+                        memory_space_id=self.config.memory_space_id,
+                        session_id=state.session_id,
+                        stage="hook_returned_assumed_visible",
+                        value_ids=state.delivered_value_ids,
+                    )
+            except (OSError, RuntimeError, ValueError):
+                # The local ledger remains authoritative when receipt delivery fails.
+                logger.debug("Hermes injection receipt unavailable", exc_info=True)
         if context_turn_key is not None:
             with self._lock:
                 session_state.context_turn_key = context_turn_key
@@ -466,6 +500,7 @@ class HermesPluginRuntime:
             state.captured_events.append(event)
             state.tool_calls_by_id[tool_call_id] = event
             self._update_bounds(state, kwargs)
+        note_content(self.config, session_id, f"{state.round_id}:call:{tool_call_id}", kwargs.get("args"))
 
     def on_post_tool_call(self, **kwargs: Any) -> None:
         session_id = self._text(kwargs.get("session_id"), "session")
@@ -511,6 +546,7 @@ class HermesPluginRuntime:
             if error_message:
                 state.tool_calls_by_id[tool_call_id]["error"] = str(error_message)
             self._update_bounds(state, kwargs)
+        note_content(self.config, session_id, f"{state.round_id}:result:{tool_call_id}", result)
 
     def on_post_llm_call(self, **kwargs: Any) -> None:
         session_id = self._text(kwargs.get("session_id"), "session")
@@ -522,6 +558,7 @@ class HermesPluginRuntime:
             assistant_response = self._last_assistant_text(kwargs.get("conversation_history"))
         if isinstance(assistant_response, str) and assistant_response.strip():
             self._append_assistant_event(state, assistant_response, kwargs)
+            note_content(self.config, session_id, f"{state.round_id}:assistant", assistant_response)
         events = list(state.captured_events)
         completed_at = self._now()
         metadata = self._pending_metadata(state, completed_at)
@@ -575,6 +612,8 @@ class HermesPluginRuntime:
     def on_session_end(self, **kwargs: Any) -> None:
         session_id = self._text(kwargs.get("session_id"), "")
         if session_id:
+            if kwargs.get("reason") in {"reset", "compaction", "deleted"}:
+                advance_epoch(self.config, session_id)
             self.finish_session(session_id)
 
     def on_session_finalize(self, **kwargs: Any) -> None:
@@ -1041,6 +1080,8 @@ class HermesPluginRuntime:
 
     @staticmethod
     def _format_context(response: ContextView) -> str:
+        if not response.items:
+            return ""
         if response.memory_injection is not None:
             rendered = response.memory_injection.text.strip()
             if not rendered:

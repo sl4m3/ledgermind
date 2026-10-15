@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from contextlib import contextmanager
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +11,7 @@ import pytest
 
 from ledgermind_integrations.adapters.lifecycle import LifecycleConfig, handle_hook
 from ledgermind_integrations.adapters.lifecycle import bridge as bridge_module
+from ledgermind_integrations.adapters.lifecycle.config import load_lifecycle_config
 
 
 class _Client:
@@ -52,6 +53,15 @@ def _config(tmp_path: Path, *, enabled: bool = True) -> LifecycleConfig:
     )
 
 
+def test_legacy_cursor_hook_config_is_not_activated(tmp_path: Path) -> None:
+    config_path = tmp_path / "cursor.json"
+    payload = asdict(_config(tmp_path))
+    payload["target"] = "cursor"
+    config_path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="unsupported integration target"):
+        load_lifecycle_config(config_path)
+
+
 def test_recall_scope_matches_captured_round_and_trace_is_private(tmp_path, monkeypatch):
     class Client(_Client):
         def __init__(self):
@@ -73,6 +83,7 @@ def test_recall_scope_matches_captured_round_and_trace_is_private(tmp_path, monk
     assert client.queries[0]["conversation_id"] == "session-1"
     assert client.queries[0]["repository_id"] == "r"
     assert client.queries[0]["query_context"] == "Release service"
+    assert client.queries[0]["visible_value_ids"] == []
     handle_hook(config, "Stop", {"session_id": "session-1", "last_assistant_message": "done"})
     raw = client.submitted[0]
     resolution = raw["source"]["extensions"]["ledgermind_resolution"]
@@ -82,6 +93,11 @@ def test_recall_scope_matches_captured_round_and_trace_is_private(tmp_path, monk
     trace = Path(config.spool_dir) / "retrieval-trace.jsonl"
     assert trace.stat().st_mode & 0o777 == 0o600
     assert json.loads(trace.read_text().splitlines()[0])["additional_context"] == response["additional_context"]
+    handle_hook(config, "UserPromptSubmit", {"session_id": "session-1", "prompt": "next"})
+    assert client.queries[-1]["visible_value_ids"] == ["value-one"]
+    handle_hook(config, "PostCompact", {"session_id": "session-1"})
+    handle_hook(config, "UserPromptSubmit", {"session_id": "session-1", "prompt": "after compaction"})
+    assert client.queries[-1]["visible_value_ids"] == []
     handle_hook(config, "UserPromptSubmit", {"session_id": "session-2", "prompt": "other task"})
     assert "repository_id" not in client.queries[-1]
     assert "query_context" not in client.queries[-1]
@@ -657,6 +673,127 @@ def test_stop_enqueues_and_clears_state_before_delivery(tmp_path: Path, monkeypa
     assert len(client.submitted) == 1
 
 
+def test_full_queue_preserves_completed_turn_without_mixing_next_prompt(tmp_path, monkeypatch):
+    config = replace(_config(tmp_path), spool_max_bytes=1, config_file="test-config")
+    client = _Client()
+    monkeypatch.setattr(bridge_module, "_client", lambda _: client)
+    monkeypatch.setattr(bridge_module, "_launch_delivery_drain", lambda _: None)
+    handle_hook(config, "UserPromptSubmit", {"session_id": "s", "prompt": "first turn"})
+    handle_hook(config, "Stop", {"session_id": "s", "last_assistant_message": "first answer"})
+    paths = bridge_module.pending_captures(config)
+    assert len(paths) == 1
+    assert paths[0].stat().st_mode & 0o777 == 0o600
+    original = paths[0].read_bytes()
+    assert json.loads((tmp_path / "spool/sessions/s.json").read_text()) == {}
+    handle_hook(config, "UserPromptSubmit", {"session_id": "s", "prompt": "second turn"})
+    state = json.loads((tmp_path / "spool/sessions/s.json").read_text())
+    assert [event["content"] for event in state["events"]] == ["second turn"]
+    handle_hook(config, "Stop", {"session_id": "s", "last_assistant_message": "second answer"})
+    assert len(bridge_module.pending_captures(config)) == 2
+    assert paths[0].read_bytes() == original
+    assert bridge_module._spool(config).stats().pending_capture == 2
+    # Promotion after restart uses the original evidence and completed_at.
+    restored = replace(config, spool_max_bytes=50_000_000)
+    bridge_module._promote_completed_captures(restored)
+    ready = list((tmp_path / "spool/ready-delivery").glob("*.json"))
+    assert len(ready) == 2
+    assert not bridge_module.pending_captures(restored)
+    texts = []
+    for path in ready:
+        request = json.loads(path.read_text())["request"]
+        texts.append([event["content"][0]["text"] for event in request["round"]["events"]])
+    assert sorted(texts) == [["first turn", "first answer"], ["second turn", "second answer"]]
+
+
+def test_protocol_failure_retains_original_capture_and_clears_active_state(tmp_path, monkeypatch):
+    config = replace(_config(tmp_path), config_file="test-config")
+    monkeypatch.setattr(bridge_module, "_launch_delivery_drain", lambda _: None)
+    state = {"round_id": "invalid", "started_at": bridge_module._now(), "events": [
+        {"kind": "message", "role": "user", "content": "test"},
+        {"kind": "message", "role": "assistant", "content": "a", "final": True},
+        {"kind": "message", "role": "assistant", "content": "b", "final": True},
+    ]}
+    assert bridge_module._enqueue_finished_round(config, "s", state)
+    assert state == {}
+    paths = bridge_module.pending_captures(config)
+    assert len(paths) == 1
+    saved = paths[0].read_bytes()
+    bridge_module._promote_completed_captures(config)
+    assert paths[0].read_bytes() == saved
+    assert not list((tmp_path / "spool/ready-delivery").glob("*.json"))
+
+
+def test_codex_background_stop_isolated_by_native_turn_id(tmp_path, monkeypatch):
+    config = replace(_config(tmp_path), config_file="test-config", model_residency_mode="session")
+    client = _Client()
+    released = []
+    client.runtime_release = lambda lease: released.append(lease) or {"status": "released"}
+    monkeypatch.setattr(bridge_module, "_client", lambda _: client)
+    monkeypatch.setattr(bridge_module, "_launch_delivery_drain", lambda _: None)
+    for turn, prompt in [("old", "first turn"), ("new", "second turn")]:
+        handle_hook(config, "UserPromptSubmit", {"session_id": "s", "turn_id": turn, "prompt": prompt})
+        handle_hook(config, "PreToolUse", {"session_id": "s", "turn_id": turn,
+                    "tool_name": "shell", "tool_use_id": f"tool-{turn}", "tool_input": {}})
+        handle_hook(config, "PostToolUse", {"session_id": "s", "turn_id": turn,
+                    "tool_name": "shell", "tool_use_id": f"tool-{turn}", "tool_response": "result"})
+    # The old Stop runs only after the new prompt and must leave its evidence
+    # and runtime lease intact. Delivery is detached, not on the hook path.
+    handle_hook(config, "Stop", {"session_id": "s", "turn_id": "old", "last_assistant_message": "old answer"})
+    assert released == []
+    with bridge_module._locked_capture_state(config, "s", {"turn_id": "new"}) as state:
+        assert state["events"][0]["content"] == "second turn"
+        assert len(state["events"]) == 3
+    handle_hook(config, "Stop", {"session_id": "s", "turn_id": "new", "last_assistant_message": "new answer"})
+    assert released == ["lease-1"]
+    requests = [json.loads(path.read_text())["request"]
+                for path in (tmp_path / "spool/ready-delivery").glob("*.json")]
+    assert len(requests) == 2
+    assert sorted(request["round"]["events"][0]["content"][0]["text"]
+                  for request in requests) == ["first turn", "second turn"]
+    handle_hook(config, "Stop", {"session_id": "s", "turn_id": "old", "last_assistant_message": "old answer"})
+    assert len(list((tmp_path / "spool/ready-delivery").glob("*.json"))) == 2
+
+
+def test_restart_after_enqueue_before_cleanup_does_not_change_capture_digest(tmp_path, monkeypatch):
+    config = _config(tmp_path)
+    state = {"round_id": "r", "started_at": bridge_module._now(), "events": [
+        {"kind": "message", "role": "user", "content": "test"},
+        {"kind": "message", "role": "assistant", "content": "done", "final": True},
+    ]}
+    original_cleanup = bridge_module.complete_capture
+    monkeypatch.setattr(bridge_module, "complete_capture", lambda _: (_ for _ in ()).throw(OSError("crash")))
+    with pytest.raises(OSError, match="crash"):
+        bridge_module._enqueue_finished_round(config, "s", state)
+    path = next((tmp_path / "spool/ready-delivery").glob("*.json"))
+    request = json.loads(path.read_text())["request"]
+    monkeypatch.setattr(bridge_module, "complete_capture", original_cleanup)
+    bridge_module._promote_completed_captures(config)
+    ready = list((tmp_path / "spool/ready-delivery").glob("*.json"))
+    assert len(ready) == 1
+    assert json.loads(ready[0].read_text())["request"] == request
+    assert not bridge_module.pending_captures(config)
+
+
+def test_receipt_survives_crash_before_active_state_commit(tmp_path):
+    config = _config(tmp_path)
+    state = {"round_id": "r", "started_at": bridge_module._now(), "events": [
+        {"kind": "message", "role": "user", "content": "test"},
+        {"kind": "message", "role": "assistant", "content": "done", "final": True},
+    ]}
+    before = json.loads(json.dumps(state))
+    assert bridge_module._enqueue_finished_round(config, "s", state)
+    assert state == {}
+    ready = list((tmp_path / "spool/ready-delivery").glob("*.json"))
+    assert len(ready) == 1
+    original = json.loads(ready[0].read_text())["request"]
+    # Restart loads the uncommitted old active state. The durable receipt
+    # clears it without enqueueing a second body with a new completed_at.
+    assert bridge_module._enqueue_finished_round(config, "s", before)
+    assert before == {}
+    assert json.loads(ready[0].read_text())["request"] == original
+    assert len(list((tmp_path / "spool/ready-delivery").glob("*.json"))) == 1
+
+
 def test_session_end_only_performs_durable_local_handoff(tmp_path: Path, monkeypatch) -> None:
     client = _Client()
     config = _config(tmp_path)
@@ -732,3 +869,10 @@ def test_stop_drops_orphan_tool_result_after_process_restart(tmp_path: Path, mon
 
     events = client.submitted[0]["round"]["events"]
     assert [event["kind"] for event in events] == ["message", "message"]
+
+
+def test_empty_selection_does_not_inject_legend_only() -> None:
+    assert bridge_module._format_context({
+        "items": [],
+        "memory_injection": {"text": "How to read memory: ...", "item_count": 0},
+    }) == ""

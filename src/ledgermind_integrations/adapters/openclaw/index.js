@@ -25,6 +25,14 @@ export default definePluginEntry({
       const context = response?.hookSpecificOutput?.additionalContext
       return context ? { prependContext: context } : undefined
     }, { timeoutMs: 10000 })
+    api.on("after_compaction", async (event, ctx) => {
+      if (event.compactedCount > 0) {
+        bridge("PostCompact", { session_id: ctx.sessionKey ?? ctx.sessionId ?? ctx.runId })
+      }
+    })
+    api.on("before_reset", async (_event, ctx) => {
+      bridge("SessionReset", { session_id: ctx.sessionKey ?? ctx.sessionId ?? ctx.runId })
+    })
     api.on("before_tool_call", async (event, ctx) => {
       bridge("PreToolUse", {
         session_id: ctx.sessionKey ?? ctx.sessionId ?? ctx.runId,

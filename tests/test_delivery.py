@@ -38,6 +38,19 @@ def test_delivery_sends_only_request_and_completes(tmp_path: Path) -> None:
     assert spool.stats().ready_delivery == 0
 
 
+def test_committed_local_receipt_completes_delivery_without_repeating(tmp_path):
+    class QueuedClient:
+        def submit_round(self, _payload):
+            return {"schema_version": 2, "raw_round_id": "stored-1", "status": "queued_for_core"}
+
+    spool = FileSpool(tmp_path / "spool")
+    spool.enqueue_ready("capture", {"idempotency_key": "capture"})
+    worker = DeliveryWorker(spool, QueuedClient())
+    assert worker.run_once()
+    assert spool.stats().ready_delivery == 0
+    assert not worker.run_once()
+
+
 def test_delivery_failure_metadata_does_not_include_exception_payload(tmp_path: Path) -> None:
     class FailingClient:
         def submit_round(self, _payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -60,6 +73,7 @@ def test_delivery_failure_metadata_does_not_include_exception_payload(tmp_path: 
     failed_text = queued.read_text(encoding="utf-8")
     assert "TOP_SECRET" not in failed_text
     assert json.loads(failed_text)["delivery"]["attempts"] == 1
+    assert json.loads(failed_text)["delivery"]["last_error_type"] == "RuntimeError"
 
 
 def test_unconfirmed_round_stays_queued_and_new_round_is_added(tmp_path: Path) -> None:
@@ -131,3 +145,11 @@ def test_spool_delivery_status_is_content_free_and_clearable(tmp_path: Path) -> 
     assert stat.S_IMODE(spool.delivery_status_path.stat().st_mode) == 0o600
     spool.clear_delivery_failure()
     assert not spool.delivery_status_path.exists()
+
+
+def test_full_spool_can_still_record_failure_diagnostic(tmp_path):
+    spool = FileSpool(tmp_path / "spool")
+    spool.enqueue_ready("capture", {"idempotency_key": "capture"})
+    spool.max_bytes = 1
+    spool.note_delivery_failure("SpoolFullError")
+    assert json.loads(spool.delivery_status_path.read_text())["reason"] == "SpoolFullError"

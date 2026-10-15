@@ -86,6 +86,26 @@ def test_client_returns_strict_context_view(monkeypatch: pytest.MonkeyPatch) -> 
     assert requests == [{"memory_space_id": "space-1", "query": "protocol", "limit": 5}]
 
 
+def test_client_forwards_visibility_and_reports_hook_stage(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _client()
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    def request(_method: str, path: str, payload: dict[str, Any]) -> dict[str, Any]:
+        calls.append((path, payload))
+        return _response() if path == "/context/retrieve" else {"status": "accepted"}
+
+    monkeypatch.setattr(client, "_request", request)
+    client.retrieve_context(memory_space_id="space", query="test", visible_value_ids=["value-1"])
+    client.report_injection_event(
+        event_id="event-1", retrieval_request_id="retrieval-1",
+        memory_space_id="space", session_id="session", stage="hook_returned_assumed_visible",
+        value_ids=["value-2"],
+    )
+    assert calls[0][1]["visible_value_ids"] == ["value-1"]
+    assert calls[1][0] == "/context/injection-events"
+    assert calls[1][1]["stage"] == "hook_returned_assumed_visible"
+
+
 def test_client_preserves_explicit_recall_scope(monkeypatch):
     client = _client()
     requests = []
@@ -149,6 +169,17 @@ def test_submit_round_requires_explicit_acceptance(monkeypatch: pytest.MonkeyPat
         client, "_request", lambda *_args: {"status": "accepted", "round_id": "round-1"}
     )
     assert client.submit_round({})["round_id"] == "round-1"
+
+
+@pytest.mark.parametrize("status", ["queued_for_core", "retry_wait", "rejected"])
+def test_legacy_capture_receipt_is_not_confused_with_core_status(status) -> None:
+    from ledgermind_integrations.runtime.client import round_acceptance_confirmed
+
+    receipt = {"schema_version": 2, "raw_round_id": "capture-1", "status": status}
+    assert round_acceptance_confirmed(receipt)
+    assert not round_acceptance_confirmed({"status": status})
+    assert not round_acceptance_confirmed({**receipt, "raw_round_id": ""})
+    assert not round_acceptance_confirmed({**receipt, "accepted": False})
 
 
 def test_rate_limit_is_retryable(monkeypatch: pytest.MonkeyPatch) -> None:

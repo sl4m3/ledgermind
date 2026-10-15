@@ -19,20 +19,17 @@ def _asset() -> str:
     ).read_text(encoding="utf-8")
 
 
-def test_opencode_injection_uses_ephemeral_system_context() -> None:
+def test_opencode_injection_is_persisted_once_in_message_parts() -> None:
     asset = _asset()
 
-    assert '"experimental.chat.system.transform"' in asset
-    assert "contextBySession.set(input.sessionID, context)" in asset
-    assert "output.system.push(context)" in asset
-    assert "firstTextPart.text =" not in asset
-    assert "output.parts.unshift" not in asset
-    assert "contextBySession.delete(sessionID)" in asset
+    assert '"experimental.chat.system.transform"' not in asset
+    assert 'firstTextPart.text += ' in asset
+    assert 'event.type === "session.compacted"' in asset
     assert 'bridge("Stop", { session_id: sessionID, cwd: directory })' in asset
     assert 'bridge("SessionEnd", { session_id: sessionID, cwd: directory })' not in asset
 
 
-def test_opencode_context_is_reused_but_never_persisted_in_message_parts(
+def test_opencode_context_is_persisted_without_repeated_system_injection(
     tmp_path: Path,
 ) -> None:
     node = shutil.which("node")
@@ -59,14 +56,8 @@ def test_opencode_context_is_reused_but_never_persisted_in_message_parts(
         "const plugin = await LedgerMindPlugin({ directory: '/workspace' })\n"
         "const parts = [{ type: 'text', text: 'USER' }]\n"
         "await plugin['chat.message']({ sessionID: 's1' }, { parts })\n"
-        "const first = { system: [] }\n"
-        "const second = { system: [] }\n"
-        "await plugin['experimental.chat.system.transform']({ sessionID: 's1' }, first)\n"
-        "await plugin['experimental.chat.system.transform']({ sessionID: 's1' }, second)\n"
         "await plugin.event({ event: { type: 'session.idle', properties: { sessionID: 's1' } } })\n"
-        "const afterIdle = { system: [] }\n"
-        "await plugin['experimental.chat.system.transform']({ sessionID: 's1' }, afterIdle)\n"
-        "console.log(JSON.stringify({ parts, first, second, afterIdle }))\n",
+        "console.log(JSON.stringify({ parts }))\n",
         encoding="utf-8",
     )
 
@@ -78,9 +69,4 @@ def test_opencode_context_is_reused_but_never_persisted_in_message_parts(
         timeout=10,
     )
     observed = json.loads(result.stdout)
-    assert observed == {
-        "parts": [{"type": "text", "text": "USER"}],
-        "first": {"system": ["MEMORY"]},
-        "second": {"system": ["MEMORY"]},
-        "afterIdle": {"system": []},
-    }
+    assert observed == {"parts": [{"type": "text", "text": "USER\n\nMEMORY"}]}

@@ -17,6 +17,7 @@ from typing import Any
 from uuid import uuid4
 
 from ledgermind_protocol import build_resolution_extension
+from ledgermind_protocol.validation import RawRoundValidationError
 
 from ...runtime.client import LedgerMindClient, LedgerMindClientError
 from ...runtime.delivery import DeliveryWorker
@@ -24,7 +25,17 @@ from ...runtime.endpoint import resolve_runtime_endpoint, runtime_state_running
 from ...runtime.lease import RuntimeLease
 from ...runtime.spool import FileSpool, SpoolFullError
 from ..hermes.round_capture import build_raw_round
+from .capture_backlog import (
+    capture_was_enqueued,
+    complete_capture,
+    pending_captures,
+    persist_capture,
+    record_capture_receipt,
+    sync_directory,
+)
 from .config import LifecycleConfig
+from .visibility import advance_epoch, assume_hook_returned, note_content, visible_ids
+from .visibility import diagnostics as visibility_diagnostics
 
 
 def _now() -> str:
@@ -167,7 +178,10 @@ def _locked_state(config: LifecycleConfig, session_id: str) -> Iterator[dict[str
                 json.dumps(state, ensure_ascii=False, sort_keys=True), encoding="utf-8"
             )
             os.chmod(temporary, 0o600)
+            with temporary.open("rb") as handle:
+                os.fsync(handle.fileno())
             temporary.replace(state_path)
+            sync_directory(root)
         finally:
             fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
@@ -179,6 +193,23 @@ def _client(config: LifecycleConfig) -> LedgerMindClient:
         timeout=config.request_timeout_seconds,
         allow_remote=config.allow_remote,
     )
+
+
+@contextmanager
+def _locked_capture_state(
+    config: LifecycleConfig, session_id: str, payload: Mapping[str, Any]
+) -> Iterator[dict[str, Any]]:
+    # Codex supplies a stable turn_id on prompt, tools and Stop. Async hooks
+    # may finish after the next prompt, so session-only capture is insufficient.
+    turn_id = payload.get("turn_id")
+    key = session_id
+    if config.target == "codex" and isinstance(turn_id, str) and turn_id:
+        digest = hashlib.sha256(turn_id.encode()).hexdigest()[:24]
+        key = f"{_safe(session_id)[:120]}-turn-{digest}"
+    with _locked_state(config, key) as state:
+        if key != session_id:
+            state.setdefault("host_turn_id", turn_id)
+        yield state
 
 
 def _spool(config: LifecycleConfig) -> FileSpool:
@@ -202,6 +233,7 @@ def _record_recall_trace(
         "scope": dict(scope), "retrieval_request_id": response.get("retrieval_request_id"),
         "delivered_value_ids": response.get("delivered_value_ids", []),
         "selection_diagnostics": response.get("selection_diagnostics"),
+        "visibility_diagnostics": visibility_diagnostics(config, session_id),
         "additional_context": context,
     }
     # No credentials, HTTP headers, provider responses or configuration secrets.
@@ -244,7 +276,9 @@ def _leased_client(config: LifecycleConfig, session_id: str) -> Iterator[LedgerM
         lease.release()
 
 
-def _session_client(config: LifecycleConfig, session_id: str) -> LedgerMindClient:
+def _session_client(
+    config: LifecycleConfig, session_id: str, turn_id: str | None = None
+) -> LedgerMindClient:
     """Acquire or refresh the durable lease that spans one complete agent turn."""
 
     client = _client(config)
@@ -255,6 +289,8 @@ def _session_client(config: LifecycleConfig, session_id: str) -> LedgerMindClien
         if lease_id:
             try:
                 client.runtime_heartbeat(lease_id)
+                if turn_id:
+                    state["runtime_lease_turn_id"] = turn_id
                 return client
             except (LedgerMindClientError, OSError, RuntimeError, ValueError):
                 state.pop("runtime_lease_id", None)
@@ -269,6 +305,8 @@ def _session_client(config: LifecycleConfig, session_id: str) -> LedgerMindClien
             prefer_bootstrap=_prefer_runtime_bootstrap(config),
         )
         state["runtime_lease_id"] = lease.lease_id
+        if turn_id:
+            state["runtime_lease_turn_id"] = turn_id
     return client
 
 
@@ -293,6 +331,8 @@ def _release_session_lease(config: LifecycleConfig, lease_id: str) -> None:
 
 
 def _format_context(response: Mapping[str, Any]) -> str:
+    if not response.get("items"):
+        return ""
     injection = response.get("memory_injection")
     if isinstance(injection, Mapping):
         rendered = _text(injection.get("text"))
@@ -409,14 +449,15 @@ def _compact_tool_events(
     return compacted
 
 
-def _enqueue_finished_round(
+def _enqueue_capture_snapshot(
     config: LifecycleConfig, session_id: str, state: dict[str, Any]
-) -> bool:
+) -> str | None:
     """Durably enqueue a completed round without doing any network I/O."""
 
+    state = json.loads(json.dumps(state, ensure_ascii=False))
     events = state.get("events")
     if not isinstance(events, list) or not events:
-        return False
+        return None
     if not any(
         isinstance(event, Mapping)
         and event.get("kind") == "message"
@@ -426,7 +467,7 @@ def _enqueue_finished_round(
         # RawRound requires a user message. Keeping tool-only or assistant-only
         # state would mix separate turns when the next prompt arrives.
         state.clear()
-        return False
+        return None
     known_tool_calls = {
         event.get("tool_call_id")
         for event in events
@@ -458,7 +499,7 @@ def _enqueue_finished_round(
             session_id=session_id,
             round_id=round_id,
             started_at=_text(state.get("started_at")) or _now(),
-            completed_at=_now(),
+            completed_at=_text(state.get("completed_at")) or _now(),
             events=candidate_events,
             adapter_version=config.adapter_version,
             resolution=state.get("resolution"),
@@ -480,7 +521,64 @@ def _enqueue_finished_round(
         raw_round = build(compacted)
         spool.enqueue_ready(raw_round["idempotency_key"], raw_round)
     state.clear()
+    return str(raw_round["idempotency_key"])
+
+
+def _enqueue_finished_round(
+    config: LifecycleConfig, session_id: str, state: dict[str, Any]
+) -> bool:
+    """Seal one completed turn even when delivery is blocked or validation fails.
+
+    Failed transport must not combine subsequent user turns into an ever-growing
+    invalid RawRound. The unmodified evidence remains in a separate durable
+    capture until a validated transport envelope can be committed.
+    """
+    events = state.get("events")
+    if not isinstance(events, list) or not any(
+        isinstance(event, Mapping) and event.get("kind") == "message"
+        and event.get("role") == "user" for event in events
+    ):
+        state.clear()
+        return False
+    state.setdefault("round_id", uuid4().hex)
+    if capture_was_enqueued(config, session_id, state):
+        # A crash after enqueue/receipt but before active-state commit must not
+        # fabricate a different completed_at and conflict with the same round.
+        state.clear()
+        return True
+    path, capture = persist_capture(config, session_id, state, _now())
+    try:
+        digest = _enqueue_capture_snapshot(config, session_id, capture["state"])
+    except (SpoolFullError, RawRoundValidationError) as exc:
+        _spool(config).note_delivery_failure(type(exc).__name__)
+    else:
+        if digest is None:
+            raise ValueError("completed capture contains no usable round")
+        record_capture_receipt(config, session_id, capture["state"], digest)
+        complete_capture(path)
+    # The snapshot is durable even if the transport queue is full. Never append
+    # a new user's prompt to the failed completed trajectory.
+    state.clear()
     return True
+
+
+def _promote_completed_captures(config: LifecycleConfig) -> None:
+    for path in pending_captures(config):
+        try:
+            capture = json.loads(path.read_text(encoding="utf-8"))
+            if capture_was_enqueued(config, capture["session_id"], capture["state"]):
+                complete_capture(path)
+                continue
+            digest = _enqueue_capture_snapshot(config, capture["session_id"], capture["state"])
+            if digest is None:
+                raise ValueError("completed capture contains no usable round")
+            record_capture_receipt(config, capture["session_id"], capture["state"], digest)
+        except SpoolFullError:
+            break  # Free transport capacity before promoting another capture.
+        except (RawRoundValidationError, ValueError, KeyError, TypeError) as exc:
+            _spool(config).note_delivery_failure(type(exc).__name__)
+            continue  # Retain the original evidence; no semantic fabrication.
+        complete_capture(path)
 
 
 def _deliver_ready(config: LifecycleConfig, session_id: str) -> None:
@@ -519,9 +617,11 @@ def drain_ready(config: LifecycleConfig, *, max_seconds: float = 120.0) -> int:
                 worker = DeliveryWorker(spool, client)
                 deadline = time.monotonic() + max(float(max_seconds), 0.1)
                 while time.monotonic() < deadline:
+                    _promote_completed_captures(config)
                     before = spool.stats().ready_delivery
                     if not before:
-                        spool.clear_delivery_failure()
+                        if not pending_captures(config):
+                            spool.clear_delivery_failure()
                         break
                     if not worker.run_once(limit=20):
                         break
@@ -529,6 +629,7 @@ def drain_ready(config: LifecycleConfig, *, max_seconds: float = 120.0) -> int:
                     delivered += max(before - after, 0)
                     if after >= before:
                         break  # A rejected or deferred batch must not spin.
+                _promote_completed_captures(config)
                 if spool.stats().ready_delivery:
                     spool.note_delivery_failure("delivery_pending_retry")
         except (LedgerMindClientError, OSError, RuntimeError, ValueError) as exc:
@@ -539,7 +640,9 @@ def drain_ready(config: LifecycleConfig, *, max_seconds: float = 120.0) -> int:
 
 
 def _launch_delivery_drain(config: LifecycleConfig) -> None:
-    if not config.config_file or not _spool(config).stats().ready_delivery:
+    if not config.config_file or not (
+        _spool(config).stats().ready_delivery or pending_captures(config)
+    ):
         return
     # Installed hooks have an absolute, trusted runtime command. Avoid
     # background children from ad-hoc or test configurations.
@@ -578,10 +681,17 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
         return {}
     session_id = _session_id(payload)
     normalized = event.lower().replace("_", "").replace("-", "")
+    if normalized == "sessionstart":
+        if payload.get("source") == "clear":
+            advance_epoch(config, session_id)
+        return {}
+    if normalized in {"postcompact", "sessioncompacted", "aftercompaction", "sessionreset", "beforereset"}:
+        advance_epoch(config, session_id)
+        return {}
     if normalized in {"userpromptsubmit", "beforesubmitprompt", "prompt"}:
         # Persist the prompt before starting the runtime or making a provider
         # request. Host hook timeouts must never discard the user's turn.
-        with _locked_state(config, session_id) as state:
+        with _locked_capture_state(config, session_id, payload) as state:
             state.setdefault("round_id", uuid4().hex)
             state.setdefault("started_at", _now())
             prompt = _prompt(payload)
@@ -590,6 +700,12 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
             round_id = state["round_id"]
             if prompt:
                 _append(state, {"kind": "message", "role": "user", "content": prompt})
+        if prompt:
+            note_content(config, session_id, f"{round_id}:user:{hashlib.sha256(prompt.encode()).hexdigest()}", prompt)
+        # OpenClaw's prependContext is turn-scoped; suppressing it on later
+        # turns would remove knowledge from the model rather than deduplicate.
+        persistent_hook = config.target in {"codex", "claude-code", "opencode"}
+        already_visible = visible_ids(config, session_id) if persistent_hook else []
         recall_context = {key: value for key, value in resolution.items()
                           if key != "schema_version" and value is not None}
         # Only explicit host-supplied task context. Never guess a task from
@@ -599,11 +715,12 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
             recall_context["query_context"] = task_description.strip()
         try:
             if config.model_residency_mode == "session":
-                client = _session_client(config, session_id)
+                client = _session_client(config, session_id, _text(payload.get("turn_id")) or None)
                 response = client.retrieve_context(
                     memory_space_id=config.memory_space_id,
                     query=prompt,
                     limit=config.context_limit,
+                    visible_value_ids=already_visible,
                     **recall_context,
                 )
             else:
@@ -612,6 +729,7 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
                         memory_space_id=config.memory_space_id,
                         query=prompt,
                         limit=config.context_limit,
+                        visible_value_ids=already_visible,
                         **recall_context,
                     )
             context = _format_context(response)
@@ -623,12 +741,28 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
             retrieval_id = response.get("retrieval_request_id")
             delivered_ids = response.get("delivered_value_ids")
             if context and isinstance(retrieval_id, str) and isinstance(delivered_ids, list):
-                with _locked_state(config, session_id) as state:
+                with _locked_capture_state(config, session_id, payload) as state:
                     if state.get("round_id") == round_id:
                         state["delivered_context"] = {
                             "schema_version": 1, "retrieval_request_id": retrieval_id,
                             "delivered_value_ids": delivered_ids,
                         }
+                if persistent_hook:
+                    assume_hook_returned(config, session_id, retrieval_id, [str(value) for value in delivered_ids])
+                try:
+                    report_event = getattr(_client(config), "report_injection_event", None)
+                    if callable(report_event):
+                        report_event(
+                            event_id=hashlib.sha256(f"{config.target}:{config.memory_space_id}:{session_id}:{retrieval_id}".encode()).hexdigest(),
+                            retrieval_request_id=retrieval_id,
+                            memory_space_id=config.memory_space_id,
+                            session_id=session_id,
+                            stage=("hook_returned_assumed_visible" if persistent_hook else "hook_returned_turn_scoped"),
+                            value_ids=[str(value) for value in delivered_ids],
+                        )
+                except LedgerMindClientError:
+                    # The adapter ledger is authoritative when telemetry is offline.
+                    pass
             spool = _spool(config)
             if not spool.stats().ready_delivery:
                 spool.clear_delivery_failure()
@@ -639,7 +773,7 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
         return {"additional_context": context} if context else {}
     if normalized in {"pretooluse", "beforetoolcall"}:
         _refresh_session_lease(config, session_id)
-        with _locked_state(config, session_id) as state:
+        with _locked_capture_state(config, session_id, payload) as state:
             state.setdefault("round_id", uuid4().hex)
             state.setdefault("started_at", _now())
             name, arguments, call_id = _tool(payload)
@@ -652,10 +786,11 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
                     "arguments": _sanitize_inline_binary(arguments),
                 },
             )
+            note_content(config, session_id, f"{state['round_id']}:tool-call:{call_id or len(state.get('events', []))}", arguments)
         return {}
     if normalized in {"posttooluse", "posttoolusefailure", "aftertoolcall"}:
         _refresh_session_lease(config, session_id)
-        with _locked_state(config, session_id) as state:
+        with _locked_capture_state(config, session_id, payload) as state:
             state.setdefault("round_id", uuid4().hex)
             state.setdefault("started_at", _now())
             name, _arguments, call_id = _tool(payload)
@@ -670,9 +805,10 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
                     "content": _sanitize_inline_binary(value),
                 },
             )
+            note_content(config, session_id, f"{state['round_id']}:tool-result:{call_id or len(state.get('events', []))}", value)
         return {}
     if normalized in {"afteragentresponse", "assistant", "llmoutput"}:
-        with _locked_state(config, session_id) as state:
+        with _locked_capture_state(config, session_id, payload) as state:
             state.setdefault("round_id", uuid4().hex)
             state.setdefault("started_at", _now())
             answer = payload.get(
@@ -684,9 +820,10 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
                     state,
                     {"kind": "message", "role": "assistant", "content": answer, "final": True},
                 )
+                note_content(config, session_id, f"{state['round_id']}:assistant:{hashlib.sha256(_text(answer).encode()).hexdigest()}", answer)
         return {}
     if normalized in {"stop", "sessionend", "agentend"}:
-        with _locked_state(config, session_id) as state:
+        with _locked_capture_state(config, session_id, payload) as state:
             runtime_lease_id = _text(state.get("runtime_lease_id"))
             state.pop("runtime_lease_id", None)
             state.setdefault("round_id", uuid4().hex)
@@ -697,11 +834,21 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
                     state,
                     {"kind": "message", "role": "assistant", "content": answer, "final": True},
                 )
+                note_content(config, session_id, f"{state['round_id']}:assistant:{hashlib.sha256(_text(answer).encode()).hexdigest()}", answer)
             enqueued = _enqueue_finished_round(config, session_id, state)
+        turn_id = _text(payload.get("turn_id"))
+        if config.target == "codex" and turn_id:
+            with _locked_state(config, session_id) as lease_state:
+                # An old background Stop must not release the new turn's lease.
+                if lease_state.get("runtime_lease_turn_id") == turn_id:
+                    runtime_lease_id = _text(lease_state.pop("runtime_lease_id", ""))
+                    lease_state.pop("runtime_lease_turn_id", None)
         # SessionEnd has a host-enforced maximum of three seconds. Its job is
         # the durable local handoff; a normal background Stop performs delivery.
         if enqueued:
-            if normalized != "sessionend":
+            if normalized != "sessionend" and not (
+                config.target == "codex" and config.config_file
+            ):
                 _deliver_ready(config, session_id)
             _launch_delivery_drain(config)
         _release_session_lease(config, runtime_lease_id)

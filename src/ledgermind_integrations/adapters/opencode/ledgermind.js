@@ -18,7 +18,6 @@ function textParts(parts) {
 
 export const LedgerMindPlugin = async ({ directory }) => {
   const lastText = new Map()
-  const contextBySession = new Map()
   return {
     "chat.message": async (input, output) => {
       const prompt = textParts(output.parts)
@@ -26,12 +25,10 @@ export const LedgerMindPlugin = async ({ directory }) => {
         session_id: input.sessionID, cwd: directory, prompt,
       })
       const context = response?.hookSpecificOutput?.additionalContext
-      if (context) contextBySession.set(input.sessionID, context)
-      else contextBySession.delete(input.sessionID)
-    },
-    "experimental.chat.system.transform": async (input, output) => {
-      const context = contextBySession.get(input.sessionID)
-      if (context) output.system.push(context)
+      // The existing text part has a host-issued part ID and is durably kept
+      // in message history. Capture above used the original user text.
+      const firstTextPart = output.parts.find((part) => part?.type === "text")
+      if (context && firstTextPart) firstTextPart.text += `\n\n${context}`
     },
     "tool.execute.before": async (input, output) => {
       bridge("PreToolUse", {
@@ -55,11 +52,18 @@ export const LedgerMindPlugin = async ({ directory }) => {
         const response = lastText.get(sessionID)
         if (response) bridge("assistant", { session_id: sessionID, response })
         lastText.delete(sessionID)
-        contextBySession.delete(sessionID)
         // OpenCode awaits the idle event handler even in `opencode run` mode,
         // so use Stop here: it durably enqueues the round and synchronously
         // flushes ready delivery before the short-lived process exits.
         bridge("Stop", { session_id: sessionID, cwd: directory })
+      }
+      if (event.type === "session.compacted") {
+        const sessionID = event.properties?.sessionID
+        if (sessionID) bridge("PostCompact", { session_id: sessionID, cwd: directory })
+      }
+      if (event.type === "session.deleted") {
+        const sessionID = event.properties?.info?.id ?? event.properties?.sessionID
+        if (sessionID) bridge("SessionReset", { session_id: sessionID, cwd: directory })
       }
     },
   }

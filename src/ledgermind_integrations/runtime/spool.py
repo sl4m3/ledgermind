@@ -125,12 +125,14 @@ class FileSpool:
         payload: Mapping[str, Any],
         *,
         exclude: Sequence[Path] = (),
+        check_queue_capacity: bool = True,
     ) -> Path:
         self._ensure()
         encoded = self._encode(payload)
         if self._payload_size(payload) > self.max_payload_bytes:
             raise SpoolFullError("payload byte limit exceeded")
-        self._check_limits(destination, len(encoded), exclude=exclude)
+        if check_queue_capacity:
+            self._check_limits(destination, len(encoded), exclude=exclude)
         temporary = destination.with_name(f".{destination.name}.{uuid4().hex}.tmp")
         try:
             with temporary.open("wb") as handle:
@@ -335,7 +337,8 @@ class FileSpool:
     def stats(self) -> SpoolStats:
         self._ensure()
         return SpoolStats(
-            pending_capture=len(list(self.pending_dir.glob("*.json"))),
+            pending_capture=(len(list(self.pending_dir.glob("*.json")))
+                             + len(list((self.root / "completed-capture").glob("*.json")))),
             ready_delivery=len(list(self.ready_dir.glob("*.json"))),
             inflight=len(list(self.inflight_dir.glob("*.json"))),
             failed=len(list(self.failed_dir.glob("*.json"))),
@@ -348,6 +351,7 @@ class FileSpool:
         self._write(
             self.delivery_status_path,
             {"status": "pending", "reason": safe_reason, "updated_at": time.time()},
+            check_queue_capacity=False,
         )
 
     def clear_delivery_failure(self) -> None:

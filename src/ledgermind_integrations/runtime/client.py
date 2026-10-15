@@ -34,6 +34,24 @@ class LedgerMindResponseError(LedgerMindClientError):
     """Non-retriable protocol or response error."""
 
 
+def round_acceptance_confirmed(response: Mapping[str, Any]) -> bool:
+    """Confirm durable capture, independently of subsequent Core processing.
+
+    Older Local servers return a capture receipt with a processing status,
+    rather than ``accepted=True``. Never infer acceptance from HTTP 2xx alone.
+    """
+    if response.get("accepted") is False:
+        return False
+    if response.get("accepted") is True or response.get("status") == "accepted":
+        return True
+    return (
+        response.get("schema_version") == 2
+        and isinstance(response.get("raw_round_id"), str)
+        and bool(response["raw_round_id"].strip())
+        and response.get("status") in {"queued_for_core", "retry_wait", "rejected"}
+    )
+
+
 def _read_token(path: Path) -> str | None:
     try:
         value = path.read_text(encoding="utf-8").strip()
@@ -75,6 +93,7 @@ class LedgerMindClient:
         project_id: str | None = None, repository_id: str | None = None,
         task_id: str | None = None, conversation_id: str | None = None,
         query_context: str | None = None,
+        visible_value_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         payload = self._request(
             "POST",
@@ -83,6 +102,7 @@ class LedgerMindClient:
                 "memory_space_id": memory_space_id,
                 "query": query,
                 "limit": int(limit),
+                **({"visible_value_ids": visible_value_ids} if visible_value_ids else {}),
                 **{key: value for key, value in {
                     "project_id": project_id, "repository_id": repository_id,
                     "task_id": task_id, "conversation_id": conversation_id,
@@ -102,9 +122,19 @@ class LedgerMindClient:
             "/rounds",
             validated.model_dump(mode="json", exclude_none=True),
         )
-        if response.get("status") != "accepted" and response.get("accepted") is not True:
+        if not round_acceptance_confirmed(response):
             raise LedgerMindResponseError("round acceptance was not confirmed")
         return response
+
+    def report_injection_event(
+        self, *, event_id: str, retrieval_request_id: str, memory_space_id: str,
+        session_id: str, stage: str, value_ids: list[str],
+    ) -> dict[str, Any]:
+        return self._request("POST", "/context/injection-events", {
+            "event_id": event_id, "retrieval_request_id": retrieval_request_id,
+            "memory_space_id": memory_space_id, "session_id": session_id,
+            "stage": stage, "value_ids": value_ids,
+        })
 
     def ping(self) -> dict[str, Any]:
         return self._request("GET", "/ping", None)

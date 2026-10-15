@@ -6,7 +6,7 @@ import time
 from collections.abc import Mapping
 from typing import Any, Protocol
 
-from .client import LedgerMindClientError, LedgerMindConflictError
+from .client import LedgerMindClientError, LedgerMindConflictError, round_acceptance_confirmed
 from .spool import FileSpool
 
 
@@ -51,11 +51,12 @@ class DeliveryWorker:
             return
         try:
             response = self.client.submit_round(request)
-            if response.get("status") != "accepted" and response.get("accepted") is not True:
+            if not round_acceptance_confirmed(response):
                 raise LedgerMindClientError("round acceptance was not confirmed")
         except LedgerMindConflictError:
             self.spool.fail(item_name, "source_round_conflict")
-        except Exception:  # noqa: BLE001 - preserve uncertain deliveries, including malformed acknowledgements
+        except Exception as exc:  # noqa: BLE001 - preserve uncertain deliveries, including malformed acknowledgements
+            delivery["last_error_type"] = type(exc).__name__
             delay = min(self.max_backoff_seconds, self.base_backoff_seconds * (2 ** min(attempts - 1, 16)))
             delivery["next_attempt_at"] = time.time() + delay
             self.spool.retry(item_name, mutable)

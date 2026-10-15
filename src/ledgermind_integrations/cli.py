@@ -42,8 +42,7 @@ def main(argv: list[str] | None = None) -> int:
             result = handle_hook(load_lifecycle_config(args.config), args.event, payload)
         except Exception:  # noqa: BLE001 -- agent hooks must fail open
             result = {}
-        if result:
-            print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
+        print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
         return 0
     if args.command == "drain":
         from .adapters.lifecycle.bridge import drain_ready
