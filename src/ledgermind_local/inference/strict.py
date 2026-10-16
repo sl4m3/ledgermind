@@ -35,6 +35,7 @@ _PROFILE_KEYWORDS = frozenset(
         "$defs",
         "$ref",
         "oneOf",
+        "anyOf",
     }
 )
 
@@ -92,20 +93,18 @@ def validate_strict_schema_profile(schema: object) -> dict[str, object]:
                     f"strict schema reference at {path} must not have siblings"
                 )
             return
-        alternatives = node.get("oneOf")
-        if alternatives is not None:
-            if (
-                not isinstance(alternatives, Sequence)
-                or isinstance(alternatives, (str, bytes, bytearray))
-                or not alternatives
-            ):
-                raise ValueError(
-                    f"strict schema oneOf at {path} must be a non-empty array"
-                )
+        has_alternatives = False
+        for composition in ("oneOf", "anyOf"):
+            if composition not in node:
+                continue
+            alternatives = node[composition]
+            if not isinstance(alternatives, Sequence) or isinstance(alternatives, (str, bytes, bytearray)) or not alternatives:
+                raise ValueError(f"strict schema {composition} at {path} must be a non-empty array")
+            has_alternatives = True
             for index, alternative in enumerate(alternatives):
-                visit(alternative, f"{path}.oneOf[{index}]")
+                visit(alternative, f"{path}.{composition}[{index}]")
         types = _types(node.get("type"))
-        if not types and "enum" not in node and alternatives is None:
+        if not types and "enum" not in node and not has_alternatives:
             raise ValueError(f"strict schema node {path} must declare a type")
         known = {"object", "array", "string", "integer", "number", "boolean", "null"}
         if any(item not in known for item in types):

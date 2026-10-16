@@ -687,7 +687,7 @@ def _telemetry_operation(task: GenericExecutionTask) -> object:
         return f"{task.operation}_decision"
     memory = (task.operation_input or {}).get("round_memory")
     if isinstance(memory, dict) and memory.get("version") in {
-        "round_memory_two_stage_v1", "round_memory_two_stage_v2", "round_memory_two_stage_v3",
+        "round_memory_two_stage_v1", "round_memory_two_stage_v2", "round_memory_two_stage_v3", "round_memory_two_stage_v4", "round_memory_two_stage_v5",
     }:
         stage = memory.get("stage")
         if stage in {"preparation", "packaging"}:
