@@ -1135,12 +1135,32 @@ class DependencyAssessment(ProtocolModel):
     state: Literal["satisfied", "missing", "snapshot_changed", "revalidation_required"]
 
 
+class DependencyScopeAssessment(ProtocolModel):
+    contract_version: Literal["registered_dependency_scopes_v1"]
+    scope_kind: Literal["global", "object", "target"]
+    scope_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
+    checked_revision: int = Field(ge=0)
+    current_revision: int = Field(ge=0)
+    coverage: Literal["registered_rules_only", "legacy_scope_pending"]
+    state: Literal["satisfied", "snapshot_changed", "revalidation_required"]
+
+    @model_validator(mode="after")
+    def validate_assessment(self) -> DependencyScopeAssessment:
+        expected = ("snapshot_changed" if self.checked_revision != self.current_revision else
+                    "revalidation_required" if self.coverage == "legacy_scope_pending" else "satisfied")
+        if self.state != expected:
+            raise ValueError("scope assessment must reflect its actual revision and coverage")
+        return self
+
+
 class ValueSemanticSafety(ProtocolModel):
     lifecycle_status: Literal["active", "superseded", "invalidated", "contested", "resolved"]
     dependencies: list[DependencyAssessment] = Field(max_length=1000)
+    scope_checks: list[DependencyScopeAssessment] = Field(default_factory=list, max_length=1000, exclude_if=lambda value: not value)
 
     def requires_revalidation(self) -> bool:
-        return self.lifecycle_status != "active" or any(row.state != "satisfied" for row in self.dependencies)
+        return (self.lifecycle_status != "active" or any(row.state != "satisfied" for row in self.dependencies)
+                or any(row.state != "satisfied" for row in self.scope_checks))
 
 
 class RetrievalItem(ProtocolModel):
@@ -1222,7 +1242,7 @@ class RetrievalTuning(ProtocolModel):
 class RetrievalRequest(ProtocolModel):
     """Core retrieval request with the query embedding supplied by Local."""
 
-    schema_version: Literal[2, 3, 4] = 2
+    schema_version: Literal[2, 3, 4, 5] = 2
     memory_space_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     query_text: str = Field(min_length=1, max_length=MAX_CONTENT_LENGTH)
     query_embedding: list[float] = Field(min_length=1, max_length=MAX_EMBEDDING_DIMENSIONS)
@@ -1281,7 +1301,7 @@ class RetrievalRequest(ProtocolModel):
 class MemoryInjection(ProtocolModel):
     """Core-rendered, deterministic memory context for agent injection."""
 
-    format: Literal["facet_legend", "semantic_units_v2"]
+    format: Literal["facet_legend", "semantic_units_v2", "semantic_units_v3"]
     semantic_contract_version: Literal["memory_semantics_v2"] | None = Field(default=None, exclude_if=lambda value: value is None)
     text: str = Field(max_length=65_536)
     legend: list[str] = Field(max_length=14)
@@ -1289,7 +1309,7 @@ class MemoryInjection(ProtocolModel):
 
     @model_validator(mode="after")
     def validate_injection(self) -> MemoryInjection:
-        if self.format == "semantic_units_v2" and self.semantic_contract_version != "memory_semantics_v2":
+        if self.format in {"semantic_units_v2", "semantic_units_v3"} and self.semantic_contract_version != "memory_semantics_v2":
             raise ValueError("semantic injection requires a versioned contract")
         for row in self.legend:
             _require_text(row, "memory injection legend row", 1_024)
@@ -1299,7 +1319,7 @@ class MemoryInjection(ProtocolModel):
 
 
 class RetrievalResponse(ProtocolModel):
-    schema_version: Literal[2, 3, 4] = 2
+    schema_version: Literal[2, 3, 4, 5] = 2
     retrieval_request_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     items: list[RetrievalItem] = Field(max_length=MAX_RETRIEVAL_ITEMS)
     target_resolution: dict[str, Any] | None = None
@@ -1308,10 +1328,12 @@ class RetrievalResponse(ProtocolModel):
 
     @model_validator(mode="after")
     def validate_response(self) -> RetrievalResponse:
-        if self.schema_version == 4 and any(item.semantic_safety is None for item in self.items):
+        if self.schema_version < 5 and any(item.semantic_safety and item.semantic_safety.scope_checks for item in self.items):
+            raise ValueError("scoped safety requires schema5")
+        if self.schema_version in {4, 5} and any(item.semantic_safety is None for item in self.items):
             raise ValueError("semantic retrieval requires safety metadata for every value")
-        if self.schema_version == 4 and (
-            self.memory_injection is None or self.memory_injection.format != "semantic_units_v2"
+        if self.schema_version in {4, 5} and (
+            self.memory_injection is None or self.memory_injection.format != ("semantic_units_v3" if self.schema_version == 5 else "semantic_units_v2")
             or self.memory_injection.semantic_contract_version != "memory_semantics_v2"
         ):
             raise ValueError("semantic retrieval requires its versioned memory injection")

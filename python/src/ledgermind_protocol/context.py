@@ -47,7 +47,7 @@ class ContextViewItem(RetrievalItem):
 
 
 class ContextView(ProtocolModel):
-    schema_version: Literal[2, 3, 4] = 2
+    schema_version: Literal[2, 3, 4, 5] = 2
     retrieval_request_id: str = Field(min_length=1, max_length=500)
     items: list[ContextViewItem] = Field(max_length=100)
     # Compatibility name: service-selected IDs, not proof of host visibility.
@@ -57,10 +57,12 @@ class ContextView(ProtocolModel):
 
     @model_validator(mode="after")
     def validate_delivery_refs(self) -> ContextView:
-        if self.schema_version == 4 and any(item.semantic_safety is None for item in self.items):
+        if self.schema_version < 5 and any(item.semantic_safety and item.semantic_safety.scope_checks for item in self.items):
+            raise ValueError("scoped safety requires schema5")
+        if self.schema_version in {4, 5} and any(item.semantic_safety is None for item in self.items):
             raise ValueError("semantic context requires safety metadata for every value")
-        if self.schema_version == 4 and (
-            self.memory_injection is None or self.memory_injection.format != "semantic_units_v2"
+        if self.schema_version in {4, 5} and (
+            self.memory_injection is None or self.memory_injection.format != ("semantic_units_v3" if self.schema_version == 5 else "semantic_units_v2")
             or self.memory_injection.semantic_contract_version != "memory_semantics_v2"
         ):
             raise ValueError("semantic context requires its versioned memory injection")
