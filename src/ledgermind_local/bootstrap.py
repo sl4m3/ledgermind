@@ -20,6 +20,7 @@ from ledgermind_inference.embedding_provider import EmbeddingProvider
 from ledgermind_inference.embedding_purpose import KNOWLEDGE_QUERY_ROLE, OBJECT_QUERY_ROLE
 from ledgermind_inference.openai_vectorizer import OpenAIEmbeddingVectorizer
 from ledgermind_inference.strict import STRICT_JSON_SCHEMA_MODE
+from ledgermind_inference.semantic_contract import configured_resolution_pipeline
 from ledgermind_inference.structured_json_provider import StructuredJsonProvider
 
 from ledgermind_local.config import CURRENT_CONFIG_VERSION, LocalConfig, WorkerConfig
@@ -188,7 +189,7 @@ def build_process_core_gateway(
         ),
         binary_signature_verified=signature_verified,
         semantic_language=config.semantic_language,
-        resolution_pipeline="decision_v1" if config.profile_slots.resolution_decision is not None else None,
+        resolution_pipeline=configured_resolution_pipeline(has_decision_profile=config.profile_slots.resolution_decision is not None),
     )
     return ProcessCoreGateway(supervisor)
 

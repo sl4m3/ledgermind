@@ -339,6 +339,7 @@ class CoreTaskExecutor:
                 **result.metadata,
                 "decision_task_id": (task.operation_input or {}).get("decision_task_id"),
                 "decision_question_version": (task.operation_input or {}).get("decision_question_version"),
+                "resolution_stage": (task.operation_input or {}).get("resolution_stage"),
                 "parsed_json": result.parsed_json,
                 "raw_text": result.raw_text,
                 "provider_request_id": result.provider_request_id,
@@ -686,7 +687,7 @@ def _telemetry_operation(task: GenericExecutionTask) -> object:
         return f"{task.operation}_decision"
     memory = (task.operation_input or {}).get("round_memory")
     if isinstance(memory, dict) and memory.get("version") in {
-        "round_memory_two_stage_v1", "round_memory_two_stage_v2",
+        "round_memory_two_stage_v1", "round_memory_two_stage_v2", "round_memory_two_stage_v3",
     }:
         stage = memory.get("stage")
         if stage in {"preparation", "packaging"}:

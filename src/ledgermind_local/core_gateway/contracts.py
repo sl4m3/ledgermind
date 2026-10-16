@@ -791,6 +791,7 @@ class RetrieveContextCommand:
     visible_value_ids: tuple[str, ...] = ()
     requested_facets: tuple[str, ...] = ()
     explanation_level: str = "compact"
+    semantic_delivery: bool = False
 
     def __post_init__(self) -> None:
         _required(self.request_id, "request_id")
@@ -840,7 +841,7 @@ class RetrieveContextCommand:
 
     def to_payload(self) -> dict[str, object]:
         return {
-            "schema_version": 2,
+            "schema_version": 4 if self.semantic_delivery else 2,
             "memory_space_id": self.memory_space_id,
             "query_text": self.query_text,
             "query_embedding": list(self.query_embedding),

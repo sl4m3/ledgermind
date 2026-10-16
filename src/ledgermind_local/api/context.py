@@ -8,7 +8,8 @@ from collections.abc import Callable, Sequence
 from typing import Any, Literal, Protocol
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
+from ledgermind_protocol.object_facet import ValueSemanticSafety
 
 from ledgermind_local.core_gateway import (
     DomainRejectedError,
@@ -47,7 +48,7 @@ class QueryEmbedder(Protocol):
 class ContextRetrieveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal[2] = 2
+    schema_version: Literal[2, 4] = 2
     memory_space_id: str = Field(min_length=1, max_length=200)
     query: str = Field(min_length=1, max_length=20_000)
     query_context: str | None = Field(default=None, min_length=1, max_length=4_000)
@@ -98,12 +99,23 @@ class ContextItemResponse(BaseModel):
     conditions: list[dict[str, str]] = Field(default_factory=list)
     relevance: float = Field(ge=0.0, le=1.0)
     explanation: dict[str, object]
+    semantic_safety: ValueSemanticSafety | None = Field(default=None, exclude_if=lambda value: value is None)
+    requires_revalidation: StrictBool | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    @model_validator(mode="after")
+    def validate_semantic_safety(self) -> ContextItemResponse:
+        if self.semantic_safety is not None and self.requires_revalidation != self.semantic_safety.requires_revalidation():
+            raise ValueError("requires_revalidation must match explicit safety metadata")
+        if self.semantic_safety is None and self.requires_revalidation is not None:
+            raise ValueError("requires_revalidation needs explicit safety metadata")
+        return self
 
 
 class MemoryInjectionResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    format: Literal["facet_legend"]
+    format: Literal["facet_legend", "semantic_units_v2"]
+    semantic_contract_version: Literal["memory_semantics_v2"] | None = Field(default=None, exclude_if=lambda value: value is None)
     text: str = Field(max_length=65_536)
     legend: list[str] = Field(default_factory=list, max_length=14)
     item_count: int = Field(ge=0, le=100)
@@ -112,12 +124,22 @@ class MemoryInjectionResponse(BaseModel):
 class ContextViewResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal[2] = 2
+    schema_version: Literal[2, 4] = 2
     items: list[ContextItemResponse]
     retrieval_request_id: str
     delivered_value_ids: list[str] = Field(default_factory=list)
     memory_injection: MemoryInjectionResponse | None = None
     selection_diagnostics: dict[str, object] | None = None
+
+    @model_validator(mode="after")
+    def validate_semantic_delivery(self) -> ContextViewResponse:
+        if self.schema_version == 4:
+            if any(item.semantic_safety is None for item in self.items):
+                raise ValueError("semantic context requires safety metadata for every value")
+            if (self.memory_injection is None or self.memory_injection.format != "semantic_units_v2"
+                or self.memory_injection.semantic_contract_version != "memory_semantics_v2"):
+                raise ValueError("semantic context requires its versioned memory injection")
+        return self
 
 
 def create_context_router(
@@ -236,6 +258,7 @@ def create_context_router(
                     visible_value_ids=tuple(payload.visible_value_ids),
                     requested_facets=tuple(payload.requested_facets or ()),
                     explanation_level="compact" if reranker is not None else payload.explanation_level,
+                    semantic_delivery=payload.schema_version == 4,
                 )
             )
             response_payload = _context_response(result.payload)
@@ -415,7 +438,7 @@ def _context_response(payload: dict[str, object]) -> dict[str, Any]:
         rendered.pop("source_event_ids", None)
         items.append(rendered)
     return {
-        "schema_version": 2,
+        "schema_version": 4 if response.schema_version == 4 else 2,
         "retrieval_request_id": response.retrieval_request_id,
         "items": items,
         "memory_injection": (

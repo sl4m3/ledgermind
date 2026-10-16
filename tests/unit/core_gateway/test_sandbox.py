@@ -294,3 +294,11 @@ def test_sandbox_environment_preserves_semantic_language_contract(
     )
 
     assert environment["LEDGERMIND_SEMANTIC_LANGUAGE"] == "ru"
+
+
+def test_sandbox_explicit_candidate_contract_does_not_leak_credentials(tmp_path, monkeypatch):
+    monkeypatch.setenv("OPENROUTER_API_KEY", "not-a-real-key")
+    environment = _sandbox_environment(tmp_path, ("/opt/ledgermind-core/bin/ledgermind-core",),
+        semantic_language="ru", resolution_pipeline="semantic_units_v2")
+    assert environment["LEDGERMIND_RESOLUTION_PIPELINE"] == "semantic_units_v2"
+    assert "OPENROUTER_API_KEY" not in environment

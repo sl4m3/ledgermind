@@ -24,6 +24,16 @@ def _load_gate():
 
 
 class LocalVersionlessNamesTests(unittest.TestCase):
+    def test_internal_contract_allowance_is_exact_and_does_not_allow_product_names(self) -> None:
+        gate = _load_gate()
+        path = "src/ledgermind_local/core_gateway/sandbox.py"
+        literal = 'selected = "semantic_units_v2"'
+        match = next(gate._TOKEN_RE.finditer(literal))
+        self.assertTrue(gate._allowed(path, literal, match.start(), match.group(), "content", ""))
+        for forbidden in ['selected = "product-v2"', 'selected = "semantic_units_v99"']:
+            match = next(gate._TOKEN_RE.finditer(forbidden))
+            self.assertFalse(gate._allowed(path, forbidden, match.start(), match.group(), "content", ""))
+
     def test_current_checkout_passes_without_versioned_surface(self) -> None:
         result = subprocess.run(
             [sys.executable, str(SCRIPT)],
