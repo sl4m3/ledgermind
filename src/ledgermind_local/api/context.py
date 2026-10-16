@@ -48,7 +48,7 @@ class QueryEmbedder(Protocol):
 class ContextRetrieveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal[2, 4] = 2
+    schema_version: Literal[2, 4, 5] = 2
     memory_space_id: str = Field(min_length=1, max_length=200)
     query: str = Field(min_length=1, max_length=20_000)
     query_context: str | None = Field(default=None, min_length=1, max_length=4_000)
@@ -114,7 +114,7 @@ class ContextItemResponse(BaseModel):
 class MemoryInjectionResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    format: Literal["facet_legend", "semantic_units_v2"]
+    format: Literal["facet_legend", "semantic_units_v2", "semantic_units_v3"]
     semantic_contract_version: Literal["memory_semantics_v2"] | None = Field(default=None, exclude_if=lambda value: value is None)
     text: str = Field(max_length=65_536)
     legend: list[str] = Field(default_factory=list, max_length=14)
@@ -124,7 +124,7 @@ class MemoryInjectionResponse(BaseModel):
 class ContextViewResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schema_version: Literal[2, 4] = 2
+    schema_version: Literal[2, 4, 5] = 2
     items: list[ContextItemResponse]
     retrieval_request_id: str
     delivered_value_ids: list[str] = Field(default_factory=list)
@@ -133,10 +133,10 @@ class ContextViewResponse(BaseModel):
 
     @model_validator(mode="after")
     def validate_semantic_delivery(self) -> ContextViewResponse:
-        if self.schema_version == 4:
+        if self.schema_version in {4, 5}:
             if any(item.semantic_safety is None for item in self.items):
                 raise ValueError("semantic context requires safety metadata for every value")
-            if (self.memory_injection is None or self.memory_injection.format != "semantic_units_v2"
+            if (self.memory_injection is None or self.memory_injection.format != ("semantic_units_v3" if self.schema_version == 5 else "semantic_units_v2")
                 or self.memory_injection.semantic_contract_version != "memory_semantics_v2"):
                 raise ValueError("semantic context requires its versioned memory injection")
         return self
@@ -258,7 +258,8 @@ def create_context_router(
                     visible_value_ids=tuple(payload.visible_value_ids),
                     requested_facets=tuple(payload.requested_facets or ()),
                     explanation_level="compact" if reranker is not None else payload.explanation_level,
-                    semantic_delivery=payload.schema_version == 4,
+                    semantic_delivery=payload.schema_version in {4, 5},
+                    scoped_dependencies=payload.schema_version == 5,
                 )
             )
             response_payload = _context_response(result.payload)
@@ -438,7 +439,7 @@ def _context_response(payload: dict[str, object]) -> dict[str, Any]:
         rendered.pop("source_event_ids", None)
         items.append(rendered)
     return {
-        "schema_version": 4 if response.schema_version == 4 else 2,
+        "schema_version": response.schema_version if response.schema_version in {4, 5} else 2,
         "retrieval_request_id": response.retrieval_request_id,
         "items": items,
         "memory_injection": (
