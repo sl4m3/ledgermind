@@ -37,6 +37,8 @@ def test_public_exports_are_boundary_models() -> None:
         "source_event_ids",
         "relevance",
         "explanation",
+        "semantic_safety",
+        "requires_revalidation",
     }
 
 

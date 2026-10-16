@@ -19,9 +19,10 @@ from .object_facet import (
 class ContextViewItem(RetrievalItem):
     """Public Local item, whose Core-owned event provenance is not exposed.
 
-    ``RetrievalResponse`` remains strict and requires source event ids.  Local's
-    public ContextView deliberately strips those internal ids before handing
-    context to integrations, so this boundary accepts an omitted/empty list.
+    ``RetrievalResponse`` remains strict and requires source event ids. Local
+    strips that top-level internal list before handing context to integrations,
+    so this boundary accepts an omitted/empty list. Schema4 deliberately retains
+    explicit prerequisite provenance inside its semantic safety metadata.
     """
 
     source_event_ids: list[str] = Field(
@@ -31,6 +32,13 @@ class ContextViewItem(RetrievalItem):
 
     @model_validator(mode="after")
     def validate_item(self) -> ContextViewItem:
+        # This overrides RetrievalItem's source-ID validator because public
+        # ContextView intentionally omits internal IDs. Do not also bypass its
+        # explicit safety/flag invariant.
+        if self.semantic_safety is not None and self.requires_revalidation != self.semantic_safety.requires_revalidation():
+            raise ValueError("requires_revalidation must match explicit safety metadata")
+        if self.semantic_safety is None and self.requires_revalidation is not None:
+            raise ValueError("requires_revalidation needs explicit safety metadata")
         if self.source_event_ids:
             _validate_ids(self.source_event_ids, "source_event_ids", MAX_SOURCE_EVENT_IDS)
         if self.explanation.item_facet != self.facet:
@@ -39,7 +47,7 @@ class ContextViewItem(RetrievalItem):
 
 
 class ContextView(ProtocolModel):
-    schema_version: Literal[2, 3] = 2
+    schema_version: Literal[2, 3, 4] = 2
     retrieval_request_id: str = Field(min_length=1, max_length=500)
     items: list[ContextViewItem] = Field(max_length=100)
     # Compatibility name: service-selected IDs, not proof of host visibility.
@@ -49,6 +57,13 @@ class ContextView(ProtocolModel):
 
     @model_validator(mode="after")
     def validate_delivery_refs(self) -> ContextView:
+        if self.schema_version == 4 and any(item.semantic_safety is None for item in self.items):
+            raise ValueError("semantic context requires safety metadata for every value")
+        if self.schema_version == 4 and (
+            self.memory_injection is None or self.memory_injection.format != "semantic_units_v2"
+            or self.memory_injection.semantic_contract_version != "memory_semantics_v2"
+        ):
+            raise ValueError("semantic context requires its versioned memory injection")
         if len(set(self.delivered_value_ids)) != len(self.delivered_value_ids):
             raise ValueError("delivered_value_ids must be unique")
         value_ids = {item.value_id for item in self.items}

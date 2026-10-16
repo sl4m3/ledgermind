@@ -99,6 +99,8 @@ def test_schema_inventory_is_versionless_and_strict() -> None:
         "retrieval-request.schema.json",
         "record-retrieval-outcome.schema.json",
         "retrieval-response.schema.json",
+        "semantic-retrieval-request.schema.json",
+        "semantic-retrieval-response.schema.json",
     }
     assert {path.name for path in _SCHEMAS.glob("*.json")} == expected
     for path in sorted(_SCHEMAS.glob("*.json")):

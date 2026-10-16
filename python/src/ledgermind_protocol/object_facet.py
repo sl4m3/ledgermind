@@ -1128,6 +1128,21 @@ class RetrievalExplanation(ProtocolModel):
         return self
 
 
+class DependencyAssessment(ProtocolModel):
+    required_value_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH, pattern=r"\S")
+    required_content_digest: str = Field(min_length=1, max_length=100, pattern=r"\S")
+    source_event_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH, pattern=r"\S")
+    state: Literal["satisfied", "missing", "snapshot_changed", "revalidation_required"]
+
+
+class ValueSemanticSafety(ProtocolModel):
+    lifecycle_status: Literal["active", "superseded", "invalidated", "contested", "resolved"]
+    dependencies: list[DependencyAssessment] = Field(max_length=1000)
+
+    def requires_revalidation(self) -> bool:
+        return self.lifecycle_status != "active" or any(row.state != "satisfied" for row in self.dependencies)
+
+
 class RetrievalItem(ProtocolModel):
     value_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     primary_object_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
@@ -1150,9 +1165,15 @@ class RetrievalItem(ProtocolModel):
     source_event_ids: list[str] = Field(min_length=1, max_length=MAX_SOURCE_EVENT_IDS)
     relevance: float = Field(ge=0.0, le=1.0)
     explanation: RetrievalExplanation
+    semantic_safety: ValueSemanticSafety | None = Field(default=None, exclude_if=lambda value: value is None)
+    requires_revalidation: StrictBool | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def validate_item(self) -> RetrievalItem:
+        if self.semantic_safety is not None and self.requires_revalidation != self.semantic_safety.requires_revalidation():
+            raise ValueError("requires_revalidation must match explicit safety metadata")
+        if self.semantic_safety is None and self.requires_revalidation is not None:
+            raise ValueError("requires_revalidation needs explicit safety metadata")
         _require_identifier(self.value_id, "value id")
         _require_identifier(self.primary_object_id, "primary object id")
         _require_text(self.object_name, "object name", MAX_IDENTIFIER_LENGTH)
@@ -1201,10 +1222,11 @@ class RetrievalTuning(ProtocolModel):
 class RetrievalRequest(ProtocolModel):
     """Core retrieval request with the query embedding supplied by Local."""
 
-    schema_version: Literal[2, 3] = 2
+    schema_version: Literal[2, 3, 4] = 2
     memory_space_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     query_text: str = Field(min_length=1, max_length=MAX_CONTENT_LENGTH)
     query_embedding: list[float] = Field(min_length=1, max_length=MAX_EMBEDDING_DIMENSIONS)
+    object_query_embedding: list[float] | None = Field(default=None, min_length=1, max_length=MAX_EMBEDDING_DIMENSIONS, exclude_if=lambda value: value is None)
     embedding_model_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     embedding_model_version: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     limit: int = Field(ge=1, le=MAX_RETRIEVAL_ITEMS)
@@ -1233,6 +1255,12 @@ class RetrievalRequest(ProtocolModel):
             for component in self.query_embedding
         ):
             raise ValueError("query_embedding values must be finite and bounded")
+        if self.object_query_embedding is not None:
+            if len(self.object_query_embedding) != len(self.query_embedding):
+                raise ValueError("object_query_embedding must match query_embedding dimensions")
+            if any(not math.isfinite(component) or abs(component) > MAX_EMBEDDING_ABSOLUTE_VALUE
+                   for component in self.object_query_embedding):
+                raise ValueError("object_query_embedding values must be finite and bounded")
         if self.repository_id is not None and self.project_id is None:
             raise ValueError("repository id requires a matching project id")
         if self.base_limit is not None and self.base_limit > self.limit:
@@ -1253,13 +1281,16 @@ class RetrievalRequest(ProtocolModel):
 class MemoryInjection(ProtocolModel):
     """Core-rendered, deterministic memory context for agent injection."""
 
-    format: Literal["facet_legend"]
+    format: Literal["facet_legend", "semantic_units_v2"]
+    semantic_contract_version: Literal["memory_semantics_v2"] | None = Field(default=None, exclude_if=lambda value: value is None)
     text: str = Field(max_length=65_536)
     legend: list[str] = Field(max_length=14)
     item_count: int = Field(ge=0, le=MAX_RETRIEVAL_ITEMS)
 
     @model_validator(mode="after")
     def validate_injection(self) -> MemoryInjection:
+        if self.format == "semantic_units_v2" and self.semantic_contract_version != "memory_semantics_v2":
+            raise ValueError("semantic injection requires a versioned contract")
         for row in self.legend:
             _require_text(row, "memory injection legend row", 1_024)
         if self.item_count == 0 and self.text:
@@ -1268,7 +1299,7 @@ class MemoryInjection(ProtocolModel):
 
 
 class RetrievalResponse(ProtocolModel):
-    schema_version: Literal[2, 3] = 2
+    schema_version: Literal[2, 3, 4] = 2
     retrieval_request_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     items: list[RetrievalItem] = Field(max_length=MAX_RETRIEVAL_ITEMS)
     target_resolution: dict[str, Any] | None = None
@@ -1277,6 +1308,13 @@ class RetrievalResponse(ProtocolModel):
 
     @model_validator(mode="after")
     def validate_response(self) -> RetrievalResponse:
+        if self.schema_version == 4 and any(item.semantic_safety is None for item in self.items):
+            raise ValueError("semantic retrieval requires safety metadata for every value")
+        if self.schema_version == 4 and (
+            self.memory_injection is None or self.memory_injection.format != "semantic_units_v2"
+            or self.memory_injection.semantic_contract_version != "memory_semantics_v2"
+        ):
+            raise ValueError("semantic retrieval requires its versioned memory injection")
         _require_identifier(self.retrieval_request_id, "retrieval request id")
         if self.memory_injection is not None and self.memory_injection.item_count != len(
             self.items
