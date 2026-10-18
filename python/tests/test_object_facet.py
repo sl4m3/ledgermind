@@ -101,6 +101,8 @@ def test_schema_inventory_is_versionless_and_strict() -> None:
         "retrieval-response.schema.json",
         "semantic-retrieval-request.schema.json",
         "semantic-retrieval-response.schema.json",
+        "scoped-semantic-retrieval-request.schema.json",
+        "scoped-semantic-retrieval-response.schema.json",
     }
     assert {path.name for path in _SCHEMAS.glob("*.json")} == expected
     for path in sorted(_SCHEMAS.glob("*.json")):
@@ -384,6 +386,20 @@ def test_generic_task_accepts_closed_resolution_decision_request() -> None:
         GenericExecutionTask.model_validate({**payload, "decision_request": None})
     with pytest.raises(ValidationError, match="requires model_request"):
         GenericExecutionTask.model_validate({**payload, "model_request": None})
+
+
+def test_native_decision_task_roundtrip_keeps_structured_questions() -> None:
+    payload = _load_valid("v_task_generate.json")
+    payload.update(task_kind="decide", profile_slot="resolution_decision", decision_request={
+        "schema_version": 2, "state": {"subject": {"name": "A"}},
+        "questions": {"opaque": {"type": "choice", "instructions": {
+            "question": "Is `subject` the supplied object?", "subjects": ["/subject"]
+        }, "criteria": {"yes": {"meaning": "same subject"}, "no": None}}}
+    })
+    parsed = GenericExecutionTask.model_validate(payload)
+    restored = GenericExecutionTask.model_validate_json(parsed.model_dump_json())
+    assert restored.decision_request == payload["decision_request"]
+    assert isinstance(restored.decision_request["questions"]["opaque"]["criteria"]["yes"], dict)
 
 
 def test_retrieval_request_requires_project_for_repository() -> None:

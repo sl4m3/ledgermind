@@ -396,27 +396,10 @@ class GenericExecutionTask(ProtocolModel):
             if self.profile_slot != "resolution_decision":
                 raise ValueError("decide task requires the resolution_decision profile slot")
             request = self.decision_request
-            if not isinstance(request, dict) or request.get("schema_version") != 1:
+            if not isinstance(request, dict):
                 raise ValueError("decide task requires a versioned decision_request")
-            if not isinstance(request.get("state"), dict):
-                raise ValueError("decision_request state must be an object")
-            questions = request.get("questions")
-            if not isinstance(questions, dict) or not questions:
-                raise ValueError("decision_request requires closed questions")
-            for reference, question in questions.items():
-                if not isinstance(reference, str) or not reference.strip():
-                    raise ValueError("decision question reference must not be empty")
-                if not isinstance(question, dict) or question.get("type") != "choice":
-                    raise ValueError("decision question must be a choice")
-                if not isinstance(question.get("instructions"), str) or not question["instructions"].strip():
-                    raise ValueError("decision question instructions must not be empty")
-                criteria = question.get("criteria")
-                if not isinstance(criteria, dict) or not criteria or any(
-                    not isinstance(key, str) or not key.strip()
-                    or not isinstance(value, str) or not value.strip()
-                    for key, value in criteria.items()
-                ):
-                    raise ValueError("decision question criteria must be closed and non-empty")
+            from .decision import validate_decision_request
+            validate_decision_request(request)
             if self.model_request is None or self.embedding_request is not None:
                 raise ValueError("decide task requires model_request and forbids embedding_request")
         elif self.task_kind in {"generate_json", "object_resolution"}:
