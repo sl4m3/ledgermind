@@ -715,14 +715,9 @@ def _sandbox_environment(
     if semantic_language:
         environment["LEDGERMIND_SEMANTIC_LANGUAGE"] = semantic_language
     if resolution_pipeline is not None:
-        if resolution_pipeline not in {"legacy", "decision_v1", "semantic_units_v2", "semantic_units_v3", "addressed_write_v1"}:
+        if resolution_pipeline != "memory_write_v1":
             raise ValueError("invalid resolution pipeline")
         environment["LEDGERMIND_RESOLUTION_PIPELINE"] = resolution_pipeline
-        if resolution_pipeline == "semantic_units_v3":
-            revision = os.environ.get("LEDGERMIND_RS2_INSTRUCTION_REVISION", "anchors_v1")
-            if revision not in {"anchors_v1", "closure_v1"}:
-                raise ValueError("invalid grounded RS2 instruction revision")
-            environment["LEDGERMIND_RS2_INSTRUCTION_REVISION"] = revision
     python_home = _python_runtime_home(command)
     if python_home is not None:
         # Only a Python test/runtime shim needs this.  The production Rust

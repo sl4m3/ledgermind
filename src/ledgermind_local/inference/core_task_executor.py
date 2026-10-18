@@ -675,24 +675,9 @@ def _memory_space_id(task: GenericExecutionTask) -> str:
 
 
 def _telemetry_operation(task: GenericExecutionTask) -> object:
-    """Expose structured repair work separately from its parent operation."""
-
-    structured = task.structured_generation
-    if isinstance(structured, dict) and structured.get("attempt_kind") in {
-        "repair",
-        "empty_recheck",
-    }:
-        return "semantic_repair"
-    if task.task_kind == "decide":
-        return f"{task.operation}_decision"
-    memory = (task.operation_input or {}).get("round_memory")
-    if isinstance(memory, dict) and memory.get("version") in {
-        "round_memory_two_stage_v1", "round_memory_two_stage_v2", "round_memory_two_stage_v3", "round_memory_two_stage_v4", "round_memory_two_stage_v5", "addressed_write_v1",
-    }:
-        stage = memory.get("stage")
-        if stage in {"preparation", "packaging"}:
-            return f"round_memory_{stage}"
-    return task.operation
+    # Historical import path; active Local and Cloud already use the shared executor.
+    from ledgermind_inference.core_task_executor import _telemetry_operation as shared
+    return shared(task)
 
 
 def _error_category(error_code: str) -> str:

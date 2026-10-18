@@ -5,9 +5,9 @@
 Rust Core over IPC. Core owns the domain-level object-facet state and its
 processing; Local performs only technical generic execution tasks.
 
-For the optional Jev, isolated Kev, or generative OR/KR decision backend, see
-[Resolution decisions](../docs/resolution-decisions.md). Existing installations
-retain their legacy selection until explicitly configured.
+New-task composition is [memory_write_v1](../docs/memory-write-v1.md) with a required
+native decision profile. Frozen old tasks keep compatible readers; old experiment
+flags are not new-task modes. This branch does not reconfigure existing installations.
 
 ## Trust boundaries and data ownership
 

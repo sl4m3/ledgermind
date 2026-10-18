@@ -147,6 +147,15 @@ def build_core_doctor_report(
         )
         core_data_dir = knowledge_database_path.parent
         core_data_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        # Health/signature inspection remains usable before a decision profile
+        # is configured. This never enables a legacy write path: service
+        # bootstrap still requires the selected profile before accepting work.
+        try:
+            resolution_pipeline = configured_resolution_pipeline(has_decision_profile=config.profile_slots.resolution_decision is not None)
+            report["write_configuration"] = {"ready": True, "pipeline": resolution_pipeline}
+        except ValueError as exc:
+            resolution_pipeline = None
+            report["write_configuration"] = {"ready": False, "detail": str(exc)}
         supervisor = CoreSupervisor(
             [
                 str(binary),
@@ -168,7 +177,7 @@ def build_core_doctor_report(
             ),
             binary_signature_verified=signature_verified,
             semantic_language=config.semantic_language,
-            resolution_pipeline=configured_resolution_pipeline(has_decision_profile=config.profile_slots.resolution_decision is not None),
+            resolution_pipeline=resolution_pipeline,
         )
         try:
             health = supervisor.request("health", {})

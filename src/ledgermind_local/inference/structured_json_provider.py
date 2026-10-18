@@ -264,6 +264,9 @@ class StructuredJsonProvider:
         self._token_budget_estimator = token_budget_estimator or TokenBudgetEstimator()
 
     def decide(self, *, decision_request: dict[str, object] | None, **kwargs: object) -> StructuredJsonResult:
+        if decision_request is not None and decision_request.get("schema_version") == 2:
+            from ledgermind_inference.structured_json_provider import StructuredJsonProvider as Shared
+            return Shared.decide(self, decision_request=decision_request, **kwargs)
         from ledgermind_inference.decision_provider import jev_decide, validate_request
         if decision_request is None:
             raise ProviderConfigurationError("decision request missing")

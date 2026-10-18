@@ -121,7 +121,7 @@ class CoreSupervisor:
         if semantic_language is None or not semantic_language.strip():
             raise ValueError("semantic_language must be supplied by LocalConfig")
         self._semantic_language = semantic_language
-        if resolution_pipeline not in {None, "legacy", "decision_v1", "semantic_units_v2", "semantic_units_v3", "addressed_write_v1"}:
+        if resolution_pipeline not in {None, "memory_write_v1"}:
             raise ValueError("invalid resolution pipeline")
         self._resolution_pipeline = resolution_pipeline
         self._isolation_capabilities = IsolationCapabilities(
@@ -345,11 +345,6 @@ class CoreSupervisor:
         }
         if self._resolution_pipeline is not None:
             environment["LEDGERMIND_RESOLUTION_PIPELINE"] = self._resolution_pipeline
-        if self._resolution_pipeline == "semantic_units_v3":
-            revision = os.environ.get("LEDGERMIND_RS2_INSTRUCTION_REVISION", "anchors_v1")
-            if revision not in {"anchors_v1", "closure_v1"}:
-                raise ValueError("invalid grounded RS2 instruction revision")
-            environment["LEDGERMIND_RS2_INSTRUCTION_REVISION"] = revision
         for name in ("LANG", "LC_ALL"):
             value = os.environ.get(name)
             if value:
