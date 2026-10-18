@@ -47,6 +47,13 @@ def validate_decision_request(request: Mapping[str, Any], *, enforce_transport_l
                 try:
                     for part in pointer[1:].split("/"):
                         part = part.replace("~1", "/").replace("~0", "~")
-                        value = value[int(part)] if isinstance(value, list) else value[part]
+                        if isinstance(value,list):
+                            # RFC6901 / Rust Value.pointer indices, not Python
+                            # negative indexing or permissive int('00').
+                            if not part.isascii() or not part.isdecimal() or (len(part)>1 and part.startswith('0')):
+                                raise ValueError('invalid array subject address')
+                            value=value[int(part)]
+                        else:
+                            value=value[part]
                 except (KeyError, ValueError, TypeError, IndexError) as exc:
                     raise ValueError("unknown native subject address") from exc
