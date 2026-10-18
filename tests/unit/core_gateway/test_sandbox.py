@@ -299,6 +299,6 @@ def test_sandbox_environment_preserves_semantic_language_contract(
 def test_sandbox_explicit_candidate_contract_does_not_leak_credentials(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "not-a-real-key")
     environment = _sandbox_environment(tmp_path, ("/opt/ledgermind-core/bin/ledgermind-core",),
-        semantic_language="ru", resolution_pipeline="memory_write_v2")
-    assert environment["LEDGERMIND_RESOLUTION_PIPELINE"] == "memory_write_v2"
+        semantic_language="ru", resolution_pipeline="memory_write_v4")
+    assert environment["LEDGERMIND_RESOLUTION_PIPELINE"] == "memory_write_v4"
     assert "OPENROUTER_API_KEY" not in environment

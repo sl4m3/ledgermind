@@ -5,7 +5,7 @@
 Rust Core over IPC. Core owns the domain-level object-facet state and its
 processing; Local performs only technical generic execution tasks.
 
-New-task composition is [memory_write_v1](../docs/memory-write-v1.md) with a required
+New-task composition is [memory_write_v4](../docs/memory-write-v4.md) with a required
 native decision profile. Frozen old tasks keep compatible readers; old experiment
 flags are not new-task modes. This branch does not reconfigure existing installations.
 
