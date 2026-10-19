@@ -715,7 +715,7 @@ def _sandbox_environment(
     if semantic_language:
         environment["LEDGERMIND_SEMANTIC_LANGUAGE"] = semantic_language
     if resolution_pipeline is not None:
-        if resolution_pipeline != "memory_write_v4":
+        if resolution_pipeline != "memory_write_v5":
             raise ValueError("invalid resolution pipeline")
         environment["LEDGERMIND_RESOLUTION_PIPELINE"] = resolution_pipeline
     python_home = _python_runtime_home(command)
