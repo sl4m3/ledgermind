@@ -15,6 +15,7 @@ from pathlib import Path
 from types import TracebackType
 
 from typing_extensions import Self
+from ledgermind_inference.semantic_contract import RESOLUTION_PIPELINES
 
 from .isolation import IsolationCapabilities, IsolationPlan, IsolationRequirements
 from .security_policy import (
@@ -715,7 +716,7 @@ def _sandbox_environment(
     if semantic_language:
         environment["LEDGERMIND_SEMANTIC_LANGUAGE"] = semantic_language
     if resolution_pipeline is not None:
-        if resolution_pipeline != "memory_write_v5":
+        if resolution_pipeline not in RESOLUTION_PIPELINES:
             raise ValueError("invalid resolution pipeline")
         environment["LEDGERMIND_RESOLUTION_PIPELINE"] = resolution_pipeline
     python_home = _python_runtime_home(command)

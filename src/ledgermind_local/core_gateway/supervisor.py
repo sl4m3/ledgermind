@@ -13,6 +13,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
+from ledgermind_inference.semantic_contract import RESOLUTION_PIPELINES
 
 from ledgermind_protocol.core_ipc import (
     CORE_IPC_OPERATIONS,
@@ -121,7 +122,7 @@ class CoreSupervisor:
         if semantic_language is None or not semantic_language.strip():
             raise ValueError("semantic_language must be supplied by LocalConfig")
         self._semantic_language = semantic_language
-        if resolution_pipeline not in {None, "memory_write_v5"}:
+        if resolution_pipeline is not None and resolution_pipeline not in RESOLUTION_PIPELINES:
             raise ValueError("invalid resolution pipeline")
         self._resolution_pipeline = resolution_pipeline
         self._isolation_capabilities = IsolationCapabilities(
