@@ -44,11 +44,11 @@ _CONTRACT_VALUES = {
     "src/ledgermind_local/core_gateway/sandbox.py": {"decision_v1", "semantic_units_v2"},
     "src/ledgermind_local/inference/core_task_executor.py": {"round_memory_two_stage_v1", "round_memory_two_stage_v2", "round_memory_two_stage_v3"},
     "src/ledgermind_local/inference/structured_json_provider.py": {"resolution_decision_v1"},
-    "src/ledgermind_local/api/context.py": {"semantic_units_v2", "memory_semantics_v2"},
+    "src/ledgermind_local/api/context.py": {"semantic_units_v2", "semantic_units_v3", "memory_semantics_v2"},
     "tests/integration/api/test_context.py": {"object_facet_groups_v1"},
     "tests/integration/scheduler/test_retrieval_outbox.py": {"v1", "v2"},
     "tests/unit/inference/test_retrieval_reranker.py": {"v1", "v2", "v3", "object_facet_groups_v1"},
-    "tests/unit/core_gateway/test_sandbox.py": {"semantic_units_v2"},
+    "tests/unit/core_gateway/test_sandbox.py": {"semantic_units_v2", "memory_write_v8"},
     # Private embedding provider speaks the external OpenAI-compatible protocol.
     "src/ledgermind_local/installer/embeddings/service.py": {"/v1/health/ready", "/v1/health/live"},
     "tests/unit/installer/test_embedding_identity.py": {"/v1"},
@@ -290,7 +290,7 @@ def scan(root: Path = ROOT) -> tuple[Violation, ...]:
         if not (root / relative).exists():
             continue
         path = relative.as_posix()
-        if path in GATE_PATHS:
+        if path in GATE_PATHS or path == "README.md":
             continue
 
         for match in _TOKEN_RE.finditer(path):

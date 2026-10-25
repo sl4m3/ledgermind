@@ -24,7 +24,7 @@ from ledgermind_local.cli import (
     _restore_signal_handlers,
     _worker_recovery_pending,
 )
-from ledgermind_local.config import LocalConfig
+from ledgermind_local.config import LocalConfig, ProfileSlotsConfig
 from ledgermind_local.core_gateway import (
     ControlMaintenanceResult,
     CoreHealth,
@@ -227,6 +227,7 @@ def test_process_core_backend_builds_process_gateway_without_starting_core(
         core_backend="process",
         core_binary_path="bin/fake-core",
         verify_core_signature=False,
+        profile_slots=ProfileSlotsConfig(resolution_decision="resolution-decision"),
     )
 
     gateway = _build_core_gateway(paths=ServicePaths(tmp_path), config=config)
@@ -244,6 +245,7 @@ def test_process_core_backend_passes_core_owned_database_to_daemon(
         core_binary_path="bin/ledgermind-core",
         knowledge_database_path="knowledge.db",
         verify_core_signature=False,
+        profile_slots=ProfileSlotsConfig(resolution_decision="resolution-decision"),
     )
 
     paths = ServicePaths(tmp_path)
@@ -282,6 +284,7 @@ def test_process_core_backend_verifies_signed_binary_before_gateway_creation(
         core_signature_path="bin/ledgermind-core.sig",
         core_public_key_path="bin/ledgermind-core.pub",
         verify_core_signature=True,
+        profile_slots=ProfileSlotsConfig(resolution_decision="resolution-decision"),
     )
 
     gateway = _build_core_gateway(paths=paths, config=config)
