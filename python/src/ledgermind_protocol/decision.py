@@ -1,6 +1,7 @@
 """Provider-independent native decision grammar; no models, keys or inference.
 
-v1 remains a saved-task compatibility grammar. v2 requires explicit subject
+The legacy grammar remains a saved-task compatibility grammar. The current
+grammar requires explicit subject
 addresses because question identifiers are not part of model inference.
 """
 from __future__ import annotations
