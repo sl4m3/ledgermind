@@ -24,6 +24,22 @@ def _load_gate():
 
 
 class IntegrationsVersionlessNamesTests(unittest.TestCase):
+    def test_semantic_transport_allowlist_does_not_allow_product_or_unknown_versions(self) -> None:
+        gate = _load_gate()
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            files = sorted(gate.SEMANTIC_CONTRACT_PATHS)
+            for relative in files:
+                path = root/relative
+                path.parent.mkdir(parents=True,exist_ok=True)
+                path.write_text('"semantic_units_v2" "memory_semantics_v2"\n'
+                                '"product-v9" "semantic_units_v9" "memory_semantics_v3"\n')
+            subprocess.run(["git","init","--quiet"],cwd=root,check=True)
+            subprocess.run(["git","add","--",*files],cwd=root,check=True)
+            violations = gate.scan(root)
+            self.assertEqual(len(violations),3*len(files))
+            self.assertTrue(all(row.line==2 for row in violations))
+
     def test_current_checkout_is_clean(self) -> None:
         result = subprocess.run(
             [sys.executable, str(SCRIPT)],
