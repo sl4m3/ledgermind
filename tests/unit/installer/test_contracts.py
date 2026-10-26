@@ -1188,7 +1188,7 @@ def test_installed_local_embedding_uses_its_signed_device_runtime(
     local.write_text("#!/bin/sh\n", encoding="utf-8")
     local.chmod(0o700)
     paths.current_link.symlink_to(release)
-    runtime = paths.data_dir / "embedding-runtimes" / "nemotron" / "cpu"
+    runtime = paths.data_dir / "embedding-runtimes" / "nemotron" / "cuda"
     runtime_python = runtime / "bin" / "python3"
     runtime_python.parent.mkdir(parents=True)
     runtime_python.write_text("#!/bin/sh\n", encoding="utf-8")
@@ -1199,7 +1199,7 @@ def test_installed_local_embedding_uses_its_signed_device_runtime(
                 mode="local",
                 local=InstallerLocalEmbeddingConfig(
                     catalog_id="nemotron",
-                    device="cpu",
+                    device="cuda",
                     model_storage_path=str(paths.models_dir / "nemotron"),
                     runtime_id="nemotron",
                     runtime_path=str(runtime),
@@ -1216,6 +1216,8 @@ def test_installed_local_embedding_uses_its_signed_device_runtime(
     assert "sentence_transformers" not in " ".join(command)
     assert command[command.index("--model") + 1] == "nemotron"
     assert command[command.index("--dimensions") + 1] == "2048"
+    assert command[command.index("--device") + 1] == "cuda"
+    assert command[command.index("--gpu-layers") + 1] == "99"
     assert "--token-file" in command
     assert (
         paths.data_dir / "embedding" / "server.token"

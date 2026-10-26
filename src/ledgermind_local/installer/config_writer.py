@@ -408,7 +408,8 @@ def build_local_config(
         )
         device = config.embedding.local.device
         if device == "auto":
-            device = "cpu"
+            # Local embeddings are CUDA-only; never persist a CPU fallback.
+            device = "cuda"
         embedding = LocalEmbeddingConfig(
             enabled=True,
             model_path=model_path,
@@ -458,15 +459,31 @@ def build_local_config(
         ),
         embedding=embedding,
         reranker=LocalRerankerConfig(
-            mode=config.reranker.mode,
+            # The local runtime always talks to the shared model gateway.  The
+            # installer's ``local`` mode only controls who loads the weights.
+            mode=("api" if config.reranker.mode == "local" else config.reranker.mode),
             model_path=config.reranker.model_path,
             runtime_path=config.reranker.runtime_path,
-            device=config.reranker.device,
-            endpoint=(config.reranker.api.endpoint if config.reranker.api else None),
-            model=(config.reranker.api.model if config.reranker.api else None),
-            secret_ref=(RERANKER_SECRET_REF if config.reranker.api else None),
+            device=("cuda" if config.reranker.mode == "local" else config.reranker.device),
+            endpoint=(
+                "http://127.0.0.1:8767/rerank"
+                if config.reranker.mode == "local"
+                else (config.reranker.api.endpoint if config.reranker.api else None)
+            ),
+            model=(
+                "Qwen/Qwen3-Reranker-0.6B"
+                if config.reranker.mode == "local"
+                else (config.reranker.api.model if config.reranker.api else None)
+            ),
+            secret_ref=(
+                "embedding-local"
+                if config.reranker.mode == "local"
+                else (RERANKER_SECRET_REF if config.reranker.api else None)
+            ),
             timeout_seconds=(
-                config.reranker.api.timeout_seconds if config.reranker.api else 30.0
+                config.reranker.api.timeout_seconds
+                if config.reranker.api
+                else 30.0
             ),
         ),
         runtime_residency=RuntimeResidencyConfig(

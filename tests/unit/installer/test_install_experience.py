@@ -82,6 +82,11 @@ def test_installer_projects_explicit_local_reranker_without_enabling_legacy_inst
     )
     local = build_local_config(configured, paths)
     assert local.reranker.enabled
+    assert local.reranker.mode == "api"
+    assert local.reranker.endpoint == "http://127.0.0.1:8767/rerank"
+    assert local.reranker.model == "Qwen/Qwen3-Reranker-0.6B"
+    assert local.reranker.secret_ref == "embedding-local"
+    assert local.reranker.device == "cuda"
     assert local.reranker.model_path == "/models/pinned/snapshots/revision"
     assert local.reranker.runtime_path == "/runtime/pinned"
     assert local.reranker.min_k == 6

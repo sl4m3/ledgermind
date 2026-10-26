@@ -95,6 +95,9 @@ def _build_runtime_vectorizer_factory(config: LocalConfig) -> Callable[[], Any]:
         return unavailable_vectorizer
 
     if config.embedding.provider_mode == "api":
+        from ledgermind_inference.model_gateway import ensure_gateway
+
+        ensure_gateway()
         if (
             not config.embedding.endpoint
             or not config.embedding.model
@@ -487,32 +490,35 @@ class LocalRuntime:
 
         return self.embed_query_with_metadata(memory_space_id, query)[0]
 
+    def _ensure_model_gateway(self) -> None:
+        if getattr(self, "_model_gateway_ready", False):
+            return
+        from ledgermind_inference.model_gateway import ensure_gateway
+
+        ensure_gateway()
+        self._model_gateway_ready = True
+
     @property
     def retrieval_reranker(self) -> Any | None:
         """Create the configured scorer lazily; disabled installs stay Core-only."""
         if not self.config.reranker.enabled:
             return None
-        from ledgermind_local.inference.retrieval_reranker import (
-            ApiReranker,
-            QwenWorkerReranker,
-        )
+        from ledgermind_local.inference.retrieval_reranker import ApiReranker
 
         scorer = getattr(self, "_retrieval_reranker", None)
         if scorer is None:
-            if self.config.reranker.mode == "api":
-                secret_ref = self.config.reranker.secret_ref or ""
-                token = SecretStore(self.config.inference_secrets_path).get(secret_ref)
-                scorer = ApiReranker(
-                    self.config.reranker.endpoint or "",
-                    token,
-                    self.config.reranker.model or "",
-                    timeout_seconds=self.config.reranker.timeout_seconds,
-                )
-            else:
-                scorer = QwenWorkerReranker(
-                    self.config.reranker.model_path or "", self.config.reranker.device,
-                    runtime_path=self.config.reranker.runtime_path,
-                )
+            # Both Local modes use the one shared gateway.  A legacy local
+            # config must not load a second Qwen replica inside 8822.
+            self._ensure_model_gateway()
+            secret_ref = self.config.reranker.secret_ref or "embedding-local"
+            token = SecretStore(self.config.inference_secrets_path).get(secret_ref)
+            scorer = ApiReranker(
+                self.config.reranker.endpoint
+                or "http://127.0.0.1:8767/rerank",
+                token,
+                self.config.reranker.model or "Qwen/Qwen3-Reranker-0.6B",
+                timeout_seconds=self.config.reranker.timeout_seconds,
+            )
             self._retrieval_reranker = scorer
         return scorer
 

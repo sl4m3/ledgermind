@@ -307,7 +307,11 @@ def _runtime(paths: InstallerPaths) -> RuntimeSupervisor:
             "runpy.run_module('ledgermind_local.installer.embeddings.serve',"
             "run_name='__main__')"
         )
-        commands["embedding"] = (
+        if device != "cuda":
+            raise ConfigurationError(
+                "local embeddings require CUDA; CPU execution is disabled"
+            )
+        embedding_command = [
             str(runtime_python),
             "-c",
             module_bootstrap,
@@ -316,18 +320,24 @@ def _runtime(paths: InstallerPaths) -> RuntimeSupervisor:
             "--model",
             local_config.catalog_id,
             "--device",
-            device,
+            "cuda",
             "--threads",
             str(local_config.threads or 4),
             "--gpu-layers",
-            "99" if device != "cpu" else "0",
+            "99",
             "--dimensions",
             str(local_config.dimensions),
             "--port",
             "8766",
             "--token-file",
             str(local_embedding_token_file),
-        )
+            "--embedding-alias",
+            "nvidia/nemotron-3-embed-1b-local-bf16",
+        ]
+        # The Local supervisor owns the single embedding replica on 8766.
+        # The shared front on 8767 owns the single reranker replica and
+        # proxies embeddings to this process; never load Qwen here.
+        commands["embedding"] = tuple(embedding_command)
     return RuntimeSupervisor(
         paths,
         idle_shutdown_seconds=settings["idle_shutdown_seconds"],
