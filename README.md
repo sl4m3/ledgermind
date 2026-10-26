@@ -124,13 +124,15 @@ non-interactive deployment.
 LedgerMind is available as two clearly separated products. **LedgerMind
 Local** is the self-hosted runtime: it runs next to your agent, uses models you
 configure, and keeps the memory boundary on your host. **LedgerMind Cloud** is
-the managed API: the user plugin connects the agent with a workspace API key,
-while memory processing and storage run in the managed service.
+the managed API: the **LedgerMind Cloud Connector** connects the agent with a
+workspace API key, while memory processing and storage run in the managed
+service.
 
 | What is available | Where |
 |---|---|
 | Product page, documentation, benchmark, and release announcements | [github.com/sl4m3/ledgermind](https://github.com/sl4m3/ledgermind) |
 | LedgerMind Cloud account and managed workspaces | [ledgermind.org](https://ledgermind.org) |
+| LedgerMind Cloud Connector releases and checksums | [github.com/sl4m3/ledgermind-cloud](https://github.com/sl4m3/ledgermind-cloud) |
 | Public agent adapters and protocol contracts | [github.com/sl4m3/ledgermind-integrations](https://github.com/sl4m3/ledgermind-integrations) |
 | Inspectable local runtime and installer source | [github.com/sl4m3/ledgermind-local](https://github.com/sl4m3/ledgermind-local) |
 | Signed self-hosted 4.1.0 package | [GitHub Releases](https://github.com/sl4m3/ledgermind/releases/latest) |
