@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "idempotency_key": "sha256:48a6c40d767bc382b70e2d319584ce8820775547e3c2576da5fc0ce291a3d1b4",
+  "memory_space_id": "workspace_01",
+  "source": {
+    "system": "hermes",
+    "instance_id": "src_hermes_local",
+    "profile_id": "default",
+    "session_id": "simple_session",
+    "round_id": "simple_round",
+    "first_event_id": "simple_user",
+    "final_event_id": "simple_assistant",
+    "event_ids": ["simple_user", "simple_assistant"],
+    "source_schema_version": 1,
+    "adapter_version": "hermes-python/0.1.0"
+  },
+  "round": {
+    "started_at": "2026-08-03T10:00:00Z",
+    "completed_at": "2026-08-03T10:00:05Z",
+    "events": [
+      {"event_id": "simple_user", "sequence": 0, "kind": "message", "role": "user", "content": [{"type": "text", "text": "Remember this convention."}]},
+      {"event_id": "simple_assistant", "sequence": 1, "kind": "message", "role": "assistant", "final": true, "content": [{"type": "text", "text": "I will remember it."}]}
+    ]
+  },
+  "payload_digest": "sha256:48a6c40d767bc382b70e2d319584ce8820775547e3c2576da5fc0ce291a3d1b4"
+}

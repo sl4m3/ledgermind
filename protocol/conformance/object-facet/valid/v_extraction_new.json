@@ -1,0 +1,23 @@
+{
+  "schema_version": 2,
+  "objects": [
+    {
+      "ref": "o-new",
+      "mention_ref": "m-new",
+      "resolution": "new",
+      "new_canonical_name": "LedgerMind Local",
+      "ambiguous_candidate_ids": [],
+      "aliases_from_source": ["Local"],
+      "source_event_ids": ["event-2"]
+    }
+  ],
+  "values": [
+    {
+      "primary_object_ref": "o-new",
+      "related_object_refs": [],
+      "facet": "function",
+      "content": "LedgerMind Local owns the captured round transport.",
+      "source_event_ids": ["event-2"]
+    }
+  ]
+}

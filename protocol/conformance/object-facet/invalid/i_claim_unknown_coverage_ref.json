@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "claims": [],
+  "coverage": [
+    {
+      "anchor_ref": "r1",
+      "disposition": "claim",
+      "claim_refs": ["missing"]
+    }
+  ]
+}

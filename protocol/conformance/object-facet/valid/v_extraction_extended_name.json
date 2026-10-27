@@ -1,0 +1,24 @@
+{
+  "schema_version": 2,
+  "objects": [
+    {
+      "ref": "o-extended",
+      "mention_ref": "m-extended",
+      "resolution": "new",
+      "new_canonical_name": "Visual Studio Code",
+      "ambiguous_candidate_ids": [],
+      "aliases_from_source": ["VS Code"],
+      "source_event_ids": ["event-4"],
+      "canonical_name_source_event_id": "event-4"
+    }
+  ],
+  "values": [
+    {
+      "primary_object_ref": "o-extended",
+      "related_object_refs": [],
+      "facet": "function",
+      "content": "Visual Studio Code edits source files.",
+      "source_event_ids": ["event-4"]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "claims": [
+    {
+      "claim_ref": "c1",
+      "subject": {
+        "source_event_id": "event-2",
+        "surface_text": "selected",
+        "span_start": 9,
+        "span_end": 17
+      },
+      "facet": "constraint",
+      "content": "The user selected LedgerMind Local.",
+      "conditions": [
+        {
+          "source_event_id": "event-2",
+          "surface_text": "The user selected"
+        }
+      ],
+      "context_anchor_refs": [],
+      "source_event_ids": ["event-2"]
+    }
+  ],
+  "coverage": []
+}

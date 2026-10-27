@@ -1,0 +1,7 @@
+{
+  "schema_version": 2,
+  "retrieval_request_id": "retrieval-1",
+  "candidate_value_ids": ["value-1", "value-2"],
+  "delivered_value_ids": ["value-1"],
+  "created_at": "2026-08-08T12:00:00Z"
+}
