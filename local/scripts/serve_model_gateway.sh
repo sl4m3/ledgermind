@@ -31,7 +31,7 @@ fi
 export PYTHONUNBUFFERED=1
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
-export PYTHONPATH="$REPO/local/src:$REPO/inference/src:$REPO/integrations/protocol/python/src:$ROOT/current/python/local:$ROOT/current/python/site-packages"
+export PYTHONPATH="$REPO/local/src:$REPO/inference/src:$REPO/protocol/python/src:$ROOT/current/python/local:$ROOT/current/python/site-packages"
 
 exec "$PYTHON" -m ledgermind_local.installer.embeddings.serve \
   --embedding-proxy-endpoint http://127.0.0.1:8766 \

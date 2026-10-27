@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "generated_from": "private platform inference/ (proprietary), built for the public Local release line",
+  "policy": "Wheels are published as release assets, never as source. Installers embed the same wheels in the signed payload; a rebuild from this repository needs the matching wheel.",
+  "wheels": [
+    {
+      "release": "4.1.0",
+      "name": "ledgermind_inference-0.1.0-py3-none-any.whl",
+      "package": "ledgermind-inference",
+      "version": "0.1.0",
+      "python": "py3",
+      "license": "LicenseRef-LedgerMind-Internal",
+      "url": "https://github.com/sl4m3/ledgermind/releases/download/v4.1.0/ledgermind_inference-0.1.0-py3-none-any.whl",
+      "sha256": "4a74fca8113cd5ddfa81b30838b2dd966b28882370c4a5d5a451e7e4c2abbddf"
+    }
+  ]
+}

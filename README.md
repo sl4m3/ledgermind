@@ -598,20 +598,39 @@ LedgerMind is not:
 It is a knowledge memory whose value is measured downstream: whether the next
 task is completed correctly with less repeated investigation and less context.
 
-## Repositories
+## Repository layout
 
-- **`ledgermind`** — this public project page and stable release entry point.
-- **[`ledgermind-integrations`](https://github.com/sl4m3/ledgermind-integrations)**
-  — public capture adapters and the versioned protocol package.
-- **[`ledgermind-local`](https://github.com/sl4m3/ledgermind-local)** — local
-  service, provider boundary, runtime supervision, and installer.
-- **`ledgermind-core`** — the private knowledge engine, distributed as a signed
-  binary with authorized releases.
+This repository is the public half of LedgerMind. Everything a product user may
+read lives here; the proprietary core, Cloud service and connector sources,
+inference boundary, semantic lab, website and production deployment live in the
+private `ledgermind-platform` repository.
+
+| Path | Contents | Licence |
+|---|---|---|
+| `protocol/` | RawRound/ContextView contracts, JSON schemas and conformance fixtures | Apache-2.0 |
+| `integrations/` | agent adapters and the capture runtime | Apache-2.0 |
+| `local/` | LedgerMind Local 4.x source: CLI, service, installer, tests | BUSL-1.1 |
+| `cloud/` | Cloud Connector installation channel: installer script, docs, checksums | Apache-2.0 |
+| `skills/`, `benchmarks/` | agent skill and published benchmark data | Apache-2.0 |
+
+## Release channels
+
+| Channel | Entry point | Artifacts |
+|---|---|---|
+| LedgerMind Local | `https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh` | signed installer and 4.x packages |
+| Cloud Connector | `https://ledgermind.org/install-cloud.sh` | `cloud-v*` archives and checksums |
+| Lab artifacts | Releases tags `artifact-*` | redacted `final-run` bundles |
 
 ## License
 
-The contents of this repository are licensed under the
-[Apache License 2.0](LICENSE.md). LedgerMind Integrations and Protocol are also
-Apache-2.0. LedgerMind Local uses Business Source License 1.1, and LedgerMind
-Core is proprietary. Consult the license included with each component before
-use or redistribution.
+The contents of this repository are licensed per directory:
+
+- **Apache-2.0** — documentation, `skills/`, `benchmarks/`, `protocol/`,
+  `integrations/` and the `cloud/` installation channel;
+- **Business Source License 1.1** — `local/`; see [`local/LICENSE`](local/LICENSE);
+- proprietary pieces (Core, Cloud backend, inference, lab) are not part of this
+  repository and are distributed only as signed binaries or official release
+  archives with their own terms.
+
+Release packages and connector archives carry their own licence files. Consult
+the licence included with each component before use or redistribution.
