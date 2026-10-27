@@ -63,7 +63,9 @@ environment files, or provider credentials.
    `LEDGERMIND_CLOUD_RELEASE_URL=<dir> sh cloud/install-cloud.sh --no-connect`
    and check `ledgermind-cloud --help` and `ledgermind-cloud doctor`.
 4. Publish tag `cloud-vX.Y` with the archive and `.sha256` in **both**
-   repositories while the transition window is open (see below).
+   repositories while the transition window is open (see below). Use
+   `--prerelease`: GitHub's `releases/latest/download` must keep resolving to
+   the Local release, otherwise `install.sh` breaks.
 5. Copy the checksum line into `cloud/checksums/cloud-vX.Y.sha256`.
 6. Confirm `cloud/install-cloud.sh` matches `site/lib/install-cloud.sh`.
 7. Record the release in the connector manifest and update
