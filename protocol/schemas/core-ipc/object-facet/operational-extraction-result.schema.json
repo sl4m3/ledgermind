@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/object-facet/operational-extraction-result.schema.json",
+  "title": "LedgerMind object-facet operational extraction result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "objects", "values"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 2},
+    "objects": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {"$ref": "#/$defs/resolved_object"}
+    },
+    "values": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {"$ref": "#/$defs/extracted_value"}
+    }
+  },
+  "$defs": {
+    "facet": {
+      "enum": [
+        "identity",
+        "property",
+        "state",
+        "function",
+        "structure",
+        "procedure",
+        "maintenance",
+        "risk",
+        "constraint",
+        "preference",
+        "decision",
+        "experience",
+        "relation",
+        "event"
+      ]
+    },
+    "resolved_object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "mention_ref", "resolution", "source_event_ids"],
+      "properties": {
+        "ref": {"type": "string", "minLength": 1, "maxLength": 500},
+        "mention_ref": {"type": "string", "minLength": 1, "maxLength": 500},
+        "resolution": {"enum": ["existing", "new", "ambiguous"]},
+        "existing_object_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "new_canonical_name": {"type": "string", "minLength": 1, "maxLength": 500},
+        "ambiguous_candidate_ids": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "aliases_from_source": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "source_event_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "canonical_name_source_event_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {"resolution": {"const": "existing"}},
+          "required": ["existing_object_id"],
+          "not": {
+            "anyOf": [
+              {"required": ["new_canonical_name"]},
+              {"required": ["ambiguous_candidate_ids"]},
+              {"required": ["canonical_name_source_event_id"]}
+            ]
+          }
+        },
+        {
+          "properties": {"resolution": {"const": "new"}},
+          "required": ["new_canonical_name"],
+          "not": {
+            "anyOf": [
+              {"required": ["existing_object_id"]},
+              {"required": ["ambiguous_candidate_ids"]}
+            ]
+          }
+        },
+        {
+          "properties": {"resolution": {"const": "ambiguous"}},
+          "required": ["new_canonical_name", "ambiguous_candidate_ids"],
+          "not": {"required": ["existing_object_id"]}
+        }
+      ]
+    },
+    "extracted_value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_object_ref", "facet", "content", "source_event_ids"],
+      "properties": {
+        "primary_object_ref": {"type": "string", "minLength": 1, "maxLength": 500},
+        "related_object_refs": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "facet": {"$ref": "#/$defs/facet"},
+        "content": {"type": "string", "minLength": 1, "maxLength": 20000},
+        "source_event_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1000,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "scope_text": {"type": "string", "minLength": 1, "maxLength": 20000},
+        "valid_from": {"type": "string", "format": "date-time"},
+        "valid_to": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/create-backup.schema.json",
+  "title": "LedgerMind Core IPC create backup payload",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {}
+}

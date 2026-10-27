@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/validate-backup.schema.json",
+  "title": "LedgerMind Core IPC validate backup payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["relative_path", "sha256"],
+  "properties": {
+    "relative_path": {"type": "string", "minLength": 1},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/object-facet/record-retrieval-outcome.schema.json",
+  "title": "LedgerMind object-facet retrieval outcome",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "retrieval_request_id", "candidate_value_ids", "delivered_value_ids", "created_at"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 2},
+    "retrieval_request_id": {"type": "string", "minLength": 1, "maxLength": 500},
+    "candidate_value_ids": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "delivered_value_ids": {
+      "type": "array",
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "created_at": {"type": "string", "format": "date-time"}
+  }
+}

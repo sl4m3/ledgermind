@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/commit-restore.schema.json",
+  "title": "LedgerMind Core IPC commit restore payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["restore_transaction_id"],
+  "properties": {
+    "restore_transaction_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?!\\.$)(?!.*\\.\\.)[^/\\\\\\u0000]+$"
+    }
+  }
+}

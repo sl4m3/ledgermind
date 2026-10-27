@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/object-facet/operational-extraction-input.schema.json",
+  "title": "LedgerMind object-facet operational extraction input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "raw_round_id",
+    "normalizer_version",
+    "facet_catalogue_version",
+    "normalized_round",
+    "mentions",
+    "resolution_context"
+  ],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 2},
+    "raw_round_id": {"type": "string", "minLength": 1, "maxLength": 500},
+    "normalizer_version": {"type": "string", "minLength": 1, "maxLength": 500},
+    "facet_catalogue_version": {"type": "string", "minLength": 1, "maxLength": 500},
+    "normalized_round": {"type": "object"},
+    "mentions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {"$ref": "#/$defs/mention"}
+    },
+    "resolution_context": {"$ref": "#/$defs/resolution_context"}
+  },
+  "$defs": {
+    "resolution_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "repository_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "task_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "conversation_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "related_object_ids": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        }
+      }
+    },
+    "mention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mention_ref",
+        "surface_text",
+        "normalized_text",
+        "source_event_id",
+        "span_start",
+        "span_end",
+        "candidate_set_digest",
+        "candidates"
+      ],
+      "properties": {
+        "mention_ref": {"type": "string", "minLength": 1, "maxLength": 500},
+        "surface_text": {"type": "string", "minLength": 1, "maxLength": 20000},
+        "normalized_text": {"type": "string", "minLength": 1, "maxLength": 20000},
+        "source_event_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "span_start": {"type": "integer", "minimum": 0},
+        "span_end": {"type": "integer", "minimum": 1},
+        "candidate_set_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "candidates": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {"$ref": "#/$defs/candidate"}
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "object_id",
+        "canonical_name",
+        "rank",
+        "lexical_score",
+        "embedding_score",
+        "context_score",
+        "final_score",
+        "project_match",
+        "repository_match",
+        "task_match",
+        "related_object_match",
+        "conversation_match",
+        "explicit_scope_mismatch"
+      ],
+      "properties": {
+        "object_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "canonical_name": {"type": "string", "minLength": 1, "maxLength": 500},
+        "aliases": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "match_reasons": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        },
+        "rank": {"type": "integer", "minimum": 1},
+        "lexical_score": {"type": "number", "minimum": 0, "maximum": 1},
+        "embedding_score": {"type": "number", "minimum": 0, "maximum": 1},
+        "context_score": {"type": "number", "minimum": 0, "maximum": 1},
+        "final_score": {"type": "number", "minimum": 0, "maximum": 1},
+        "project_match": {"type": "boolean"},
+        "repository_match": {"type": "boolean"},
+        "task_match": {"type": "boolean"},
+        "related_object_match": {"type": "boolean"},
+        "conversation_match": {"type": "boolean"},
+        "explicit_scope_mismatch": {"type": "boolean"}
+      }
+    }
+  }
+}

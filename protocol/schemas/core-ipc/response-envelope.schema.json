@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/response-envelope.schema.json",
+  "title": "LedgerMind Core IPC response envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol_version", "request_id", "status"],
+  "properties": {
+    "protocol_version": {"const": 1},
+    "request_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["ok", "error"]},
+    "result": {"type": "object"},
+    "error": {"$ref": "error.schema.json"}
+  },
+  "oneOf": [
+    {
+      "properties": {"status": {"const": "ok"}},
+      "required": ["status", "result"],
+      "not": {"required": ["error"]}
+    },
+    {
+      "properties": {"status": {"const": "error"}},
+      "required": ["status", "error"],
+      "not": {"required": ["result"]}
+    }
+  ]
+}

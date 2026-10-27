@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/handshake.schema.json",
+  "title": "LedgerMind Core IPC handshake payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["client_name", "client_version", "supported_operations"],
+  "properties": {
+    "client_name": {"type": "string", "minLength": 1},
+    "client_version": {"type": "string", "minLength": 1},
+    "supported_operations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/operation"},
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "capabilities": {"type": "object", "additionalProperties": {}}
+  },
+  "$defs": {
+    "operation": {
+      "type": "string",
+      "enum": ["handshake", "health", "create_backup", "validate_backup", "prepare_restore", "begin_restore", "commit_restore", "rollback_restore", "ingest_raw_round", "poll_execution_tasks", "submit_execution_result", "fail_execution_task", "retrieve_context", "record_retrieval_outcome", "run_control_maintenance", "get_object_facet_statistics", "shutdown"]
+    }
+  }
+}

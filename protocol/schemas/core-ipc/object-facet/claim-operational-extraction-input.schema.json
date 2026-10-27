@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/object-facet/claim-operational-extraction-input.schema.json",
+  "title": "LedgerMind claim-first operational extraction input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "raw_round_id",
+    "normalizer_version",
+    "facet_catalogue_schema_version",
+    "normalized_round",
+    "evidence_anchors",
+    "requirements",
+    "resolution_context"
+  ],
+  "properties": {
+    "raw_round_id": {"type": "string", "minLength": 1, "maxLength": 500},
+    "normalizer_version": {"type": "string", "minLength": 1, "maxLength": 500},
+    "facet_catalogue_schema_version": {"type": "string", "minLength": 1, "maxLength": 500},
+    "normalized_round": {"type": "object"},
+    "evidence_anchors": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {"$ref": "#/$defs/evidence_anchor"}
+    },
+    "requirements": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "resolution_context": {"$ref": "#/$defs/resolution_context"}
+  },
+  "$defs": {
+    "resolution_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "repository_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "task_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "conversation_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "related_object_ids": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 500}
+        }
+      }
+    },
+    "evidence_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "anchor_ref",
+        "source_event_id",
+        "kind",
+        "surface_text",
+        "normalized_text",
+        "span_start",
+        "span_end"
+      ],
+      "properties": {
+        "anchor_ref": {"type": "string", "minLength": 1, "maxLength": 500},
+        "source_event_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "kind": {
+          "enum": [
+            "user_requirement",
+            "user_statement",
+            "code_entity",
+            "file_artifact",
+            "change",
+            "check",
+            "error",
+            "assistant_conclusion",
+            "external_observation"
+          ]
+        },
+        "surface_text": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "normalized_text": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "span_start": {"type": "integer", "minimum": 0},
+        "span_end": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}
