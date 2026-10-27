@@ -27,7 +27,7 @@ LedgerMind runtime and it is not an MCP server.
 - Focused recalled context for a later task instead of replaying the whole
   transcript.
 - Local integrations for Hermes and OpenClaw, as well as Codex CLI,
-  Claude Code CLI, Cursor, and OpenCode.
+  Claude Code CLI, and OpenCode.
 
 ## What it does not provide
 

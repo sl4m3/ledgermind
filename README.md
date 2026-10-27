@@ -152,7 +152,6 @@ of the platform design, but no aarch64 package is included in this release.
 | Codex (CLI) | Available | Review and trust the hooks with `/hooks` |
 | Codex (Desktop) | Available | Uses the same trusted Codex hooks |
 | Claude Code CLI | Available | Restart an already running session |
-| Cursor | Experimental | Deferred from the current Linux acceptance matrix |
 | OpenCode | Available | Restart an already running session |
 | OpenClaw | Available | Restart an already running session |
 
@@ -578,7 +577,6 @@ license. The license file shipped with each release is authoritative.
 |---|---|
 | Operating systems | Linux x86_64; an aarch64 package is not published in 4.1.0 |
 | Agent integrations | Hermes, Codex CLI and Desktop, Claude Code, OpenCode, and OpenClaw |
-| Experimental integration | Cursor; excluded from the current acceptance matrix |
 | Generation | Operator-selected OpenAI-compatible API |
 | Embeddings | Operator-selected OpenAI-compatible API or signed local CPU runtime |
 | Retrieval reranker | Disabled, operator-selected API, or separately installed signed local CPU runtime |
