@@ -1,0 +1,61 @@
+# Python bytecode and local environments
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*$py.class
+.pytype/
+.pyre/
+__pypackages__/
+.venv/
+venv/
+env/
+ENV/
+
+# Python test, coverage, and type-checker output
+.pytest_cache/
+.pytest_cache
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.mypy_cache/
+.pyright/
+.ruff_cache/
+pytestdebug.log
+
+# Python build and distribution output
+build/
+dist/
+.eggs/
+pip-wheel-metadata/
+*.egg-info/
+*.egg
+*.whl
+*.tar.gz
+
+# Rust build/profiling output from an external Core checkout
+target/
+*.rs.bk
+*.profraw
+
+# Local test databases, logs, and generated reports
+*.db
+*.sqlite
+*.sqlite3
+*.log
+reports/
+
+# Secrets and developer-only configuration
+.env
+.env.*
+!.env.example
+
+# IDE and OS noise
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
