@@ -11,7 +11,7 @@ from pathlib import Path
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[3]
-SCRIPT = ROOT / "misc" / "scripts" / "release-integrations.py"
+SCRIPT = ROOT / "integrations" / "scripts" / "release-integrations.py"
 
 
 class IntegrationsReleaseScriptTests(unittest.TestCase):
@@ -31,7 +31,7 @@ class IntegrationsReleaseScriptTests(unittest.TestCase):
         return commit, timestamp
 
     def _manifest(self, directory: Path, commit: str, commit_timestamp: int) -> Path:
-        with (ROOT / "python" / "pyproject.toml").open("rb") as handle:
+        with (ROOT / "integrations" / "pyproject.toml").open("rb") as handle:
             integrations_version = tomllib.load(handle)["project"]["version"]
         with (ROOT / "protocol" / "python" / "pyproject.toml").open("rb") as handle:
             protocol_version = tomllib.load(handle)["project"]["version"]
@@ -100,7 +100,7 @@ class IntegrationsReleaseScriptTests(unittest.TestCase):
         self.assertIn("system-site-packages", result.stdout)
 
     def test_dev_extras_declare_quality_and_release_tools(self) -> None:
-        for relative in ("python/pyproject.toml", "protocol/python/pyproject.toml"):
+        for relative in ("integrations/pyproject.toml", "protocol/python/pyproject.toml"):
             with (ROOT / relative).open("rb") as handle:
                 metadata = tomllib.load(handle)
             dev = metadata["project"]["optional-dependencies"]["dev"]
@@ -110,7 +110,7 @@ class IntegrationsReleaseScriptTests(unittest.TestCase):
             self.assertTrue(any(str(spec).startswith("build>=") for spec in dev), relative)
 
     def test_runtime_dependencies_preserve_public_protocol_boundary(self) -> None:
-        with (ROOT / "python" / "pyproject.toml").open("rb") as handle:
+        with (ROOT / "integrations" / "pyproject.toml").open("rb") as handle:
             integrations = tomllib.load(handle)["project"]["dependencies"]
         with (ROOT / "protocol" / "python" / "pyproject.toml").open("rb") as handle:
             protocol = tomllib.load(handle)["project"]["dependencies"]

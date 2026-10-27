@@ -16,7 +16,7 @@ _ROOT = Path(__file__).resolve().parents[3]
 
 def test_public_valid_fixture_round_trips() -> None:
     payload = json.loads(
-        (_ROOT / "conformance" / "valid" / "simple_round.json").read_text(encoding="utf-8")
+        (_ROOT / "protocol" / "conformance" / "valid" / "simple_round.json").read_text(encoding="utf-8")
     )
     request = validate_raw_round(payload)
     assert request.schema_version == 2
@@ -30,7 +30,7 @@ def test_public_valid_fixture_round_trips() -> None:
 )
 def test_public_invalid_fixtures_are_rejected(fixture_name: str) -> None:
     payload = json.loads(
-        (_ROOT / "conformance" / "invalid" / fixture_name).read_text(encoding="utf-8")
+        (_ROOT / "protocol" / "conformance" / "invalid" / fixture_name).read_text(encoding="utf-8")
     )
     with pytest.raises(RawRoundValidationError):
         validate_raw_round(payload)

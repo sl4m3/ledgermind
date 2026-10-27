@@ -4,7 +4,13 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 from pydantic import SecretStr
+
+# The pre-production routing test drives a Lab configuration. The Lab is
+# proprietary and lives in the private platform repository; the public suite
+# skips this module unless a Lab installation is available.
+pytest.importorskip("ledgermind_lab")
 
 _LOCAL_ROOT = Path(__file__).resolve().parents[3]
 if str(_LOCAL_ROOT) not in sys.path:

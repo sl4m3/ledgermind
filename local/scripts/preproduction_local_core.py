@@ -7,10 +7,10 @@ fixtures are the captured Hermes Round A and the repository's Round B YAML.
 
 The command is opt-in because it makes real provider requests::
 
-    PYTHONPATH=src:../integrations/protocol/python/src \
+    PYTHONPATH=src:../protocol/python/src \
       python scripts/preproduction_local_core.py \
         --lab-config ~/.config/ledgermind-lab/config.json \
-        --core-binary ../core/target/release/ledgermind-core
+        --core-binary /path/to/ledgermind-core
 
 All output is secret-free.  Provider credentials are copied only into a
 0600 temporary Local secret store and are never included in the report.
