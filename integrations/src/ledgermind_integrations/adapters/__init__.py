@@ -1,0 +1,1 @@
+"""Client adapter namespaces."""

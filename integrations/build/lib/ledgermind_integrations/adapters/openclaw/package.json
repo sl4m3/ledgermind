@@ -1,0 +1,13 @@
+{
+  "name": "@ledgermind/openclaw-memory",
+  "version": "0.1.0",
+  "type": "module",
+  "peerDependencies": {"openclaw": ">=2026.3.24-beta.2"},
+  "openclaw": {
+    "extensions": ["./index.js"],
+    "compat": {
+      "pluginApi": ">=2026.3.24-beta.2",
+      "minGatewayVersion": "2026.3.24-beta.2"
+    }
+  }
+}
