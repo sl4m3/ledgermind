@@ -199,3 +199,24 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+---
+
+## LedgerMind repository licence map
+
+This file is the Apache-2.0 licence for the documentation and the Apache-2.0
+programs in this repository. It is not the licence of every directory:
+
+| Path | Licence |
+|---|---|
+| root documentation, `skills/`, `benchmarks/`, `assets/` | Apache-2.0 |
+| `protocol/` | Apache-2.0 |
+| `integrations/` | Apache-2.0 |
+| `cloud/` (installer script and channel docs) | Apache-2.0 |
+| `local/` | Business Source License 1.1 — see `local/LICENSE` |
+
+Proprietary components (Rust core, Cloud service, Cloud connector sources,
+inference, lab) are not present in this repository. Release archives and
+installer payloads include their own licence files; the licence shipped inside
+a release is authoritative for that release.
+
