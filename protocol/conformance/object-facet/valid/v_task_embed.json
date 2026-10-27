@@ -1,0 +1,14 @@
+{
+  "schema_version": 2,
+  "task_id": "task-embed-1",
+  "task_kind": "embed_texts",
+  "operation": "embed_texts",
+  "profile_slot": "embedding",
+  "memory_space_id": "workspace-1",
+  "expires_at": "2026-08-08T12:00:00Z",
+  "embedding_request": {
+    "texts": ["PostgreSQL", "SQL queries"],
+    "purpose": "retrieval_query",
+    "dimensions": 3
+  }
+}

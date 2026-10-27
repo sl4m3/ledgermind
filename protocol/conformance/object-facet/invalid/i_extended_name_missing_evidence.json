@@ -1,0 +1,5 @@
+{
+  "schema_version": 2,
+  "objects": [{"ref": "o1", "mention_ref": "m-extended", "resolution": "new", "new_canonical_name": "Visual Studio Code", "ambiguous_candidate_ids": [], "aliases_from_source": ["VS Code"], "source_event_ids": ["event-4"]}],
+  "values": []
+}

@@ -1,0 +1,5 @@
+{
+  "schema_version": 2,
+  "objects": [{"ref": "o1", "mention_ref": "m-ambiguous", "resolution": "ambiguous", "new_canonical_name": "Database Engine", "ambiguous_candidate_ids": ["obj-database-a", "obj-not-offered"], "aliases_from_source": ["DB"], "source_event_ids": ["event-3"]}],
+  "values": []
+}

@@ -1,0 +1,8 @@
+{
+  "schema_version": 2,
+  "command_id": "command-1",
+  "idempotency_key": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "memory_space_id": "workspace-1",
+  "raw_round": {"schema_version": 2, "payload_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+  "resolution_context": {"project_id": "project-1", "repository_id": "repository-1"}
+}

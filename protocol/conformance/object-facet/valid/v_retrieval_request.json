@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "memory_space_id": "workspace-1",
+  "query_text": "How does PostgreSQL accept queries?",
+  "query_embedding": [0.1, -0.2, 0.3],
+  "embedding_model_id": "retrieval-embedder",
+  "embedding_model_version": "2026-08",
+  "limit": 5,
+  "project_id": "project-1",
+  "repository_id": "repository-1",
+  "task_id": "task-1",
+  "conversation_id": "conversation-1",
+  "related_object_ids": ["obj-postgresql"],
+  "requested_facets": ["function", "procedure"],
+  "explanation_level": "compact"
+}

@@ -1,0 +1,23 @@
+{
+  "protocol": "object-facet",
+  "canonical_version": "1",
+  "canonical": "sha256 over typed model, nulls omitted, keys sorted, compact",
+  "valid": {
+    "v_claim_extraction.json": "sha256:f5a9f78a3169bc976948c2328d3273500c24721f1ae78104552dcfdcf07672d6",
+    "v_claim_extraction_empty.json": "sha256:6802e871212f19d5a7f76166b7cfd70f473e36022982909c12cca6d554208934",
+    "v_context_extension.json": "sha256:2d174a7012f19c1409421d7e45ce0cf0b56c59a85725a4e9df9b78d5033103fc",
+    "v_context_view.json": "sha256:d0b0b2db691e268712dd3a3b1b9ecf52e5a07c10b54541de8934be103995ac95",
+    "v_extraction_ambiguous.json": "sha256:cf03fae163a626612a3903190945dac86f340e1c66cf54804ebe5d6e633ff084",
+    "v_extraction_existing.json": "sha256:7b739c726127e1d2365d930ec4356cf703f5f15c38b6da25b81aee477dbacdbf",
+    "v_extraction_extended_name.json": "sha256:49d19587d1273d4b0fdd53c9164bbcf2005eb02393c8b98d80a373d666005785",
+    "v_extraction_new.json": "sha256:a590e7c8a31f325d030f72f106f50df79dd3337417b3283e634fba4eba3b21f0",
+    "v_ingest_request.json": "sha256:f868f1d71d6494d8f475cd9f8b5dbf94084e9248a32c644ca8fb835406715a51",
+    "v_operational_input.json": "sha256:44f8d14d6aef6db46479851fe49a85f7cc2a89a6b237d54adce94532f7825aa2",
+    "v_retrieval_direct_semantic.json": "sha256:e935ce7a5e8e1ac91ee3d7c28794502a3fa01972ca8e1ece5bf0bef8439c01cf",
+    "v_retrieval_outcome.json": "sha256:c8c2c5427bab686380e771f04e9cdb8669fab54d2c4e7d10701eb580cc2c65cf",
+    "v_retrieval_request.json": "sha256:23eebdee18f36b967f616a327fc650aefec468391b53887b9a95aa06714bbbd6",
+    "v_task_embed.json": "sha256:fe347ba256f4008cdfd2330e4a2631a0079b51143ec3ded74b130b218dd0bd26",
+    "v_task_generate.json": "sha256:eefe24303da04eaa5ba01df3a816fdd8d978a45b9d61f34aeb799a5b155f115a",
+    "v_task_subject_query.json": "sha256:46e46f144ae1c620584b24ca38a0dc94e120e891582377d5c4ca439749b08949"
+  }
+}

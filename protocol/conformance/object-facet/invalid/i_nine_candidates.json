@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "raw_round_id": "raw-invalid-nine",
+  "normalizer_version": "normalizer-v2",
+  "facet_catalogue_version": "facet-catalogue-v1",
+  "normalized_round": {},
+  "mentions": [
+    {
+      "mention_ref": "m1",
+      "surface_text": "Object",
+      "normalized_text": "object",
+      "source_event_id": "event-1",
+      "span_start": 0,
+      "span_end": 6,
+      "candidate_set_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "candidates": [
+        {"object_id": "obj-1", "canonical_name": "Object 1", "aliases": [], "match_reasons": [], "rank": 1, "lexical_score": 0.9, "embedding_score": 0.9, "context_score": 0.9, "final_score": 0.9, "project_match": false, "repository_match": false, "task_match": false, "related_object_match": false, "conversation_match": false, "explicit_scope_mismatch": false},
+        {"object_id": "obj-2", "canonical_name": "Object 2", "aliases": [], "match_reasons": [], "rank": 2, "lexical_score": 0.8, "embedding_score": 0.8, "context_score": 0.8, "final_score": 0.8, "project_match": false, "repository_match": false, "task_match": false, "related_object_match": false, "conversation_match": false, "explicit_scope_mismatch": false},
+        {"object_id": "obj-3", "canonical_name": "Object 3", "aliases": [], "match_reasons": [], "rank": 3, "lexical_score": 0.7, "embedding_score": 0.7, "context_score": 0.7, "final_score": 0.7, "project_match": false, "repository_match": false, "task_match": false, "related_object_match": false, "conversation_match": false, "explicit_scope_mismatch": false},
+        {"object_id": "obj-4", "canonical_name": "Object 4", "aliases": [], "match_reasons": [], "rank": 4, "lexical_score": 0.6, "embedding_score": 0.6, "context_score": 0.6, "final_score": 0.6, "project_match": false, "repository_match": false, "task_match": false, "related_object_match": false, "conversation_match": false, "explicit_scope_mismatch": false},
+        {"object_id": "obj-5", "canonical_name": "Object 5", "aliases": [], "match_reasons": [], "rank": 5, "lexical_score": 0.5, "embedding_score": 0.5, "context_score": 0.5, "final_score": 0.5, "project_match": false, "repository_match": false, "task_match": false, "related_object_match": false, "conversation_match": false, "explicit_scope_mismatch": false},
+        {"object_id": "obj-6", "canonical_name": "Object 6", "aliases": [], "match_reasons": [], "rank": 6, "lexical_score": 0.4, "embedding_score": 0.4, "context_score": 0.4, "final_score": 0.4, "project_match": false, "repository_match": false, "task_match": false, "related_object_match": false, "conversation_match": false, "explicit_scope_mismatch": false},
+        {"object_id": "obj-7", "canonical_name": "Object 7", "aliases": [], "match_reasons": [], "rank": 7, "lexical_score": 0.3, "embedding_score": 0.3, "context_score": 0.3, "final_score": 0.3, "project_match": false, "repository_match": false, "task_match": false, "related_object_match": false, "conversation_match": false, "explicit_scope_mismatch": false},
+        {"object_id": "obj-8", "canonical_name": "Object 8", "aliases": [], "match_reasons": [], "rank": 8, "lexical_score": 0.2, "embedding_score": 0.2, "context_score": 0.2, "final_score": 0.2, "project_match": false, "repository_match": false, "task_match": false, "related_object_match": false, "conversation_match": false, "explicit_scope_mismatch": false},
+        {"object_id": "obj-9", "canonical_name": "Object 9", "aliases": [], "match_reasons": [], "rank": 9, "lexical_score": 0.1, "embedding_score": 0.1, "context_score": 0.1, "final_score": 0.1, "project_match": false, "repository_match": false, "task_match": false, "related_object_match": false, "conversation_match": false, "explicit_scope_mismatch": false}
+      ]
+    }
+  ],
+  "resolution_context": {}
+}

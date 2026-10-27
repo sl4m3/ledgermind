@@ -1,0 +1,28 @@
+{
+  "schema_version": 2,
+  "idempotency_key": "sha256:015a10f0e6c543dbe1cdbfce2fde043970dc0752b0ae20386145bab1dfbfdf83",
+  "memory_space_id": "workspace_01",
+  "source": {
+    "system": "hermes",
+    "instance_id": "src_hermes_local",
+    "profile_id": "default",
+    "session_id": "tool_error_session",
+    "round_id": "tool_error_round",
+    "first_event_id": "error_user",
+    "final_event_id": "error_assistant",
+    "event_ids": ["error_user", "error_call", "error_result", "error_assistant"],
+    "source_schema_version": 1,
+    "adapter_version": "hermes-python/0.1.0"
+  },
+  "round": {
+    "started_at": "2026-08-03T10:02:00Z",
+    "completed_at": "2026-08-03T10:02:10Z",
+    "events": [
+      {"event_id": "error_user", "sequence": 0, "kind": "message", "role": "user", "content": [{"type": "text", "text": "Run the command."}]},
+      {"event_id": "error_call", "sequence": 1, "kind": "tool_call", "tool_call_id": "call_error", "tool_name": "run_command", "arguments": {"command": "false"}},
+      {"event_id": "error_result", "sequence": 2, "kind": "tool_result", "tool_call_id": "call_error", "status": "error", "content": [{"type": "text", "text": "command failed"}]},
+      {"event_id": "error_assistant", "sequence": 3, "kind": "message", "role": "assistant", "final": true, "content": [{"type": "text", "text": "The command failed."}]}
+    ]
+  },
+  "payload_digest": "sha256:015a10f0e6c543dbe1cdbfce2fde043970dc0752b0ae20386145bab1dfbfdf83"
+}

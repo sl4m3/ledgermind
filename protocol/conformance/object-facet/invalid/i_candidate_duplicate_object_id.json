@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "raw_round_id": "raw-invalid-object-id",
+  "normalizer_version": "normalizer-v2",
+  "facet_catalogue_version": "facet-catalogue-v1",
+  "normalized_round": {},
+  "mentions": [{
+    "mention_ref": "m1", "surface_text": "Object", "normalized_text": "object", "source_event_id": "event-1", "span_start": 0, "span_end": 6,
+    "candidate_set_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "candidates": [
+      {"object_id": "obj-1", "canonical_name": "Object 1", "rank": 1, "lexical_score": 0.5, "embedding_score": 0.5, "context_score": 0.5, "final_score": 0.5, "project_match": false, "repository_match": false, "task_match": false, "related_object_match": false, "conversation_match": false, "explicit_scope_mismatch": false},
+      {"object_id": "obj-1", "canonical_name": "Object 1 duplicate", "rank": 2, "lexical_score": 0.4, "embedding_score": 0.4, "context_score": 0.4, "final_score": 0.4, "project_match": false, "repository_match": false, "task_match": false, "related_object_match": false, "conversation_match": false, "explicit_scope_mismatch": false}
+    ]
+  }],
+  "resolution_context": {}
+}

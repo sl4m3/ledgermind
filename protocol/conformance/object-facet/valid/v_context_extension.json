@@ -1,0 +1,7 @@
+{
+  "ledgermind_context": {
+    "schema_version": 1,
+    "retrieval_request_id": "retrieval-1",
+    "delivered_value_ids": ["value-1", "value-2"]
+  }
+}
