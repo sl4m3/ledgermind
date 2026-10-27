@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/raw-round.schema.json",
+  "title": "LedgerMind Raw Round",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "idempotency_key", "memory_space_id", "source", "round", "payload_digest"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 2},
+    "idempotency_key": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "memory_space_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "source": {"$ref": "#/$defs/source"},
+    "round": {"$ref": "#/$defs/round"},
+    "payload_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "extensions": {"$ref": "#/$defs/extensions"}
+  },
+  "$defs": {
+    "extensions": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_.-]*$"},
+      "additionalProperties": true,
+      "maxProperties": 32
+    },
+    "source_extensions": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[a-z][a-z0-9_.-]*$"},
+      "additionalProperties": true,
+      "maxProperties": 32,
+      "properties": {
+        "ledgermind_resolution": {"$ref": "#/$defs/resolution"}
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "project_id",
+        "repository_id",
+        "task_id",
+        "conversation_id"
+      ],
+      "properties": {
+        "schema_version": {"type": "integer", "const": 1},
+        "project_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 500},
+        "repository_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 500},
+        "task_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 500},
+        "conversation_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 500}
+      }
+    },
+    "content_part": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type"],
+      "properties": {
+        "type": {"enum": ["text", "json", "reference"]},
+        "text": {"type": "string", "maxLength": 200000},
+        "data": {},
+        "uri": {"type": "string", "maxLength": 2000}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"type": {"const": "text"}}},
+          "then": {"required": ["text"]}
+        },
+        {
+          "if": {"properties": {"type": {"const": "json"}}},
+          "then": {"required": ["data"]}
+        },
+        {
+          "if": {"properties": {"type": {"const": "reference"}}},
+          "then": {"required": ["uri"]}
+        }
+      ]
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "sequence", "kind"],
+      "properties": {
+        "event_id": {"type": "string", "minLength": 1, "maxLength": 300},
+        "sequence": {"type": "integer", "minimum": 0, "maximum": 1000000},
+        "kind": {"enum": ["message", "tool_call", "tool_result"]},
+        "role": {"enum": ["user", "assistant", "system"]},
+        "content": {"type": "array", "items": {"$ref": "#/$defs/content_part"}, "maxItems": 256},
+        "final": {"type": "boolean"},
+        "tool_call_id": {"type": "string", "minLength": 1, "maxLength": 300},
+        "tool_name": {"type": "string", "minLength": 1, "maxLength": 300},
+        "arguments": {},
+        "status": {"enum": ["success", "error", "cancelled", "unknown"]}
+      },
+      "oneOf": [
+        {
+          "properties": {"kind": {"const": "message"}},
+          "required": ["kind", "role"],
+          "not": {"anyOf": [{"required": ["tool_call_id"]}, {"required": ["tool_name"]}, {"required": ["arguments"]}, {"required": ["status"]}]}
+        },
+        {
+          "properties": {"kind": {"const": "tool_call"}},
+          "required": ["kind", "tool_call_id", "tool_name"],
+          "not": {"anyOf": [{"required": ["role"]}, {"required": ["status"]}]}
+        },
+        {
+          "properties": {"kind": {"const": "tool_result"}},
+          "required": ["kind", "tool_call_id", "status"],
+          "not": {"required": ["role"]}
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system", "instance_id", "profile_id", "session_id", "round_id", "first_event_id", "final_event_id", "event_ids", "source_schema_version", "adapter_version"],
+      "properties": {
+        "system": {"type": "string", "minLength": 1, "maxLength": 100},
+        "instance_id": {"type": "string", "minLength": 1, "maxLength": 300},
+        "profile_id": {"type": "string", "minLength": 1, "maxLength": 300},
+        "session_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "round_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "first_event_id": {"type": "string", "minLength": 1, "maxLength": 300},
+        "final_event_id": {"type": "string", "minLength": 1, "maxLength": 300},
+        "event_ids": {"type": "array", "minItems": 1, "maxItems": 10000, "items": {"type": "string", "minLength": 1, "maxLength": 300}, "uniqueItems": true},
+        "source_schema_version": {"type": "integer", "minimum": 1},
+        "adapter_version": {"type": "string", "minLength": 1, "maxLength": 200},
+        "extensions": {"$ref": "#/$defs/source_extensions"}
+      }
+    },
+    "round": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["started_at", "completed_at", "events"],
+      "properties": {
+        "started_at": {"type": "string", "format": "date-time"},
+        "completed_at": {"type": "string", "format": "date-time"},
+        "events": {"type": "array", "minItems": 1, "maxItems": 10000, "items": {"$ref": "#/$defs/event"}}
+      }
+    }
+  }
+}

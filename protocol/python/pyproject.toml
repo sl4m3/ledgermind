@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ledgermind-protocol"
+version = "2.0.0b1"
+description = "Public LedgerMind RawRound and ContextView protocol"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "COPYING"]
+requires-python = ">=3.10"
+dependencies = ["pydantic>=2.7,<3"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9", "ruff>=0.6", "mypy>=1.10", "build>=1.2"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ledgermind_protocol*"]
+
+[tool.setuptools.package-data]
+ledgermind_protocol = ["py.typed"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_ignores = true

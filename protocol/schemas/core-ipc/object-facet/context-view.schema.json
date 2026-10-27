@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/object-facet/context-view.schema.json",
+  "title": "LedgerMind ContextView",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "retrieval_request_id", "items", "delivered_value_ids"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 2},
+    "retrieval_request_id": {"type": "string", "minLength": 1, "maxLength": 500},
+    "items": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {"$ref": "retrieval-response.schema.json#/$defs/retrieval_item"}
+    },
+    "delivered_value_ids": {
+      "type": "array",
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500}
+    },
+    "memory_injection": {"$ref": "retrieval-response.schema.json#/$defs/memory_injection"}
+  }
+}

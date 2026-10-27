@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/begin-restore.schema.json",
+  "title": "LedgerMind Core IPC begin restore payload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["relative_path", "sha256", "restore_token"],
+  "properties": {
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^exchange/incoming/(?!$)(?:(?!\\.{1,2}(?:/|$))[^/\\\\\\u0000]+(?:/|$))+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "restore_token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^(?!\\.$)(?!.*\\.\\.)[^/\\\\\\u0000]+$"
+    }
+  }
+}
