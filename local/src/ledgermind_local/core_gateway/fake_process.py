@@ -336,6 +336,8 @@ def main() -> int:
             relative_path = "exchange/outgoing/fake-core-backup.bin"
             snapshot = b"fake-core-snapshot"
             destination = _exchange_file(core_data_dir, relative_path)
+            # The fake core mirrors Core's laziness rule: runtime directories
+            # appear only when an operation needs them, never at startup.
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(snapshot)
             _write(
