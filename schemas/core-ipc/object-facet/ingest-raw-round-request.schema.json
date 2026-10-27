@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/object-facet/ingest-raw-round-request.schema.json",
+  "title": "LedgerMind object-facet RawRound ingest request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "command_id", "idempotency_key", "memory_space_id", "raw_round"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 2},
+    "command_id": {"type": "string", "minLength": 1, "maxLength": 500},
+    "idempotency_key": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "memory_space_id": {"type": "string", "minLength": 1, "maxLength": 500},
+    "raw_round": {"type": "object"},
+    "resolution_context": {"$ref": "operational-extraction-input.schema.json#/$defs/resolution_context"},
+    "embedding_profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "embedding_model_id",
+        "embedding_model_version",
+        "embedding_profile_fingerprint",
+        "embedding_profile_model_version",
+        "embedding_profile_digest_algorithm",
+        "embedding_profile_digest_algorithm_schema_version",
+        "embedding_dimensions"
+      ],
+      "properties": {
+        "embedding_model_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "embedding_model_version": {"type": "string", "minLength": 1, "maxLength": 500},
+        "embedding_profile_fingerprint": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "embedding_profile_model_version": {"type": "string", "minLength": 1, "maxLength": 500},
+        "embedding_profile_digest_algorithm": {"const": "sha256"},
+        "embedding_profile_digest_algorithm_schema_version": {"type": "integer", "const": 1},
+        "embedding_dimensions": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

@@ -27,7 +27,7 @@ from ledgermind_protocol.core_ipc import (
     ValidateBackupPayload,
 )
 
-_SCHEMA_ROOT = Path(__file__).resolve().parents[3] / "schemas" / "core-ipc"
+_SCHEMA_ROOT = Path(__file__).resolve().parents[3] / "protocol" / "schemas" / "core-ipc"
 _SCHEMA_NAMES = {
     "handshake.schema.json",
     "request-envelope.schema.json",

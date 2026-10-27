@@ -1,0 +1,875 @@
+{
+  "$defs": {
+    "ClaimCondition": {
+      "additionalProperties": false,
+      "description": "Exact source evidence for a claim condition.",
+      "properties": {
+        "source_event_id": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "surface_text": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Surface Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_event_id",
+        "surface_text"
+      ],
+      "title": "ClaimCondition",
+      "type": "object"
+    },
+    "DependencyAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "required_value_id": {
+          "maxLength": 500,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Required Value Id",
+          "type": "string"
+        },
+        "required_content_digest": {
+          "maxLength": 100,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Required Content Digest",
+          "type": "string"
+        },
+        "source_event_id": {
+          "maxLength": 500,
+          "minLength": 1,
+          "pattern": "\\S",
+          "title": "Source Event Id",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "satisfied",
+            "missing",
+            "snapshot_changed",
+            "revalidation_required"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "required_value_id",
+        "required_content_digest",
+        "source_event_id",
+        "state"
+      ],
+      "title": "DependencyAssessment",
+      "type": "object"
+    },
+    "DependencyScopeAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_version": {
+          "const": "registered_dependency_scopes_v1",
+          "title": "Contract Version",
+          "type": "string"
+        },
+        "scope_kind": {
+          "enum": [
+            "global",
+            "object",
+            "target"
+          ],
+          "title": "Scope Kind",
+          "type": "string"
+        },
+        "scope_id": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Scope Id",
+          "type": "string"
+        },
+        "checked_revision": {
+          "minimum": 0,
+          "title": "Checked Revision",
+          "type": "integer"
+        },
+        "current_revision": {
+          "minimum": 0,
+          "title": "Current Revision",
+          "type": "integer"
+        },
+        "coverage": {
+          "enum": [
+            "registered_rules_only",
+            "legacy_scope_pending"
+          ],
+          "title": "Coverage",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "satisfied",
+            "snapshot_changed",
+            "revalidation_required"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "contract_version",
+        "scope_kind",
+        "scope_id",
+        "checked_revision",
+        "current_revision",
+        "coverage",
+        "state"
+      ],
+      "title": "DependencyScopeAssessment",
+      "type": "object"
+    },
+    "FacetActivation": {
+      "additionalProperties": false,
+      "properties": {
+        "facet": {
+          "enum": [
+            "identity",
+            "property",
+            "state",
+            "function",
+            "structure",
+            "procedure",
+            "maintenance",
+            "risk",
+            "constraint",
+            "preference",
+            "decision",
+            "experience",
+            "relation",
+            "event"
+          ],
+          "title": "Facet",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "embedding_similarity_raw": {
+          "default": 0.0,
+          "title": "Embedding Similarity Raw",
+          "type": "number"
+        },
+        "relative_margin": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Relative Margin",
+          "type": "number"
+        },
+        "lexical_cues": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Lexical Cues",
+          "type": "array"
+        },
+        "signals": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Signals",
+          "type": "array"
+        }
+      },
+      "required": [
+        "facet",
+        "score"
+      ],
+      "title": "FacetActivation",
+      "type": "object"
+    },
+    "RetrievalExplanation": {
+      "additionalProperties": false,
+      "properties": {
+        "object_reasons": {
+          "items": {
+            "enum": [
+              "technical_identifier_exact",
+              "canonical_exact",
+              "lexical_similarity",
+              "object_card_embedding",
+              "project_match",
+              "repository_match",
+              "task_match",
+              "related_object_match",
+              "conversation_match",
+              "direct_value_semantic"
+            ],
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Object Reasons",
+          "type": "array"
+        },
+        "item_facet": {
+          "enum": [
+            "identity",
+            "property",
+            "state",
+            "function",
+            "structure",
+            "procedure",
+            "maintenance",
+            "risk",
+            "constraint",
+            "preference",
+            "decision",
+            "experience",
+            "relation",
+            "event"
+          ],
+          "title": "Item Facet",
+          "type": "string"
+        },
+        "activated_facets": {
+          "items": {
+            "$ref": "#/$defs/FacetActivation"
+          },
+          "maxItems": 14,
+          "title": "Activated Facets",
+          "type": "array"
+        },
+        "score_components": {
+          "$ref": "#/$defs/ScoreComponents"
+        }
+      },
+      "required": [
+        "object_reasons",
+        "item_facet",
+        "activated_facets",
+        "score_components"
+      ],
+      "title": "RetrievalExplanation",
+      "type": "object"
+    },
+    "ScopedMemoryInjection": {
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "semantic_units_v3",
+          "title": "Format",
+          "type": "string"
+        },
+        "semantic_contract_version": {
+          "const": "memory_semantics_v2",
+          "title": "Semantic Contract Version",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 65536,
+          "title": "Text",
+          "type": "string"
+        },
+        "legend": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 14,
+          "title": "Legend",
+          "type": "array"
+        },
+        "item_count": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Item Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "format",
+        "semantic_contract_version",
+        "text",
+        "legend",
+        "item_count"
+      ],
+      "title": "ScopedMemoryInjection",
+      "type": "object"
+    },
+    "ScopedRetrievalItem": {
+      "additionalProperties": false,
+      "properties": {
+        "value_id": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Value Id",
+          "type": "string"
+        },
+        "primary_object_id": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Primary Object Id",
+          "type": "string"
+        },
+        "object_name": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Object Name",
+          "type": "string"
+        },
+        "target_id": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Id"
+        },
+        "target_name": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Name"
+        },
+        "target_breadcrumb": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "title": "Target Breadcrumb",
+          "type": "array"
+        },
+        "facet": {
+          "enum": [
+            "identity",
+            "property",
+            "state",
+            "function",
+            "structure",
+            "procedure",
+            "maintenance",
+            "risk",
+            "constraint",
+            "preference",
+            "decision",
+            "experience",
+            "relation",
+            "event"
+          ],
+          "title": "Facet",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Content",
+          "type": "string"
+        },
+        "scope_text": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scope Text"
+        },
+        "content_language": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content Language"
+        },
+        "conditions": {
+          "items": {
+            "$ref": "#/$defs/ClaimCondition"
+          },
+          "maxItems": 32,
+          "title": "Conditions",
+          "type": "array"
+        },
+        "source_event_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "minItems": 1,
+          "title": "Source Event Ids",
+          "type": "array"
+        },
+        "relevance": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Relevance",
+          "type": "number"
+        },
+        "explanation": {
+          "$ref": "#/$defs/RetrievalExplanation"
+        },
+        "semantic_safety": {
+          "$ref": "#/$defs/ValueSemanticSafety"
+        },
+        "requires_revalidation": {
+          "title": "Requires Revalidation",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "value_id",
+        "primary_object_id",
+        "object_name",
+        "facet",
+        "content",
+        "source_event_ids",
+        "relevance",
+        "explanation",
+        "semantic_safety",
+        "requires_revalidation"
+      ],
+      "title": "ScopedRetrievalItem",
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "semantic_safety": {
+                "properties": {
+                  "lifecycle_status": {
+                    "const": "active"
+                  },
+                  "dependencies": {
+                    "items": {
+                      "properties": {
+                        "state": {
+                          "const": "satisfied"
+                        }
+                      }
+                    }
+                  },
+                  "scope_checks": {
+                    "items": {
+                      "properties": {
+                        "state": {
+                          "const": "satisfied"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "requires_revalidation": {
+                "const": false
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "requires_revalidation": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ScoreComponents": {
+      "additionalProperties": false,
+      "properties": {
+        "semantic_similarity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Semantic Similarity",
+          "type": "number"
+        },
+        "semantic_similarity_raw": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Semantic Similarity Raw",
+          "type": "number"
+        },
+        "semantic_contribution": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Semantic Contribution",
+          "type": "number"
+        },
+        "object_similarity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Object Similarity",
+          "type": "number"
+        },
+        "object_similarity_raw": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Object Similarity Raw",
+          "type": "number"
+        },
+        "primary_object_similarity": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Primary Object Similarity",
+          "type": "number"
+        },
+        "related_object_similarity": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Related Object Similarity",
+          "type": "number"
+        },
+        "related_object_similarity_raw": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Related Object Similarity Raw",
+          "type": "number"
+        },
+        "related_object_multiplier": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Related Object Multiplier",
+          "type": "number"
+        },
+        "object_card_cosine": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Object Card Cosine",
+          "type": "number"
+        },
+        "lexical_object_match": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Lexical Object Match",
+          "type": "number"
+        },
+        "object_embedding_similarity_raw": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Embedding Similarity Raw"
+        },
+        "object_embedding_contribution": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Embedding Contribution"
+        },
+        "object_lexical_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Lexical Score"
+        },
+        "object_lexical_contribution": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Object Lexical Contribution"
+        },
+        "object_contribution": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Object Contribution",
+          "type": "number"
+        },
+        "facet_compatibility": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Facet Compatibility",
+          "type": "number"
+        },
+        "facet_compatibility_raw": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Facet Compatibility Raw",
+          "type": "number"
+        },
+        "facet_similarity_raw": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Facet Similarity Raw"
+        },
+        "facet_contribution": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Facet Contribution",
+          "type": "number"
+        },
+        "scope_time_compatibility": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Scope Time Compatibility",
+          "type": "number"
+        },
+        "scope_time_contribution": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Scope Time Contribution",
+          "type": "number"
+        },
+        "context_compatibility": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Context Compatibility",
+          "type": "number"
+        },
+        "context_contribution": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Context Contribution",
+          "type": "number"
+        },
+        "recency_component": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Recency Component",
+          "type": "number"
+        },
+        "recency_contribution": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Recency Contribution",
+          "type": "number"
+        },
+        "support_component": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Support Component",
+          "type": "number"
+        },
+        "support_contribution": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Support Contribution",
+          "type": "number"
+        },
+        "usage_component": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Usage Component",
+          "type": "number"
+        },
+        "usage_contribution": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Usage Contribution",
+          "type": "number"
+        },
+        "final_score": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Final Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "semantic_similarity",
+        "semantic_contribution",
+        "object_similarity",
+        "object_contribution",
+        "facet_compatibility",
+        "facet_contribution",
+        "scope_time_compatibility",
+        "scope_time_contribution",
+        "context_compatibility",
+        "context_contribution",
+        "recency_component",
+        "recency_contribution",
+        "support_component",
+        "support_contribution",
+        "usage_component",
+        "usage_contribution",
+        "final_score"
+      ],
+      "title": "ScoreComponents",
+      "type": "object"
+    },
+    "ValueSemanticSafety": {
+      "additionalProperties": false,
+      "properties": {
+        "lifecycle_status": {
+          "enum": [
+            "active",
+            "superseded",
+            "invalidated",
+            "contested",
+            "resolved"
+          ],
+          "title": "Lifecycle Status",
+          "type": "string"
+        },
+        "dependencies": {
+          "items": {
+            "$ref": "#/$defs/DependencyAssessment"
+          },
+          "maxItems": 1000,
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "scope_checks": {
+          "items": {
+            "$ref": "#/$defs/DependencyScopeAssessment"
+          },
+          "maxItems": 1000,
+          "title": "Scope Checks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "lifecycle_status",
+        "dependencies"
+      ],
+      "title": "ValueSemanticSafety",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 5,
+      "default": 5,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "retrieval_request_id": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Retrieval Request Id",
+      "type": "string"
+    },
+    "items": {
+      "items": {
+        "$ref": "#/$defs/ScopedRetrievalItem"
+      },
+      "maxItems": 100,
+      "title": "Items",
+      "type": "array"
+    },
+    "target_resolution": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Target Resolution"
+    },
+    "memory_injection": {
+      "$ref": "#/$defs/ScopedMemoryInjection"
+    },
+    "retrieval_diagnostics": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Retrieval Diagnostics"
+    }
+  },
+  "required": [
+    "schema_version",
+    "retrieval_request_id",
+    "items",
+    "memory_injection"
+  ],
+  "title": "ScopedRetrievalResponse",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/object-facet/scoped-semantic-retrieval-response.schema.json"
+}

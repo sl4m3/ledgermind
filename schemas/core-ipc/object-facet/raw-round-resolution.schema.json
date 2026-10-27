@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/object-facet/raw-round-resolution.schema.json",
+  "title": "LedgerMind RawRound ledgermind_resolution source extension",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ledgermind_resolution"],
+  "properties": {
+    "ledgermind_resolution": {"$ref": "#/$defs/resolution"}
+  },
+  "$defs": {
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "project_id",
+        "repository_id",
+        "task_id",
+        "conversation_id"
+      ],
+      "properties": {
+        "schema_version": {"type": "integer", "const": 1},
+        "project_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 500},
+        "repository_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 500},
+        "task_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 500},
+        "conversation_id": {"type": ["string", "null"], "minLength": 1, "maxLength": 500}
+      }
+    }
+  }
+}

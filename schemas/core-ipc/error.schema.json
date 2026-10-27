@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/error.schema.json",
+  "title": "LedgerMind Core IPC error",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "message", "error_id", "retryable"],
+  "properties": {
+    "code": {"type": "string", "enum": ["INVALID_REQUEST", "INVALID_HYPOTHESIS", "IDEMPOTENCY_CONFLICT", "MEMORY_SPACE_MISMATCH", "NOT_FOUND", "VERSION_CONFLICT", "STALE_MODEL_TASK", "INTEGRITY_VIOLATION", "PROTOCOL_VERSION_UNSUPPORTED", "STORAGE_UNAVAILABLE", "INTERNAL_ERROR"]},
+    "message": {"type": "string", "minLength": 1},
+    "error_id": {"type": "string", "minLength": 1},
+    "retryable": {"type": "boolean"}
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledgermind.dev/schemas/core-ipc/object-facet/generic-execution-task.schema.json",
+  "title": "LedgerMind object-facet generic execution task",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "task_kind", "operation", "profile_slot", "memory_space_id", "expires_at"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 2},
+    "task_id": {"type": "string", "minLength": 1, "maxLength": 500},
+    "task_kind": {"enum": ["generate_json", "embed_texts", "decide"]},
+    "operation": {"type": "string", "minLength": 1, "maxLength": 500},
+    "profile_slot": {"enum": ["operational", "background", "embedding", "resolution_decision", "object_resolution"]},
+    "memory_space_id": {"type": "string", "minLength": 1, "maxLength": 500},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "lease": {"type": "string", "format": "date-time"},
+    "model_request": {"$ref": "#/$defs/model_request"},
+    "embedding_request": {"$ref": "#/$defs/embedding_request"},
+    "decision_request": {"$ref": "#/$defs/decision_request"},
+    "operation_input": {"type": "object"},
+    "structured_generation": {"$ref": "#/$defs/structured_generation"}
+  },
+  "oneOf": [
+    {
+      "properties": {"task_kind": {"const": "generate_json"}},
+      "required": ["task_kind", "model_request"],
+      "not": {"anyOf": [{"required": ["embedding_request"]}, {"required": ["decision_request"]}]}
+    },
+    {
+      "properties": {"task_kind": {"const": "embed_texts"}},
+      "required": ["task_kind", "embedding_request"],
+      "not": {"anyOf": [{"required": ["model_request"]}, {"required": ["decision_request"]}]}
+    },
+    {
+      "properties": {"task_kind": {"const": "decide"}},
+      "required": ["task_kind", "model_request", "decision_request"],
+      "not": {"required": ["embedding_request"]}
+    }
+  ],
+  "$defs": {
+    "decision_request": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "state", "questions"],
+      "properties": {
+        "schema_version": {"enum": [1, 2]},
+        "state": {"type": ["object", "array", "string"]},
+        "questions": {"type": "object", "minProperties": 1,
+          "additionalProperties": {
+            "type": "object", "additionalProperties": false,
+            "required": ["type", "instructions"],
+            "properties": {
+              "type": {"enum": ["choice", "noul", "score"]},
+              "instructions": {"type": ["string", "object", "array"]},
+              "criteria": {"type": ["object", "array", "null"]}
+            }
+          }
+        }
+      }
+    },
+    "model_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["messages", "max_output_tokens"],
+      "properties": {
+        "messages": {"type": "array", "minItems": 1, "maxItems": 256, "items": {"type": "object"}},
+        "max_output_tokens": {"type": "integer", "minimum": 1, "maximum": 262144},
+        "response_format": {"oneOf": [{"enum": ["json_object", "text"]}, {"type": "object"}]},
+        "output_contract": {"type": "object"},
+        "mode": {"enum": ["auto", "strict_json_schema", "json_schema", "tool_call", "json_object", "prompt_only"]},
+        "structured_output_requirement": {"type": "object"},
+        "structured_output_mode": {"enum": ["auto", "json_schema", "tool_call", "json_object", "prompt_only"]},
+        "tool_name": {"type": "string", "minLength": 1, "maxLength": 200},
+        "metadata": {"type": "object"},
+        "seed": {"type": "integer", "minimum": 0}
+      }
+    },
+    "embedding_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["texts", "purpose"],
+      "properties": {
+        "texts": {"type": "array", "minItems": 1, "maxItems": 512, "items": {"type": "string", "minLength": 1, "maxLength": 2000}},
+        "purpose": {"enum": ["object_query", "subject_query", "object_mention", "object_card", "value_record", "retrieval_query", "facet_catalog"]},
+        "subject_refs": {"type": "array", "maxItems": 512, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 500}},
+        "dimensions": {"type": "integer", "minimum": 1, "maximum": 8192}
+      }
+    },
+    "structured_generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root_task_id", "attempt_number", "attempt_kind", "contract_digest"],
+      "properties": {
+        "root_task_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "parent_task_id": {"type": "string", "minLength": 1, "maxLength": 500},
+        "attempt_number": {"type": "integer", "minimum": 0, "maximum": 2},
+        "attempt_kind": {"type": "string", "enum": ["primary", "repair", "semantic_repair", "stale_refresh"]},
+        "contract_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
