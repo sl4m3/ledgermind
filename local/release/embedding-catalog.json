@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "models": [
+    {
+      "id": "nemotron-3-embed-1b-bf16",
+      "upstream_model": "nvidia/Nemotron-3-Embed-1B-BF16",
+      "upstream_revision": "9e0b24858b1195815ecb1188ffa1b73bcea7b30a",
+      "license": "NVIDIA Open Model License",
+      "dimensions": 2048,
+      "devices": ["cpu"],
+      "runtime_id": "sentence-transformers-nemotron",
+      "runtime_compatibility": {
+        "engine": "sentence-transformers",
+        "query_method": "encode_query",
+        "passage_method": "encode_document"
+      },
+      "files": [
+        {
+          "name": "1_Pooling/config.json",
+          "url": "https://huggingface.co/nvidia/Nemotron-3-Embed-1B-BF16/resolve/9e0b24858b1195815ecb1188ffa1b73bcea7b30a/1_Pooling/config.json",
+          "size": 298,
+          "sha256": "6dcf44c2f7e7878ac0ee2e992c8e7d1f6812e12724b00d1d0cb0fa3336f07f0d"
+        },
+        {
+          "name": "config.json",
+          "url": "https://huggingface.co/nvidia/Nemotron-3-Embed-1B-BF16/resolve/9e0b24858b1195815ecb1188ffa1b73bcea7b30a/config.json",
+          "size": 1117,
+          "sha256": "56964141409866da7ce7d2d88b5b20c44558f5e916b318ad3abd2c694b2cb5f7"
+        },
+        {
+          "name": "config_sentence_transformers.json",
+          "url": "https://huggingface.co/nvidia/Nemotron-3-Embed-1B-BF16/resolve/9e0b24858b1195815ecb1188ffa1b73bcea7b30a/config_sentence_transformers.json",
+          "size": 261,
+          "sha256": "dc2bc223baa9e5eedd8593d1d4230210681001e7dec73ac53d89697df97079ee"
+        },
+        {
+          "name": "model.safetensors",
+          "url": "https://huggingface.co/nvidia/Nemotron-3-Embed-1B-BF16/resolve/9e0b24858b1195815ecb1188ffa1b73bcea7b30a/model.safetensors",
+          "size": 2281852472,
+          "sha256": "f959c3b04e66b42de280bfb97c140cb7e0bfe25e3ecb0b4464c68a8436b2d04f"
+        },
+        {
+          "name": "model.safetensors.index.json",
+          "url": "https://huggingface.co/nvidia/Nemotron-3-Embed-1B-BF16/resolve/9e0b24858b1195815ecb1188ffa1b73bcea7b30a/model.safetensors.index.json",
+          "size": 8936,
+          "sha256": "ff9507acb077cc9f84f3993e3b3556b2a022b8ff66ce3fc326909dfd4b550935"
+        },
+        {
+          "name": "modules.json",
+          "url": "https://huggingface.co/nvidia/Nemotron-3-Embed-1B-BF16/resolve/9e0b24858b1195815ecb1188ffa1b73bcea7b30a/modules.json",
+          "size": 350,
+          "sha256": "21ddb3037a55ebf4549eb5c1dc44c3f28f10b56ec7f1335c92fd90e5b30d88ac"
+        },
+        {
+          "name": "sentence_bert_config.json",
+          "url": "https://huggingface.co/nvidia/Nemotron-3-Embed-1B-BF16/resolve/9e0b24858b1195815ecb1188ffa1b73bcea7b30a/sentence_bert_config.json",
+          "size": 56,
+          "sha256": "0b1d25d4d13c72c255a7eaaf8921ca481c4cd61ad894e7209c52dc5e1ac3f3bd"
+        },
+        {
+          "name": "tokenizer.json",
+          "url": "https://huggingface.co/nvidia/Nemotron-3-Embed-1B-BF16/resolve/9e0b24858b1195815ecb1188ffa1b73bcea7b30a/tokenizer.json",
+          "size": 17077678,
+          "sha256": "797410dfb649a5b9ba92bc4fef7dbf4022d00e73de6867c4ac199a8846439421"
+        },
+        {
+          "name": "tokenizer_config.json",
+          "url": "https://huggingface.co/nvidia/Nemotron-3-Embed-1B-BF16/resolve/9e0b24858b1195815ecb1188ffa1b73bcea7b30a/tokenizer_config.json",
+          "size": 21139,
+          "sha256": "7bbb77c55282bc679b86d21a1b3953ed8d5d63aaf75f10800c20596eab30b980"
+        }
+      ]
+    }
+  ]
+}
