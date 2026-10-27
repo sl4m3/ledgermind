@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from fastapi import status
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -13,9 +11,17 @@ class APIError(RuntimeError):
     """Base class for HTTP API domain errors."""
 
 
-@dataclass(frozen=True, slots=True)
 class AuthenticationError(APIError):
-    detail: str = "invalid or missing API token"
+    """Missing or invalid API token.
+
+    A plain exception, not a frozen dataclass: Starlette clears
+    ``__traceback__`` while unwrapping handlers, which a frozen or slotted
+    instance cannot accept.
+    """
+
+    def __init__(self, detail: str = "invalid or missing API token") -> None:
+        super().__init__(detail)
+        self.detail = detail
 
 
 async def authentication_error_handler(
