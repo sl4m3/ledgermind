@@ -38,6 +38,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+      - name: install bubblewrap
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends bubblewrap
       # The proprietary inference boundary ships as a binary wheel asset; its
       # name and digest are recorded in local/release/dependency-wheels.json.
       - name: fetch ledgermind-inference wheel

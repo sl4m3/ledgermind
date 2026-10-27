@@ -179,15 +179,11 @@ not import PyTorch. The wizard exposes CPU, NVIDIA CUDA, and AMD ROCm choices.
 
 ## Docker
 
-Build from the LedgerMind workspace root because Core, Local,
-and protocol live in adjacent directories. Rust Core is compiled in a separate
-multi-stage builder; the legacy Python runtime is not included in the image:
-
-```bash
-cd /path/to/ledgermind-engine
-docker build -f local/Dockerfile \
-  -t ledgermind-local .
-```
+`local/Dockerfile` is the experimental, unsupported container artifact. It
+compiles the closed Rust Core, so it is built from the private platform
+workspace with the public Local tree mounted beside it — it is not buildable
+from this repository alone. The supported Linux installation path is the signed
+installer described in [`install.md`](install.md).
 
 The image intentionally does not generate a signature. Before starting it,
 mount the signature and public key for the binary produced by the same Docker

@@ -7,7 +7,7 @@
 set -euo pipefail
 
 ROOT="${LEDGERMIND_LOCAL_ROOT:-$HOME/.local/share/ledgermind}"
-REPO="${LEDGERMIND_REPO:-/home/stanislav/Проекты/ledgermind/ledgermind-engine}"
+REPO="${LEDGERMIND_REPO:?set LEDGERMIND_REPO to the ledgermind-platform checkout}"
 PYTHON="${LEDGERMIND_MODEL_GATEWAY_PYTHON:-$ROOT/embedding-runtimes/sentence-transformers-nemotron/cuda/bin/python3}"
 TOKEN_FILE="${LEDGERMIND_MODEL_GATEWAY_TOKEN_FILE:-$ROOT/embedding/server.token}"
 RERANKER_PATH="${LEDGERMIND_RERANKER_MODEL_PATH:-}"
