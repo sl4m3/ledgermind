@@ -11,7 +11,7 @@ from pathlib import Path
 import tomllib
 
 ROOT = Path(__file__).resolve().parents[3]
-SCRIPT = ROOT / "scripts" / "release-integrations.py"
+SCRIPT = ROOT / "misc" / "scripts" / "release-integrations.py"
 
 
 class IntegrationsReleaseScriptTests(unittest.TestCase):

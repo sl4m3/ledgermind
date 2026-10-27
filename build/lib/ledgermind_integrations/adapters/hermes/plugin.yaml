@@ -1,0 +1,11 @@
+# LedgerMind RawRound Hermes adapter
+name: ledgermind-hermes
+version: 0.1.0
+provides_hooks:
+  - pre_llm_call
+  - pre_tool_call
+  - post_tool_call
+  - post_llm_call
+  - on_session_end
+  - on_session_finalize
+capture_schema_version: 1

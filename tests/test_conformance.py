@@ -16,7 +16,7 @@ _EXPECTED_FIXTURE_DIGEST = "sha256:f5ca1aed3d274db9e12e29aebed230efcb9e5a678ebff
 
 
 def test_shared_schema_and_fixture_are_canonical() -> None:
-    schema = (_ROOT / "schemas" / "raw-round.schema.json").read_bytes()
+    schema = (_ROOT / "protocol" / "schemas" / "raw-round.schema.json").read_bytes()
     schema_object = json.loads(schema)
     assert schema_object["$id"].endswith("raw-round.schema.json")
     assert "oneOf" in schema_object["$defs"]["event"]
