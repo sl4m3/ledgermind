@@ -10,7 +10,7 @@ from ledgermind_protocol import (
     validate_raw_round,
 )
 
-_FIXTURE = Path(__file__).resolve().parents[2] / "conformance" / "valid" / "hermes_complete.json"
+_FIXTURE = Path(__file__).resolve().parents[2] / "protocol" / "conformance" / "valid" / "hermes_complete.json"
 
 
 def test_fixture_has_the_same_digest_as_public_protocol() -> None:

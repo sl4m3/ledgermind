@@ -25,7 +25,7 @@ from ledgermind_protocol.object_facet import (
 )
 
 _ROOT = Path(__file__).resolve().parents[3]
-_FIXTURES = _ROOT / "conformance" / "object-facet"
+_FIXTURES = _ROOT / "protocol" / "conformance" / "object-facet"
 _SCHEMAS = _ROOT / "protocol" / "schemas" / "core-ipc" / "object-facet"
 
 _VALID_MODELS = {

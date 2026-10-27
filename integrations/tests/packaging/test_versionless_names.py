@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-SCRIPT = ROOT / "misc" / "scripts" / "check-versionless-names.py"
+SCRIPT = ROOT / "integrations" / "scripts" / "check-versionless-names.py"
 
 
 def _load_gate():
@@ -56,19 +56,19 @@ class IntegrationsVersionlessNamesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             files = {
-                "python/pyproject.toml": (
+                "pyproject.toml": (
                     "[project]\n"
                     'version = "v1"\n'
                     'name = "product-v2"\n'
                 ),
-                "python/src/contracts.py": (
+                "src/contracts.py": (
                     'payload = { "schema_version": "v1", "protocol_version": "v2", '
                     '"not_schema_version": "v3" }\n'
                     'provider = "https://provider.example/v1"\n'
                     'local = "http://127.0.0.1:8765/v1"\n'
                     "uuid.uuid4();\n"
                 ),
-                "python/src/ledgermind_integrations/runtime/spool_migration.py": (
+                "src/ledgermind_integrations/runtime/spool_migration.py": (
                     'legacy = "ledgermind_context_v1"\n'
                     'operation = "retrieve_context_v2"\n'
                 ),
@@ -86,9 +86,9 @@ class IntegrationsVersionlessNamesTests(unittest.TestCase):
             violations = gate.scan(root)
             rendered = "\n".join(gate.format_violation(item) for item in violations)
 
-        self.assertIn("python/pyproject.toml:3:", rendered)
-        self.assertIn("python/src/contracts.py:1:", rendered)
-        self.assertIn("python/src/contracts.py:3:", rendered)
+        self.assertIn("pyproject.toml:3:", rendered)
+        self.assertIn("src/contracts.py:1:", rendered)
+        self.assertIn("src/contracts.py:3:", rendered)
         self.assertIn("spool_migration.py:2:", rendered)
         self.assertNotIn("untracked_v9.py", rendered)
         self.assertNotIn("provider.example/v1", rendered)

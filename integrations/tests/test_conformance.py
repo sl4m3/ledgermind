@@ -21,7 +21,7 @@ def test_shared_schema_and_fixture_are_canonical() -> None:
     assert schema_object["$id"].endswith("raw-round.schema.json")
     assert "oneOf" in schema_object["$defs"]["event"]
     fixture = json.loads(
-        (_ROOT / "conformance" / "valid" / "hermes_complete.json").read_text(encoding="utf-8")
+        (_ROOT / "protocol" / "conformance" / "valid" / "hermes_complete.json").read_text(encoding="utf-8")
     )
     resolution = fixture["source"]["extensions"]["ledgermind_resolution"]
     assert resolution == {
@@ -38,11 +38,11 @@ def test_shared_schema_and_fixture_are_canonical() -> None:
 
 
 def test_all_valid_conformance_fixtures_validate() -> None:
-    for path in sorted((_ROOT / "conformance" / "valid").glob("*.json")):
+    for path in sorted((_ROOT / "protocol" / "conformance" / "valid").glob("*.json")):
         validate_raw_round(json.loads(path.read_text(encoding="utf-8")))
 
 
 def test_all_invalid_conformance_fixtures_are_rejected() -> None:
-    for path in sorted((_ROOT / "conformance" / "invalid").glob("*.json")):
+    for path in sorted((_ROOT / "protocol" / "conformance" / "invalid").glob("*.json")):
         with pytest.raises(RawRoundValidationError):
             validate_raw_round(json.loads(path.read_text(encoding="utf-8")))

@@ -15,23 +15,23 @@ ROOT = Path(__file__).resolve().parents[1]
 GATE_PATHS = frozenset(
     {
         "scripts/check-versionless-names.py",
-        "python/tests/packaging/test_versionless_names.py",
+        "tests/packaging/test_versionless_names.py",
     }
 )
 METADATA_PATHS = frozenset(
-    {"python/pyproject.toml", "protocol/python/pyproject.toml"}
+    {"pyproject.toml"}
 )
 MIGRATION_COMPAT_PATHS = frozenset(
     {
-        "python/src/ledgermind_integrations/runtime/spool_migration.py",
-        "python/tests/test_spool_migration.py",
+        "src/ledgermind_integrations/runtime/spool_migration.py",
+        "tests/test_spool_migration.py",
     }
 )
 MIGRATION_COMPATIBILITY_VALUES = {
-    "python/src/ledgermind_integrations/runtime/spool_migration.py": frozenset(
+    "src/ledgermind_integrations/runtime/spool_migration.py": frozenset(
         {"ledgermind_context_v1"}
     ),
-    "python/tests/test_spool_migration.py": frozenset({"ledgermind_context_v1"}),
+    "tests/test_spool_migration.py": frozenset({"ledgermind_context_v1"}),
 }
 PORCELAIN_PATHS = frozenset({"scripts/release-integrations.py"})
 SEMANTIC_CONTRACT_PATHS = frozenset({

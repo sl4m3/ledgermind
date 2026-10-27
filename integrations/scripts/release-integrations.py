@@ -31,11 +31,11 @@ from zipfile import ZipFile
 
 import tomllib
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 COMPONENT = "ledgermind-integrations"
 MANIFEST_NAME = f"{COMPONENT}-manifest.json"
 PROTOCOL_PROJECT = Path("protocol/python")
-INTEGRATIONS_PROJECT = Path("python")
+INTEGRATIONS_PROJECT = Path("integrations/python")
 PROTOCOL_PACKAGE = "ledgermind_protocol"
 INTEGRATIONS_PACKAGE = "ledgermind_integrations"
 PROTOCOL_REQUIRED_WHEEL_FILES = {
@@ -66,11 +66,11 @@ INTEGRATIONS_REQUIRED_WHEEL_FILES = {
     "ledgermind_integrations/runtime/worker_loop.py",
 }
 REQUIRED_SOURCE_ASSETS = {
-    Path("schemas/raw-round.schema.json"),
-    Path("schemas/core-ipc/object-facet/raw-round-resolution.schema.json"),
-    Path("conformance/valid/hermes_complete.json"),
-    Path("conformance/digests/raw_round.json"),
-    Path("conformance/object-facet/digests.json"),
+    Path("protocol/schemas/raw-round.schema.json"),
+    Path("protocol/schemas/core-ipc/object-facet/raw-round-resolution.schema.json"),
+    Path("protocol/conformance/valid/hermes_complete.json"),
+    Path("protocol/conformance/digests/raw_round.json"),
+    Path("protocol/conformance/object-facet/digests.json"),
 }
 _GENERATED_DIR_NAMES = {
     "build",

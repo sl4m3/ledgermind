@@ -62,7 +62,7 @@ def test_hermes_capture_matches_reference_digest() -> None:
         resolution={"project_id": "aliadoai", "repository_id": "aliadoai-next"},
     )
     fixture = json.loads(
-        (Path(__file__).resolve().parents[3] / "conformance/valid/hermes_complete.json").read_text()
+        (Path(__file__).resolve().parents[3] / "protocol/conformance/valid/hermes_complete.json").read_text()
     )
     assert payload["payload_digest"] == fixture["payload_digest"]
     assert {"title", "statement", "rationale"}.isdisjoint(payload)
