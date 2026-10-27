@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ledgermind-integrations"
+version = "0.1.0"
+description = "Client integrations for the LedgerMind RawRound protocol"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE", "COPYING"]
+requires-python = ">=3.10"
+dependencies = [
+    "ledgermind-protocol>=2.0.0b1,<2.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9", "ruff>=0.6", "mypy>=1.10", "build>=1.2"]
+
+[project.scripts]
+ledgermind-integrations = "ledgermind_integrations.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ledgermind_integrations*"]
+
+[tool.setuptools.package-data]
+ledgermind_integrations = ["py.typed"]
+"ledgermind_integrations.adapters.hermes" = ["plugin.yaml"]
+"ledgermind_integrations.adapters.opencode" = ["ledgermind.js"]
+"ledgermind_integrations.adapters.openclaw" = ["index.js", "package.json", "openclaw.plugin.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_ignores = true

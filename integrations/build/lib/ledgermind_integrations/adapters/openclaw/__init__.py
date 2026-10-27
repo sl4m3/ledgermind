@@ -1,0 +1,1 @@
+"""OpenClaw plugin payload."""
