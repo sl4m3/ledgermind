@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ledgermind-local"
+version = "4.1.0"
+description = "LedgerMind local service bootstrap"
+license = "BUSL-1.1"
+license-files = ["LICENSE", "NOTICE", "COPYING"]
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.7,<3",
+    "cryptography>=42,<49",
+    "httpx>=0.27,<1",
+    "fastapi>=0.111,<1",
+    "PyYAML>=6.0,<7",
+    "zstandard>=0.23,<1",
+    "ledgermind-protocol>=2.0.0b1,<2.1",
+    "ledgermind-inference==0.1.0",
+    "uvicorn>=0.30,<1"
+]
+
+[project.optional-dependencies]
+reranker = [
+    "torch==2.8.0",
+    "transformers==4.57.6",
+    "huggingface-hub==0.36.2",
+    "einops==0.8.1",
+]
+dev = [
+    "fastapi>=0.111,<1",
+    "pytest>=8,<9",
+    "pytest-cov>=5,<7",
+    "ruff>=0.6",
+    "build>=1.2",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+ledgermind = "ledgermind_local.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ledgermind_local*"]
+
+[tool.setuptools.package-data]
+"ledgermind_local.persistence" = ["rounds_migrations/*.sql"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = ["integration: exercises a real Core daemon boundary"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unused_ignores = true
+ignore_missing_imports = true

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["status", "operation", "exit_code", "steps", "warnings", "errors", "paths", "profiles", "runtime", "smoke_test"],
+  "properties": {
+    "status": {"type": "string"},
+    "operation": {"type": "string"},
+    "exit_code": {"type": "integer"},
+    "steps": {"type": "array"},
+    "warnings": {"type": "array"},
+    "errors": {"type": "array"},
+    "paths": {"type": "object"},
+    "profiles": {"type": "array"},
+    "runtime": {"type": "object"},
+    "smoke_test": {"type": "object"}
+  }
+}

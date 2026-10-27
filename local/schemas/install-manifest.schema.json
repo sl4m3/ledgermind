@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["schema_version", "release_version", "published_at", "public_key_fingerprint", "platforms", "components", "embedding_catalog"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"type": "integer", "minimum": 1},
+    "release_version": {"type": "string", "minLength": 1},
+    "published_at": {"type": "string", "minLength": 1},
+    "public_key_fingerprint": {"type": "string", "minLength": 1},
+    "platforms": {"type": "object", "additionalProperties": {"$ref": "#/$defs/platform"}},
+    "components": {"type": "object", "additionalProperties": {"type": "object"}},
+    "embedding_catalog": {"type": "array", "items": {"type": "object"}}
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": ["url", "size", "sha256", "platform"],
+      "additionalProperties": false,
+      "properties": {
+        "url": {"type": "string", "minLength": 1},
+        "size": {"type": "integer", "minimum": 0},
+        "sha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"},
+        "signature": {"type": ["string", "null"]},
+        "platform": {"type": "string", "minLength": 1},
+        "minimum_glibc": {"type": ["string", "null"]},
+        "component_compatibility": {"type": "object"}
+      }
+    },
+    "platform": {
+      "type": "object",
+      "required": ["installer", "bundle"],
+      "additionalProperties": false,
+      "properties": {
+        "installer": {"$ref": "#/$defs/artifact"},
+        "bundle": {"$ref": "#/$defs/artifact"}
+      }
+    }
+  }
+}
