@@ -131,7 +131,7 @@ cannot be undone by LedgerMind.
 
 If no signed 4.0 package is published, do not substitute a legacy 3.x release
 or invent an installation command. Offer the canonical source and the
-[integrations repository](https://github.com/sl4m3/ledgermind-integrations),
+[integrations tree](https://github.com/sl4m3/ledgermind/tree/main/integrations),
 and tell the user that an evaluation build or a release is required.
 
 ## Canonical source
