@@ -132,9 +132,9 @@ service.
 |---|---|
 | Product page, documentation, benchmark, and release announcements | [github.com/sl4m3/ledgermind](https://github.com/sl4m3/ledgermind) |
 | LedgerMind Cloud account and managed workspaces | [ledgermind.org](https://ledgermind.org) |
-| LedgerMind Cloud Connector releases and checksums | [github.com/sl4m3/ledgermind-cloud](https://github.com/sl4m3/ledgermind-cloud) |
-| Public agent adapters and protocol contracts | [github.com/sl4m3/ledgermind-integrations](https://github.com/sl4m3/ledgermind-integrations) |
-| Inspectable local runtime and installer source | [github.com/sl4m3/ledgermind-local](https://github.com/sl4m3/ledgermind-local) |
+| LedgerMind Cloud Connector releases and checksums | [github.com/sl4m3/ledgermind/releases](https://github.com/sl4m3/ledgermind/releases) (tags `cloud-v*`) |
+| Public agent adapters and protocol contracts | [`integrations/`](integrations) and [`protocol/`](protocol) in this repository |
+| Inspectable local runtime and installer source | [`local/`](local) in this repository |
 | Signed self-hosted 4.1.0 package | [GitHub Releases](https://github.com/sl4m3/ledgermind/releases/latest) |
 | Enterprise evaluation, deployment, and licensing | [s.zotov@ledgermind.org](mailto:s.zotov@ledgermind.org) |
 
