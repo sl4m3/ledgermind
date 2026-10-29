@@ -1,16 +1,48 @@
-"""Minimal OpenAI-compatible local embedding service boundary."""
+"""Minimal OpenAI-compatible local embedding service boundary.
+
+Local uses a single FIFO lock: one GPU forward at a time, no priority classes
+and no server-side request rejection for normal batches.  Large batches are
+split into bounded chunks; the request always returns one complete result or a
+clear error.
+"""
 
 from __future__ import annotations
 
 import json
 import math
+import sys
 import threading
+import time
+import traceback
 from collections.abc import Callable, Sequence
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 EmbeddingBackend = Callable[..., Sequence[Sequence[float]]]
 RerankBackend = Callable[[str, Sequence[str]], Sequence[float]]
+
+
+class BackendUnavailable(RuntimeError):
+    """A backend dependency reported a retriable failure (OOM, busy, proxy down)."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(f"embedding backend unavailable: {code}")
+        self.code = code
+
+
+class RequestTooLarge(ValueError):
+    """The request exceeds the Local adapter's safety cap."""
+
+    def __init__(self, *, limit: str, actual: int, maximum: int) -> None:
+        super().__init__(f"request {limit} {actual} exceeds limit {maximum}")
+        self.limit = limit
+        self.actual = actual
+        self.maximum = maximum
+
+
+def _is_cuda_oom(exc: BaseException) -> bool:
+    name = type(exc).__name__.lower()
+    return "outofmemory" in name or "out of memory" in str(exc).lower()
 
 
 class EmbeddingService:
@@ -31,10 +63,36 @@ class EmbeddingService:
         reranker: RerankBackend | None = None,
         reranker_model: str | None = None,
         reranker_fingerprint: str | None = None,
+        max_request_texts: int = 512,
+        max_request_chars: int = 1_000_000,
+        max_request_documents: int = 256,
+        chunk_texts: int = 8,
+        queue_timeout: float = 10.0,
     ) -> None:
+        if max_request_texts < 1:
+            raise ValueError("max_request_texts must be positive")
+        if max_request_chars < 1:
+            raise ValueError("max_request_chars must be positive")
+        if max_request_documents < 1:
+            raise ValueError("max_request_documents must be positive")
+        if chunk_texts < 1:
+            raise ValueError("chunk_texts must be positive")
+        if queue_timeout <= 0:
+            raise ValueError("queue_timeout must be positive")
         self.backend = backend
+        self.max_request_texts = int(max_request_texts)
+        self.max_request_chars = int(max_request_chars)
+        self.max_request_documents = int(max_request_documents)
+        self.chunk_texts = max(1, int(chunk_texts))
+        self.queue_timeout = float(queue_timeout)
+        self._gpu_lock = threading.Lock()
+        self._activity_lock = threading.Lock()
+        self._active_requests = 0
+        self.last_activity = 0.0
         self.model = model
-        self.embedding_aliases = tuple(str(alias) for alias in embedding_aliases if alias)
+        self.embedding_aliases = tuple(
+            str(alias) for alias in embedding_aliases if alias
+        )
         self.dimensions = int(dimensions)
         self.device = device
         self.host = host
@@ -54,6 +112,136 @@ class EmbeddingService:
             return None
         return f"http://{self.host}:{self._server.server_port}"
 
+    @property
+    def is_busy(self) -> bool:
+        with self._activity_lock:
+            return self._active_requests > 0
+
+    def begin_request(self) -> None:
+        with self._activity_lock:
+            self._active_requests += 1
+        self.last_activity = time.monotonic()
+
+    def end_request(self) -> None:
+        with self._activity_lock:
+            self._active_requests = max(0, self._active_requests - 1)
+        self.last_activity = time.monotonic()
+
+    def _validate_batch(self, texts: Sequence[str]) -> None:
+        if len(texts) > self.max_request_texts:
+            raise RequestTooLarge(
+                limit="texts",
+                actual=len(texts),
+                maximum=self.max_request_texts,
+            )
+        chars = sum(len(text) for text in texts)
+        if chars > self.max_request_chars:
+            raise RequestTooLarge(
+                limit="chars",
+                actual=chars,
+                maximum=self.max_request_chars,
+            )
+
+    def _chunks(self, texts: Sequence[str]) -> list[list[str]]:
+        return [
+            list(texts[start : start + self.chunk_texts])
+            for start in range(0, len(texts), self.chunk_texts)
+        ]
+
+    def _encode_chunk(self, chunk: list[str], role: str | None) -> list[list[float]]:
+        return list(
+            self.backend(chunk, role=role) if role is not None else self.backend(chunk)
+        )
+
+    def encode(self, texts: Sequence[str], role: str | None) -> list[list[float]]:
+        """Run one FIFO embedding request; chunks are internal and ordered."""
+        values = list(texts)
+        if not values:
+            return []
+        self._validate_batch(values)
+        deadline = time.monotonic() + self.queue_timeout
+        if not self._gpu_lock.acquire(timeout=max(0.0, deadline - time.monotonic())):
+            raise BackendUnavailable("busy")
+        try:
+            vectors: list[list[float]] = []
+            for chunk in self._chunks(values):
+                try:
+                    vectors.extend(self._encode_chunk(chunk, role))
+                except BaseException as exc:
+                    if isinstance(exc, BackendUnavailable):
+                        raise
+                    if not _is_cuda_oom(exc):
+                        if isinstance(
+                            exc, (RuntimeError, OSError, ImportError, TimeoutError)
+                        ):
+                            raise BackendUnavailable("backend_error") from exc
+                        raise
+                    self.release_cuda_cache()
+                    if len(chunk) <= 1:
+                        raise BackendUnavailable("cuda_out_of_memory") from exc
+                    half = len(chunk) // 2
+                    try:
+                        vectors.extend(self._encode_chunk(chunk[:half], role))
+                        vectors.extend(self._encode_chunk(chunk[half:], role))
+                    except BaseException as retry_exc:
+                        if isinstance(retry_exc, BackendUnavailable):
+                            raise
+                        if _is_cuda_oom(retry_exc):
+                            self.release_cuda_cache()
+                            raise BackendUnavailable(
+                                "cuda_out_of_memory"
+                            ) from retry_exc
+                        if isinstance(
+                            retry_exc,
+                            (RuntimeError, OSError, ImportError, TimeoutError),
+                        ):
+                            raise BackendUnavailable("backend_error") from retry_exc
+                        raise
+            return vectors
+        finally:
+            self._gpu_lock.release()
+
+    def rerank(self, query: str, documents: Sequence[str]) -> list[float]:
+        """Run one rerank request under the same FIFO GPU lock."""
+        if self.reranker is None:
+            raise BackendUnavailable("reranker_unavailable")
+        values = list(documents)
+        if not values:
+            return []
+        if len(values) > self.max_request_documents:
+            raise RequestTooLarge(
+                limit="documents",
+                actual=len(values),
+                maximum=self.max_request_documents,
+            )
+        deadline = time.monotonic() + self.queue_timeout
+        if not self._gpu_lock.acquire(timeout=max(0.0, deadline - time.monotonic())):
+            raise BackendUnavailable("busy")
+        try:
+            try:
+                return list(self.reranker(query, values))
+            except BaseException as exc:
+                if isinstance(exc, BackendUnavailable):
+                    raise
+                if _is_cuda_oom(exc):
+                    self.release_cuda_cache()
+                    raise BackendUnavailable("cuda_out_of_memory") from exc
+                if isinstance(exc, (RuntimeError, OSError, ImportError, TimeoutError)):
+                    raise BackendUnavailable("backend_error") from exc
+                raise
+        finally:
+            self._gpu_lock.release()
+
+    def release_cuda_cache(self) -> None:
+        """Drop cached CUDA allocations while idle (allocator never returns them otherwise)."""
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:  # noqa: BLE001, S110 - cache release is best effort
+            pass
+
     def start(self) -> str:
         service = self
 
@@ -63,27 +251,41 @@ class EmbeddingService:
 
             def _json(self, status: int, payload: dict[str, Any]) -> None:
                 body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-                self.send_response(status)
-                self.send_header("content-type", "application/json")
-                self.send_header("content-length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                try:
+                    self.send_response(status)
+                    self.send_header("content-type", "application/json")
+                    self.send_header("content-length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                except (BrokenPipeError, ConnectionResetError):
+                    return
 
             def do_GET(self) -> None:
                 path = self.path.split("?", 1)[0].rstrip("/")
                 if path in {"/health/ready", "/v1/health/ready"}:
                     fingerprint = service.embedding_fingerprint
-                    if not isinstance(fingerprint, str) or not fingerprint.strip() or fingerprint.strip() == "unknown":
+                    if (
+                        not isinstance(fingerprint, str)
+                        or not fingerprint.strip()
+                        or fingerprint.strip() == "unknown"
+                    ):
                         self._json(503, {"error": "embedding_identity_unavailable"})
                         return
-                    self._json(200, {
-                        "status": "ready", "embedding_model": service.model,
-                        "embedding_dimensions": service.dimensions,
-                        "embedding_fingerprint": fingerprint.strip(), "device": service.device,
-                        "reranker_model": service.reranker_model or None,
-                        "reranker_loaded": service.reranker is not None,
-                        "reranker_device": service.device if service.reranker is not None else None,
-                    })
+                    self._json(
+                        200,
+                        {
+                            "status": "ready",
+                            "embedding_model": service.model,
+                            "embedding_dimensions": service.dimensions,
+                            "embedding_fingerprint": fingerprint.strip(),
+                            "device": service.device,
+                            "reranker_model": service.reranker_model or None,
+                            "reranker_loaded": service.reranker is not None,
+                            "reranker_device": (
+                                service.device if service.reranker is not None else None
+                            ),
+                        },
+                    )
                     return
                 if path in {"/health/live", "/v1/health/live"}:
                     self._json(200, {"status": "ok"})
@@ -105,7 +307,11 @@ class EmbeddingService:
                             },
                             "reranker": {
                                 "model": service.reranker_model or None,
-                                "device": service.device if service.reranker is not None else None,
+                                "device": (
+                                    service.device
+                                    if service.reranker is not None
+                                    else None
+                                ),
                                 "loaded": service.reranker is not None,
                                 "fingerprint": service.reranker_fingerprint,
                             },
@@ -114,125 +320,162 @@ class EmbeddingService:
                     return
                 self._json(404, {"error": "not_found"})
 
-            def do_POST(self) -> None:
-                path = self.path.split("?", 1)[0].rstrip("/")
-                is_embedding = path == "/embeddings" or path.endswith("/embeddings")
-                is_rerank = path.endswith("/rerank")
-                if not is_embedding and not is_rerank:
-                    self._json(404, {"error": "not_found"})
+            def _handle_rerank(self, payload: dict[str, Any]) -> None:
+                if service.reranker is None:
+                    self._json(503, {"error": "reranker_unavailable"})
                     return
-                if (
-                    service.token
-                    and self.headers.get("authorization") != f"Bearer {service.token}"
+                model = payload.get("model")
+                if model not in {None, service.reranker_model}:
+                    raise ValueError("model does not match the configured runtime")
+                query = payload.get("query")
+                documents = payload.get("documents", payload.get("texts"))
+                if not isinstance(query, str) or not query.strip():
+                    raise ValueError("query must be a non-empty string")
+                if not isinstance(documents, list) or not all(
+                    isinstance(document, str) and document for document in documents
                 ):
-                    self._json(401, {"error": "unauthorized"})
+                    raise ValueError("documents must be a non-empty string array")
+                if not documents:
+                    self._json(200, {"model": service.reranker_model, "results": []})
                     return
-                try:
-                    length = int(self.headers.get("content-length", "0"))
-                    payload = json.loads(self.rfile.read(length))
-                    if not isinstance(payload, dict):
-                        raise ValueError("request body must be an object")
-                    if is_rerank:
-                        if service.reranker is None:
-                            self._json(503, {"error": "reranker_unavailable"})
-                            return
-                        model = payload.get("model")
-                        if model not in {None, service.reranker_model}:
-                            raise ValueError("model does not match the configured runtime")
-                        query = payload.get("query")
-                        documents = payload.get("documents", payload.get("texts"))
-                        if not isinstance(query, str) or not query.strip():
-                            raise ValueError("query must be a non-empty string")
-                        if not isinstance(documents, list) or not all(
-                            isinstance(document, str) and document
-                            for document in documents
-                        ):
-                            raise ValueError("documents must be a non-empty string array")
-                        if not documents:
-                            self._json(200, {
-                                "model": service.reranker_model,
-                                "results": [],
-                            })
-                            return
-                        scores = list(service.reranker(query, documents))
-                        if len(scores) != len(documents):
-                            raise ValueError("reranker backend returned an invalid batch")
-                        rows = []
-                        for index, score in enumerate(scores):
-                            if (
-                                not isinstance(score, (int, float))
-                                or isinstance(score, bool)
-                                or not math.isfinite(float(score))
-                            ):
-                                raise ValueError("reranker backend returned an invalid score")
-                            rows.append({
-                                "index": index,
-                                "relevance_score": float(score),
-                            })
-                        rows.sort(key=lambda row: (-row["relevance_score"], row["index"]))
-                        top_n = payload.get("top_n")
-                        if top_n is not None:
-                            if (
-                                not isinstance(top_n, int)
-                                or isinstance(top_n, bool)
-                                or not 1 <= top_n <= len(rows)
-                            ):
-                                raise ValueError("top_n is out of range")
-                            rows = rows[:top_n]
-                        self._json(200, {
-                            "model": service.reranker_model,
-                            "results": rows,
-                            "usage": {"prompt_tokens": 0, "total_tokens": 0, "cost": 0.0},
-                        })
-                        return
-                    raw_input = payload.get("input")
-                    texts = [raw_input] if isinstance(raw_input, str) else raw_input
-                    if not isinstance(texts, list) or not all(
-                        isinstance(text, str) for text in texts
+                scores = service.rerank(query, documents)
+                if len(scores) != len(documents):
+                    raise ValueError("reranker backend returned an invalid batch")
+                rows = []
+                for index, score in enumerate(scores):
+                    if (
+                        not isinstance(score, (int, float))
+                        or isinstance(score, bool)
+                        or not math.isfinite(float(score))
                     ):
-                        raise ValueError("input must be a string or string array")
-                    requested_model = payload.get("model")
-                    allowed_models = {None, service.model, *service.embedding_aliases}
-                    if requested_model not in allowed_models:
-                        raise ValueError("model does not match the configured runtime")
-                    raw_role = payload.get("input_type")
-                    if raw_role not in {None, "query", "passage"}:
-                        raise ValueError("input_type must be query or passage")
-                    vectors = list(
-                        service.backend(texts, role=raw_role)
-                        if raw_role is not None
-                        else service.backend(texts)
-                    )
-                    if len(vectors) != len(texts):
-                        raise ValueError("embedding backend returned an invalid batch")
-                    for vector in vectors:
-                        if len(vector) != service.dimensions or not all(
-                            isinstance(value, (int, float))
-                            and math.isfinite(float(value))
-                            for value in vector
-                        ):
-                            raise ValueError(
-                                "embedding backend returned an invalid vector"
-                            )
-                    data = [
-                        {
-                            "object": "embedding",
-                            "index": index,
-                            "embedding": list(vector),
-                        }
-                        for index, vector in enumerate(vectors)
-                    ]
-                    self._json(200, {
+                        raise ValueError("reranker backend returned an invalid score")
+                    rows.append({"index": index, "relevance_score": float(score)})
+                rows.sort(key=lambda row: (-row["relevance_score"], row["index"]))
+                top_n = payload.get("top_n")
+                if top_n is not None:
+                    if (
+                        not isinstance(top_n, int)
+                        or isinstance(top_n, bool)
+                        or not 1 <= top_n <= len(rows)
+                    ):
+                        raise ValueError("top_n is out of range")
+                    rows = rows[:top_n]
+                self._json(
+                    200,
+                    {
+                        "model": service.reranker_model,
+                        "results": rows,
+                        "usage": {
+                            "prompt_tokens": 0,
+                            "total_tokens": 0,
+                            "cost": 0.0,
+                        },
+                    },
+                )
+
+            def _handle_embedding(self, payload: dict[str, Any]) -> None:
+                raw_input = payload.get("input")
+                texts = [raw_input] if isinstance(raw_input, str) else raw_input
+                if not isinstance(texts, list) or not all(
+                    isinstance(text, str) for text in texts
+                ):
+                    raise ValueError("input must be a string or string array")
+                requested_model = payload.get("model")
+                allowed_models = {None, service.model, *service.embedding_aliases}
+                if requested_model not in allowed_models:
+                    raise ValueError("model does not match the configured runtime")
+                raw_role = payload.get("input_type")
+                if raw_role not in {None, "query", "passage"}:
+                    raise ValueError("input_type must be query or passage")
+                vectors = service.encode(texts, raw_role)
+                if len(vectors) != len(texts):
+                    raise ValueError("embedding backend returned an invalid batch")
+                for vector in vectors:
+                    if len(vector) != service.dimensions or not all(
+                        isinstance(value, (int, float)) and math.isfinite(float(value))
+                        for value in vector
+                    ):
+                        raise ValueError("embedding backend returned an invalid vector")
+                data = [
+                    {
+                        "object": "embedding",
+                        "index": index,
+                        "embedding": list(vector),
+                    }
+                    for index, vector in enumerate(vectors)
+                ]
+                self._json(
+                    200,
+                    {
                         "object": "list",
                         "data": data,
                         "model": requested_model or service.model,
-                    })
-                except Exception:  # noqa: BLE001
-                    self._json(400, {"error": "invalid_rerank_request" if is_rerank else "invalid_embedding_request"})
+                    },
+                )
+
+            def do_POST(self) -> None:
+                service.begin_request()
+                try:
+                    path = self.path.split("?", 1)[0].rstrip("/")
+                    is_embedding = path == "/embeddings" or path.endswith("/embeddings")
+                    is_rerank = path.endswith("/rerank")
+                    if not is_embedding and not is_rerank:
+                        self._json(404, {"error": "not_found"})
+                        return
+                    if (
+                        service.token
+                        and self.headers.get("authorization")
+                        != f"Bearer {service.token}"
+                    ):
+                        self._json(401, {"error": "unauthorized"})
+                        return
+                    try:
+                        length = int(self.headers.get("content-length", "0"))
+                        payload = json.loads(self.rfile.read(length))
+                        if not isinstance(payload, dict):
+                            raise ValueError(  # noqa: TRY004 - mapped to HTTP 400
+                                "request body must be an object"
+                            )
+                        if is_rerank:
+                            self._handle_rerank(payload)
+                        else:
+                            self._handle_embedding(payload)
+                    except RequestTooLarge as exc:
+                        self._json(
+                            413,
+                            {
+                                "error": "request_too_large",
+                                "limit": exc.limit,
+                                "actual": exc.actual,
+                                "maximum": exc.maximum,
+                            },
+                        )
+                    except BackendUnavailable as exc:
+                        self._json(503, {"error": exc.code})
+                    except (BrokenPipeError, ConnectionResetError):
+                        return
+                    except ValueError:
+                        self._json(
+                            400,
+                            {
+                                "error": (
+                                    "invalid_rerank_request"
+                                    if is_rerank
+                                    else "invalid_embedding_request"
+                                )
+                            },
+                        )
+                    except Exception:  # noqa: BLE001 - unexpected errors are 500
+                        traceback.print_exc(file=sys.stderr)
+                        self._json(500, {"error": "internal_error"})
+                finally:
+                    service.end_request()
 
         self._server = ThreadingHTTPServer((self.host, self.port), Handler)
         self._thread = threading.Thread(
-            target=self._server.serve_forever, name="ledgermind-embedding", daemon=True
+            target=self._server.serve_forever,
+            name="ledgermind-embedding",
+            daemon=True,
         )
         self._thread.start()
         return self.endpoint or ""
@@ -249,4 +492,4 @@ class EmbeddingService:
             thread.join(timeout=2.0)
 
 
-__all__ = ["EmbeddingService"]
+__all__ = ["BackendUnavailable", "EmbeddingService", "RequestTooLarge"]

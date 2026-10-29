@@ -8,12 +8,13 @@ import json
 import signal
 import sys
 from pathlib import Path
-from threading import Event
+from threading import Event, Thread
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from ...inference.gguf_vectorizer import GGUFVectorizer
 from ...inference.sentence_transformer_vectorizer import SentenceTransformerVectorizer
-from .service import EmbeddingService
+from .service import BackendUnavailable, EmbeddingService
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -28,6 +29,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--gpu-layers", type=int, default=0)
     parser.add_argument("--dimensions", type=int, default=2048)
+    parser.add_argument("--max-seq-length", type=int, default=4096)
+    parser.add_argument("--max-request-texts", type=int, default=512)
+    parser.add_argument("--max-request-chars", type=int, default=1_000_000)
+    parser.add_argument("--max-request-docs", type=int, default=256)
+    parser.add_argument("--chunk-texts", type=int, default=8)
+    parser.add_argument("--queue-timeout", type=float, default=10.0)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8766)
     parser.add_argument("--token")
@@ -62,7 +69,9 @@ def _proxy_json(
     with urlopen(request, timeout=60) as response:
         body = json.loads(response.read().decode("utf-8"))
     if not isinstance(body, dict):
-        raise RuntimeError("embedding proxy returned a non-object response")
+        raise RuntimeError(  # noqa: TRY004 - protocol violation, not caller input
+            "embedding proxy returned a non-object response"
+        )
     return body
 
 
@@ -80,11 +89,21 @@ def main(argv: list[str] | None = None) -> int:
             lock_handle.close()
             return 0
     vectorizer = None
+    if not args.embedding_proxy_endpoint:
+        print(
+            f"local embedding max_seq_length={args.max_seq_length} "
+            f"chunk_texts={args.chunk_texts}",
+            flush=True,
+        )
     if args.embedding_proxy_endpoint:
         proxy_token = ""
         if args.embedding_proxy_token_file is not None:
-            proxy_token = args.embedding_proxy_token_file.read_text(encoding="utf-8").strip()
-        health = _proxy_json(args.embedding_proxy_endpoint, proxy_token, "/health/ready")
+            proxy_token = args.embedding_proxy_token_file.read_text(
+                encoding="utf-8"
+            ).strip()
+        health = _proxy_json(
+            args.embedding_proxy_endpoint, proxy_token, "/health/ready"
+        )
         if health.get("device") != "cuda":
             raise RuntimeError("embedding proxy is not running on CUDA")
         proxy_model = str(health["embedding_model"])
@@ -100,9 +119,22 @@ def main(argv: list[str] | None = None) -> int:
             }
             if role is not None:
                 payload["input_type"] = role
-            response = _proxy_json(
-                args.embedding_proxy_endpoint, proxy_token, "/embeddings", payload
-            )
+            try:
+                response = _proxy_json(
+                    args.embedding_proxy_endpoint, proxy_token, "/embeddings", payload
+                )
+            except HTTPError as exc:
+                if exc.code not in {429, 502, 503, 504}:
+                    raise
+                code = "proxy_unavailable"
+                try:
+                    body = json.loads(exc.read().decode("utf-8"))
+                    if isinstance(body, dict) and isinstance(body.get("error"), str):
+                        code = str(body["error"])
+                except (ValueError, OSError):
+                    if exc.code == 429:
+                        code = "busy"
+                raise BackendUnavailable(code) from exc
             rows = response.get("data")
             if not isinstance(rows, list) or len(rows) != len(texts):
                 raise RuntimeError("embedding proxy returned an invalid batch")
@@ -127,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
                 model_path=args.model_path,
                 device=args.device,
                 expected_dimension=args.dimensions,
+                max_seq_length=args.max_seq_length,
             )
         backend = vectorizer.encode
         model = args.model or vectorizer.fingerprint
@@ -154,15 +187,40 @@ def main(argv: list[str] | None = None) -> int:
         embedding_aliases=args.embedding_alias,
         reranker=reranker.score if reranker is not None else None,
         reranker_model=args.reranker_model if reranker is not None else None,
+        max_request_texts=args.max_request_texts,
+        max_request_chars=args.max_request_chars,
+        max_request_documents=args.max_request_docs,
+        chunk_texts=args.chunk_texts,
+        queue_timeout=args.queue_timeout,
     )
     stopped = Event()
 
     def request_stop(_signum: int, _frame: object) -> None:
         stopped.set()
 
+    def _idle_cache_reaper() -> None:
+        # The CUDA caching allocator holds peak memory indefinitely; release
+        # it once per idle period, never while a request is in flight.
+        import time
+
+        last_release = 0.0
+        while not stopped.wait(10.0):
+            if service.is_busy:
+                continue
+            now = time.monotonic()
+            if (
+                now - service.last_activity >= 60.0
+                and service.last_activity > last_release
+            ):
+                service.release_cuda_cache()
+                last_release = now
+
     signal.signal(signal.SIGTERM, request_stop)
     signal.signal(signal.SIGINT, request_stop)
     service.start()
+    Thread(
+        target=_idle_cache_reaper, name="ledgermind-cache-reaper", daemon=True
+    ).start()
     try:
         stopped.wait()
     finally:
