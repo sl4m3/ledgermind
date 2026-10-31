@@ -30,6 +30,26 @@ def _normalize_database_path(database_path: str | Path) -> Path:
     return Path(database_path)
 
 
+def _resolve_session_context_database_path(
+    runtime: object | None, fallback: Path
+) -> Path:
+    """Prefer Core's durable raw-round history over cleared Local payloads."""
+
+    runtime_config = getattr(runtime, "config", None)
+    runtime_paths = getattr(runtime, "paths", None)
+    resolve_core_database = getattr(
+        runtime_paths, "resolve_knowledge_database_path", None
+    )
+    if runtime_config is not None and callable(resolve_core_database):
+        try:
+            return Path(
+                resolve_core_database(runtime_config.knowledge_database_path)
+            )
+        except (OSError, ValueError):
+            pass
+    return fallback
+
+
 def create_app(
     application: Application,
     settings: Settings,
@@ -89,22 +109,9 @@ def create_app(
     )
     reranker = getattr(runtime, "retrieval_reranker", None)
     reranker_config = getattr(getattr(runtime, "config", None), "reranker", None)
-    # Local clears the transport payload after Core accepts a round.  The Core
-    # database remains the durable owner of raw-round history, so session-aware
-    # retrieval reads it read-only instead of the emptied rounds database.
-    session_context_database_path = app.state.database_path
-    runtime_config = getattr(runtime, "config", None)
-    runtime_paths = getattr(runtime, "paths", None)
-    resolve_core_database = getattr(
-        runtime_paths, "resolve_knowledge_database_path", None
+    session_context_database_path = _resolve_session_context_database_path(
+        runtime, app.state.database_path
     )
-    if runtime_config is not None and callable(resolve_core_database):
-        try:
-            session_context_database_path = resolve_core_database(
-                runtime_config.knowledge_database_path
-            )
-        except (OSError, ValueError):
-            session_context_database_path = app.state.database_path
 
     require_token = build_bearer_token_dependency(settings=settings)
     maybe_token = build_optional_bearer_token_dependency(settings=settings)
