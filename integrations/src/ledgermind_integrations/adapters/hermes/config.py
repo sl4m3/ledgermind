@@ -24,6 +24,7 @@ class HermesConfig:
     source_schema_version: int = 1
     allow_remote: bool = False
     context_limit: int = 5
+    retrieval_schema_version: int = 5
     context_timeout_seconds: float = 1.5
     request_timeout_seconds: float = 5.0
     worker_poll_seconds: float = 0.5
@@ -59,6 +60,13 @@ def load_config(path: str | Path) -> HermesConfig:
     residency_mode = str(payload.get("model_residency_mode", "idle"))
     if residency_mode not in {"session", "idle", "always_on"}:
         raise ValueError("Hermes config has invalid model_residency_mode")
+    retrieval_schema_version = payload.get("retrieval_schema_version", 5)
+    if (
+        not isinstance(retrieval_schema_version, int)
+        or isinstance(retrieval_schema_version, bool)
+        or retrieval_schema_version not in {2, 4, 5}
+    ):
+        raise ValueError("Hermes retrieval_schema_version must be 2, 4 or 5")
     heartbeat_value = payload.get("heartbeat_seconds")
     if heartbeat_value is None:
         heartbeat_value = payload.get("runtime_heartbeat_seconds")
@@ -91,6 +99,7 @@ def load_config(path: str | Path) -> HermesConfig:
         source_schema_version=int(payload.get("source_schema_version", 1)),
         allow_remote=bool(payload.get("allow_remote", False)),
         context_limit=max(int(payload.get("context_limit", 5)), 1),
+        retrieval_schema_version=retrieval_schema_version,
         context_timeout_seconds=max(float(payload.get("context_timeout_seconds", 1.5)), 0.1),
         request_timeout_seconds=max(float(payload.get("request_timeout_seconds", 5.0)), 0.1),
         worker_poll_seconds=max(float(payload.get("worker_poll_seconds", 0.5)), 0.05),

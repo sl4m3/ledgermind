@@ -117,6 +117,24 @@ def test_client_preserves_explicit_recall_scope(monkeypatch):
         "query_context": "Release procedure"}
 
 
+def test_client_forwards_explicit_retrieval_schema_and_time(monkeypatch):
+    client = _client()
+    requests = []
+    monkeypatch.setattr(client, "_request", lambda method, path, payload: requests.append(payload) or _response())
+    client.retrieve_context(
+        memory_space_id="space", query="continue", schema_version=5,
+        request_time="2026-10-31T12:00:00Z",
+    )
+    assert requests[0]["schema_version"] == 5
+    assert requests[0]["request_time"] == "2026-10-31T12:00:00Z"
+
+
+def test_client_rejects_unknown_retrieval_schema(monkeypatch):
+    client = _client()
+    with pytest.raises(ValueError, match="schema_version"):
+        client.retrieve_context(memory_space_id="space", query="continue", schema_version=3)
+
+
 def test_client_uses_stable_http_surface(monkeypatch: pytest.MonkeyPatch) -> None:
     client = _client()
     paths: list[str] = []

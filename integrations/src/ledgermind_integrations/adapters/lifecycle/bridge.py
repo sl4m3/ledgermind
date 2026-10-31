@@ -720,6 +720,8 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
                     memory_space_id=config.memory_space_id,
                     query=prompt,
                     limit=config.context_limit,
+                    schema_version=config.retrieval_schema_version,
+                    request_time=_now(),
                     visible_value_ids=already_visible,
                     **recall_context,
                 )
@@ -729,6 +731,8 @@ def handle_hook(config: LifecycleConfig, event: str, payload: Mapping[str, Any])
                         memory_space_id=config.memory_space_id,
                         query=prompt,
                         limit=config.context_limit,
+                        schema_version=config.retrieval_schema_version,
+                        request_time=_now(),
                         visible_value_ids=already_visible,
                         **recall_context,
                     )

@@ -779,6 +779,7 @@ class RetrieveContextCommand:
     object_query_embedding: tuple[float, ...] | None = None
     embedding_model_id: str = "retrieval-embedder"
     embedding_model_version: str = "1"
+    request_time: str | None = None
     limit: int = 5
     project_id: str | None = None
     repository_id: str | None = None
@@ -825,6 +826,10 @@ class RetrieveContextCommand:
         _required(self.embedding_model_version, "embedding_model_version")
         if self.query_language is not None:
             _required(self.query_language, "query_language")
+        if self.request_time is not None:
+            _required(self.request_time, "request_time")
+            if len(self.request_time) > 64:
+                raise ValueError("request_time must not exceed 64 characters")
         if self.target_id is not None:
             _required(self.target_id, "target_id")
         if self.target_alias is not None:
@@ -855,6 +860,7 @@ class RetrieveContextCommand:
             ),
             "embedding_model_id": self.embedding_model_id,
             "embedding_model_version": self.embedding_model_version,
+            "request_time": self.request_time,
             "limit": self.limit,
             "project_id": self.project_id,
             "repository_id": self.repository_id,

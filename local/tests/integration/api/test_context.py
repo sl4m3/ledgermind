@@ -185,16 +185,18 @@ def test_optional_reranker_uses_core_pool_and_records_only_injected_values() -> 
     assert response.status_code == 200
     assert response.headers["X-LedgerMind-Selection"] == "reranked"
     payload = response.json()
-    assert len(payload["items"]) == 1
+    assert len(payload["items"]) == 6
     assert payload["selection_diagnostics"]["selection_policy"] == "adaptive_k"
-    assert payload["selection_diagnostics"]["adaptive_k_cutoff"] == 1
-    assert payload["items"][0]["value_id"] == "value-8"
+    assert payload["selection_diagnostics"]["adaptive_k_cutoff"] == 6
+    assert [item["value_id"] for item in payload["items"]] == [
+        "value-8", "value-7", "value-6", "value-5", "value-4", "value-3",
+    ]
     assert payload["delivered_value_ids"] == [item["value_id"] for item in payload["items"]]
     assert payload["selection_diagnostics"]["status"] == "reranked"
     assert payload["selection_diagnostics"]["candidate_count"] == 8
     assert len(gateway.outcomes[0].candidate_value_ids) == 8
     assert payload["selection_diagnostics"]["ranking"][0]["value_id"] == "value-8"
-    assert payload["selection_diagnostics"]["ranking"][0]["reranker_score"] == 7.0
+    assert round(payload["selection_diagnostics"]["ranking"][0]["reranker_score"], 3) == 5.475
     assert payload["selection_diagnostics"]["injection_size_unit"] == "word_punctuation_units"
     assert payload["selection_diagnostics"]["estimated_injection_tokens"] is None
     assert payload["selection_diagnostics"]["injection_rendering"] == "object_facet_groups_v1"
@@ -251,6 +253,42 @@ def test_internal_core_dependency_links_survive_public_context_projection():
     assert payload["delivered_value_ids"] == [f"value-{i}" for i in range(1, 8)]
     assert payload["selection_diagnostics"]["dependency_value_ids"] == ["value-7"]
     assert "retrieval_diagnostics" not in payload
+
+
+def test_host_request_time_is_forwarded_to_core():
+    gateway = _Gateway()
+    app = FastAPI()
+    app.include_router(create_context_router(
+        lambda: "token", gateway, max_body_bytes=100_000,
+        query_embedder=_Embedder(),
+    ))
+    response = TestClient(app).post("/context/retrieve", json={
+        "memory_space_id": "space",
+        "query": "deployment",
+        "request_time": "2026-10-31T12:00:00Z",
+    })
+    assert response.status_code == 200
+    assert gateway.request is not None
+    assert gateway.request.request_time == "2026-10-31T12:00:00Z"
+
+
+def test_host_schema_five_selects_semantic_delivery_and_scoped_dependencies():
+    gateway = _Gateway()
+    app = FastAPI()
+    app.include_router(create_context_router(
+        lambda: "token", gateway, max_body_bytes=100_000,
+        query_embedder=_Embedder(),
+    ))
+    response = TestClient(app).post("/context/retrieve", json={
+        "memory_space_id": "space",
+        "query": "deployment",
+        "schema_version": 5,
+    })
+    assert response.status_code == 200
+    assert gateway.request is not None
+    assert gateway.request.semantic_delivery is True
+    assert gateway.request.scoped_dependencies is True
+    assert gateway.request.to_payload()["schema_version"] == 5
 
 
 def test_host_task_context_is_identical_for_embeddings_core_and_reranker():

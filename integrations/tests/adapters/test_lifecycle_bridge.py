@@ -62,6 +62,15 @@ def test_legacy_cursor_hook_config_is_not_activated(tmp_path: Path) -> None:
         load_lifecycle_config(config_path)
 
 
+def test_lifecycle_config_rejects_unknown_retrieval_schema(tmp_path: Path) -> None:
+    config_path = tmp_path / "invalid-schema.json"
+    payload = asdict(_config(tmp_path))
+    payload["retrieval_schema_version"] = 3
+    config_path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="retrieval_schema_version"):
+        load_lifecycle_config(config_path)
+
+
 def test_recall_scope_matches_captured_round_and_trace_is_private(tmp_path, monkeypatch):
     class Client(_Client):
         def __init__(self):
@@ -83,6 +92,8 @@ def test_recall_scope_matches_captured_round_and_trace_is_private(tmp_path, monk
     assert client.queries[0]["conversation_id"] == "session-1"
     assert client.queries[0]["repository_id"] == "r"
     assert client.queries[0]["query_context"] == "Release service"
+    assert client.queries[0]["schema_version"] == 5
+    assert isinstance(client.queries[0]["request_time"], str)
     assert client.queries[0]["visible_value_ids"] == []
     handle_hook(config, "Stop", {"session_id": "session-1", "last_assistant_message": "done"})
     raw = client.submitted[0]

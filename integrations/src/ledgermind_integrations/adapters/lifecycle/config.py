@@ -22,6 +22,7 @@ class LifecycleConfig:
     config_file: str | None = None
     enabled: bool = True
     context_limit: int = 5
+    retrieval_schema_version: int = 5
     request_timeout_seconds: float = 5.0
     heartbeat_seconds: float = 10.0
     adapter_version: str = "lifecycle-python/0.1.0"
@@ -57,6 +58,13 @@ def load_lifecycle_config(path: str | Path) -> LifecycleConfig:
     residency_mode = str(payload.get("model_residency_mode", "idle"))
     if residency_mode not in {"session", "idle", "always_on"}:
         raise ValueError("integration config has invalid model_residency_mode")
+    retrieval_schema_version = payload.get("retrieval_schema_version", 5)
+    if (
+        not isinstance(retrieval_schema_version, int)
+        or isinstance(retrieval_schema_version, bool)
+        or retrieval_schema_version not in {2, 4, 5}
+    ):
+        raise ValueError("retrieval_schema_version must be 2, 4 or 5")
     return LifecycleConfig(
         target=str(payload["target"]),
         endpoint=str(payload["endpoint"]).rstrip("/"),
@@ -74,6 +82,7 @@ def load_lifecycle_config(path: str | Path) -> LifecycleConfig:
         config_file=str(Path(path).expanduser().absolute()),
         enabled=bool(payload.get("enabled", True)),
         context_limit=max(int(payload.get("context_limit", 5)), 1),
+        retrieval_schema_version=retrieval_schema_version,
         request_timeout_seconds=max(float(payload.get("request_timeout_seconds", 5.0)), 0.1),
         heartbeat_seconds=max(float(payload.get("heartbeat_seconds", 10.0)), 0.1),
         adapter_version=str(payload.get("adapter_version", "lifecycle-python/0.1.0")),

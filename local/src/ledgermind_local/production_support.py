@@ -243,6 +243,21 @@ def seed_local(
                 generation_extra_body["reasoning_effort"] = (
                     reasoning_profile.reasoning_effort
                 )
+            # The closed memory_write_v1 contract requires exactly one
+            # no-fallback provider route for every generation profile, not
+            # only for the resolution-decision profile.  Without this the
+            # operational and object-resolution tasks fail with
+            # ``configuration_error`` before their first provider request.
+            if selected_generation.route:
+                generation_extra_body["provider"] = {
+                    "order": [selected_generation.route],
+                    "only": [selected_generation.route],
+                    "allow_fallbacks": False,
+                }
+            elif "openrouter.ai" in selected_generation.endpoint:
+                raise ProductionSupportError(
+                    "OpenRouter generation profile requires a single provider route"
+                )
             store.upsert(
                 InferenceProfile(
                     profile_id=profile_id,
@@ -264,9 +279,7 @@ def seed_local(
                     # configured JSON transport. Both paths still pass
                     # through the same closed Core contract and validation
                     # layer.
-                    structured_output_preference=(
-                        background_output_preference if slot == "background" else "auto"
-                    ),
+                    structured_output_preference=background_output_preference,
                     token_parameter="max_tokens",
                     supports_system_role=True,
                     supports_seed=False,
@@ -284,13 +297,11 @@ def seed_local(
                         "order": [generation.route],
                         "only": [generation.route],
                         "allow_fallbacks": False,
-                        "require_parameters": True,
                     }
                 elif "openrouter.ai" in operational.base_url:
-                    extra["provider"] = {
-                        "allow_fallbacks": False,
-                        "require_parameters": True,
-                    }
+                    raise ProductionSupportError(
+                        "OpenRouter decision profile requires a single provider route"
+                    )
                 profile = operational.model_copy(
                     update={
                         "profile_id": "resolution-decision",

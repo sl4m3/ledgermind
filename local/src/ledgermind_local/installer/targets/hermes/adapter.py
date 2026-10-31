@@ -97,6 +97,7 @@ class HermesTargetAdapter(BaseTargetAdapter):
             "runtime_endpoint": "http://127.0.0.1:8765",
             "runtime_command": str(context.paths.bin_link),
             "runtime_state_file": str(context.paths.runtime_state),
+            "retrieval_schema_version": 5,
             "lease_ttl_seconds": context.config.runtime.lease_ttl_seconds,
             "heartbeat_seconds": context.config.runtime.heartbeat_seconds,
             "model_residency_mode": context.config.runtime.residency_mode,

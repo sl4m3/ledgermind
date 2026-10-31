@@ -93,8 +93,12 @@ class LedgerMindClient:
         project_id: str | None = None, repository_id: str | None = None,
         task_id: str | None = None, conversation_id: str | None = None,
         query_context: str | None = None,
+        schema_version: int | None = None,
+        request_time: str | None = None,
         visible_value_ids: list[str] | None = None,
     ) -> dict[str, Any]:
+        if schema_version is not None and schema_version not in {2, 4, 5}:
+            raise ValueError("schema_version must be 2, 4 or 5")
         payload = self._request(
             "POST",
             "/context/retrieve",
@@ -107,6 +111,8 @@ class LedgerMindClient:
                     "project_id": project_id, "repository_id": repository_id,
                     "task_id": task_id, "conversation_id": conversation_id,
                     "query_context": query_context,
+                    "schema_version": schema_version,
+                    "request_time": request_time,
                 }.items() if value is not None},
             },
         )

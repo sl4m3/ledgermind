@@ -52,6 +52,7 @@ class ContextRetrieveRequest(BaseModel):
     memory_space_id: str = Field(min_length=1, max_length=200)
     query: str = Field(min_length=1, max_length=20_000)
     query_context: str | None = Field(default=None, min_length=1, max_length=4_000)
+    request_time: str | None = Field(default=None, min_length=1, max_length=64)
     limit: int = Field(default=5, ge=1, le=50)
     query_embedding: list[float] | None = Field(default=None, min_length=1, max_length=8_192)
     object_query_embedding: list[float] | None = Field(
@@ -244,6 +245,7 @@ def create_context_router(
                     ),
                     embedding_model_id=embedding_model_id,
                     embedding_model_version=embedding_model_version,
+                    request_time=payload.request_time,
                     # The public caller limit remains the old safety cap in
                     # Core-only mode. Reranking requires the Core-admitted pool.
                     limit=32 if reranker is not None else payload.limit,
@@ -304,6 +306,7 @@ def create_context_router(
                         selection_policy=(getattr(reranker_config, "selection_policy", "adaptive_k")
                                           if selection_status == "reranked" else "hybrid"),
                         reranker_scores={row["value_id"]: row["reranker_score"] for row in ranking},
+                        query=effective_query,
                     )
                     response_payload["items"] = selected
                     response_payload["memory_injection"] = injection

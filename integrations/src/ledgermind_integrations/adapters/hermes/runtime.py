@@ -354,6 +354,14 @@ class HermesPluginRuntime:
                     memory_space_id=self.config.memory_space_id,
                     query=query,
                     limit=self.config.context_limit,
+                    conversation_id=state.session_id,
+                    project_id=self.config.project_id,
+                    repository_id=(
+                        self.config.repository_id if self.config.project_id else None
+                    ),
+                    task_id=self.config.task_id,
+                    schema_version=self.config.retrieval_schema_version,
+                    request_time=self._now(),
                     visible_value_ids=visible_ids(self.config, state.session_id),
                 )
             except RuntimeError:
