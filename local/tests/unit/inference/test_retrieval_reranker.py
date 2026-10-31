@@ -144,6 +144,7 @@ def test_adaptive_k_largest_drop_and_flat_distribution():
 
 def test_adaptive_k_is_default_with_explicit_legacy_opt_out():
     assert RerankerConfig().selection_policy == "adaptive_k"
+    assert RerankerConfig().soft_budget == 4096
     assert RerankerConfig(selection_policy="hybrid").selection_policy == "hybrid"
     with pytest.raises(ValueError):
         RerankerConfig(selection_policy="unknown")
