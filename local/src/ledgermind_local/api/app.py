@@ -119,6 +119,7 @@ def create_app(
             query_embedder=query_embedder,
             reranker=reranker,
             reranker_config=reranker_config,
+            session_context_database_path=app.state.database_path,
         )
     )
     app.include_router(create_maintenance_router(require_token, runtime))

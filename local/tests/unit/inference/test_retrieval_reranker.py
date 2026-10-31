@@ -166,13 +166,13 @@ def test_adaptive_k_preserves_whole_records_and_one_hop_dependencies():
     assert [item["content"] for item in items] == original_contents
 
 
-def test_adaptive_k_hard_budget_omits_without_truncation():
+def test_adaptive_k_budget_omits_without_truncation():
     items = _items()
     selected, _, tokens, diagnostics = pack_items_with_dependencies(
         items, _injection(), None, selection_policy="adaptive_k",
         reranker_scores={item["value_id"]: 0.5 for item in items},
         token_counter=lambda text: text.count("is required.") * 100,
-        hard_budget=250,
+        soft_budget=250,
     )
     assert len(selected) == 2
     assert tokens == 200
@@ -189,12 +189,12 @@ class _Scores:
 def test_reranking_stable_ties_and_complete_items() -> None:
     ranked = rank_items("rules", _items(), _Scores())
     assert [row["value_id"] for row in ranked[:3]] == ["item2", "item3", "item7"]
-    selected, injection, count = pack_items(ranked, _injection(), "en", soft_budget=1)
-    assert len(selected) == 6
-    assert injection["item_count"] == 6
+    selected, injection, count = pack_items(ranked, _injection(), "en", soft_budget=10_000)
+    assert len(selected) == 8
+    assert injection["item_count"] == 8
     assert count == len(TOKEN_RE.findall(injection["text"]))
     assert "Rule 2 is required." in injection["text"]
-    assert "Rule 5 is required." not in injection["text"]
+    assert "Rule 5 is required." in injection["text"]
 
 
 def test_rank_scores_preserved_without_mutating_candidates():
@@ -303,9 +303,20 @@ def test_core_dependencies_survive_soft_budget_without_recursion_or_score_boost(
     import copy
     items = _items()
     original = copy.deepcopy(items)
-    base, _, before = pack_items(items, _injection(), "en", soft_budget=1)
+    scores = {
+        "item1": 0.95,
+        "item2": 0.90,
+        "item3": 0.85,
+        "item4": 0.80,
+        "item5": 0.75,
+        "item6": 0.70,
+        "item7": 0.20,
+        "item8": 0.10,
+    }
+    base, _, before = pack_items(items[:6], _injection(), "en", soft_budget=10_000)
     selected, injection, count, diagnostics = pack_items_with_dependencies(
-        items, _injection(), "en", soft_budget=1,
+        items, _injection(), "en", soft_budget=10_000,
+        selection_policy="adaptive_k", reranker_scores=scores,
         dependency_links={"item1": ["item7", "item7"], "item7": ["item8"]},
     )
     assert selected[:6] == base
@@ -321,13 +332,28 @@ def test_core_dependencies_survive_soft_budget_without_recursion_or_score_boost(
     assert items == original
 
 
-def test_dependency_budget_omissions_are_explicit_and_minimum_stays_whole():
+def test_dependency_budget_omissions_are_explicit_and_whole():
+    items = _items()
+    scores = {
+        "item1": 0.95,
+        "item2": 0.90,
+        "item3": 0.85,
+        "item4": 0.80,
+        "item5": 0.75,
+        "item6": 0.70,
+        "item7": 0.20,
+        "item8": 0.10,
+    }
+    base_count = len(
+        TOKEN_RE.findall(render_injection(items[:6], _injection(), "en")["text"])
+    )
     selected, _, count, diagnostics = pack_items_with_dependencies(
-        _items(), _injection(), "en", soft_budget=1, hard_budget=5,
+        items, _injection(), "en", soft_budget=base_count,
+        selection_policy="adaptive_k", reranker_scores=scores,
         dependency_links={"item1": ["item7", "not-in-pool"]},
     )
-    assert len(selected) == 6 and count > 5
-    assert diagnostics["minimum_exceeds_hard_budget"] is True
+    assert [item["value_id"] for item in selected] == [f"item{i}" for i in range(1, 7)]
+    assert count == base_count
     assert diagnostics["omitted_dependencies"] == [
         {"value_id": "not-in-pool", "reason": "outside_candidate_pool"},
         {"value_id": "item7", "reason": "whole_dependency_exceeds_budget"},

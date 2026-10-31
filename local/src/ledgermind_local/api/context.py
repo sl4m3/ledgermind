@@ -4,12 +4,21 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from pathlib import Path
 from typing import Any, Literal, Protocol
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
+from ledgermind_inference.retrieval_session import (
+    CANDIDATE_POOL_LIMIT,
+    chunk_context_for_embedding,
+    compose_rerank_query,
+    load_recent_session_context,
+    merge_candidate_pools,
+    merge_injection_legends,
+)
 from ledgermind_protocol.object_facet import ValueSemanticSafety
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 from ledgermind_local.core_gateway import (
     DomainRejectedError,
@@ -54,12 +63,16 @@ class ContextRetrieveRequest(BaseModel):
     query_context: str | None = Field(default=None, min_length=1, max_length=4_000)
     request_time: str | None = Field(default=None, min_length=1, max_length=64)
     limit: int = Field(default=5, ge=1, le=50)
-    query_embedding: list[float] | None = Field(default=None, min_length=1, max_length=8_192)
+    query_embedding: list[float] | None = Field(
+        default=None, min_length=1, max_length=8_192
+    )
     object_query_embedding: list[float] | None = Field(
         default=None, min_length=1, max_length=8_192
     )
     embedding_model_id: str | None = Field(default=None, min_length=1, max_length=200)
-    embedding_model_version: str | None = Field(default=None, min_length=1, max_length=200)
+    embedding_model_version: str | None = Field(
+        default=None, min_length=1, max_length=200
+    )
     project_id: str | None = Field(default=None, min_length=1, max_length=500)
     repository_id: str | None = Field(default=None, min_length=1, max_length=500)
     task_id: str | None = Field(default=None, min_length=1, max_length=500)
@@ -80,7 +93,11 @@ class InjectionEventRequest(BaseModel):
     retrieval_request_id: str = Field(min_length=1, max_length=200)
     memory_space_id: str = Field(min_length=1, max_length=200)
     session_id: str = Field(min_length=1, max_length=500)
-    stage: Literal["hook_returned_assumed_visible", "hook_returned_turn_scoped", "host_confirmed_visible"]
+    stage: Literal[
+        "hook_returned_assumed_visible",
+        "hook_returned_turn_scoped",
+        "host_confirmed_visible",
+    ]
     value_ids: list[str] = Field(default_factory=list, max_length=100)
 
 
@@ -100,13 +117,23 @@ class ContextItemResponse(BaseModel):
     conditions: list[dict[str, str]] = Field(default_factory=list)
     relevance: float = Field(ge=0.0, le=1.0)
     explanation: dict[str, object]
-    semantic_safety: ValueSemanticSafety | None = Field(default=None, exclude_if=lambda value: value is None)
-    requires_revalidation: StrictBool | None = Field(default=None, exclude_if=lambda value: value is None)
+    semantic_safety: ValueSemanticSafety | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    requires_revalidation: StrictBool | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def validate_semantic_safety(self) -> ContextItemResponse:
-        if self.semantic_safety is not None and self.requires_revalidation != self.semantic_safety.requires_revalidation():
-            raise ValueError("requires_revalidation must match explicit safety metadata")
+        if (
+            self.semantic_safety is not None
+            and self.requires_revalidation
+            != self.semantic_safety.requires_revalidation()
+        ):
+            raise ValueError(
+                "requires_revalidation must match explicit safety metadata"
+            )
         if self.semantic_safety is None and self.requires_revalidation is not None:
             raise ValueError("requires_revalidation needs explicit safety metadata")
         return self
@@ -116,7 +143,9 @@ class MemoryInjectionResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     format: Literal["facet_legend", "semantic_units_v2", "semantic_units_v3"]
-    semantic_contract_version: Literal["memory_semantics_v2"] | None = Field(default=None, exclude_if=lambda value: value is None)
+    semantic_contract_version: Literal["memory_semantics_v2"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     text: str = Field(max_length=65_536)
     legend: list[str] = Field(default_factory=list, max_length=14)
     item_count: int = Field(ge=0, le=100)
@@ -136,10 +165,23 @@ class ContextViewResponse(BaseModel):
     def validate_semantic_delivery(self) -> ContextViewResponse:
         if self.schema_version in {4, 5}:
             if any(item.semantic_safety is None for item in self.items):
-                raise ValueError("semantic context requires safety metadata for every value")
-            if (self.memory_injection is None or self.memory_injection.format != ("semantic_units_v3" if self.schema_version == 5 else "semantic_units_v2")
-                or self.memory_injection.semantic_contract_version != "memory_semantics_v2"):
-                raise ValueError("semantic context requires its versioned memory injection")
+                raise ValueError(
+                    "semantic context requires safety metadata for every value"
+                )
+            if (
+                self.memory_injection is None
+                or self.memory_injection.format
+                != (
+                    "semantic_units_v3"
+                    if self.schema_version == 5
+                    else "semantic_units_v2"
+                )
+                or self.memory_injection.semantic_contract_version
+                != "memory_semantics_v2"
+            ):
+                raise ValueError(
+                    "semantic context requires its versioned memory injection"
+                )
         return self
 
 
@@ -151,6 +193,7 @@ def create_context_router(
     query_embedder: QueryEmbedder | None = None,
     reranker: Reranker | None = None,
     reranker_config: object | None = None,
+    session_context_database_path: str | Path | None = None,
 ) -> APIRouter:
     router = APIRouter()
 
@@ -163,7 +206,12 @@ def create_context_router(
         validate_json_request_headers(request.headers, max_bytes=max_body_bytes)
         # This receipt has no mutation of Core knowledge or visibility state.
         # Replaying an event_id is therefore safe across restarts.
-        logger.info("host injection event stage=%s event_id=%s count=%d", payload.stage, payload.event_id, len(payload.value_ids))
+        logger.info(
+            "host injection event stage=%s event_id=%s count=%d",
+            payload.stage,
+            payload.event_id,
+            len(payload.value_ids),
+        )
         return {"status": "accepted", "event_id": payload.event_id}
 
     @router.post("/context/retrieve", response_model=ContextViewResponse)
@@ -181,103 +229,260 @@ def create_context_router(
             )
         request_id = build_request_id(request.headers)
         response.headers["X-Request-ID"] = request_id
-        effective_query = payload.query if not payload.query_context else (
-            f"{payload.query}\n\nCurrent task context supplied by host:\n{payload.query_context}"
+        effective_query = (
+            payload.query
+            if not payload.query_context
+            else (
+                f"{payload.query}\n\nCurrent task context supplied by host:\n{payload.query_context}"
+            )
         )
         if len(effective_query) > 20_000:
-            raise HTTPException(status_code=422, detail="query and task context exceed 20000 characters")
+            raise HTTPException(
+                status_code=422, detail="query and task context exceed 20000 characters"
+            )
         try:
             embedding_model_id = payload.embedding_model_id or "retrieval-embedder"
             embedding_model_version = payload.embedding_model_version or "1"
-            query_embedding: list[float]
-            object_query_embedding: list[float] | None = None
-            if query_embedder is not None:
-                embed_with_metadata = getattr(query_embedder, "embed_query_with_metadata", None)
-                if callable(embed_with_metadata):
-                    embedded, embedding_model_id, embedding_model_version = embed_with_metadata(
-                        payload.memory_space_id, effective_query
+
+            def embed_query_fields(
+                text: str,
+            ) -> tuple[list[float], list[float] | None, str, str]:
+                if query_embedder is None:
+                    if payload.query_context or text != effective_query:
+                        raise HTTPException(
+                            status_code=422,
+                            detail="task context requires server-side query embedding",
+                        )
+                    if payload.query_embedding is None:
+                        raise TransientCoreError("embedding profile is unavailable")
+                    return (
+                        [float(component) for component in payload.query_embedding],
+                        (
+                            [
+                                float(component)
+                                for component in payload.object_query_embedding
+                            ]
+                            if payload.object_query_embedding is not None
+                            else None
+                        ),
+                        embedding_model_id,
+                        embedding_model_version,
                     )
-                    query_embedding = [float(component) for component in embedded]
+                embed_with_metadata = getattr(
+                    query_embedder, "embed_query_with_metadata", None
+                )
+                if callable(embed_with_metadata):
+                    embedded, model_id, model_version = embed_with_metadata(
+                        payload.memory_space_id, text
+                    )
+                    value_embedding = [float(component) for component in embedded]
                 else:
-                    query_embedding = [
+                    value_embedding = [
                         float(component)
                         for component in query_embedder.embed_query(
-                            payload.memory_space_id, effective_query
+                            payload.memory_space_id, text
                         )
                     ]
+                    model_id, model_version = (
+                        embedding_model_id,
+                        embedding_model_version,
+                    )
+                object_embedding: list[float] | None = None
                 embed_object_with_metadata = getattr(
                     query_embedder, "embed_object_query_with_metadata", None
                 )
                 if callable(embed_object_with_metadata):
                     object_embedded, object_model_id, object_model_version = (
-                        embed_object_with_metadata(payload.memory_space_id, effective_query)
+                        embed_object_with_metadata(payload.memory_space_id, text)
                     )
-                    if (
-                        object_model_id != embedding_model_id
-                        or object_model_version != embedding_model_version
+                    if (object_model_id, object_model_version) != (
+                        model_id,
+                        model_version,
                     ):
                         raise TransientCoreError(
                             "value and object query embedding identities disagree"
                         )
-                    object_query_embedding = [
+                    object_embedding = [
                         float(component) for component in object_embedded
                     ]
-            else:
-                if payload.query_context:
-                    raise HTTPException(status_code=422, detail="task context requires server-side query embedding")
-                if payload.query_embedding is None:
-                    raise TransientCoreError("embedding profile is unavailable")
-                query_embedding = payload.query_embedding
-                object_query_embedding = payload.object_query_embedding
+                return value_embedding, object_embedding, model_id, model_version
+
+            (
+                query_embedding,
+                object_query_embedding,
+                embedding_model_id,
+                embedding_model_version,
+            ) = embed_query_fields(effective_query)
             retrieve = getattr(context_gateway, "retrieve_context", None)
             if not callable(retrieve):
                 raise TransientCoreError("Core retrieval is unavailable")
-            result = retrieve(
-                RetrieveContextCommand(
-                    request_id=request_id,
-                    memory_space_id=payload.memory_space_id,
-                    query_text=effective_query,
-                    query_embedding=tuple(query_embedding),
-                    object_query_embedding=(
-                        tuple(object_query_embedding)
-                        if object_query_embedding is not None
-                        else None
-                    ),
-                    embedding_model_id=embedding_model_id,
-                    embedding_model_version=embedding_model_version,
-                    request_time=payload.request_time,
-                    # The public caller limit remains the old safety cap in
-                    # Core-only mode. Reranking requires the Core-admitted pool.
-                    limit=32 if reranker is not None else payload.limit,
-                    project_id=payload.project_id,
-                    repository_id=payload.repository_id,
-                    task_id=payload.task_id,
-                    conversation_id=payload.conversation_id,
-                    query_language=payload.query_language,
-                    target_id=payload.target_id,
-                    target_alias=payload.target_alias,
-                    related_object_ids=tuple(payload.related_object_ids or ()),
-                    visible_value_ids=tuple(payload.visible_value_ids),
-                    requested_facets=tuple(payload.requested_facets or ()),
-                    explanation_level="compact" if reranker is not None else payload.explanation_level,
-                    semantic_delivery=payload.schema_version in {4, 5},
-                    scoped_dependencies=payload.schema_version == 5,
+
+            def retrieve_command(
+                *,
+                text: str,
+                value_embedding: Sequence[float],
+                object_embedding: Sequence[float] | None,
+                model_id: str,
+                model_version: str,
+                command_request_id: str,
+            ) -> Any:
+                return retrieve(
+                    RetrieveContextCommand(
+                        request_id=command_request_id,
+                        memory_space_id=payload.memory_space_id,
+                        query_text=text,
+                        query_embedding=tuple(value_embedding),
+                        object_query_embedding=(
+                            tuple(object_embedding)
+                            if object_embedding is not None
+                            else None
+                        ),
+                        embedding_model_id=model_id,
+                        embedding_model_version=model_version,
+                        request_time=payload.request_time,
+                        # The public caller limit remains the old safety cap in
+                        # Core-only mode. Reranking requires the Core-admitted pool.
+                        limit=(
+                            CANDIDATE_POOL_LIMIT
+                            if reranker is not None
+                            else payload.limit
+                        ),
+                        project_id=payload.project_id,
+                        repository_id=payload.repository_id,
+                        task_id=payload.task_id,
+                        conversation_id=payload.conversation_id,
+                        query_language=payload.query_language,
+                        target_id=payload.target_id,
+                        target_alias=payload.target_alias,
+                        related_object_ids=tuple(payload.related_object_ids or ()),
+                        visible_value_ids=tuple(payload.visible_value_ids),
+                        requested_facets=tuple(payload.requested_facets or ()),
+                        explanation_level=(
+                            "compact"
+                            if reranker is not None
+                            else payload.explanation_level
+                        ),
+                        semantic_delivery=payload.schema_version in {4, 5},
+                        scoped_dependencies=payload.schema_version == 5,
+                    )
                 )
+
+            result = retrieve_command(
+                text=effective_query,
+                value_embedding=query_embedding,
+                object_embedding=object_query_embedding,
+                model_id=embedding_model_id,
+                model_version=embedding_model_version,
+                command_request_id=request_id,
             )
             response_payload = _context_response(result.payload)
-            core_diagnostics = (result.payload.get("retrieval_diagnostics") or {}).get("pipeline") or {}
-            suppressed_visible_count = int(core_diagnostics.get("suppressed_visible_count", 0))
-            response_payload["selection_diagnostics"] = {"stage": "service_selected", "suppressed_visible_count": suppressed_visible_count}
+            core_diagnostics = (result.payload.get("retrieval_diagnostics") or {}).get(
+                "pipeline"
+            ) or {}
+            suppressed_visible_count = int(
+                core_diagnostics.get("suppressed_visible_count", 0)
+            )
+            response_payload["selection_diagnostics"] = {
+                "stage": "service_selected",
+                "suppressed_visible_count": suppressed_visible_count,
+            }
             core_items = response_payload["items"]
+            session_context = ""
+            session_context_chunks = 0
+            session_context_candidates = 0
+            if (
+                reranker is not None
+                and query_embedder is not None
+                and session_context_database_path is not None
+                and core_items
+            ):
+                try:
+                    session_context = load_recent_session_context(
+                        session_context_database_path, payload.memory_space_id
+                    )
+                except (OSError, ValueError) as exc:
+                    logger.warning(
+                        "session context load skipped: %s", type(exc).__name__
+                    )
+                if session_context:
+                    secondary_items: list[dict[str, Any]] = []
+                    secondary_injections: list[Mapping[str, Any]] = []
+                    for index, chunk in enumerate(
+                        chunk_context_for_embedding(session_context)
+                    ):
+                        try:
+                            (
+                                chunk_value_embedding,
+                                chunk_object_embedding,
+                                chunk_model_id,
+                                chunk_model_version,
+                            ) = embed_query_fields(chunk)
+                            if (chunk_model_id, chunk_model_version) != (
+                                embedding_model_id,
+                                embedding_model_version,
+                            ):
+                                raise TransientCoreError(
+                                    "session context embedding identity disagrees"
+                                )
+                            chunk_result = retrieve_command(
+                                text=chunk,
+                                value_embedding=chunk_value_embedding,
+                                object_embedding=chunk_object_embedding,
+                                model_id=chunk_model_id,
+                                model_version=chunk_model_version,
+                                command_request_id=(f"{request_id}:session:{index}"),
+                            )
+                            chunk_payload = _context_response(chunk_result.payload)
+                        except (
+                            DomainRejectedError,
+                            HTTPException,
+                            RuntimeError,
+                            TransientCoreError,
+                            TypeError,
+                            ValueError,
+                        ) as exc:
+                            logger.warning(
+                                "session context retrieval skipped: %s",
+                                type(exc).__name__,
+                            )
+                            continue
+                        session_context_chunks += 1
+                        chunk_items = chunk_payload.get("items")
+                        if isinstance(chunk_items, list):
+                            secondary_items.extend(
+                                dict(item)
+                                for item in chunk_items
+                                if isinstance(item, Mapping)
+                            )
+                        chunk_injection = chunk_payload.get("memory_injection")
+                        if isinstance(chunk_injection, Mapping):
+                            secondary_injections.append(chunk_injection)
+                    if secondary_items:
+                        core_items = merge_candidate_pools(core_items, secondary_items)
+                        response_payload["items"] = core_items
+                        session_context_candidates = len(secondary_items)
+                        primary_injection = response_payload.get("memory_injection")
+                        if isinstance(primary_injection, Mapping):
+                            response_payload["memory_injection"] = (
+                                merge_injection_legends(
+                                    primary_injection, secondary_injections
+                                )
+                            )
             candidate_ids = tuple(str(item["value_id"]) for item in core_items)
             if reranker is not None and core_items:
                 original = response_payload.get("memory_injection") or {}
                 started = time.monotonic()
                 fallback_reason: str | None = None
                 ranking: list[dict[str, Any]] = []
-                min_k = int(getattr(reranker_config, "min_k", 6))
+                rerank_query = (
+                    compose_rerank_query(effective_query, session_context)
+                    if session_context
+                    else effective_query
+                )
                 try:
-                    ranked, ranking = rank_items_with_scores(effective_query, core_items, reranker)
+                    ranked, ranking = rank_items_with_scores(
+                        rerank_query, core_items, reranker
+                    )
                     selection_status = "reranked"
                 except (
                     ImportError,
@@ -287,26 +492,40 @@ def create_context_router(
                     TypeError,
                     ValueError,
                 ) as exc:
-                    logger.warning("local reranker fallback to Core order: %s", type(exc).__name__)
+                    logger.warning(
+                        "local reranker fallback to Core order: %s", type(exc).__name__
+                    )
                     ranked = core_items
                     selection_status = "core_fallback"
                     fallback_reason = type(exc).__name__
                 try:
-                    counter = getattr(reranker, "count_tokens", None) if selection_status == "reranked" else None
+                    counter = (
+                        getattr(reranker, "count_tokens", None)
+                        if selection_status == "reranked"
+                        else None
+                    )
                     counter = counter if callable(counter) else None
                     # Diagnostics are internal selection metadata, deliberately
                     # not copied into the public ContextView by _context_response.
-                    pipeline = (result.payload.get("retrieval_diagnostics") or {}).get("pipeline") or {}
+                    pipeline = (result.payload.get("retrieval_diagnostics") or {}).get(
+                        "pipeline"
+                    ) or {}
                     selected, injection, tokens, packing = pack_items_with_dependencies(
-                        ranked, original, payload.query_language,
-                        min_k=min_k,
-                        soft_budget=int(getattr(reranker_config, "soft_budget", 400)),
+                        ranked,
+                        original,
+                        payload.query_language,
+                        soft_budget=int(getattr(reranker_config, "soft_budget", 4096)),
                         token_counter=counter,
                         dependency_links=pipeline.get("dependency_links"),
-                        selection_policy=(getattr(reranker_config, "selection_policy", "adaptive_k")
-                                          if selection_status == "reranked" else "hybrid"),
-                        reranker_scores={row["value_id"]: row["reranker_score"] for row in ranking},
-                        query=effective_query,
+                        selection_policy=(
+                            getattr(reranker_config, "selection_policy", "adaptive_k")
+                            if selection_status == "reranked"
+                            else "hybrid"
+                        ),
+                        reranker_scores={
+                            row["value_id"]: row["reranker_score"] for row in ranking
+                        },
+                        query=rerank_query,
                     )
                     response_payload["items"] = selected
                     response_payload["memory_injection"] = injection
@@ -319,27 +538,47 @@ def create_context_router(
                         "injected_count": len(selected),
                         "estimated_injection_tokens": tokens if counter else None,
                         "injection_size": tokens,
-                        "injection_size_unit": "qwen3_tokens" if counter else "word_punctuation_units",
+                        "injection_size_unit": "qwen3_tokens"
+                        if counter
+                        else "word_punctuation_units",
                         "host_agent_tokens": None,
+                        "session_context_chars": len(session_context),
+                        "session_context_chunks": session_context_chunks,
+                        "session_context_candidates": session_context_candidates,
                         "ranking": ranking,
-                        "selected_value_ids": [str(item["value_id"]) for item in selected],
+                        "selected_value_ids": [
+                            str(item["value_id"]) for item in selected
+                        ],
                         "latency_ms": round((time.monotonic() - started) * 1000, 2),
                         "fallback_reason": fallback_reason,
                     }
                     response.headers["X-LedgerMind-Selection"] = selection_status
                     logger.info(
                         "retrieval selection status=%s candidates=%d injected=%d tokens=%d",
-                        selection_status, len(core_items), len(selected), tokens,
+                        selection_status,
+                        len(core_items),
+                        len(selected),
+                        tokens,
                     )
-                except (KeyError, TypeError, ValueError, OSError, RuntimeError, TimeoutError) as exc:
+                except (
+                    KeyError,
+                    TypeError,
+                    ValueError,
+                    OSError,
+                    RuntimeError,
+                    TimeoutError,
+                ) as exc:
                     # Do not leak the whole 32-item candidate pool when packing
                     # fails. The host can render the minimum set of intact items.
-                    logger.warning("local injection fallback to Core: %s", type(exc).__name__)
-                    response_payload["items"] = ranked[:min_k]
+                    logger.warning(
+                        "local injection fallback to Core: %s", type(exc).__name__
+                    )
+                    response_payload["items"] = ranked[: payload.limit]
                     response_payload["memory_injection"] = None
                     response.headers["X-LedgerMind-Selection"] = "core_fallback"
                     response_payload["selection_diagnostics"] = {
-                        "status": "core_fallback", "candidate_count": len(core_items),
+                        "status": "core_fallback",
+                        "candidate_count": len(core_items),
                         "stage": "service_selected",
                         "suppressed_visible_count": suppressed_visible_count,
                         "injected_count": len(response_payload["items"]),
@@ -349,9 +588,7 @@ def create_context_router(
                         "ranking": ranking,
                         "injection_size_unit": "unknown",
                     }
-            record_outcome = getattr(
-                context_gateway, "record_retrieval_outcome", None
-            )
+            record_outcome = getattr(context_gateway, "record_retrieval_outcome", None)
             retrieval_request_id = response_payload["retrieval_request_id"]
             response_items = response_payload["items"]
             # Compatibility wire name: these IDs were selected by Local, not
@@ -360,8 +597,12 @@ def create_context_router(
             response_payload["delivered_value_ids"] = list(delivered_ids)
             # Reject malformed views before acknowledging a prepared outcome.
             validated_response = ContextViewResponse.model_validate(response_payload)
-            enqueue_outcome = getattr(context_gateway, "enqueue_retrieval_outcome", None)
-            if candidate_ids and (callable(enqueue_outcome) or callable(record_outcome)):
+            enqueue_outcome = getattr(
+                context_gateway, "enqueue_retrieval_outcome", None
+            )
+            if candidate_ids and (
+                callable(enqueue_outcome) or callable(record_outcome)
+            ):
                 # Core's candidate set and the injected subset are distinct.
                 outcome = RecordRetrievalOutcomeCommand(
                     request_id=request_id,
@@ -393,7 +634,9 @@ def create_context_router(
                 detail=error_payload("core_unavailable", str(exc)),
             ) from exc
         except ValueError as exc:
-            logger.warning("context retrieval response validation failed: %s", str(exc)[:240])
+            logger.warning(
+                "context retrieval response validation failed: %s", str(exc)[:240]
+            )
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=error_payload("validation_failed", str(exc)),
@@ -405,7 +648,9 @@ def create_context_router(
                 detail=error_payload("core_unavailable", str(exc)),
             ) from exc
         except Exception as exc:
-            logger.exception("context retrieval unexpected failure: %s", type(exc).__name__)
+            logger.exception(
+                "context retrieval unexpected failure: %s", type(exc).__name__
+            )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=error_payload(
@@ -431,9 +676,13 @@ def _context_response(payload: dict[str, object]) -> dict[str, Any]:
     try:
         from ledgermind_protocol.object_facet import RetrievalResponse
 
-        response = RetrievalResponse.model_validate(_normalize_legacy_context_payload(payload))
+        response = RetrievalResponse.model_validate(
+            _normalize_legacy_context_payload(payload)
+        )
     except (ImportError, TypeError, ValueError) as exc:
-        raise ValueError("Core retrieval response is not a strict object-facet response") from exc
+        raise ValueError(
+            "Core retrieval response is not a strict object-facet response"
+        ) from exc
     items = []
     for item in response.items:
         rendered = item.model_dump(mode="json")
@@ -442,7 +691,9 @@ def _context_response(payload: dict[str, object]) -> dict[str, Any]:
         rendered.pop("source_event_ids", None)
         items.append(rendered)
     return {
-        "schema_version": response.schema_version if response.schema_version in {4, 5} else 2,
+        "schema_version": response.schema_version
+        if response.schema_version in {4, 5}
+        else 2,
         "retrieval_request_id": response.retrieval_request_id,
         "items": items,
         "memory_injection": (

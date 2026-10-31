@@ -89,8 +89,7 @@ def test_installer_projects_explicit_local_reranker_without_enabling_legacy_inst
     assert local.reranker.device == "cuda"
     assert local.reranker.model_path == "/models/pinned/snapshots/revision"
     assert local.reranker.runtime_path == "/runtime/pinned"
-    assert local.reranker.min_k == 6
-    assert local.reranker.soft_budget == 400
+    assert local.reranker.soft_budget == 4096
 
 
 def test_installer_projects_api_reranker_without_persisting_token(
