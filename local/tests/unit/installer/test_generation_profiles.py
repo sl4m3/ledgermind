@@ -43,7 +43,7 @@ def test_openrouter_runtime_matches_probe_reasoning_and_route_controls() -> None
         }
 
     by_slot = {profile["slot"]: profile for profile in profiles}
-    assert by_slot["operational"]["max_output_tokens"] == 6_144
+    assert by_slot["operational"]["max_output_tokens"] == 16_384
     assert "max_output_tokens" not in by_slot["object_resolution"]
     assert "max_output_tokens" not in by_slot["background"]
 

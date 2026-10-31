@@ -40,7 +40,7 @@ def build_generation_profiles(
             "profile_id": "generation-operational",
             "slot": "operational",
             "model": config.model,
-            "max_output_tokens": 6_144,
+            "max_output_tokens": 16_384,
             **common,
         },
         {
