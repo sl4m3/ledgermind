@@ -319,6 +319,7 @@ def seed_local(
                     base_url="https://openrouter.ai/api/alpha/decisions",
                     model="typesafe/jev-1.13",
                     secret_ref="resolution-decision-api",
+                    max_input_tokens=DEFAULT_GENERATION_MAX_INPUT_TOKENS,
                     max_output_tokens=6144,
                 )
             else:

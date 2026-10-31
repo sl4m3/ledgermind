@@ -25,6 +25,7 @@ def test_old_config_is_legacy_and_generation_settings_are_unchanged():
     assert profile["model"] == "typesafe/jev-1.13"
     assert profile["endpoint"] == "https://openrouter.ai/api/alpha/decisions"
     assert profile["secret_ref"] == "resolution-decision-api"
+    assert profile["max_input_tokens"] == 64_000
 
 
 def test_generative_decision_has_no_fallback_and_does_not_change_round_semantic():
