@@ -26,8 +26,8 @@ def test_openrouter_runtime_matches_probe_reasoning_and_route_controls() -> None
     profiles = build_generation_profiles(
         _generation_config(
             endpoint="https://openrouter.ai/api/v1",
-            route="baidu/fp8",
-            fallback_routes=("deepinfra/fp8",),
+            route="provider-a/fp8",
+            fallback_routes=("provider-b/fp8",),
         )
     )
 
@@ -35,8 +35,8 @@ def test_openrouter_runtime_matches_probe_reasoning_and_route_controls() -> None
         assert profile["extra_body"] == {
             "reasoning": {"effort": "none", "exclude": True},
             "provider": {
-                "order": ["baidu/fp8", "deepinfra/fp8"],
-                "only": ["baidu/fp8", "deepinfra/fp8"],
+                "order": ["provider-a/fp8", "provider-b/fp8"],
+                "only": ["provider-a/fp8", "provider-b/fp8"],
                 "allow_fallbacks": True,
                 "require_parameters": True,
             },
@@ -52,15 +52,15 @@ def test_openrouter_single_route_remains_strictly_pinned() -> None:
     profiles = build_generation_profiles(
         _generation_config(
             endpoint="https://openrouter.ai/api/v1",
-            route="baidu/fp8",
+            route="provider-a/fp8",
         )
     )
 
     assert all(
         profile["extra_body"]["provider"]
         == {
-            "order": ["baidu/fp8"],
-            "only": ["baidu/fp8"],
+            "order": ["provider-a/fp8"],
+            "only": ["provider-a/fp8"],
             "allow_fallbacks": False,
             "require_parameters": True,
         }

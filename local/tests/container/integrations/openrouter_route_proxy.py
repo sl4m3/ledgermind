@@ -18,7 +18,7 @@ from typing import Any
 
 
 MODEL = os.environ.get("LEDGERMIND_E2E_MODEL", "deepseek/deepseek-v4-flash-0731")
-ROUTE = os.environ.get("LEDGERMIND_E2E_ROUTE", "baidu/fp8")
+ROUTE = os.environ.get("LEDGERMIND_E2E_ROUTE", "provider-a/fp8")
 TOKEN = os.environ["OPENROUTER_API_KEY"]
 LOG_PATH = Path(os.environ.get("LEDGERMIND_E2E_PROXY_LOG", "/reports/provider-calls.jsonl"))
 UPSTREAM = "https://openrouter.ai/api"

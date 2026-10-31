@@ -735,8 +735,8 @@ def test_forced_strict_retry_pins_next_configured_provider_route(tmp_path) -> No
         update={
             "extra_body": {
                 "provider": {
-                    "order": ["baidu/fp8", "deepinfra/fp8"],
-                    "only": ["baidu/fp8", "deepinfra/fp8"],
+                    "order": ["provider-a/fp8", "provider-b/fp8"],
+                    "only": ["provider-a/fp8", "provider-b/fp8"],
                     "allow_fallbacks": True,
                     "require_parameters": True,
                 }
@@ -782,13 +782,13 @@ def test_forced_strict_retry_pins_next_configured_provider_route(tmp_path) -> No
 
         provider_options = constructed_profiles[0].extra_body["provider"]
         assert provider_options == {
-            "order": ["deepinfra/fp8"],
-            "only": ["deepinfra/fp8"],
+            "order": ["provider-b/fp8"],
+            "only": ["provider-b/fp8"],
             "allow_fallbacks": False,
             "require_parameters": True,
         }
         assert result.metadata["forced_provider_fallback"] is True
-        assert result.metadata["forced_provider_route"] == "deepinfra/fp8"
+        assert result.metadata["forced_provider_route"] == "provider-b/fp8"
     finally:
         connection.close()
 

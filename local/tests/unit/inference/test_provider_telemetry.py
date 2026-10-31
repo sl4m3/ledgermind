@@ -72,12 +72,12 @@ def test_http_attempt_records_safe_provider_routing(tmp_path, monkeypatch) -> No
         model="test-model",
         duration_ms=12.5,
         status="invalid_response",
-        configured_routes=("baidu/fp8", "deepinfra/fp8"),
+        configured_routes=("provider-a/fp8", "provider-b/fp8"),
         served_by="Baidu",
     )
 
     event = json.loads(target.read_text(encoding="utf-8"))
-    assert event["configured_routes"] == ["baidu/fp8", "deepinfra/fp8"]
+    assert event["configured_routes"] == ["provider-a/fp8", "provider-b/fp8"]
     assert event["served_by"] == "Baidu"
 
 

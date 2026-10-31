@@ -265,8 +265,8 @@ provider selection.
   "generation": {
     "endpoint": "https://openrouter.ai/api/v1",
     "provider_profile": "openrouter",
-    "route": "baidu/fp8",
-    "fallback_routes": ["deepinfra/fp8"],
+    "route": "provider-a/fp8",
+    "fallback_routes": ["provider-b/fp8"],
     "model": "deepseek/deepseek-v4-flash-0731",
     "object_resolution_model": "deepseek/deepseek-v4-flash-0731",
     "token_env": "LEDGERMIND_GENERATION_TOKEN"

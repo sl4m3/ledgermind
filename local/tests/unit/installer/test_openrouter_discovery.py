@@ -18,7 +18,7 @@ def test_openrouter_discovery_keeps_only_strict_schema_endpoints() -> None:
                 "data": {
                     "endpoints": [
                         {
-                            "provider_name": "Baidu",
+                            "provider_name": "Provider-A",
                             "quantization": "FP8",
                             "context_length": 163840,
                             "supported_parameters": [
@@ -45,7 +45,7 @@ def test_openrouter_discovery_keeps_only_strict_schema_endpoints() -> None:
             MODEL, token="secret", client=client
         )
 
-    assert [endpoint.route for endpoint in endpoints] == ["baidu/fp8"]
+    assert [endpoint.route for endpoint in endpoints] == ["provider-a/fp8"]
     assert endpoints[0].context_length == 163840
     assert "input $0.20 / 1M; output $0.40 / 1M" in endpoints[0].detail
     assert "per token" not in endpoints[0].detail

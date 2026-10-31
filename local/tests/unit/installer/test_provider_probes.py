@@ -80,8 +80,8 @@ def test_openrouter_generation_probe_disables_reasoning() -> None:
         update={
             "provider_profile": "openrouter",
             "endpoint": "https://openrouter.ai/api/v1",
-            "route": "baidu/fp8",
-            "fallback_routes": ("deepinfra/fp8",),
+            "route": "provider-a/fp8",
+            "fallback_routes": ("provider-b/fp8",),
         }
     )
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
@@ -91,8 +91,8 @@ def test_openrouter_generation_probe_disables_reasoning() -> None:
     assert seen_headers["http-referer"] == "https://ledgermind.org"
     assert seen_headers["x-title"] == "LedgerMind"
     assert seen["provider"] == {
-        "order": ["baidu/fp8", "deepinfra/fp8"],
-        "only": ["baidu/fp8", "deepinfra/fp8"],
+        "order": ["provider-a/fp8", "provider-b/fp8"],
+        "only": ["provider-a/fp8", "provider-b/fp8"],
         "allow_fallbacks": True,
         "require_parameters": True,
     }

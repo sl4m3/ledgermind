@@ -261,7 +261,7 @@ def test_terminal_wizard_uses_reference_openrouter_configuration(
         output=output,
         openrouter_endpoint_loader=lambda _model, _token: (
             wizard.OpenRouterEndpoint(
-                route="baidu/fp8",
+                route="provider-a/fp8",
                 provider="Baidu",
                 quantization="FP8",
                 context_length=163840,
@@ -270,7 +270,7 @@ def test_terminal_wizard_uses_reference_openrouter_configuration(
                 supported_parameters=("response_format", "structured_outputs"),
             ),
             wizard.OpenRouterEndpoint(
-                route="deepinfra/fp8",
+                route="provider-b/fp8",
                 provider="DeepInfra",
                 quantization="FP8",
                 context_length=163840,
@@ -284,8 +284,8 @@ def test_terminal_wizard_uses_reference_openrouter_configuration(
 
     assert config.semantic_language == "en"
     assert config.generation.endpoint == "https://openrouter.ai/api/v1"
-    assert config.generation.route == "baidu/fp8"
-    assert config.generation.fallback_routes == ("deepinfra/fp8",)
+    assert config.generation.route == "provider-a/fp8"
+    assert config.generation.fallback_routes == ("provider-b/fp8",)
     assert config.runtime.residency_mode == "session"
     assert config.runtime.session_safety_ttl_seconds == 3_600.0
     assert config.generation.model == wizard.REFERENCE_GENERATION_MODEL
@@ -299,7 +299,7 @@ def test_terminal_wizard_uses_reference_openrouter_configuration(
     assert "REVIEW" in output.getvalue()
     assert "Token accepted:" in output.getvalue()
     assert "secret" not in output.getvalue()
-    assert "baidu/fp8 → deepinfra/fp8 (restricted)" in output.getvalue()
+    assert "provider-a/fp8 → provider-b/fp8 (restricted)" in output.getvalue()
 
 
 def test_navigation_menu_keeps_rows_aligned_and_q_cancels(
