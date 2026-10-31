@@ -458,9 +458,10 @@ def create_context_router(
                         if isinstance(chunk_injection, Mapping):
                             secondary_injections.append(chunk_injection)
                     if secondary_items:
+                        primary_item_count = len(core_items)
                         core_items = merge_candidate_pools(core_items, secondary_items)
                         response_payload["items"] = core_items
-                        session_context_candidates = len(secondary_items)
+                        session_context_candidates = len(core_items) - primary_item_count
                         primary_injection = response_payload.get("memory_injection")
                         if isinstance(primary_injection, Mapping):
                             response_payload["memory_injection"] = (
