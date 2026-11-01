@@ -10,24 +10,12 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from ledgermind_local.core_gateway.base import CoreGateway
-from ledgermind_local.core_gateway.contracts import (
-    CoreExecutionTask,
-    DomainRejectedError,
-    FailExecutionTaskCommand,
-    PollExecutionTasksCommand,
-    SubmitExecutionResultCommand,
-    TransientCoreError,
-)
-from ledgermind_local.embedding_purpose import validate_embedding_purpose
 from ledgermind_inference.core_task_executor import (
     CoreTaskExecutor,
     EmbeddingRequestSpec,
     GenericExecutionTask,
     ModelRequestSpec,
 )
-from ledgermind_local.inference.profile_slots import ProfileSlot
-from ledgermind_local.inference.profile_store import InferenceProfileStore
 from ledgermind_inference.profiles import StructuredOutputMode
 from ledgermind_inference.providers.base import (
     ChatMessage,
@@ -39,9 +27,25 @@ from ledgermind_inference.providers.base import (
     ProviderTransportError,
     TransientProviderError,
 )
+
+from ledgermind_local.core_gateway.base import CoreGateway
+from ledgermind_local.core_gateway.contracts import (
+    CoreExecutionTask,
+    DomainRejectedError,
+    FailExecutionTaskCommand,
+    PollExecutionTasksCommand,
+    SubmitExecutionResultCommand,
+    TransientCoreError,
+)
+from ledgermind_local.embedding_purpose import validate_embedding_purpose
+from ledgermind_local.inference.profile_slots import ProfileSlot
+from ledgermind_local.inference.profile_store import InferenceProfileStore
 from ledgermind_local.inference.secrets import SecretNotFoundError
 from ledgermind_local.persistence import open_sqlite_connection
 from ledgermind_local.persistence import rounds_migrations as migrations
+from ledgermind_local.scheduler.batch_semantic_coordinator import (
+    BatchSemanticCoordinator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -399,6 +403,7 @@ class CoreExecutionTaskWorker:
         poll_limit: int = 10,
         lease_seconds: int = 300,
         connection_factory: ConnectionFactory = open_sqlite_connection,
+        batch_coordinator: BatchSemanticCoordinator | None = None,
     ) -> None:
         if not worker_id.strip():
             raise ValueError("worker_id must not be empty")
@@ -413,6 +418,7 @@ class CoreExecutionTaskWorker:
         self._poll_limit = poll_limit
         self._lease_seconds = lease_seconds
         self._connection_factory = connection_factory
+        self._batch_coordinator = batch_coordinator
         self._closed = False
         self._provider_circuit_open = False
         require_capabilities = getattr(gateway, "require_capabilities", None)
@@ -424,6 +430,7 @@ class CoreExecutionTaskWorker:
             raise RuntimeError("Core execution task worker is closed")
         if self._provider_circuit_open:
             return 0
+        self._collect_batch_deliveries()
         connection = self._connection_factory(self._database_path)
         try:
             migrations.apply_migrations(connection)
@@ -495,6 +502,29 @@ class CoreExecutionTaskWorker:
     def close(self) -> None:
         self._closed = True
 
+    def _collect_batch_deliveries(self) -> None:
+        """Deliver completed batch results through the normal Core path."""
+        if self._batch_coordinator is None:
+            return
+        for delivery in self._batch_coordinator.tick():
+            try:
+                result = self._executor.execute(delivery.task)
+                self._deliver_result_with_structured_retry(
+                    delivery.task,
+                    result,
+                    delivery.memory_space_id,
+                )
+                self._batch_coordinator.mark_delivered(delivery.task.task_id)
+            except Exception as exc:  # noqa: BLE001 - keep the result durable for retry
+                logger.warning(
+                    "batch result delivery deferred",
+                    extra={
+                        "worker": self._worker_id,
+                        "task_id": delivery.task.task_id,
+                        "error_type": type(exc).__name__,
+                    },
+                )
+
     def _process_task(self, raw_task: dict[str, object], memory_space_id: str) -> None:
         try:
             task = execution_task_from_wire(raw_task, memory_space_id)
@@ -517,13 +547,41 @@ class CoreExecutionTaskWorker:
                 self._fail_task(raw_task, memory_space_id, exc)
         if not converted:
             return
+
+        immediate: list[GenericExecutionTask] = []
+        for task in converted:
+            if (
+                BatchSemanticCoordinator.is_batch_task(task)
+                and self._batch_coordinator is None
+            ):
+                self._fail_task(
+                    task.model_dump(mode="json"),
+                    memory_space_id,
+                    ProviderConfigurationError(
+                        "OpenRouter batch key is not configured"
+                    ),
+                )
+                continue
+            if (
+                self._batch_coordinator is not None
+                and self._batch_coordinator.is_batch_task(task)
+            ):
+                if self._batch_coordinator.has_result(task):
+                    immediate.append(task)
+                else:
+                    self._batch_coordinator.enqueue(task, memory_space_id)
+            else:
+                immediate.append(task)
+        if not immediate:
+            return
+
         try:
-            results = self._executor.execute_batch(tuple(converted))
+            results = self._executor.execute_batch(tuple(immediate))
         except Exception as exc:  # noqa: BLE001 - release every leased task
-            for task in converted:
+            for task in immediate:
                 self._fail_task(task.model_dump(mode="json"), memory_space_id, exc)
             return
-        for task, result in zip(converted, results, strict=True):
+        for task, result in zip(immediate, results, strict=True):
             self._open_provider_circuit_on_failure(result)
             try:
                 self._deliver_result_with_structured_retry(

@@ -358,3 +358,26 @@ Destructive removal must be requested explicitly:
 ledgermind uninstall
 ledgermind uninstall --purge-data --purge-config --yes
 ```
+
+### Semantic batch transport
+
+OpenRouter Batch is asynchronous and exposes two completion mechanisms:
+a signed webhook (`callback_url`, public HTTPS) or `GET /api/v1/batches/{id}`.
+There is no WebSocket subscription for Batch; SSE streaming applies only to
+synchronous chat completions.
+
+Push mode is enabled when `LEDGERMIND_BATCH_CALLBACK_URL` points at a public
+HTTPS URL that forwards to the Local receiver:
+
+```bash
+LEDGERMIND_BATCH_CALLBACK_URL=https://memory.example.com/openrouter-batch
+LEDGERMIND_BATCH_WEBHOOK_PORT=8767
+LEDGERMIND_OPENROUTER_WEBHOOK_SECRET=<workspace webhook signing secret>
+```
+
+The receiver verifies `X-OpenRouter-Signature` against the raw body, rejects
+replays older than five minutes, and wakes the durable SQLite job. The
+coordinator then fetches the batch result exactly once. A 15-minute safety poll
+covers lost deliveries and downtime; it is not the primary path. Without a
+public callback URL the same worker falls back to the documented one-poll-per-
+minute mode, which is the only option for a strictly local-only install.

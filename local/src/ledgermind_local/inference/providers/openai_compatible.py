@@ -11,6 +11,7 @@ import json
 import time
 import uuid
 from collections.abc import Mapping
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
@@ -687,7 +688,7 @@ class OpenAICompatibleProvider(InferenceProvider):
                 )
             elif response.status_code >= 400 or envelope_failed:
                 error = ProviderResponseError(
-                    f"provider returned failed response (status {effective_status}): {response.text[:1000]}"
+                    f"provider returned failed response (status {effective_status})"
                 )
             if error is not None:
                 if isinstance(error, (ProviderTimeoutError, TransientProviderError)) and attempt <= self.max_retries:

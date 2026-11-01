@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
+import logging
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from pathlib import Path
 from typing import Any, Literal, TypeVar, cast
 
 import httpx
-
+from ledgermind_inference.batch_result_store import (
+    BatchResultNotReady,
+    BatchResultSource,
+    FileBatchResultSource,
+)
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from ..embedding_purpose import EmbeddingPurpose
@@ -31,6 +35,8 @@ TaskKind = Literal["generate_json", "object_resolution", "embed_texts", "decide"
 ExecutionStatus = Literal["completed", "failed", "unknown_task_kind", "cancelled", "timeout"]
 
 T = TypeVar("T")
+
+logger = logging.getLogger(__name__)
 
 
 class ModelRequestSpec(BaseModel):
@@ -207,6 +213,67 @@ def _normalize_packaging_output(output: Any) -> Any:
     return new_output
 
 
+def batch_lookup_keys(task: GenericExecutionTask) -> list[str]:
+    """Return deterministic cache keys for one task, most specific first."""
+    op_input = task.operation_input or {}
+    raw_round = op_input.get("raw_round")
+    source = raw_round.get("source") if isinstance(raw_round, dict) else None
+    source_round_id = source.get("round_id") if isinstance(source, dict) else None
+
+    round_identifiers = [
+        source_round_id,
+        op_input.get("round_id"),
+        op_input.get("raw_round_id"),
+        task.task_id,
+    ]
+
+    round_memory = op_input.get("round_memory")
+    stage = round_memory.get("stage") if isinstance(round_memory, dict) else None
+    contract = (
+        (task.model_request.output_contract or {}).get("contract_name")
+        if task.model_request
+        else None
+    )
+
+    stage_variants: list[str] = []
+    if isinstance(stage, str) and stage:
+        stage_variants.append(stage)
+    if isinstance(contract, str) and contract:
+        stage_variants.append(contract)
+        if contract.startswith("operational_round_memory_"):
+            suffix = contract.removeprefix("operational_round_memory_")
+            if suffix not in stage_variants:
+                stage_variants.append(suffix)
+        elif contract.startswith("round_memory_"):
+            suffix = contract.removeprefix("round_memory_")
+            if suffix not in stage_variants:
+                stage_variants.append(suffix)
+
+    keys: list[str] = []
+    for rid in round_identifiers:
+        if not isinstance(rid, str) or not rid:
+            continue
+        keys.append(rid)
+        for stage_variant in stage_variants:
+            for separator in (":", "__", "-"):
+                keys.append(f"{rid}{separator}{stage_variant}")
+    return keys
+
+
+def cached_batch_entry_is_usable(
+    entry: Mapping[str, Any] | None,
+    spec: ModelRequestSpec,
+) -> bool:
+    """A cached entry is usable only when it is complete and contract-compatible."""
+    if not isinstance(entry, Mapping):
+        return False
+    if entry.get("status") != "completed" or entry.get("output") is None:
+        return False
+    expected_digest = (spec.output_contract or {}).get("schema_digest")
+    cached_digest = entry.get("contract_digest") or entry.get("schema_digest")
+    return not (expected_digest and cached_digest and expected_digest != cached_digest)
+
+
 class CoreTaskExecutor:
     """Dispatch generic tasks to providers by ``task_kind`` only.
 
@@ -225,6 +292,7 @@ class CoreTaskExecutor:
         embed_texts_timeout_seconds: float,
         generation_concurrency: int = 1,
         batch_cache_path: str | Path | None = None,
+        batch_result_source: BatchResultSource | None = None,
     ) -> None:
         self._json_provider = json_provider
         self._embedding_provider = embedding_provider
@@ -235,10 +303,14 @@ class CoreTaskExecutor:
             raise ValueError("embed_texts_timeout_seconds must be positive")
         self.generate_json_timeout_seconds = float(generate_json_timeout_seconds)
         self.embed_texts_timeout_seconds = float(embed_texts_timeout_seconds)
+        # Deprecated compatibility field: the worker owns concurrency and must
+        # not multiply provider calls from this value.
         self.generation_concurrency = int(generation_concurrency)
-        self._batch_cache_path = Path(batch_cache_path) if batch_cache_path is not None else None
-        self._batch_cache: dict[str, Any] | None = None
-        self._batch_cache_mtime: float = 0.0
+        self._batch_result_source = (
+            batch_result_source
+            if batch_result_source is not None
+            else FileBatchResultSource(batch_cache_path)
+        )
 
     def execute(
         self,
@@ -276,78 +348,12 @@ class CoreTaskExecutor:
             return self._execute_embed_texts_batch(normalized, cancellation_token)
         return tuple(self.execute(task, cancellation_token) for task in normalized)
 
-    def _lookup_batch_cache(self, task: GenericExecutionTask) -> dict[str, Any] | None:
+    def _lookup_batch_cache(self, task: GenericExecutionTask) -> Mapping[str, Any] | None:
         """Lookup precomputed batch outputs for deterministic stage execution."""
-        cache_file = self._batch_cache_path
-        if cache_file is None:
-            env_path = os.environ.get("LEDGERMIND_BATCH_CACHE_PATH")
-            if env_path:
-                cache_file = Path(env_path)
-
-        if cache_file is not None and cache_file.is_file():
-            try:
-                mtime = cache_file.stat().st_mtime
-                if self._batch_cache is None or mtime > self._batch_cache_mtime:
-                    self._batch_cache = json.loads(cache_file.read_text(encoding="utf-8"))
-                    self._batch_cache_mtime = mtime
-            except Exception:
-                if self._batch_cache is None:
-                    self._batch_cache = {}
-        elif self._batch_cache is None:
-            self._batch_cache = {}
-
-        if not self._batch_cache:
-            return None
-
-        # 1. Direct task ID match
-        if task.task_id in self._batch_cache:
-            return self._batch_cache[task.task_id]
-
-        op_input = task.operation_input or {}
-        raw_round = op_input.get("raw_round") or {}
-        source = raw_round.get("source") if isinstance(raw_round, dict) else None
-        source_round_id = source.get("round_id") if isinstance(source, dict) else None
-
-        round_identifiers = [
-            source_round_id,
-            op_input.get("round_id"),
-            op_input.get("raw_round_id"),
-            task.task_id,
-        ]
-
-        stage = (op_input.get("round_memory") or {}).get("stage")
-        contract = (
-            (task.model_request.output_contract or {}).get("contract_name")
-            if task.model_request
-            else None
+        return self._batch_result_source.lookup(
+            task_id=task.task_id,
+            keys=batch_lookup_keys(task),
         )
-
-        stage_variants = []
-        if stage:
-            stage_variants.append(stage)
-        if contract:
-            stage_variants.append(contract)
-            if contract.startswith("operational_round_memory_"):
-                suffix = contract.removeprefix("operational_round_memory_")
-                if suffix not in stage_variants:
-                    stage_variants.append(suffix)
-            elif contract.startswith("round_memory_"):
-                suffix = contract.removeprefix("round_memory_")
-                if suffix not in stage_variants:
-                    stage_variants.append(suffix)
-
-        for rid in round_identifiers:
-            if not rid or not isinstance(rid, str):
-                continue
-            if rid in self._batch_cache:
-                return self._batch_cache[rid]
-            for svar in stage_variants:
-                for sep in (":", "__", "-"):
-                    key = f"{rid}{sep}{svar}"
-                    if key in self._batch_cache:
-                        return self._batch_cache[key]
-
-        return None
 
     def _execute_generate_json(
         self,
@@ -395,8 +401,17 @@ class CoreTaskExecutor:
                     status="completed",
                 ),
             )
+        is_round_memory = (
+            task.operation_input and task.operation_input.get("round_memory") is not None
+        ) or (
+            isinstance(task.operation, str)
+            and (
+                task.operation.startswith("operational_round_memory_")
+                or task.operation.startswith("round_memory_")
+            )
+        )
         cached_entry = self._lookup_batch_cache(task)
-        if cached_entry is not None and cached_entry.get("status") == "completed":
+        if cached_entry is not None and cached_batch_entry_is_usable(cached_entry, spec):
             if token is not None:
                 token.raise_if_cancelled()
             cached_output = _normalize_packaging_output(cached_entry["output"])
@@ -431,21 +446,12 @@ class CoreTaskExecutor:
                     status="completed",
                 ),
             )
-        is_round_memory = (
-            (task.operation_input and task.operation_input.get("round_memory") is not None)
-            or (
-                isinstance(task.operation, str)
-                and (
-                    task.operation.startswith("operational_round_memory_")
-                    or task.operation.startswith("round_memory_")
-                )
-            )
-        )
         if is_round_memory:
-            raise RuntimeError(
-                f"Batch execution required: task '{task.task_id}' (operation='{task.operation}', "
-                f"round='{(task.operation_input or {}).get('raw_round_id')}') was not found in "
-                "batch cache. Streaming model fallback is strictly prohibited."
+            raw_round_id = (task.operation_input or {}).get("raw_round_id")
+            raise BatchResultNotReady(
+                task.task_id,
+                task.operation,
+                raw_round_id if isinstance(raw_round_id, str) else None,
             )
         telemetry_operation = _telemetry_operation(task)
         structured_metadata = task.structured_generation or {}
@@ -867,9 +873,15 @@ class CoreTaskExecutor:
         profile_id: str | None = None,
         provider: str | None = None,
     ) -> GenericExecutionResult:
-        import traceback
-        print(f"[CoreTaskExecutor ERROR] task={task.task_id} kind={task.task_kind} op={task.operation} exc={exc!r}", flush=True)
-        traceback.print_exc()
+        logger.warning(
+            "task execution failed",
+            extra={
+                "task_id": task.task_id,
+                "task_kind": task.task_kind,
+                "operation": task.operation,
+                "error_type": type(exc).__name__,
+            },
+        )
         if isinstance(exc, (ExecutionTimeoutError, ProviderTimeoutError, TimeoutError)):
             status: ExecutionStatus = "timeout"
             error_code = "timeout"
@@ -925,12 +937,6 @@ class CoreTaskExecutor:
         metadata: dict[str, Any] = {"error_category": _error_category(error_code)}
         if exc is not None:
             metadata["error_type"] = type(exc).__name__
-            metadata["error_message"] = str(exc)
-            import traceback
-
-            metadata["error_traceback"] = "".join(
-                traceback.format_exception(type(exc), exc, exc.__traceback__)
-            )
         return GenericExecutionResult(
             task_id=task.task_id,
             task_kind=task.task_kind,

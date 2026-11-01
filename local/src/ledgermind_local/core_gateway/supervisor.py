@@ -13,8 +13,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
-from ledgermind_inference.semantic_contract import RESOLUTION_PIPELINES
 
+from ledgermind_inference.semantic_contract import RESOLUTION_PIPELINES
 from ledgermind_protocol.core_ipc import (
     CORE_IPC_OPERATIONS,
     CoreError,
@@ -23,7 +23,7 @@ from ledgermind_protocol.core_ipc import (
 )
 
 from .compatibility import SUPPORTED_PROTOCOL_MAX
-from .framing import FrameError, read_frame, write_frame
+from .framing import MAX_FRAME_BYTES, FrameError, read_frame, write_frame
 from .isolation import IsolationCapabilities, IsolationRequirements
 from .sandbox import SandboxUnavailableError, build_sandbox_plan
 
@@ -388,7 +388,7 @@ class CoreSupervisor:
         chunks = bytearray()
         header = self._read_exact_with_timeout(stream, 4, deadline)
         length = int.from_bytes(header, "big")
-        if length > 8 * 1024 * 1024:
+        if length > MAX_FRAME_BYTES:
             raise FrameError("Core frame exceeds maximum size")
         chunks.extend(self._read_exact_with_timeout(stream, length, deadline))
         return bytes(chunks)
