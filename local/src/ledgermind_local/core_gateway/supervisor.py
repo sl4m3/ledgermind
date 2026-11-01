@@ -381,21 +381,19 @@ class CoreSupervisor:
             raise CoreSupervisorRemoteError(response.error)
         return dict(response.result or {})
 
-    @staticmethod
-    def _read_frame_with_timeout(stream: Any, timeout: float) -> bytes:
+    def _read_frame_with_timeout(self, stream: Any, timeout: float) -> bytes:
         deadline = time.monotonic() + max(timeout, 0.01)
         if not hasattr(stream, "fileno"):
             return read_frame(stream)
         chunks = bytearray()
-        header = CoreSupervisor._read_exact_with_timeout(stream, 4, deadline)
+        header = self._read_exact_with_timeout(stream, 4, deadline)
         length = int.from_bytes(header, "big")
         if length > 8 * 1024 * 1024:
             raise FrameError("Core frame exceeds maximum size")
-        chunks.extend(CoreSupervisor._read_exact_with_timeout(stream, length, deadline))
+        chunks.extend(self._read_exact_with_timeout(stream, length, deadline))
         return bytes(chunks)
 
-    @staticmethod
-    def _read_exact_with_timeout(stream: Any, size: int, deadline: float) -> bytes:
+    def _read_exact_with_timeout(self, stream: Any, size: int, deadline: float) -> bytes:
         chunks: list[bytes] = []
         remaining = size
         while remaining:
@@ -407,7 +405,8 @@ class CoreSupervisor:
                 raise CoreSupervisorTimeout("Core response timed out")
             chunk = stream.read(remaining)
             if not chunk:
-                raise CoreSupervisorCrashed("Core process closed stdout")
+                stderr_text = "\n".join(self._stderr_lines)
+                raise CoreSupervisorCrashed(f"Core process closed stdout. Stderr:\n{stderr_text}")
             chunks.append(chunk)
             remaining -= len(chunk)
         return b"".join(chunks)

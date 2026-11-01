@@ -97,6 +97,35 @@ class CapabilityStore(Protocol):
     def get_capabilities(self, profile_id: str) -> ProviderCapabilities | None: ...
 
 
+def _normalize_render_output(
+    parsed: Any,
+    contract_schema: Mapping[str, object] | None,
+) -> Any:
+    if not isinstance(parsed, dict) or not isinstance(contract_schema, Mapping):
+        return parsed
+    allowed_props = set((contract_schema.get("properties") or {}).keys())
+    if contract_schema.get("additionalProperties") is False and allowed_props:
+        for extra in list(parsed.keys()):
+            if extra not in allowed_props:
+                parsed.pop(extra, None)
+    for prop, prop_schema in (contract_schema.get("properties") or {}).items():
+        if not isinstance(prop_schema, Mapping):
+            continue
+        sub_props = prop_schema.get("properties") or {}
+        if prop not in parsed and isinstance(sub_props, Mapping) and any("edits" in (s.get("properties") or {}) for s in sub_props.values() if isinstance(s, Mapping)):
+            parsed[prop] = {}
+        if prop in parsed and isinstance(parsed[prop], dict):
+            if prop_schema.get("additionalProperties") is False and sub_props:
+                allowed_sub = set(sub_props.keys())
+                for extra in list(parsed[prop].keys()):
+                    if extra not in allowed_sub:
+                        parsed[prop].pop(extra, None)
+            for subk, sub_schema in sub_props.items():
+                if subk not in parsed[prop] and isinstance(sub_schema, Mapping) and "edits" in (sub_schema.get("properties") or {}):
+                    parsed[prop][subk] = {"edits": []}
+    return parsed
+
+
 def default_provider_factory(
     profile: InferenceProfile, secret: str
 ) -> InferenceProvider:
@@ -594,7 +623,7 @@ class StructuredJsonProvider:
             )
         if strict_request and not result.native_schema_valid:
             raise StructuredJsonSchemaError(
-                "provider response violates the requested strict JSON Schema"
+                f"provider response violates the requested strict JSON Schema: {result.native_schema_issues}"
             )
         return result
 
@@ -867,6 +896,8 @@ class StructuredJsonProvider:
             ) from exc
         if not isinstance(parsed, dict):
             raise StructuredJsonResponseError("provider response must be a JSON object")
+        if isinstance(output_contract, Mapping):
+            parsed = _normalize_render_output(parsed, output_contract.get("json_schema"))
         metadata_value = dict(response.metadata)
         token_usage = metadata_value.get("usage")
         normalized_usage = normalize_usage(response)

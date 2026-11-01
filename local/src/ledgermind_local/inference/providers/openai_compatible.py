@@ -124,19 +124,68 @@ def _base_payload(
     payload[token_parameter] = request.max_output_tokens
     if request.supports_seed and request.seed is not None:
         payload["seed"] = request.seed
+    if "claude" in request.model.lower() or "anthropic" in request.model.lower():
+        payload["reasoning"] = {"effort": "none"}
+        payload["cache_control"] = {"type": "ephemeral"}
     return payload
+
+
+def _normalize_schema_for_provider(schema: Any, model: str) -> Any:
+    """Normalize schema nuances for provider grammar compilers (e.g. Anthropic).
+
+    Anthropic compiles strict schemas into CFG grammars; union types like
+    ["integer", "null"] in repeated nested arrays blow up the grammar compiler
+    state space with 'The compiled grammar is too large'. Normalizing
+    ["integer", "null"] to 'integer' keeps the grammar linear and valid.
+
+    Furthermore, objects with many repeated target properties (e.g. > 6)
+    cause combinatorial state space blowup (2^N states) in Anthropic's CFG
+    compiler when strict `additionalProperties: false` is enforced on all N
+    individual property names. Converting repetitive target objects to
+    `additionalProperties: sample_schema` keeps the grammar linear and valid.
+    """
+    if isinstance(schema, dict):
+        new_dict = {}
+        for k, v in schema.items():
+            if k == "type" and isinstance(v, list) and "integer" in v and "null" in v:
+                new_dict["type"] = "integer"
+            else:
+                new_dict[k] = _normalize_schema_for_provider(v, model)
+        props = new_dict.get("properties")
+        if isinstance(props, dict):
+            for pk, pv in list(props.items()):
+                if isinstance(pv, dict) and not any(key in pv for key in ("type", "$ref", "anyOf", "oneOf", "allOf")):
+                    props.pop(pk, None)
+                    if "required" in new_dict and isinstance(new_dict["required"], list):
+                        new_dict["required"] = [r for r in new_dict["required"] if r != pk]
+        if (
+            new_dict.get("type") == "object"
+            and isinstance(props, dict)
+            and len(props) >= 2
+            and all("edits" in (p.get("properties") or {}) for p in props.values() if isinstance(p, dict))
+        ):
+            sample = next(iter(props.values()))
+            new_dict["additionalProperties"] = sample
+            new_dict["properties"] = {}
+            new_dict["required"] = []
+        return new_dict
+    elif isinstance(schema, list):
+        return [_normalize_schema_for_provider(x, model) for x in schema]
+    return schema
 
 
 def build_payload_json_schema(request: ModelRequest) -> dict[str, object]:
     """Build the strict JSON Schema request payload."""
 
     payload = _base_payload(request)
+    raw_schema = _contract_schema(request)
+    schema = _normalize_schema_for_provider(raw_schema, request.model)
     payload["response_format"] = {
         "type": "json_schema",
         "json_schema": {
             "name": _contract_name(request),
             "strict": True,
-            "schema": _contract_schema(request),
+            "schema": schema,
         },
     }
     return payload
@@ -518,6 +567,11 @@ class OpenAICompatibleProvider(InferenceProvider):
         for key, value in self.extra_body.items():
             if key not in payload:
                 payload[key] = value
+        if "reasoning" in payload:
+            payload.pop("reasoning_effort", None)
+        if "claude" in request.model.lower() or "anthropic" in request.model.lower():
+            payload["reasoning"] = {"effort": "none"}
+            payload.pop("reasoning_effort", None)
         request_bytes = len(
             json.dumps(
                 payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
@@ -633,7 +687,7 @@ class OpenAICompatibleProvider(InferenceProvider):
                 )
             elif response.status_code >= 400 or envelope_failed:
                 error = ProviderResponseError(
-                    f"provider returned failed response (status {effective_status})"
+                    f"provider returned failed response (status {effective_status}): {response.text[:1000]}"
                 )
             if error is not None:
                 if isinstance(error, (ProviderTimeoutError, TransientProviderError)) and attempt <= self.max_retries:
