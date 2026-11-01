@@ -817,7 +817,7 @@ def build_interactive_config(
         resolution_decision = existing_config.resolution_decision if existing_config is not None else None
         if existing_config is None:
             decision_backend = ui.choose("Object / Knowledge Resolution decisions", (
-                _Choice("jev", "Jev API (recommended)", "typesafe/jev-1.13; independent OpenRouter credential"),
+                _Choice("jev", "Jev API (recommended)", "typesafe/jev-1.14; independent OpenRouter credential"),
                 _Choice("kev", "Kev-4B local CPU/BF16", "OR 84%, KR 58.9%, replace 5/28 in the measured stand; lower quality"),
                 _Choice("generative", "Generative decision", "current generation profile; separate KR text generation still required"),
             ))

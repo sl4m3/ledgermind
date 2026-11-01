@@ -150,7 +150,7 @@ def config_for(*, home: Path, lab_config: Any, port: int) -> LocalConfig:
         worker_max_attempts=3,
         worker_retry_delay_seconds=1.0,
         worker_lease_seconds=420.0,
-        generation_concurrency=1,
+        generation_concurrency=int(getattr(lab_config, "generation_concurrency", 1)),
         provider_capability_ttl_seconds=86_400,
         inference_secrets_path=str(home / "secrets.json"),
         profile_slots=ProfileSlotsConfig(
@@ -317,7 +317,7 @@ def seed_local(
                     profile_id="resolution-decision",
                     decision_backend="jev",
                     base_url="https://openrouter.ai/api/alpha/decisions",
-                    model="typesafe/jev-1.13",
+                    model="typesafe/jev-1.14",
                     secret_ref="resolution-decision-api",
                     max_input_tokens=DEFAULT_GENERATION_MAX_INPUT_TOKENS,
                     max_output_tokens=6144,

@@ -37,7 +37,7 @@ def build_resolution_profile(config):
             **common,
             "endpoint": "https://openrouter.ai/api/alpha/decisions",
             "provider_kind": "openai_compatible",
-            "model": "typesafe/jev-1.13",
+            "model": "typesafe/jev-1.14",
             "secret_ref": DECISION_SECRET_REF,
             # Jev's supported default request window is 64k tokens
             # (32k per question). Do not inherit the generic 12k profile

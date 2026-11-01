@@ -6,6 +6,7 @@ import json
 import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Literal, TypeVar, cast
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
@@ -94,6 +95,15 @@ class GenericExecutionTask(BaseModel):
     operation_input: dict[str, object] | None = None
     structured_generation: dict[str, object] | None = None
 
+    @property
+    def parallel_safe(self) -> bool:
+        """Core-owned scheduling hint for stateless generation tasks."""
+
+        return (
+            self.operation_input is not None
+            and self.operation_input.get("parallel_safe") is True
+        )
+
 
 class EgressAuditRecord(BaseModel):
     """Content-free egress statistics safe for logging and persistence."""
@@ -181,6 +191,7 @@ class CoreTaskExecutor:
         profile_resolver: ProfileResolver,
         generate_json_timeout_seconds: float,
         embed_texts_timeout_seconds: float,
+        generation_concurrency: int = 1,
     ) -> None:
         self._json_provider = json_provider
         self._embedding_provider = embedding_provider
@@ -189,8 +200,11 @@ class CoreTaskExecutor:
             raise ValueError("generate_json_timeout_seconds must be positive")
         if embed_texts_timeout_seconds <= 0:
             raise ValueError("embed_texts_timeout_seconds must be positive")
+        if not 1 <= generation_concurrency <= 32:
+            raise ValueError("generation_concurrency must be between 1 and 32")
         self.generate_json_timeout_seconds = float(generate_json_timeout_seconds)
         self.embed_texts_timeout_seconds = float(embed_texts_timeout_seconds)
+        self.generation_concurrency = int(generation_concurrency)
 
     def execute(
         self,
@@ -226,7 +240,52 @@ class CoreTaskExecutor:
             return ()
         if all(task.task_kind == "embed_texts" for task in normalized):
             return self._execute_embed_texts_batch(normalized, cancellation_token)
+        if (
+            self.generation_concurrency > 1
+            and len(normalized) > 1
+            and all(task.parallel_safe for task in normalized)
+        ):
+            return self._execute_parallel_safe_batch(normalized, cancellation_token)
         return tuple(self.execute(task, cancellation_token) for task in normalized)
+
+    def _execute_parallel_safe_batch(
+        self,
+        tasks: tuple[GenericExecutionTask, ...],
+        token: CancellationToken | None,
+    ) -> tuple[GenericExecutionResult, ...]:
+        """Run stateless Core-marked tasks concurrently, preserving poll order.
+
+        Results are returned in input order even though execution completes in
+        a different order. The worker delivers them in this order, so downstream
+        memory-mutating stages always observe rounds in submission order.
+        """
+
+        def run(task: GenericExecutionTask) -> GenericExecutionResult:
+            try:
+                return self.execute(task, token)
+            except BaseException as exc:  # noqa: BLE001 - isolate one task
+                code = getattr(exc, "code", None)
+                if not isinstance(code, str) or not code:
+                    code = "execution_error"
+                status: ExecutionStatus = (
+                    "cancelled"
+                    if code == "cancelled"
+                    else "timeout"
+                    if code == "timeout"
+                    else "failed"
+                )
+                return self._failed_result(
+                    task,
+                    error_code=code,
+                    input_bytes=0,
+                    status=status,
+                )
+
+        workers = min(self.generation_concurrency, len(tasks))
+        with ThreadPoolExecutor(
+            max_workers=workers, thread_name_prefix="ledgermind-generation"
+        ) as executor:
+            return tuple(executor.map(run, tasks))
 
     def _execute_generate_json(
         self,
@@ -257,14 +316,19 @@ class CoreTaskExecutor:
             else None
         )
         root_task_id = (
-            structured_metadata.get("chain_root_task_id") or structured_metadata.get("root_task_id")
+            structured_metadata.get("chain_root_task_id")
+            or structured_metadata.get("root_task_id")
             if isinstance(structured_metadata, dict)
             else None
         )
         request_reason = (
             "semantic_repair"
             if attempt_kind in {"repair", "empty_recheck"}
-            else ("agent_generation" if telemetry_operation == "agent_generation" else "primary")
+            else (
+                "agent_generation"
+                if telemetry_operation == "agent_generation"
+                else "primary"
+            )
         )
         record_task(
             kind="decision" if task.task_kind == "decide" else "generation",
@@ -278,8 +342,16 @@ class CoreTaskExecutor:
         )
         try:
             result = self._run_bounded(
-                lambda: (self._json_provider.decide if task.task_kind == "decide" else self._json_provider.generate_json)(
-                    **({"decision_request": task.decision_request} if task.task_kind == "decide" else {}),
+                lambda: (
+                    self._json_provider.decide
+                    if task.task_kind == "decide"
+                    else self._json_provider.generate_json
+                )(
+                    **(
+                        {"decision_request": task.decision_request}
+                        if task.task_kind == "decide"
+                        else {}
+                    ),
                     memory_space_id=_memory_space_id(task),
                     messages=spec.messages,
                     max_output_tokens=spec.max_output_tokens,
@@ -291,7 +363,9 @@ class CoreTaskExecutor:
                     telemetry_context={
                         "task_id": task.task_id,
                         "root_task_id": root_task_id or task.task_id,
-                        "attempt_index": attempt_index if isinstance(attempt_index, int) else 0,
+                        "attempt_index": attempt_index
+                        if isinstance(attempt_index, int)
+                        else 0,
                         "request_reason": request_reason,
                         "attempt_kind": attempt_kind,
                     },
@@ -337,9 +411,15 @@ class CoreTaskExecutor:
             tool_name=result.tool_name,
             metadata={
                 **result.metadata,
-                "decision_task_id": (task.operation_input or {}).get("decision_task_id"),
-                "decision_question_version": (task.operation_input or {}).get("decision_question_version"),
-                "resolution_stage": (task.operation_input or {}).get("resolution_stage"),
+                "decision_task_id": (task.operation_input or {}).get(
+                    "decision_task_id"
+                ),
+                "decision_question_version": (task.operation_input or {}).get(
+                    "decision_question_version"
+                ),
+                "resolution_stage": (task.operation_input or {}).get(
+                    "resolution_stage"
+                ),
                 "parsed_json": result.parsed_json,
                 "raw_text": result.raw_text,
                 "provider_request_id": result.provider_request_id,
@@ -371,7 +451,9 @@ class CoreTaskExecutor:
                             purpose=spec.purpose,
                             dimensions=spec.dimensions,
                             cache_keys=spec.cache_keys,
-                            cache_namespace=(spec.cache_namespace or spec.privacy_class),
+                            cache_namespace=(
+                                spec.cache_namespace or spec.privacy_class
+                            ),
                             profile_fingerprint=spec.profile_fingerprint,
                             config_fingerprint=spec.config_fingerprint,
                             privacy_class=spec.privacy_class,
@@ -544,7 +626,9 @@ class CoreTaskExecutor:
                     input_bytes=sum(len(text.encode("utf-8")) for text in spec.texts),
                     profile_id=(profile.profile_id if profile is not None else None),
                 )
-                for task, spec, profile in zip(tasks, typed_specs, profiles or [None] * len(tasks), strict=True)
+                for task, spec, profile in zip(
+                    tasks, typed_specs, profiles or [None] * len(tasks), strict=True
+                )
             )
 
     def _run_bounded(
@@ -677,6 +761,7 @@ def _memory_space_id(task: GenericExecutionTask) -> str:
 def _telemetry_operation(task: GenericExecutionTask) -> object:
     # Historical import path; active Local and Cloud already use the shared executor.
     from ledgermind_inference.core_task_executor import _telemetry_operation as shared
+
     return shared(task)
 
 
@@ -718,7 +803,11 @@ def _error_category(error_code: str) -> str:
         "secret_missing",
     }:
         return "transport_failure"
-    return "transport_failure" if error_code.startswith("provider_") else "schema_shape_failure"
+    return (
+        "transport_failure"
+        if error_code.startswith("provider_")
+        else "schema_shape_failure"
+    )
 
 
 def _model_request_bytes(spec: ModelRequestSpec) -> int:

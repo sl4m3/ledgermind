@@ -17,7 +17,10 @@ from typing import Any
 
 from ledgermind_inference.core_task_executor import CoreTaskExecutor
 from ledgermind_inference.embedding_provider import EmbeddingProvider
-from ledgermind_inference.embedding_purpose import KNOWLEDGE_QUERY_ROLE, OBJECT_QUERY_ROLE
+from ledgermind_inference.embedding_purpose import (
+    KNOWLEDGE_QUERY_ROLE,
+    OBJECT_QUERY_ROLE,
+)
 from ledgermind_inference.openai_vectorizer import OpenAIEmbeddingVectorizer
 from ledgermind_inference.strict import STRICT_JSON_SCHEMA_MODE
 from ledgermind_inference.semantic_contract import configured_resolution_pipeline
@@ -192,7 +195,9 @@ def build_process_core_gateway(
         ),
         binary_signature_verified=signature_verified,
         semantic_language=config.semantic_language,
-        resolution_pipeline=configured_resolution_pipeline(has_decision_profile=config.profile_slots.resolution_decision is not None),
+        resolution_pipeline=configured_resolution_pipeline(
+            has_decision_profile=config.profile_slots.resolution_decision is not None
+        ),
     )
     return ProcessCoreGateway(supervisor)
 
@@ -513,8 +518,7 @@ class LocalRuntime:
             secret_ref = self.config.reranker.secret_ref or "embedding-local"
             token = SecretStore(self.config.inference_secrets_path).get(secret_ref)
             scorer = ApiReranker(
-                self.config.reranker.endpoint
-                or "http://127.0.0.1:8767/rerank",
+                self.config.reranker.endpoint or "http://127.0.0.1:8767/rerank",
                 token,
                 self.config.reranker.model or "Qwen/Qwen3-Reranker-0.6B",
                 timeout_seconds=self.config.reranker.timeout_seconds,
@@ -532,7 +536,9 @@ class LocalRuntime:
         provider = EmbeddingProvider(
             vectorizer_factory=_build_runtime_vectorizer_factory(self.config)
         )
-        batch = provider.embed((query,), profile, "retrieval_query", role=KNOWLEDGE_QUERY_ROLE)
+        batch = provider.embed(
+            (query,), profile, "retrieval_query", role=KNOWLEDGE_QUERY_ROLE
+        )
         return batch.vectors[0], batch.model, batch.model_version
 
     def embed_object_query_with_metadata(
@@ -638,6 +644,7 @@ class LocalRuntime:
         self._workers.clear()
         reranker = getattr(self, "_retrieval_reranker", None)
         from ledgermind_inference.kev_runtime import close_all as close_decision_models
+
         close_decision_models()
         if reranker is not None:
             reranker.close()
@@ -1006,9 +1013,7 @@ class LocalRuntime:
             local_pending = max(int(row[1]), 0) if row is not None else 0
 
             gateway = self.core_gateway
-            get_statistics = getattr(
-                gateway, "try_get_object_facet_statistics", None
-            )
+            get_statistics = getattr(gateway, "try_get_object_facet_statistics", None)
             if not callable(get_statistics):
                 # Compatibility for alternate/test gateways. The production
                 # process gateway always exposes the bounded diagnostic path.
@@ -1733,6 +1738,7 @@ class LocalRuntime:
                     profile_resolver=profile_resolver,
                     generate_json_timeout_seconds=300,
                     embed_texts_timeout_seconds=300,
+                    generation_concurrency=self.config.generation_concurrency,
                 ),
                 worker_id="local-execution-tasks",
                 lease_seconds=max(
@@ -1825,8 +1831,12 @@ class LocalRuntime:
     def _profile_slots_report(self) -> dict[str, object]:
         """Check all four enabled profile slots without legacy fallbacks."""
 
-        slots = tuple(slot.value for slot in ProfileSlot
-            if slot != ProfileSlot.RESOLUTION_DECISION or self.config.profile_slots.resolution_decision is not None)
+        slots = tuple(
+            slot.value
+            for slot in ProfileSlot
+            if slot != ProfileSlot.RESOLUTION_DECISION
+            or self.config.profile_slots.resolution_decision is not None
+        )
         missing: dict[str, list[str]] = {}
         connection = self.connection_factory(self.database_path)
         try:

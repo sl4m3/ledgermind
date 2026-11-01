@@ -22,7 +22,7 @@ def test_old_config_is_legacy_and_generation_settings_are_unchanged():
     new = config("jev")
     assert build_runtime_profiles(new)[:3] == build_runtime_profiles(old)
     profile = build_resolution_profile(new)
-    assert profile["model"] == "typesafe/jev-1.13"
+    assert profile["model"] == "typesafe/jev-1.14"
     assert profile["endpoint"] == "https://openrouter.ai/api/alpha/decisions"
     assert profile["secret_ref"] == "resolution-decision-api"
     assert profile["max_input_tokens"] == 64_000
