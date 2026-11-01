@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Protocol
 
-MAX_FRAME_BYTES = 8 * 1024 * 1024
+# Large non-Latin round envelopes carry the durable source packet, the
+# provider prompt and the contract together; 8 MiB was too small even though
+# provider requests themselves are chunked.
+MAX_FRAME_BYTES = 32 * 1024 * 1024
 _FRAME_HEADER_BYTES = 4
 
 

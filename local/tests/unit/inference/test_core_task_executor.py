@@ -192,7 +192,6 @@ def _executor(
     embedding_provider: EmbeddingProvider | None = None,
     json_timeout: float = 5.0,
     embed_timeout: float = 5.0,
-    generation_concurrency: int = 1,
 ) -> CoreTaskExecutor:
     if json_provider is None:
         json_provider = _json_provider(_FakeCompleter('{"ok": true}'), tmp_path)
@@ -206,7 +205,6 @@ def _executor(
         profile_resolver=_resolver(),
         generate_json_timeout_seconds=json_timeout,
         embed_texts_timeout_seconds=embed_timeout,
-        generation_concurrency=generation_concurrency,
     )
 
 
@@ -227,12 +225,6 @@ def _json_task(
             response_format={"type": "json_object"},
         ),
         lease={"memory_space_id": "space"},
-    )
-
-
-def _parallel_json_task(task_id: str) -> GenericExecutionTask:
-    return _json_task(completer=None).model_copy(
-        update={"task_id": task_id, "operation_input": {"parallel_safe": True}}
     )
 
 
@@ -361,9 +353,7 @@ def test_embedding_task_completes_with_vectors_and_audit(tmp_path) -> None:
     assert "hello world" not in audit.model_dump_json()
 
 
-def test_embedding_result_wire_projection_excludes_local_renderer_metadata(
-    tmp_path,
-) -> None:
+def test_embedding_result_wire_projection_excludes_local_renderer_metadata(tmp_path) -> None:
     result = _executor(tmp_path).execute(_embed_task(dimensions=4))
 
     payload = _core_result_payload(result)
@@ -415,7 +405,9 @@ def test_operation_does_not_affect_local_dispatch(tmp_path) -> None:
     fake = _FakeCompleter('{"v": 1}')
     executor = _executor(tmp_path, json_provider=_json_provider(fake, tmp_path))
 
-    result_a = executor.execute(_json_task(operation="extract_values", completer=fake))
+    result_a = executor.execute(
+        _json_task(operation="extract_values", completer=fake)
+    )
     result_b = executor.execute(
         _json_task(operation="consolidate_values", completer=fake)
     )
@@ -451,9 +443,7 @@ def test_invalid_json_response_fails_with_structured_code(tmp_path) -> None:
     assert SECRET_VALUE not in result.egress_audit.model_dump_json()
 
 
-def test_error_taxonomy_keeps_transport_json_shape_semantic_language_and_grounding_distinct() -> (
-    None
-):
+def test_error_taxonomy_keeps_transport_json_shape_semantic_language_and_grounding_distinct() -> None:
     expected = {
         "provider_timeout": "transport_failure",
         "invalid_json_response": "json_parse_failure",
@@ -478,7 +468,9 @@ def test_json_array_response_is_rejected(tmp_path) -> None:
 
 def test_embedding_nan_vector_fails_with_structured_code(tmp_path) -> None:
     embedding_provider = _embedding_provider(
-        _FakeVectorizer(dimension=2, fingerprint="m1", vectors=[[1.0, float("nan")]])
+        _FakeVectorizer(
+            dimension=2, fingerprint="m1", vectors=[[1.0, float("nan")]]
+        )
     )
     executor = _executor(tmp_path, embedding_provider=embedding_provider)
 
@@ -574,68 +566,10 @@ def test_embedding_timeout_is_applied_separately(tmp_path) -> None:
         tmp_path, embedding_provider=embedding_provider, embed_timeout=0.05
     )
 
-    result = executor.execute(_embed_task(texts=("slow",), task_id="task-slow-embed"))
+    result = executor.execute(
+        _embed_task(texts=("slow",), task_id="task-slow-embed")
+    )
 
     assert result.status == "timeout"
     assert result.error_code == "timeout"
     assert result.egress_audit.status == "timeout"
-
-
-def test_parallel_safe_generation_tasks_overlap_and_keep_poll_order(tmp_path) -> None:
-    fake = _FakeCompleter('{"ok": true}', delay=0.4)
-    executor = _executor(
-        tmp_path,
-        json_provider=_json_provider(fake, tmp_path),
-        generation_concurrency=2,
-    )
-
-    started = time.monotonic()
-    results = executor.execute_batch(
-        (_parallel_json_task("task-1"), _parallel_json_task("task-2"))
-    )
-    elapsed = time.monotonic() - started
-
-    assert elapsed < 0.7
-    assert [result.task_id for result in results] == ["task-1", "task-2"]
-    assert all(result.status == "completed" for result in results)
-
-
-def test_mixed_batch_never_parallelizes_even_with_parallel_safe_member(
-    tmp_path,
-) -> None:
-    fake = _FakeCompleter('{"ok": true}', delay=0.4)
-    executor = _executor(
-        tmp_path,
-        json_provider=_json_provider(fake, tmp_path),
-        generation_concurrency=2,
-    )
-
-    started = time.monotonic()
-    results = executor.execute_batch(
-        (
-            _parallel_json_task("task-1"),
-            _json_task(completer=fake).model_copy(update={"task_id": "task-2"}),
-        )
-    )
-    elapsed = time.monotonic() - started
-
-    assert elapsed >= 0.7
-    assert [result.task_id for result in results] == ["task-1", "task-2"]
-    assert all(result.status == "completed" for result in results)
-
-
-def test_generation_concurrency_one_keeps_parallel_safe_tasks_serial(tmp_path) -> None:
-    fake = _FakeCompleter('{"ok": true}', delay=0.4)
-    executor = _executor(
-        tmp_path,
-        json_provider=_json_provider(fake, tmp_path),
-        generation_concurrency=1,
-    )
-
-    started = time.monotonic()
-    executor.execute_batch(
-        (_parallel_json_task("task-1"), _parallel_json_task("task-2"))
-    )
-    elapsed = time.monotonic() - started
-
-    assert elapsed >= 0.7

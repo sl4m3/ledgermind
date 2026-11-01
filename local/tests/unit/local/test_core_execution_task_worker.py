@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from ledgermind_local.core_gateway.contracts import DomainRejectedError
 from ledgermind_local.scheduler import core_execution_task_worker as worker_module
+from ledgermind_local.scheduler.batch_semantic_coordinator import BatchDelivery
 from ledgermind_local.scheduler.core_execution_task_worker import (
     CoreExecutionTaskWorker,
     _execution_result_is_retryable,
@@ -80,7 +81,9 @@ def test_auth_failure_stops_polling_other_spaces_and_future_cycles(monkeypatch) 
             polls.append(command.memory_space_id)
             return SimpleNamespace(tasks=[{"task_id": "task-1"}])
 
-    monkeypatch.setattr(worker_module.migrations, "apply_migrations", lambda _connection: None)
+    monkeypatch.setattr(
+        worker_module.migrations, "apply_migrations", lambda _connection: None
+    )
     worker = CoreExecutionTaskWorker(
         database_path="unused.db",
         gateway=Gateway(),
@@ -177,12 +180,10 @@ def test_invalid_request_distinguishes_round_semantic_validation_failures() -> N
     )
 
     assert (
-        grounding.error_code
-        == "core_rejected_round_semantic_object_grounding_missing"
+        grounding.error_code == "core_rejected_round_semantic_object_grounding_missing"
     )
     assert (
-        unknown_object.error_code
-        == "core_rejected_round_semantic_claim_object_unknown"
+        unknown_object.error_code == "core_rejected_round_semantic_claim_object_unknown"
     )
     assert "o2" not in grounding.error_code
     assert "o9" not in unknown_object.error_code
@@ -197,8 +198,7 @@ def test_semantic_incomplete_rejection_keeps_a_precise_content_free_reason() -> 
     )
 
     assert (
-        classification.error_code
-        == "core_rejected_round_semantic_semantic_incomplete"
+        classification.error_code == "core_rejected_round_semantic_semantic_incomplete"
     )
     assert classification.retryable is False
 
@@ -288,6 +288,88 @@ def test_core_structural_rejection_gets_one_retry_on_configured_provider_fallbac
 
     assert calls == [{"force_provider_fallback": True}]
     assert deliveries == 2
+
+
+def test_collect_batch_deliveries_delivers_and_marks(monkeypatch) -> None:
+    delivered: list[tuple[str, str, str]] = []
+    marked: list[str] = []
+
+    class Coordinator:
+        def tick(self) -> list[BatchDelivery]:
+            return [
+                BatchDelivery(
+                    task=SimpleNamespace(task_id="task-1"),
+                    memory_space_id="space",
+                )
+            ]
+
+        def mark_delivered(self, task_id: str) -> None:
+            marked.append(task_id)
+
+    class Executor:
+        def execute(self, _task: object) -> object:
+            return SimpleNamespace(status="completed")
+
+    worker = CoreExecutionTaskWorker(
+        database_path="unused.db",
+        gateway=SimpleNamespace(),  # type: ignore[arg-type]
+        executor=Executor(),  # type: ignore[arg-type]
+        worker_id="test-worker",
+        batch_coordinator=Coordinator(),  # type: ignore[arg-type]
+    )
+    monkeypatch.setattr(
+        worker,
+        "_deliver_result_with_structured_retry",
+        lambda task, result, space: delivered.append(
+            (task.task_id, result.status, space)
+        ),
+    )
+
+    worker._collect_batch_deliveries()
+
+    assert delivered == [("task-1", "completed", "space")]
+    assert marked == ["task-1"]
+
+
+def test_process_tasks_defers_round_memory_to_batch_coordinator(monkeypatch) -> None:
+    enqueued: list[tuple[str, str]] = []
+    task = SimpleNamespace(
+        task_id="task-1",
+        operation="operational_round_memory_preparation",
+        operation_input={"round_memory": {"stage": "preparation"}},
+    )
+
+    class Coordinator:
+        def is_batch_task(self, _task: object) -> bool:
+            return True
+
+        def has_result(self, _task: object) -> bool:
+            return False
+
+        def enqueue(self, candidate: object, memory_space_id: str) -> bool:
+            enqueued.append((candidate.task_id, memory_space_id))
+            return True
+
+    class Executor:
+        def execute_batch(self, _tasks: object) -> object:
+            raise AssertionError("deferred batch tasks must not execute immediately")
+
+    worker = CoreExecutionTaskWorker(
+        database_path="unused.db",
+        gateway=SimpleNamespace(),  # type: ignore[arg-type]
+        executor=Executor(),  # type: ignore[arg-type]
+        worker_id="test-worker",
+        batch_coordinator=Coordinator(),  # type: ignore[arg-type]
+    )
+    monkeypatch.setattr(
+        worker_module,
+        "execution_task_from_wire",
+        lambda _raw_task, _memory_space_id: task,
+    )
+
+    worker._process_tasks([{"task_id": "task-1"}], "space")
+
+    assert enqueued == [("task-1", "space")]
 
 
 def test_worker_persists_content_free_audit_for_each_executor_result(tmp_path) -> None:
