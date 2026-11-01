@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
 from ledgermind_local.installer.profiles.embedding_api import (
     OpenAICompatibleEmbeddingProvider,
@@ -24,6 +25,7 @@ class OpenAIEmbeddingVectorizer(Vectorizer):
         batch_size: int,
         timeout_seconds: float,
         max_concurrency: int = 1,
+        priority: Literal["interactive", "background"] | None = None,
     ) -> None:
         self._provider = OpenAICompatibleEmbeddingProvider(
             endpoint=endpoint,
@@ -33,6 +35,7 @@ class OpenAIEmbeddingVectorizer(Vectorizer):
             batch_size=batch_size,
             max_concurrency=max_concurrency,
             timeout_seconds=timeout_seconds,
+            priority=priority,
         )
         self._model = model
         self._dimension = dimensions

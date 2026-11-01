@@ -72,6 +72,7 @@ class OpenAICompatibleEmbeddingProvider:
         timeout_seconds: float = 60.0,
         client: httpx.Client | None = None,
         profile_fingerprint: str | None = None,
+        priority: Literal["interactive", "background"] | None = None,
     ) -> None:
         normalized = endpoint.strip().rstrip("/")
         parsed = urlparse(normalized)
@@ -92,6 +93,9 @@ class OpenAICompatibleEmbeddingProvider:
         self.batch_size = max(int(batch_size), 1)
         self.max_concurrency = max(int(max_concurrency), 1)
         self.timeout = float(timeout_seconds)
+        if priority not in {None, "interactive", "background"}:
+            raise ValueError("priority must be 'interactive' or 'background'")
+        self.priority = priority
         self._profile_fingerprint = profile_fingerprint
         self._operation = "embedding"
         self._operation_item_counts: dict[str, int] | None = None
@@ -136,10 +140,13 @@ class OpenAICompatibleEmbeddingProvider:
         if role is not None:
             payload["input_type"] = role
         started = time.perf_counter()
+        headers = provider_request_headers(self.endpoint, self.token)
+        if self.priority is not None:
+            headers["X-LedgerMind-Priority"] = self.priority
         try:
             response = self._client.post(
                 self.endpoint,
-                headers=provider_request_headers(self.endpoint, self.token),
+                headers=headers,
                 json=payload,
                 timeout=self.timeout,
             )

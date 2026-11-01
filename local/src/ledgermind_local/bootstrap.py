@@ -13,7 +13,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from ledgermind_inference.core_task_executor import CoreTaskExecutor
 from ledgermind_inference.embedding_provider import EmbeddingProvider
@@ -87,7 +87,11 @@ logger = logging.getLogger(__name__)
 MIN_CORE_MODEL_TASK_LEASE_SECONDS = 360
 
 
-def _build_runtime_vectorizer_factory(config: LocalConfig) -> Callable[[], Any]:
+def _build_runtime_vectorizer_factory(
+    config: LocalConfig,
+    *,
+    priority: Literal["interactive", "background"] | None = None,
+) -> Callable[[], Any]:
     """Build the technical embedding backend used by generic Core tasks."""
 
     if not config.embedding.enabled:
@@ -118,6 +122,7 @@ def _build_runtime_vectorizer_factory(config: LocalConfig) -> Callable[[], Any]:
             batch_size=config.embedding.batch_size,
             max_concurrency=config.embedding.max_concurrency,
             timeout_seconds=config.embedding.timeout_seconds,
+            priority=priority,
         )
 
     model_path = Path(config.embedding.model_path).expanduser()
@@ -534,7 +539,9 @@ class LocalRuntime:
         resolver = DatabaseBackedProfileResolver(self.database_path)
         profile = resolver.resolve_profile(memory_space_id, ProfileSlot.EMBEDDING)
         provider = EmbeddingProvider(
-            vectorizer_factory=_build_runtime_vectorizer_factory(self.config)
+            vectorizer_factory=_build_runtime_vectorizer_factory(
+                self.config, priority="interactive"
+            )
         )
         batch = provider.embed(
             (query,), profile, "retrieval_query", role=KNOWLEDGE_QUERY_ROLE
@@ -549,7 +556,9 @@ class LocalRuntime:
         resolver = DatabaseBackedProfileResolver(self.database_path)
         profile = resolver.resolve_profile(memory_space_id, ProfileSlot.EMBEDDING)
         provider = EmbeddingProvider(
-            vectorizer_factory=_build_runtime_vectorizer_factory(self.config)
+            vectorizer_factory=_build_runtime_vectorizer_factory(
+                self.config, priority="interactive"
+            )
         )
         batch = provider.embed(
             (query,),
@@ -1731,7 +1740,7 @@ class LocalRuntime:
                     ),
                     embedding_provider=EmbeddingProvider(
                         vectorizer_factory=_build_runtime_vectorizer_factory(
-                            self.config
+                            self.config, priority="background"
                         ),
                         cache=PersistentEmbeddingCache(self.database_path),
                     ),

@@ -58,6 +58,35 @@ def test_openai_embedding_wire_preserves_role(role: str) -> None:
     ]
 
 
+def test_openai_embedding_priority_header_is_explicit() -> None:
+    seen: list[dict[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(dict(request.headers))
+        return httpx.Response(
+            200,
+            json={
+                "model": "embed-model",
+                "data": [{"index": 0, "embedding": [1.0, 0.0]}],
+            },
+        )
+
+    provider = OpenAICompatibleEmbeddingProvider(
+        endpoint="https://provider.example/v1",
+        token="secret",
+        model="embed-model",
+        dimensions=2,
+        priority="interactive",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    try:
+        assert provider.embed(("query",), role="passage") == ((1.0, 0.0),)
+    finally:
+        provider.close()
+
+    assert seen[0]["x-ledgermind-priority"] == "interactive"
+
+
 def test_openrouter_accepts_canonical_model_for_free_routing_variant() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(
