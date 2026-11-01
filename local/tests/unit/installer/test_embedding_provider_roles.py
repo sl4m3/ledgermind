@@ -87,6 +87,37 @@ def test_openai_embedding_priority_header_is_explicit() -> None:
     assert seen[0]["x-ledgermind-priority"] == "interactive"
 
 
+class _BatchProvider:
+    batch_size = 32
+
+    def __init__(self) -> None:
+        self.batches: list[list[str]] = []
+
+    def embed(self, texts, *, role=None):
+        self.batches.append(list(texts))
+        return [[1.0, 0.0] for _ in texts]
+
+    def close(self) -> None:
+        pass
+
+
+def test_openai_embedding_vectorizer_splits_batches_by_chars() -> None:
+    vectorizer = OpenAIEmbeddingVectorizer(
+        endpoint="https://provider.example/v1",
+        token="secret",
+        model="embed-model",
+        dimensions=2,
+        batch_size=32,
+        timeout_seconds=1.0,
+        max_batch_chars=9,
+    )
+    provider = _BatchProvider()
+    vectorizer._provider = provider  # type: ignore[assignment]
+
+    assert len(vectorizer.encode(["aaaa", "bbbb", "cc"])) == 3
+    assert [len(batch) for batch in provider.batches] == [2, 1]
+
+
 def test_openrouter_accepts_canonical_model_for_free_routing_variant() -> None:
     def handler(_request: httpx.Request) -> httpx.Response:
         return httpx.Response(

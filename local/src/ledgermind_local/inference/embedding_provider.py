@@ -304,7 +304,7 @@ class EmbeddingProvider:
         *,
         vectorizer_factory: VectorizerFactory,
         max_texts: int = 64,
-        max_text_chars: int = 8_000,
+        max_text_chars: int = 524_288,
         identity_config: Mapping[str, object] | None = None,
         cache: EmbeddingVectorCache | None = None,
     ) -> None:

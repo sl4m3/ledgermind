@@ -140,6 +140,16 @@ def test_embed_rejects_oversized_text() -> None:
         )
 
 
+def test_embed_accepts_long_text_with_the_transport_default() -> None:
+    vectorizer = _FakeVectorizer(dimension=2, fingerprint="m1")
+    provider = EmbeddingProvider(vectorizer_factory=lambda: vectorizer)
+
+    batch = provider.embed(["x" * 20_000], _profile(), "knowledge")
+
+    assert len(batch.vectors) == 1
+    assert tuple(batch.vectors[0]) == (20_000.0, 20_000.0)
+
+
 def test_embed_rejects_non_finite_vectors() -> None:
     vectorizer = _FakeVectorizer(
         dimension=2, fingerprint="m1", vectors=[[1.0, float("nan")], [2.0, 2.0]]

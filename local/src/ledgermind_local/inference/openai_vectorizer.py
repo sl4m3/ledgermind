@@ -11,6 +11,8 @@ from ledgermind_local.installer.profiles.embedding_api import (
 
 from .vectorizer import EmbeddingRole, Vectorizer
 
+MAX_EMBEDDING_BATCH_CHARS = 500_000
+
 
 class OpenAIEmbeddingVectorizer(Vectorizer):
     """Adapt the installer API provider to Local's vectorizer protocol."""
@@ -26,7 +28,11 @@ class OpenAIEmbeddingVectorizer(Vectorizer):
         timeout_seconds: float,
         max_concurrency: int = 1,
         priority: Literal["interactive", "background"] | None = None,
+        max_batch_chars: int = MAX_EMBEDDING_BATCH_CHARS,
     ) -> None:
+        if max_batch_chars < 1:
+            raise ValueError("max_batch_chars must be positive")
+        self._max_batch_chars = int(max_batch_chars)
         self._provider = OpenAICompatibleEmbeddingProvider(
             endpoint=endpoint,
             token=token,
@@ -56,11 +62,24 @@ class OpenAIEmbeddingVectorizer(Vectorizer):
     ) -> list[list[float]]:
         vectors: list[list[float]] = []
         batch_size = self._provider.batch_size
-        for start in range(0, len(texts), batch_size):
-            batch = self._provider.embed(
-                texts[start : start + batch_size], role=role
+        batch: list[str] = []
+        batch_chars = 0
+        for text in texts:
+            if batch and (
+                len(batch) >= batch_size
+                or batch_chars + len(text) > self._max_batch_chars
+            ):
+                vectors.extend(
+                    [list(vector) for vector in self._provider.embed(batch, role=role)]
+                )
+                batch = []
+                batch_chars = 0
+            batch.append(text)
+            batch_chars += len(text)
+        if batch:
+            vectors.extend(
+                [list(vector) for vector in self._provider.embed(batch, role=role)]
             )
-            vectors.extend([list(vector) for vector in batch])
         return vectors
 
     def set_telemetry_context(

@@ -12,10 +12,17 @@ class _Rows(list[list[float]]):
         return list(self)
 
 
+class _Tokenizer:
+    def encode(self, text: str, *, add_special_tokens: bool = True) -> list[int]:
+        assert add_special_tokens is True
+        return [0] * len(text)
+
+
 class _Model:
     def __init__(self) -> None:
         self.calls: list[tuple[str, list[str]]] = []
         self.batch_sizes: list[int | None] = []
+        self.tokenizer = _Tokenizer()
 
     def get_sentence_embedding_dimension(self) -> int:
         return 3
@@ -65,3 +72,22 @@ def test_sentence_transformer_vectorizer_uses_small_batches_for_mixed_lengths(
     vectorizer.encode(["x" * 1000] * 8, role="passage")
 
     assert model.batch_sizes == [8, 4, 8]
+
+
+def test_sentence_transformer_vectorizer_counts_texts_over_the_model_window(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "config.json").write_text("{}", encoding="utf-8")
+    model = _Model()
+    vectorizer = SentenceTransformerVectorizer(
+        model_path=tmp_path,
+        device="cpu",
+        expected_dimension=3,
+        max_seq_length=10,
+        model_builder=lambda _path, _device: model,
+    )
+
+    vectorizer.encode(["x" * 20], role="passage")
+    vectorizer.encode(["x" * 5], role="passage")
+
+    assert vectorizer.truncated_texts == 1
