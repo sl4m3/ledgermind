@@ -4,7 +4,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from ledgermind_local.core_gateway.isolation import IsolationRequirements
 from ledgermind_local.core_gateway.sandbox import (
     SandboxLevel,
@@ -299,6 +298,6 @@ def test_sandbox_environment_preserves_semantic_language_contract(
 def test_sandbox_explicit_candidate_contract_does_not_leak_credentials(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "not-a-real-key")
     environment = _sandbox_environment(tmp_path, ("/opt/ledgermind-core/bin/ledgermind-core",),
-        semantic_language="ru", resolution_pipeline="memory_write_v8")
-    assert environment["LEDGERMIND_RESOLUTION_PIPELINE"] == "memory_write_v8"
+        semantic_language="ru", resolution_pipeline="memory_write")
+    assert environment["LEDGERMIND_RESOLUTION_PIPELINE"] == "memory_write"
     assert "OPENROUTER_API_KEY" not in environment

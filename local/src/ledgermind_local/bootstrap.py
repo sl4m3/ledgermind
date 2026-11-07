@@ -22,13 +22,6 @@ from ledgermind_inference.embedding_purpose import (
     OBJECT_QUERY_ROLE,
 )
 from ledgermind_inference.openai_vectorizer import OpenAIEmbeddingVectorizer
-from ledgermind_inference.providers.batch_policy import BatchLimits
-from ledgermind_inference.providers.openrouter_batch import (
-    DEFAULT_BATCH_MODEL,
-    DEFAULT_OPENROUTER_URL,
-    BatchWebhookServer,
-    OpenRouterBatchClient,
-)
 from ledgermind_inference.semantic_contract import configured_resolution_pipeline
 from ledgermind_inference.strict import STRICT_JSON_SCHEMA_MODE
 from ledgermind_inference.structured_json_provider import StructuredJsonProvider
@@ -83,10 +76,6 @@ from ledgermind_local.scheduler import (
     GuardedWorkerLoop,
     RawRoundRetentionWorker,
 )
-from ledgermind_local.scheduler.batch_semantic_coordinator import (
-    BatchSemanticCoordinator,
-)
-from ledgermind_local.scheduler.batch_semantic_store import BatchSemanticStore
 from ledgermind_local.scheduler.worker_state import WorkerState, WorkerStateSnapshot
 from ledgermind_local.service_lock import ServiceLock
 
@@ -1749,9 +1738,6 @@ class LocalRuntime:
             )
             profile_resolver = DatabaseBackedProfileResolver(self.database_path)
             worker_id = "local-execution-tasks"
-            batch_store = BatchSemanticStore(
-                Path(self.database_path).with_suffix(".batch.sqlite3")
-            )
             executor = CoreTaskExecutor(
                 json_provider=StructuredJsonProvider(
                     profile_resolver=profile_resolver,
@@ -1770,96 +1756,16 @@ class LocalRuntime:
                 generate_json_timeout_seconds=300,
                 embed_texts_timeout_seconds=300,
                 generation_concurrency=self.config.generation_concurrency,
-                batch_result_source=batch_store,
             )
-            batch_token = os.environ.get(
-                "LEDGERMIND_OPENROUTER_API_KEY"
-            ) or os.environ.get("OPENROUTER_API_KEY")
-            batch_coordinator: BatchSemanticCoordinator | None = None
-            if batch_token:
-                callback_url = (
-                    os.environ.get("LEDGERMIND_BATCH_CALLBACK_URL", "").strip()
-                    or None
-                )
-                if callback_url:
-                    def _on_batch_webhook(
-                        _event_type: str,
-                        batch_id: str,
-                        _event_id: str,
-                    ) -> None:
-                        if not batch_store.wake_batch(batch_id):
-                            # A non-2xx makes OpenRouter retry the delivery.
-                            raise RuntimeError("batch job is not registered")
-
-                    webhook_server = BatchWebhookServer(
-                        port=int(
-                            _env_float("LEDGERMIND_BATCH_WEBHOOK_PORT", 8767.0)
-                        ),
-                        callback_url=callback_url,
-                        secret=os.environ.get(
-                            "LEDGERMIND_OPENROUTER_WEBHOOK_SECRET"
-                        ),
-                        on_event=_on_batch_webhook,
-                    )
-                    try:
-                        webhook_server.start()
-                        logger.info(
-                            "batch webhook receiver started",
-                            extra={"port": webhook_server.port},
-                        )
-                    except OSError as exc:
-                        logger.warning(
-                            "batch webhook receiver is unavailable; "
-                            "falling back to polling",
-                            extra={"error_type": type(exc).__name__},
-                        )
-                        callback_url = None
-                batch_coordinator = BatchSemanticCoordinator(
-                    store=batch_store,
-                    client=OpenRouterBatchClient(
-                        batch_token,
-                        base_url=os.environ.get(
-                            "LEDGERMIND_OPENROUTER_BASE_URL",
-                            DEFAULT_OPENROUTER_URL,
-                        ),
-                    ),
-                    worker_id=worker_id,
-                    limits=BatchLimits.openrouter(),
-                    model=os.environ.get("LEDGERMIND_BATCH_MODEL", DEFAULT_BATCH_MODEL),
-                    max_wait_seconds=_env_float(
-                        "LEDGERMIND_BATCH_MAX_WAIT_SECONDS", 60.0
-                    ),
-                    poll_interval_seconds=_env_float(
-                        "LEDGERMIND_BATCH_POLL_INTERVAL_SECONDS", 60.0
-                    ),
-                    webhook_safety_interval_seconds=_env_float(
-                        "LEDGERMIND_BATCH_WEBHOOK_SAFETY_SECONDS", 900.0
-                    ),
-                    callback_url=callback_url,
-                    max_attempts=max(
-                        1,
-                        int(_env_float("LEDGERMIND_BATCH_MAX_ATTEMPTS", 5.0)),
-                    ),
-                )
-            else:
-                logger.error(
-                    "OpenRouter batch key is not configured; "
-                    "round-memory tasks cannot be batched"
-                )
             return CoreExecutionTaskWorker(
                 database_path=self.database_path,
                 gateway=self.core_gateway,
                 executor=executor,
                 worker_id=worker_id,
-                lease_seconds=(
-                    3600
-                    if batch_coordinator is not None
-                    else max(
-                        int(self.config.worker_lease_seconds),
-                        MIN_CORE_MODEL_TASK_LEASE_SECONDS,
-                    )
+                lease_seconds=max(
+                    int(self.config.worker_lease_seconds),
+                    MIN_CORE_MODEL_TASK_LEASE_SECONDS,
                 ),
-                batch_coordinator=batch_coordinator,
             )
         raise ValueError(f"unknown Local worker: {name}")
 

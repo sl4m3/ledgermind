@@ -128,3 +128,12 @@ def test_log_level_is_normalized_to_uppercase() -> None:
         {"config_version": 1, "semantic_language": "ru", "log_level": "info"}
     )
     assert config.log_level == "INFO"
+
+
+def test_reranker_candidate_policy_defaults_to_semantic_and_accepts_formula() -> None:
+    from ledgermind_local.config import RerankerConfig
+
+    assert RerankerConfig().candidate_policy == "semantic"
+    assert RerankerConfig(candidate_policy="formula").candidate_policy == "formula"
+    with pytest.raises(ValidationError):
+        RerankerConfig(candidate_policy="lexical")  # type: ignore[arg-type]

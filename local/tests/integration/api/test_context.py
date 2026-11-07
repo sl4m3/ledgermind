@@ -21,41 +21,54 @@ class _Gateway:
         self, request: RetrieveContextCommand
     ) -> RetrieveContextResult:
         self.request = request
+        schema_version = (
+            5 if request.scoped_dependencies else 4 if request.semantic_delivery else 2
+        )
+        item: dict[str, object] = {
+            "value_id": "value-1",
+            "primary_object_id": "object-1",
+            "object_name": "Deployment",
+            "facet": "property",
+            "content": "Deployments require review.",
+            "source_kind": "explicit_user",
+            "relevance": 0.9,
+            "explanation": {
+                "object_reasons": ["direct_value_semantic"],
+                "item_facet": "property",
+                "activated_facets": [],
+                "score_components": {
+                    "semantic": 0.9,
+                    "object": 0.0,
+                    "facet": 0.0,
+                    "scope_time": 0.0,
+                    "context": 0.0,
+                    "recency": 0.0,
+                    "support": 0.0,
+                    "usage": 0.0,
+                },
+            },
+        }
+        injection: dict[str, object] = {
+            "format": "facet_legend",
+            "text": "How to read memory:\nproperty — a stable characteristic.\n\nM1: [property] Deployment: Deployments require review.",
+            "legend": ["property — a stable characteristic."],
+            "item_count": 1,
+        }
+        if request.semantic_delivery:
+            item["semantic_safety"] = {
+                "lifecycle_status": "active",
+                "dependencies": [],
+                "scope_checks": [],
+            }
+            item["requires_revalidation"] = False
+            injection["format"] = "semantic_units"
+            injection["semantic_contract_version"] = "memory_semantics"
         return RetrieveContextResult(
             {
+                "schema_version": schema_version,
                 "retrieval_request_id": "retrieval-1",
-                "items": [
-                    {
-                        "value_id": "value-1",
-                        "primary_object_id": "object-1",
-                        "object_name": "Deployment",
-                        "facet": "property",
-                        "content": "Deployments require review.",
-                        "source_kind": "explicit_user",
-                        "relevance": 0.9,
-                        "explanation": {
-                            "object_reasons": ["direct_value_semantic"],
-                            "item_facet": "property",
-                            "activated_facets": [],
-                            "score_components": {
-                                "semantic": 0.9,
-                                "object": 0.0,
-                                "facet": 0.0,
-                                "scope_time": 0.0,
-                                "context": 0.0,
-                                "recency": 0.0,
-                                "support": 0.0,
-                                "usage": 0.0,
-                            },
-                        },
-                    }
-                ],
-                "memory_injection": {
-                    "format": "facet_legend",
-                    "text": "How to read memory:\nproperty — a stable characteristic.\n\nM1: [property] Deployment: Deployments require review.",
-                    "legend": ["property — a stable characteristic."],
-                    "item_count": 1,
-                },
+                "items": [item],
+                "memory_injection": injection,
             }
         )
 
@@ -124,6 +137,11 @@ def test_context_embeds_query_returns_provenance_and_records_outcome() -> None:
     assert gateway.request.embedding_model_id == "embedder"
     assert gateway.request.repository_id == "repository-1"
     assert gateway.request.visible_value_ids == ("already-shown",)
+    assert gateway.request.candidate_policy == "formula"
+    assert payload["selection_diagnostics"]["candidate_policy"] == "formula"
+    assert payload["selection_diagnostics"]["selection_mode"] == (
+        "formula_topk_no_reranker"
+    )
     assert gateway.outcomes[0].candidate_value_ids == ("value-1",)
     assert gateway.outcomes[0].delivered_value_ids == ("value-1",)
 
@@ -178,6 +196,7 @@ def test_optional_reranker_uses_core_pool_and_records_only_injected_values() -> 
             self, request: RetrieveContextCommand
         ) -> RetrieveContextResult:
             assert request.limit == 32
+            assert request.candidate_policy == "semantic"
             original = super().retrieve_context(request).payload
             original["items"] = [
                 {
@@ -207,13 +226,18 @@ def test_optional_reranker_uses_core_pool_and_records_only_injected_values() -> 
         )
     )
     response = TestClient(app).post(
-        "/context/retrieve", json={"memory_space_id": "space", "query": "deployment"}
+        "/context/retrieve",
+        json={"schema_version": 5, "memory_space_id": "space", "query": "deployment"},
     )
     assert response.status_code == 200
     assert response.headers["X-LedgerMind-Selection"] == "reranked"
     payload = response.json()
     assert len(payload["items"]) == 6
     assert payload["selection_diagnostics"]["selection_policy"] == "adaptive_k"
+    assert payload["selection_diagnostics"]["candidate_policy"] == "semantic"
+    assert payload["selection_diagnostics"]["selection_mode"] == (
+        "semantic_top32_reranked"
+    )
     assert payload["selection_diagnostics"]["adaptive_k_cutoff"] == 6
     assert [item["value_id"] for item in payload["items"]] == [
         "value-1",
@@ -271,12 +295,86 @@ def test_reranker_failure_uses_core_order() -> None:
         )
     )
     response = TestClient(app).post(
-        "/context/retrieve", json={"memory_space_id": "space", "query": "deployment"}
+        "/context/retrieve",
+        json={"schema_version": 5, "memory_space_id": "space", "query": "deployment"},
     )
     assert response.status_code == 200
     assert response.headers["X-LedgerMind-Selection"] == "core_fallback"
     assert response.json()["delivered_value_ids"] == ["value-1"]
     assert response.json()["selection_diagnostics"]["fallback_reason"] == "RuntimeError"
+    assert gateway.request is not None
+    assert gateway.request.candidate_policy == "semantic"
+    assert response.json()["selection_diagnostics"]["selection_mode"] == (
+        "semantic_top32_reranked"
+    )
+
+
+def test_formula_override_with_reranker_preserves_baseline_mode() -> None:
+    from types import SimpleNamespace
+
+    class Reranker:
+        def score(self, query: str, documents: list[str]) -> list[float]:
+            return [0.5 for _ in documents]
+
+    gateway = _Gateway()
+    app = FastAPI()
+    app.include_router(
+        create_context_router(
+            lambda: "token",
+            gateway,
+            max_body_bytes=100_000,
+            query_embedder=_Embedder(),
+            reranker=Reranker(),
+            reranker_config=SimpleNamespace(
+                candidate_policy="formula",
+                soft_budget=100_000,
+                selection_policy="adaptive_k",
+            ),
+        )
+    )
+    response = TestClient(app).post(
+        "/context/retrieve",
+        json={"schema_version": 5, "memory_space_id": "space", "query": "deployment"},
+    )
+    assert response.status_code == 200
+    assert gateway.request is not None
+    assert gateway.request.candidate_policy == "formula"
+    assert gateway.request.limit == 32
+    assert response.json()["selection_diagnostics"]["candidate_policy"] == "formula"
+    assert response.json()["selection_diagnostics"]["selection_mode"] == (
+        "formula_top32_reranked"
+    )
+
+
+def test_legacy_schema_with_reranker_keeps_formula_policy() -> None:
+    class Reranker:
+        def score(self, query: str, documents: list[str]) -> list[float]:
+            return [0.5 for _ in documents]
+
+    gateway = _Gateway()
+    app = FastAPI()
+    app.include_router(
+        create_context_router(
+            lambda: "token",
+            gateway,
+            max_body_bytes=100_000,
+            query_embedder=_Embedder(),
+            reranker=Reranker(),
+        )
+    )
+    response = TestClient(app).post(
+        "/context/retrieve",
+        json={"schema_version": 2, "memory_space_id": "space", "query": "deployment"},
+    )
+    assert response.status_code == 200
+    assert gateway.request is not None
+    assert gateway.request.candidate_policy == "formula"
+    assert gateway.request.limit == 32
+    assert gateway.request.to_payload()["schema_version"] == 2
+    assert "candidate_policy" not in gateway.request.to_payload()
+    assert response.json()["selection_diagnostics"]["selection_mode"] == (
+        "formula_top32_reranked"
+    )
 
 
 def test_internal_core_dependency_links_survive_public_context_projection():
@@ -453,6 +551,7 @@ def test_packing_failure_never_returns_entire_candidate_pool():
     assert len(response.json()["items"]) == 5
     assert response.json()["memory_injection"] is None
 
+
 def test_session_context_is_embedded_retrieved_and_used_for_reranking(tmp_path) -> None:
     database = tmp_path / "rounds.db"
     with sqlite3.connect(database) as connection:
@@ -491,7 +590,9 @@ def test_session_context_is_embedded_retrieved_and_used_for_reranking(tmp_path) 
             super().__init__()
             self.requests: list[RetrieveContextCommand] = []
 
-        def retrieve_context(self, request: RetrieveContextCommand) -> RetrieveContextResult:
+        def retrieve_context(
+            self, request: RetrieveContextCommand
+        ) -> RetrieveContextResult:
             self.requests.append(request)
             original = super().retrieve_context(request).payload
             value_id = (
@@ -541,12 +642,13 @@ def test_session_context_is_embedded_retrieved_and_used_for_reranking(tmp_path) 
 
     response = TestClient(app).post(
         "/context/retrieve",
-        json={"memory_space_id": "space", "query": "давай"},
+        json={"schema_version": 5, "memory_space_id": "space", "query": "давай"},
     )
 
     assert response.status_code == 200
     payload = response.json()
     assert len(gateway.requests) == 2
+    assert all(request.candidate_policy == "semantic" for request in gateway.requests)
     assert "security review" in gateway.requests[1].query_text
     assert "security review" in reranker.queries[0]
     assert payload["selection_diagnostics"]["session_context_chars"] > 0

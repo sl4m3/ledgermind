@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable, Mapping, Sequence
-from typing import Protocol
+from typing import Any, Protocol
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
@@ -112,7 +112,15 @@ def _normalize_render_output(
         if not isinstance(prop_schema, Mapping):
             continue
         sub_props = prop_schema.get("properties") or {}
-        if prop not in parsed and isinstance(sub_props, Mapping) and any("edits" in (s.get("properties") or {}) for s in sub_props.values() if isinstance(s, Mapping)):
+        if (
+            prop not in parsed
+            and isinstance(sub_props, Mapping)
+            and any(
+                "edits" in (s.get("properties") or {})
+                for s in sub_props.values()
+                if isinstance(s, Mapping)
+            )
+        ):
             parsed[prop] = {}
         if prop in parsed and isinstance(parsed[prop], dict):
             if prop_schema.get("additionalProperties") is False and sub_props:
@@ -121,7 +129,11 @@ def _normalize_render_output(
                     if extra not in allowed_sub:
                         parsed[prop].pop(extra, None)
             for subk, sub_schema in sub_props.items():
-                if subk not in parsed[prop] and isinstance(sub_schema, Mapping) and "edits" in (sub_schema.get("properties") or {}):
+                if (
+                    subk not in parsed[prop]
+                    and isinstance(sub_schema, Mapping)
+                    and "edits" in (sub_schema.get("properties") or {})
+                ):
                     parsed[prop][subk] = {"edits": []}
     return parsed
 
@@ -292,31 +304,52 @@ class StructuredJsonProvider:
         self.max_output_bytes = max_output_bytes
         self._token_budget_estimator = token_budget_estimator or TokenBudgetEstimator()
 
-    def decide(self, *, decision_request: dict[str, object] | None, **kwargs: object) -> StructuredJsonResult:
+    def decide(
+        self, *, decision_request: dict[str, object] | None, **kwargs: object
+    ) -> StructuredJsonResult:
         if decision_request is not None and decision_request.get("schema_version") == 2:
-            from ledgermind_inference.structured_json_provider import StructuredJsonProvider as Shared
+            from ledgermind_inference.structured_json_provider import (
+                StructuredJsonProvider as Shared,
+            )
+
             return Shared.decide(self, decision_request=decision_request, **kwargs)
         from ledgermind_inference.decision_provider import jev_decide, validate_request
+
         if decision_request is None:
             raise ProviderConfigurationError("decision request missing")
         validate_request(decision_request)
-        profile = self._profile_resolver.resolve_profile(str(kwargs["memory_space_id"]), kwargs["profile_slot"])
+        profile = self._profile_resolver.resolve_profile(
+            str(kwargs["memory_space_id"]), kwargs["profile_slot"]
+        )
         backend = getattr(profile, "decision_backend", None)
         if backend == "generative":
             if kwargs.get("force_provider_fallback"):
                 raise ProviderConfigurationError("decision fallback prohibited")
             routes = profile.extra_body.get("provider")
             if "openrouter.ai" in profile.base_url and (
-                    not isinstance(routes, dict) or routes.get("allow_fallbacks") is not False):
-                raise ProviderConfigurationError("decision profile requires explicit no-fallback routing")
-            if isinstance(routes, dict) and (routes.get("allow_fallbacks") is True
-                    or len(routes.get("only") or routes.get("order") or []) > 1):
-                raise ProviderConfigurationError("decision profile must not permit route fallback")
+                not isinstance(routes, dict)
+                or routes.get("allow_fallbacks") is not False
+            ):
+                raise ProviderConfigurationError(
+                    "decision profile requires explicit no-fallback routing"
+                )
+            if isinstance(routes, dict) and (
+                routes.get("allow_fallbacks") is True
+                or len(routes.get("only") or routes.get("order") or []) > 1
+            ):
+                raise ProviderConfigurationError(
+                    "decision profile must not permit route fallback"
+                )
             return self.generate_json(**kwargs)
         if backend not in {"jev", "kev"}:
-            raise ProviderConfigurationError("selected decision runtime is not configured")
+            raise ProviderConfigurationError(
+                "selected decision runtime is not configured"
+            )
         from ledgermind_inference.token_budget import InputBudgetExceededError
-        estimate = self._token_budget_estimator.estimate_text(json.dumps(decision_request, ensure_ascii=False))
+
+        estimate = self._token_budget_estimator.estimate_text(
+            json.dumps(decision_request, ensure_ascii=False)
+        )
         if estimate > profile.max_input_tokens:
             raise InputBudgetExceededError(estimate, profile.max_input_tokens)
         secret = self._secret_store.get(profile.secret_ref) if backend == "jev" else ""
@@ -324,9 +357,14 @@ class StructuredJsonProvider:
         with operation_context(kwargs.get("telemetry_operation"), **context):
             if backend == "kev":
                 from ledgermind_inference.kev_runtime import kev_decide
-                result = kev_decide(profile, decision_request, kwargs.get("cancellation_token"))
+
+                result = kev_decide(
+                    profile, decision_request, kwargs.get("cancellation_token")
+                )
             else:
-                result = jev_decide(profile, secret, decision_request, kwargs.get("cancellation_token"))
+                result = jev_decide(
+                    profile, secret, decision_request, kwargs.get("cancellation_token")
+                )
         body = result["body"]
         usage = body.get("usage") if isinstance(body.get("usage"), dict) else None
         contract = kwargs.get("output_contract") or {}
@@ -334,16 +372,27 @@ class StructuredJsonProvider:
         if secret:
             raw = raw.replace(secret, "[REDACTED]")
         return StructuredJsonResult(
-            data=result["data"], raw_text=raw, profile_id=profile.profile_id,
-            provider=body["provider"], model=body["model"], attempts=1,
-            request_bytes=result["request_bytes"], response_bytes=result["response_bytes"],
-            status_code=200, structured_output_mode="strict_json_schema",
+            data=result["data"],
+            raw_text=raw,
+            profile_id=profile.profile_id,
+            provider=body["provider"],
+            model=body["model"],
+            attempts=1,
+            request_bytes=result["request_bytes"],
+            response_bytes=result["response_bytes"],
+            status_code=200,
+            structured_output_mode="strict_json_schema",
             contract_digest=contract.get("schema_digest"),
-            token_usage=usage, normalized_usage=normalize_usage(body),
-            metadata={"provider_request_id": result["request_id"], "usage": usage,
-                      "provider_raw_response": json.loads(raw),
-                      "decision_backend": backend, "decision_question_version": "resolution_decision_v1",
-                      "latency_ms": result["latency_ms"]},
+            token_usage=usage,
+            normalized_usage=normalize_usage(body),
+            metadata={
+                "provider_request_id": result["request_id"],
+                "usage": usage,
+                "provider_raw_response": json.loads(raw),
+                "decision_backend": backend,
+                "decision_question_version": "resolution_decision",
+                "latency_ms": result["latency_ms"],
+            },
         )
 
     def generate_json(
@@ -897,7 +946,9 @@ class StructuredJsonProvider:
         if not isinstance(parsed, dict):
             raise StructuredJsonResponseError("provider response must be a JSON object")
         if isinstance(output_contract, Mapping):
-            parsed = _normalize_render_output(parsed, output_contract.get("json_schema"))
+            parsed = _normalize_render_output(
+                parsed, output_contract.get("json_schema")
+            )
         metadata_value = dict(response.metadata)
         token_usage = metadata_value.get("usage")
         normalized_usage = normalize_usage(response)

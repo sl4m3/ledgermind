@@ -99,9 +99,9 @@ def _messages_payload(
     request: ModelRequest,
     *,
     prompt_only: bool = False,
-) -> list[dict[str, str]]:
+) -> list[dict[str, object]]:
     supports_system_role = request.supports_system_role is not False
-    messages: list[dict[str, str]] = []
+    messages: list[dict[str, object]] = []
     for message in request.messages:
         role = message.role
         if role == "system" and not supports_system_role:
@@ -110,24 +110,43 @@ def _messages_payload(
     if prompt_only:
         if not messages:
             raise ProviderConfigurationError("prompt_only mode requires messages")
-        messages[-1]["content"] += _PROMPT_ONLY_SUFFIX
+        messages[-1]["content"] = str(messages[-1]["content"]) + _PROMPT_ONLY_SUFFIX
     return messages
 
 
 def _base_payload(
     request: ModelRequest, *, prompt_only: bool = False
 ) -> dict[str, object]:
+    messages = _messages_payload(request, prompt_only=prompt_only)
+    is_anthropic = (
+        "claude" in request.model.lower() or "anthropic" in request.model.lower()
+    )
+    if is_anthropic:
+        # Cache only the stable system prefix. A top-level cache_control makes
+        # the whole prompt (including dynamic evidence) the cache entry, so a
+        # changing user message writes a new cache on every call and never
+        # reads it.
+        for message in messages:
+            if message.get("role") == "system" and isinstance(
+                message.get("content"), str
+            ):
+                message["content"] = [
+                    {
+                        "type": "text",
+                        "text": message["content"],
+                        "cache_control": {"type": "ephemeral"},
+                    }
+                ]
     payload: dict[str, object] = {
         "model": request.model,
-        "messages": _messages_payload(request, prompt_only=prompt_only),
+        "messages": messages,
     }
     token_parameter = _token_parameter(request)
     payload[token_parameter] = request.max_output_tokens
     if request.supports_seed and request.seed is not None:
         payload["seed"] = request.seed
-    if "claude" in request.model.lower() or "anthropic" in request.model.lower():
+    if is_anthropic:
         payload["reasoning"] = {"effort": "none"}
-        payload["cache_control"] = {"type": "ephemeral"}
     return payload
 
 

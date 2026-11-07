@@ -53,6 +53,10 @@ class RerankerConfig(BaseModel):
     timeout_seconds: float = Field(default=30.0, gt=0, le=600)
     soft_budget: int = Field(default=4096, ge=1)
     selection_policy: Literal["adaptive_k", "hybrid"] = "adaptive_k"
+    # Candidate selection is semantic when a reranker exists; formula is kept
+    # as an explicit diagnostic/A-B override and for installs without a
+    # reranker.
+    candidate_policy: Literal["semantic", "formula"] = "semantic"
 
     @model_validator(mode="before")
     @classmethod

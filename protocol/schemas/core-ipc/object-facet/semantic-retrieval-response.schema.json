@@ -462,12 +462,12 @@
       "additionalProperties": false,
       "properties": {
         "format": {
-          "const": "semantic_units_v2",
+          "const": "semantic_units",
           "title": "Format",
           "type": "string"
         },
         "semantic_contract_version": {
-          "const": "memory_semantics_v2",
+          "const": "memory_semantics",
           "title": "Semantic Contract Version",
           "type": "string"
         },

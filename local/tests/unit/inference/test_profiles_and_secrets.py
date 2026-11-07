@@ -5,7 +5,6 @@ import stat
 from pathlib import Path
 
 import pytest
-
 from ledgermind_local.inference.profiles import (
     EmbeddingProfileIdentity,
     InferenceProfile,
@@ -159,3 +158,12 @@ def test_secret_store_errors_do_not_include_secret_value(tmp_path: Path) -> None
         SecretStore(path).get("provider-main")
 
     assert "TOP_SECRET" not in str(error.value)
+
+
+def test_local_secret_error_identity_matches_shared_inference() -> None:
+    from ledgermind_inference.secrets import SecretNotFoundError as SharedSecretError
+    from ledgermind_local.inference.secrets import (
+        SecretNotFoundError as LocalSecretError,
+    )
+
+    assert LocalSecretError is SharedSecretError

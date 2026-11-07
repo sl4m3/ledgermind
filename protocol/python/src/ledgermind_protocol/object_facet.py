@@ -258,8 +258,10 @@ def _condition_occurrences(source: str, surface_text: str) -> list[tuple[int, in
 
 
 def _require_sha256_digest(value: str, name: str) -> None:
-    if len(value) != 71 or not value.startswith("sha256:") or any(
-        character not in "0123456789abcdef" for character in value[7:]
+    if (
+        len(value) != 71
+        or not value.startswith("sha256:")
+        or any(character not in "0123456789abcdef" for character in value[7:])
     ):
         raise ValueError(f"{name} must be a lowercase sha256 digest")
 
@@ -399,6 +401,7 @@ class GenericExecutionTask(ProtocolModel):
             if not isinstance(request, dict):
                 raise ValueError("decide task requires a versioned decision_request")
             from .decision import validate_decision_request
+
             validate_decision_request(request)
             if self.model_request is None or self.embedding_request is not None:
                 raise ValueError("decide task requires model_request and forbids embedding_request")
@@ -634,8 +637,7 @@ class ExtractedClaim(ProtocolModel):
         for condition in self.conditions:
             condition._validate_condition_fields()
         condition_keys = [
-            (condition.source_event_id, condition.surface_text)
-            for condition in self.conditions
+            (condition.source_event_id, condition.surface_text) for condition in self.conditions
         ]
         _validate_unique(condition_keys, "conditions")
         for anchor_ref in self.context_anchor_refs:
@@ -646,18 +648,14 @@ class ExtractedClaim(ProtocolModel):
             raise ValueError("source_event_ids must include the subject source event")
         for condition in self.conditions:
             if condition.source_event_id not in self.source_event_ids:
-                raise ValueError(
-                    "source_event_ids must include every condition source event"
-                )
+                raise ValueError("source_event_ids must include every condition source event")
 
     def validate_with_source(self, source_events: Mapping[str, str]) -> None:
         self._validate_claim_fields()
         events = _validate_source_events(source_events)
         subject_source = events.get(self.subject.source_event_id)
         if subject_source is None:
-            raise ValueError(
-                f"unknown subject source event {self.subject.source_event_id}"
-            )
+            raise ValueError(f"unknown subject source event {self.subject.source_event_id}")
         subject_start = _validate_source_span(
             subject_source,
             self.subject.span_start,
@@ -671,9 +669,7 @@ class ExtractedClaim(ProtocolModel):
         for condition in self.conditions:
             condition_source = events.get(condition.source_event_id)
             if condition_source is None:
-                raise ValueError(
-                    f"unknown condition source event {condition.source_event_id}"
-                )
+                raise ValueError(f"unknown condition source event {condition.source_event_id}")
             occurrences = _condition_occurrences(condition_source, condition.surface_text)
             if not occurrences:
                 raise ValueError(
@@ -707,9 +703,7 @@ class ClaimCoverage(ProtocolModel):
         if self.disposition in {"claim", "duplicate"} and not self.claim_refs:
             raise ValueError("claim and duplicate coverage require at least one claim_ref")
         if self.disposition in {"ephemeral", "insufficient_evidence"} and self.claim_refs:
-            raise ValueError(
-                "ephemeral and insufficient_evidence coverage forbid claim_refs"
-            )
+            raise ValueError("ephemeral and insufficient_evidence coverage forbid claim_refs")
 
 
 class ClaimExtractionOutput(ProtocolModel):
@@ -1041,9 +1035,7 @@ class FacetActivation(ProtocolModel):
     score: float = Field(ge=0.0, le=1.0)
     embedding_similarity_raw: float = 0.0
     relative_margin: float = Field(default=0.0, ge=0.0, le=1.0)
-    lexical_cues: list[str] = Field(
-        default_factory=list, max_length=MAX_EXPLANATION_SIGNALS
-    )
+    lexical_cues: list[str] = Field(default_factory=list, max_length=MAX_EXPLANATION_SIGNALS)
     signals: list[str] = Field(default_factory=list, max_length=MAX_EXPLANATION_SIGNALS)
 
     @model_validator(mode="after")
@@ -1063,22 +1055,24 @@ class ScoreComponents(ProtocolModel):
     semantic_contribution: float = Field(ge=0.0, le=1.0)
     object_similarity: float = Field(ge=0.0, le=1.0)
     object_similarity_raw: float = Field(default=0.0, ge=0.0, le=1.0)
-    primary_object_similarity: float = Field(default=0.0, ge=0.0, le=1.0, exclude_if=lambda value: value == 0.0)
-    related_object_similarity: float = Field(default=0.0, ge=0.0, le=1.0, exclude_if=lambda value: value == 0.0)
-    related_object_similarity_raw: float = Field(default=0.0, ge=0.0, le=1.0, exclude_if=lambda value: value == 0.0)
-    related_object_multiplier: float = Field(default=0.0, ge=0.0, le=1.0, exclude_if=lambda value: value == 0.0)
+    primary_object_similarity: float = Field(
+        default=0.0, ge=0.0, le=1.0, exclude_if=lambda value: value == 0.0
+    )
+    related_object_similarity: float = Field(
+        default=0.0, ge=0.0, le=1.0, exclude_if=lambda value: value == 0.0
+    )
+    related_object_similarity_raw: float = Field(
+        default=0.0, ge=0.0, le=1.0, exclude_if=lambda value: value == 0.0
+    )
+    related_object_multiplier: float = Field(
+        default=0.0, ge=0.0, le=1.0, exclude_if=lambda value: value == 0.0
+    )
     object_card_cosine: float = Field(default=0.0, ge=0.0, le=1.0)
     lexical_object_match: float = Field(default=0.0, ge=0.0, le=1.0)
-    object_embedding_similarity_raw: float | None = Field(
-        default=None, ge=0.0, le=1.0
-    )
-    object_embedding_contribution: float | None = Field(
-        default=None, ge=0.0, le=1.0
-    )
+    object_embedding_similarity_raw: float | None = Field(default=None, ge=0.0, le=1.0)
+    object_embedding_contribution: float | None = Field(default=None, ge=0.0, le=1.0)
     object_lexical_score: float | None = Field(default=None, ge=0.0, le=1.0)
-    object_lexical_contribution: float | None = Field(
-        default=None, ge=0.0, le=1.0
-    )
+    object_lexical_contribution: float | None = Field(default=None, ge=0.0, le=1.0)
     object_contribution: float = Field(ge=0.0, le=1.0)
     facet_compatibility: float = Field(ge=0.0, le=1.0)
     facet_compatibility_raw: float = Field(default=0.0, ge=0.0, le=1.0)
@@ -1119,18 +1113,23 @@ class DependencyAssessment(ProtocolModel):
 
 
 class DependencyScopeAssessment(ProtocolModel):
-    contract_version: Literal["registered_dependency_scopes_v1"]
+    contract_version: Literal["registered_dependency_scopes"]
     scope_kind: Literal["global", "object", "target"]
     scope_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     checked_revision: int = Field(ge=0)
     current_revision: int = Field(ge=0)
-    coverage: Literal["registered_rules_only", "legacy_scope_pending"]
+    coverage: Literal["registered_rules_only", "scope_pending"]
     state: Literal["satisfied", "snapshot_changed", "revalidation_required"]
 
     @model_validator(mode="after")
     def validate_assessment(self) -> DependencyScopeAssessment:
-        expected = ("snapshot_changed" if self.checked_revision != self.current_revision else
-                    "revalidation_required" if self.coverage == "legacy_scope_pending" else "satisfied")
+        expected = (
+            "snapshot_changed"
+            if self.checked_revision != self.current_revision
+            else "revalidation_required"
+            if self.coverage == "scope_pending"
+            else "satisfied"
+        )
         if self.state != expected:
             raise ValueError("scope assessment must reflect its actual revision and coverage")
         return self
@@ -1139,11 +1138,16 @@ class DependencyScopeAssessment(ProtocolModel):
 class ValueSemanticSafety(ProtocolModel):
     lifecycle_status: Literal["active", "superseded", "invalidated", "contested", "resolved"]
     dependencies: list[DependencyAssessment] = Field(max_length=1000)
-    scope_checks: list[DependencyScopeAssessment] = Field(default_factory=list, max_length=1000, exclude_if=lambda value: not value)
+    scope_checks: list[DependencyScopeAssessment] = Field(
+        default_factory=list, max_length=1000, exclude_if=lambda value: not value
+    )
 
     def requires_revalidation(self) -> bool:
-        return (self.lifecycle_status != "active" or any(row.state != "satisfied" for row in self.dependencies)
-                or any(row.state != "satisfied" for row in self.scope_checks))
+        return (
+            self.lifecycle_status != "active"
+            or any(row.state != "satisfied" for row in self.dependencies)
+            or any(row.state != "satisfied" for row in self.scope_checks)
+        )
 
 
 class RetrievalItem(ProtocolModel):
@@ -1168,12 +1172,19 @@ class RetrievalItem(ProtocolModel):
     source_event_ids: list[str] = Field(min_length=1, max_length=MAX_SOURCE_EVENT_IDS)
     relevance: float = Field(ge=0.0, le=1.0)
     explanation: RetrievalExplanation
-    semantic_safety: ValueSemanticSafety | None = Field(default=None, exclude_if=lambda value: value is None)
-    requires_revalidation: StrictBool | None = Field(default=None, exclude_if=lambda value: value is None)
+    semantic_safety: ValueSemanticSafety | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    requires_revalidation: StrictBool | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def validate_item(self) -> RetrievalItem:
-        if self.semantic_safety is not None and self.requires_revalidation != self.semantic_safety.requires_revalidation():
+        if (
+            self.semantic_safety is not None
+            and self.requires_revalidation != self.semantic_safety.requires_revalidation()
+        ):
             raise ValueError("requires_revalidation must match explicit safety metadata")
         if self.semantic_safety is None and self.requires_revalidation is not None:
             raise ValueError("requires_revalidation needs explicit safety metadata")
@@ -1229,12 +1240,21 @@ class RetrievalRequest(ProtocolModel):
     memory_space_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     query_text: str = Field(min_length=1, max_length=MAX_CONTENT_LENGTH)
     query_embedding: list[float] = Field(min_length=1, max_length=MAX_EMBEDDING_DIMENSIONS)
-    object_query_embedding: list[float] | None = Field(default=None, min_length=1, max_length=MAX_EMBEDDING_DIMENSIONS, exclude_if=lambda value: value is None)
+    object_query_embedding: list[float] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=MAX_EMBEDDING_DIMENSIONS,
+        exclude_if=lambda value: value is None,
+    )
     embedding_model_id: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     embedding_model_version: str = Field(min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     limit: int = Field(ge=1, le=MAX_RETRIEVAL_ITEMS)
     base_limit: int | None = Field(default=None, ge=1, le=MAX_RETRIEVAL_ITEMS)
     retrieval_tuning: RetrievalTuning | None = None
+    candidate_policy: Literal["formula", "semantic"] | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     project_id: str | None = Field(default=None, min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     repository_id: str | None = Field(default=None, min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
     task_id: str | None = Field(default=None, min_length=1, max_length=MAX_IDENTIFIER_LENGTH)
@@ -1261,15 +1281,19 @@ class RetrievalRequest(ProtocolModel):
         if self.object_query_embedding is not None:
             if len(self.object_query_embedding) != len(self.query_embedding):
                 raise ValueError("object_query_embedding must match query_embedding dimensions")
-            if any(not math.isfinite(component) or abs(component) > MAX_EMBEDDING_ABSOLUTE_VALUE
-                   for component in self.object_query_embedding):
+            if any(
+                not math.isfinite(component) or abs(component) > MAX_EMBEDDING_ABSOLUTE_VALUE
+                for component in self.object_query_embedding
+            ):
                 raise ValueError("object_query_embedding values must be finite and bounded")
         if self.repository_id is not None and self.project_id is None:
             raise ValueError("repository id requires a matching project id")
         if self.base_limit is not None and self.base_limit > self.limit:
             raise ValueError("base_limit must not exceed limit")
         if self.related_object_ids is not None:
-            _validate_ids(self.related_object_ids, "related_object_ids", MAX_RELATED_REFS, minimum=0)
+            _validate_ids(
+                self.related_object_ids, "related_object_ids", MAX_RELATED_REFS, minimum=0
+            )
         if self.visible_value_ids is not None:
             _validate_ids(self.visible_value_ids, "visible_value_ids", 4096, minimum=0)
         if self.requested_facets is not None:
@@ -1284,16 +1308,18 @@ class RetrievalRequest(ProtocolModel):
 class MemoryInjection(ProtocolModel):
     """Core-rendered, deterministic memory context for agent injection."""
 
-    format: Literal["facet_legend", "semantic_units_v2", "semantic_units_v3"]
-    semantic_contract_version: Literal["memory_semantics_v2"] | None = Field(default=None, exclude_if=lambda value: value is None)
+    format: Literal["facet_legend", "semantic_units"]
+    semantic_contract_version: Literal["memory_semantics"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     text: str = Field(max_length=65_536)
     legend: list[str] = Field(max_length=14)
     item_count: int = Field(ge=0, le=MAX_RETRIEVAL_ITEMS)
 
     @model_validator(mode="after")
     def validate_injection(self) -> MemoryInjection:
-        if self.format in {"semantic_units_v2", "semantic_units_v3"} and self.semantic_contract_version != "memory_semantics_v2":
-            raise ValueError("semantic injection requires a versioned contract")
+        if self.format == "semantic_units" and self.semantic_contract_version != "memory_semantics":
+            raise ValueError("semantic injection requires a current contract")
         for row in self.legend:
             _require_text(row, "memory injection legend row", 1_024)
         if self.item_count == 0 and self.text:
@@ -1311,13 +1337,18 @@ class RetrievalResponse(ProtocolModel):
 
     @model_validator(mode="after")
     def validate_response(self) -> RetrievalResponse:
-        if self.schema_version < 5 and any(item.semantic_safety and item.semantic_safety.scope_checks for item in self.items):
+        if self.schema_version < 5 and any(
+            item.semantic_safety and item.semantic_safety.scope_checks for item in self.items
+        ):
             raise ValueError("scoped safety requires schema5")
-        if self.schema_version in {4, 5} and any(item.semantic_safety is None for item in self.items):
+        if self.schema_version in {4, 5} and any(
+            item.semantic_safety is None for item in self.items
+        ):
             raise ValueError("semantic retrieval requires safety metadata for every value")
         if self.schema_version in {4, 5} and (
-            self.memory_injection is None or self.memory_injection.format != ("semantic_units_v3" if self.schema_version == 5 else "semantic_units_v2")
-            or self.memory_injection.semantic_contract_version != "memory_semantics_v2"
+            self.memory_injection is None
+            or self.memory_injection.format != "semantic_units"
+            or self.memory_injection.semantic_contract_version != "memory_semantics"
         ):
             raise ValueError("semantic retrieval requires its versioned memory injection")
         _require_identifier(self.retrieval_request_id, "retrieval request id")

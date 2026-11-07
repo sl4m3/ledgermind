@@ -52,6 +52,10 @@ _CONTRACT_VALUES = {
     # Private embedding provider speaks the external OpenAI-compatible protocol.
     "src/ledgermind_local/installer/embeddings/service.py": {"/v1/health/ready", "/v1/health/live"},
     "tests/unit/installer/test_embedding_identity.py": {"/v1"},
+    # OpenAI-compatible batch transport endpoint; a provider protocol path,
+    # not a LedgerMind product version.
+    "src/ledgermind_local/scheduler/batch_semantic_coordinator.py": {"/v1/chat/completions"},
+    "tests/unit/scheduler/test_batch_semantic_coordinator.py": {"/v1/chat/completions"},
 }
 
 _TOKEN_RE = re.compile(

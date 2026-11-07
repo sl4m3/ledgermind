@@ -6,7 +6,7 @@ import logging
 import re
 import sqlite3
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import cast
 
@@ -43,9 +43,6 @@ from ledgermind_local.inference.profile_store import InferenceProfileStore
 from ledgermind_local.inference.secrets import SecretNotFoundError
 from ledgermind_local.persistence import open_sqlite_connection
 from ledgermind_local.persistence import rounds_migrations as migrations
-from ledgermind_local.scheduler.batch_semantic_coordinator import (
-    BatchSemanticCoordinator,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -327,9 +324,12 @@ def classify_execution_error(exc: BaseException) -> ExecutionFailureClassificati
     code = getattr(exc, "code", None)
     if code == "input_budget_exceeded":
         return ExecutionFailureClassification("input_budget_exceeded", False, 0)
+    if code == "output_budget_exceeded":
+        return ExecutionFailureClassification("output_budget_exceeded", False, 0)
     if code in {
         "invalid_json_response",
         "invalid_request",
+        "length_truncation",
         "provider_capability_unverified",
         "secret_missing",
         "schema_shape_failure",
@@ -403,7 +403,6 @@ class CoreExecutionTaskWorker:
         poll_limit: int = 10,
         lease_seconds: int = 300,
         connection_factory: ConnectionFactory = open_sqlite_connection,
-        batch_coordinator: BatchSemanticCoordinator | None = None,
     ) -> None:
         if not worker_id.strip():
             raise ValueError("worker_id must not be empty")
@@ -418,7 +417,6 @@ class CoreExecutionTaskWorker:
         self._poll_limit = poll_limit
         self._lease_seconds = lease_seconds
         self._connection_factory = connection_factory
-        self._batch_coordinator = batch_coordinator
         self._closed = False
         self._provider_circuit_open = False
         require_capabilities = getattr(gateway, "require_capabilities", None)
@@ -430,7 +428,6 @@ class CoreExecutionTaskWorker:
             raise RuntimeError("Core execution task worker is closed")
         if self._provider_circuit_open:
             return 0
-        self._collect_batch_deliveries()
         connection = self._connection_factory(self._database_path)
         try:
             migrations.apply_migrations(connection)
@@ -487,7 +484,10 @@ class CoreExecutionTaskWorker:
             and getattr(result, "error_code", None)
             in {
                 "authentication_failed",
+                "authentication_error",
                 "provider_configuration_error",
+                "configuration_error",
+                "provider_capability_unverified",
                 "provider_secret_missing",
                 "secret_missing",
             }
@@ -501,29 +501,6 @@ class CoreExecutionTaskWorker:
 
     def close(self) -> None:
         self._closed = True
-
-    def _collect_batch_deliveries(self) -> None:
-        """Deliver completed batch results through the normal Core path."""
-        if self._batch_coordinator is None:
-            return
-        for delivery in self._batch_coordinator.tick():
-            try:
-                result = self._executor.execute(delivery.task)
-                self._deliver_result_with_structured_retry(
-                    delivery.task,
-                    result,
-                    delivery.memory_space_id,
-                )
-                self._batch_coordinator.mark_delivered(delivery.task.task_id)
-            except Exception as exc:  # noqa: BLE001 - keep the result durable for retry
-                logger.warning(
-                    "batch result delivery deferred",
-                    extra={
-                        "worker": self._worker_id,
-                        "task_id": delivery.task.task_id,
-                        "error_type": type(exc).__name__,
-                    },
-                )
 
     def _process_task(self, raw_task: dict[str, object], memory_space_id: str) -> None:
         try:
@@ -548,30 +525,7 @@ class CoreExecutionTaskWorker:
         if not converted:
             return
 
-        immediate: list[GenericExecutionTask] = []
-        for task in converted:
-            if (
-                BatchSemanticCoordinator.is_batch_task(task)
-                and self._batch_coordinator is None
-            ):
-                self._fail_task(
-                    task.model_dump(mode="json"),
-                    memory_space_id,
-                    ProviderConfigurationError(
-                        "OpenRouter batch key is not configured"
-                    ),
-                )
-                continue
-            if (
-                self._batch_coordinator is not None
-                and self._batch_coordinator.is_batch_task(task)
-            ):
-                if self._batch_coordinator.has_result(task):
-                    immediate.append(task)
-                else:
-                    self._batch_coordinator.enqueue(task, memory_space_id)
-            else:
-                immediate.append(task)
+        immediate = converted
         if not immediate:
             return
 
@@ -595,6 +549,8 @@ class CoreExecutionTaskWorker:
         task: GenericExecutionTask,
         result: object,
         memory_space_id: str,
+        *,
+        allow_structured_retry: bool = True,
     ) -> None:
         """Give one structured generation a bounded contract retry.
 
@@ -612,7 +568,8 @@ class CoreExecutionTaskWorker:
         # rejection.  This branch is failure-only: a successful normal task
         # still consumes exactly one provider call.
         if (
-            task.task_kind in {"generate_json", "object_resolution", "decide"}
+            allow_structured_retry
+            and task.task_kind in {"generate_json", "object_resolution", "decide"}
             and getattr(result, "status", None) == "failed"
             and getattr(result, "error_code", None)
             in {
@@ -629,7 +586,7 @@ class CoreExecutionTaskWorker:
             )
             retry_result = self._executor.execute(
                 task,
-                force_provider_fallback=True,
+                force_provider_fallback=self._fallback_allowed(task),
             )
             self._record_egress_audit(task, retry_result, memory_space_id)
             if getattr(retry_result, "status", None) == "completed":
@@ -641,7 +598,9 @@ class CoreExecutionTaskWorker:
             self._deliver_result(task, result, memory_space_id)
         except DomainRejectedError as exc:
             if (
-                task.task_kind not in {"generate_json", "object_resolution", "decide"}
+                not allow_structured_retry
+                or task.task_kind
+                not in {"generate_json", "object_resolution", "decide"}
                 or exc.code == "invalid_execution_result"
             ):
                 raise
@@ -651,10 +610,30 @@ class CoreExecutionTaskWorker:
             )
             retry_result = self._executor.execute(
                 task,
-                force_provider_fallback=True,
+                force_provider_fallback=self._fallback_allowed(task),
             )
             self._record_egress_audit(task, retry_result, memory_space_id)
             self._deliver_result(task, retry_result, memory_space_id)
+
+    @staticmethod
+    def _fallback_allowed(task: GenericExecutionTask) -> bool:
+        """Whether this task may re-run on a configured fallback route.
+
+        Memory-write pipelines pin exactly one provider route and reject a
+        fallback switch as a permanent configuration error. A bounded retry
+        is still useful there, but it must use the same provider.
+        """
+
+        if (
+            getattr(task, "task_kind", None) == "decide"
+            or getattr(task, "decision_request", None) is not None
+        ):
+            return False
+        operation_input = getattr(task, "operation_input", None)
+        if not isinstance(operation_input, Mapping):
+            return True
+        pipeline = operation_input.get("resolution_pipeline")
+        return not (isinstance(pipeline, str) and pipeline.startswith("memory_write"))
 
     def _record_egress_audit(
         self,

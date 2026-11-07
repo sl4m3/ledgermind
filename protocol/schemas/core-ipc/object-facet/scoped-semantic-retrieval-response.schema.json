@@ -72,7 +72,7 @@
       "additionalProperties": false,
       "properties": {
         "contract_version": {
-          "const": "registered_dependency_scopes_v1",
+          "const": "registered_dependency_scopes",
           "title": "Contract Version",
           "type": "string"
         },
@@ -104,7 +104,7 @@
         "coverage": {
           "enum": [
             "registered_rules_only",
-            "legacy_scope_pending"
+            "scope_pending"
           ],
           "title": "Coverage",
           "type": "string"
@@ -264,12 +264,12 @@
       "additionalProperties": false,
       "properties": {
         "format": {
-          "const": "semantic_units_v3",
+          "const": "semantic_units",
           "title": "Format",
           "type": "string"
         },
         "semantic_contract_version": {
-          "const": "memory_semantics_v2",
+          "const": "memory_semantics",
           "title": "Semantic Contract Version",
           "type": "string"
         },

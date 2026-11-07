@@ -425,3 +425,16 @@ def test_canonical_digest_is_compact_sorted_and_sha256_prefixed() -> None:
         separators=(",", ":"),
     ).encode("utf-8")
     assert canonical_digest(model) == "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def test_retrieval_request_candidate_policy_is_optional_and_excluded_when_none() -> None:
+    payload = _load_valid("v_retrieval_request.json")
+    payload["candidate_policy"] = "semantic"
+    request = RetrievalRequest.model_validate(payload)
+    assert request.candidate_policy == "semantic"
+    assert request.model_dump(mode="json", exclude_none=True)["candidate_policy"] == "semantic"
+
+    payload.pop("candidate_policy")
+    request = RetrievalRequest.model_validate(payload)
+    assert request.candidate_policy is None
+    assert "candidate_policy" not in request.model_dump(mode="json", exclude_none=True)

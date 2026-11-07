@@ -243,7 +243,7 @@ def seed_local(
                 generation_extra_body["reasoning_effort"] = (
                     reasoning_profile.reasoning_effort
                 )
-            # The closed memory_write_v1 contract requires exactly one
+            # The current memory_write contract requires exactly one
             # no-fallback provider route for every generation profile, not
             # only for the resolution-decision profile.  Without this the
             # operational and object-resolution tasks fail with

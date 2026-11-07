@@ -324,6 +324,22 @@
       ],
       "default": null
     },
+    "candidate_policy": {
+      "anyOf": [
+        {
+          "enum": [
+            "formula",
+            "semantic"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Candidate Policy"
+    },
     "project_id": {
       "anyOf": [
         {

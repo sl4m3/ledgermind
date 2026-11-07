@@ -26,7 +26,7 @@ def _task(
     operation_input: dict[str, Any] = {"raw_round_id": "round-1"}
     if "round_memory" in operation:
         operation_input["round_memory"] = {
-            "version": "memory_write_v8",
+            "version": "memory_write",
             "stage": "preparation",
         }
     return GenericExecutionTask(
@@ -167,6 +167,31 @@ def test_enqueue_is_idempotent_and_has_result_tracks_state(tmp_path: Path) -> No
     assert coordinator.has_result(task)
 
 
+def test_failed_task_is_exposed_once_and_never_returned_as_delivery(
+    tmp_path: Path,
+) -> None:
+    store = _store(tmp_path)
+    coordinator = _coordinator(store, FakeBatchClient())
+    task = _task()
+
+    assert coordinator.enqueue(task, "space-1")
+    store.mark_failed(task.task_id, "batch_result_missing")
+
+    assert coordinator.tick() == []
+    assert coordinator.has_result(task) is False
+    assert coordinator.failure_code(task.task_id) == "batch_result_missing"
+    assert coordinator.failure_pending(task.task_id)
+    failures = coordinator.failures()
+    assert [(failure.task_id, failure.error_code) for failure in failures] == [
+        (task.task_id, "batch_result_missing")
+    ]
+
+    coordinator.mark_failure_delivered(task.task_id)
+
+    assert not coordinator.failure_pending(task.task_id)
+    assert coordinator.failures() == []
+
+
 def test_tick_submits_after_max_wait_and_returns_completed_result(
     tmp_path: Path,
 ) -> None:
@@ -206,6 +231,33 @@ def test_tick_submits_after_max_wait_and_returns_completed_result(
     coordinator.mark_delivered(task.task_id)
 
     assert store.get(task.task_id).status == "completed"  # type: ignore[union-attr]
+
+
+def test_tick_submits_token_capacity_before_max_wait(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    client = FakeBatchClient()
+    coordinator = BatchSemanticCoordinator(
+        store=store,
+        client=client,  # type: ignore[arg-type]
+        worker_id="worker-1",
+        limits=BatchLimits.openrouter(
+            max_requests_per_batch=10,
+            max_batch_bytes=10**9,
+            soft_total_prompt_tokens=1,
+        ),
+        max_wait_seconds=9999,
+        poll_interval_seconds=0.01,
+    )
+    first = _task("t1")
+    second = _task("t2")
+    coordinator.enqueue(first, "space-1")
+    coordinator.enqueue(second, "space-1")
+
+    assert coordinator.tick() == []
+
+    assert client.submitted
+    assert store.get(first.task_id).status == "submitted"  # type: ignore[union-attr]
+    assert store.get(second.task_id).status == "submitted"  # type: ignore[union-attr]
 
 
 def test_completed_with_transient_entry_requeues(tmp_path: Path) -> None:
@@ -402,7 +454,7 @@ def _chunkable_task(
             "profile_slot": "operational",
             "operation_input": {
                 "raw_round_id": "round-1",
-                "round_memory": {"version": "memory_write_v8", "stage": "preparation"},
+                "round_memory": {"version": "memory_write", "stage": "preparation"},
             },
             "model_request": {
                 "messages": [
@@ -674,7 +726,7 @@ def test_batch_404_after_grace_is_expired(tmp_path: Path) -> None:
     batch_id = _submitted_job(store, coordinator, client, task)
 
     old = (
-        datetime.now(timezone.utc)  # noqa: UP017
+        datetime.now(timezone.utc)
         - timedelta(minutes=30)
     ).isoformat()
     with sqlite3.connect(store.path) as db:
@@ -746,6 +798,18 @@ def test_object_resolution_is_a_batch_task(tmp_path: Path) -> None:
     assert [delivery.task.task_id for delivery in deliveries] == ["or-1"]
 
 
+def test_native_decision_is_not_a_batch_task(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    coordinator = _coordinator(store, FakeBatchClient())
+    task = _task(task_id="or-decide", operation="object_resolution").model_copy(
+        update={
+            "task_kind": "decide",
+            "decision_request": {"schema_version": 2, "state": {}, "questions": {}},
+        }
+    )
+
+    assert not coordinator.is_batch_task(task)
+
 
 def test_callback_url_is_sent_and_webhook_mode_waits_for_it(
     tmp_path: Path,
@@ -766,8 +830,7 @@ def test_callback_url_is_sent_and_webhook_mode_waits_for_it(
     assert client.callback_urls == ["https://example.test/openrouter-batch"]
     job = store.jobs()[0]
     delta = (
-        datetime.fromisoformat(job.next_poll_at)
-        - datetime.now(timezone.utc)  # noqa: UP017
+        datetime.fromisoformat(job.next_poll_at) - datetime.now(timezone.utc)
     ).total_seconds()
     assert 600 < delta <= 900
 

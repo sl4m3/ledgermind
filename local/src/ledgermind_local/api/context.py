@@ -142,8 +142,8 @@ class ContextItemResponse(BaseModel):
 class MemoryInjectionResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    format: Literal["facet_legend", "semantic_units_v2", "semantic_units_v3"]
-    semantic_contract_version: Literal["memory_semantics_v2"] | None = Field(
+    format: Literal["facet_legend", "semantic_units"]
+    semantic_contract_version: Literal["memory_semantics"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
     text: str = Field(max_length=65_536)
@@ -170,17 +170,11 @@ class ContextViewResponse(BaseModel):
                 )
             if (
                 self.memory_injection is None
-                or self.memory_injection.format
-                != (
-                    "semantic_units_v3"
-                    if self.schema_version == 5
-                    else "semantic_units_v2"
-                )
-                or self.memory_injection.semantic_contract_version
-                != "memory_semantics_v2"
+                or self.memory_injection.format != "semantic_units"
+                or self.memory_injection.semantic_contract_version != "memory_semantics"
             ):
                 raise ValueError(
-                    "semantic context requires its versioned memory injection"
+                    "semantic context requires its current memory injection"
                 )
         return self
 
@@ -317,6 +311,28 @@ def create_context_router(
             if not callable(retrieve):
                 raise TransientCoreError("Core retrieval is unavailable")
 
+            requested_candidate_policy = (
+                getattr(reranker_config, "candidate_policy", "semantic")
+                if reranker is not None
+                else "formula"
+            )
+            if requested_candidate_policy not in {"formula", "semantic"}:
+                raise ValueError("candidate_policy must be formula or semantic")
+            # Schema 2/3 do not admit the additive field. Keep the wire exact
+            # and let Core run formula in that legacy mode.
+            candidate_policy = (
+                requested_candidate_policy
+                if payload.schema_version in {4, 5}
+                else "formula"
+            )
+            selection_mode = (
+                "formula_topk_no_reranker"
+                if reranker is None
+                else "semantic_top32_reranked"
+                if candidate_policy == "semantic"
+                else "formula_top32_reranked"
+            )
+
             def retrieve_command(
                 *,
                 text: str,
@@ -364,6 +380,7 @@ def create_context_router(
                         ),
                         semantic_delivery=payload.schema_version in {4, 5},
                         scoped_dependencies=payload.schema_version == 5,
+                        candidate_policy=candidate_policy,
                     )
                 )
 
@@ -385,6 +402,8 @@ def create_context_router(
             response_payload["selection_diagnostics"] = {
                 "stage": "service_selected",
                 "suppressed_visible_count": suppressed_visible_count,
+                "candidate_policy": candidate_policy,
+                "selection_mode": selection_mode,
             }
             core_items = response_payload["items"]
             session_context = ""
@@ -461,7 +480,9 @@ def create_context_router(
                         primary_item_count = len(core_items)
                         core_items = merge_candidate_pools(core_items, secondary_items)
                         response_payload["items"] = core_items
-                        session_context_candidates = len(core_items) - primary_item_count
+                        session_context_candidates = (
+                            len(core_items) - primary_item_count
+                        )
                         primary_injection = response_payload.get("memory_injection")
                         if isinstance(primary_injection, Mapping):
                             response_payload["memory_injection"] = (
@@ -535,6 +556,8 @@ def create_context_router(
                         "stage": "service_selected",
                         "suppressed_visible_count": suppressed_visible_count,
                         "status": selection_status,
+                        "candidate_policy": candidate_policy,
+                        "selection_mode": selection_mode,
                         "candidate_count": len(core_items),
                         "injected_count": len(selected),
                         "estimated_injection_tokens": tokens if counter else None,
@@ -555,7 +578,8 @@ def create_context_router(
                     }
                     response.headers["X-LedgerMind-Selection"] = selection_status
                     logger.info(
-                        "retrieval selection status=%s candidates=%d injected=%d tokens=%d",
+                        "retrieval selection mode=%s status=%s candidates=%d injected=%d tokens=%d",
+                        selection_mode,
                         selection_status,
                         len(core_items),
                         len(selected),
@@ -582,6 +606,8 @@ def create_context_router(
                         "candidate_count": len(core_items),
                         "stage": "service_selected",
                         "suppressed_visible_count": suppressed_visible_count,
+                        "candidate_policy": candidate_policy,
+                        "selection_mode": selection_mode,
                         "injected_count": len(response_payload["items"]),
                         "estimated_injection_tokens": None,
                         "latency_ms": round((time.monotonic() - started) * 1000, 2),

@@ -159,7 +159,13 @@ class CoreExecutionTask:
     task_id: str
     task_kind: Literal["generate_json", "object_resolution", "embed_texts", "decide"]
     operation: str
-    profile_slot: Literal["operational", "object_resolution", "background", "embedding", "resolution_decision"]
+    profile_slot: Literal[
+        "operational",
+        "object_resolution",
+        "background",
+        "embedding",
+        "resolution_decision",
+    ]
     memory_space_id: str
     expires_at: str
     lease: str | None
@@ -186,14 +192,24 @@ class CoreExecutionTask:
         ):
             if value is not None and not isinstance(value, dict):
                 raise TypeError(f"{name} must be an object")
-        if self.task_kind not in {"generate_json", "object_resolution", "embed_texts", "decide"}:
+        if self.task_kind not in {
+            "generate_json",
+            "object_resolution",
+            "embed_texts",
+            "decide",
+        }:
             raise ValueError(
                 "task_kind must be generate_json, object_resolution, or embed_texts"
             )
         if self.task_kind == "decide":
-            if self.profile_slot != "resolution_decision" or not isinstance(self.decision_request, dict):
-                raise ValueError("decide requires resolution_decision profile and decision_request")
+            if self.profile_slot != "resolution_decision" or not isinstance(
+                self.decision_request, dict
+            ):
+                raise ValueError(
+                    "decide requires resolution_decision profile and decision_request"
+                )
             from ledgermind_inference.decision_provider import validate_request
+
             validate_request(self.decision_request)
         elif self.decision_request is not None:
             raise ValueError("decision_request belongs only to decide tasks")
@@ -441,7 +457,12 @@ class CoreExecutionTask:
             "object-facet execution task",
         )
         task_kind = payload.get("task_kind")
-        if task_kind not in {"generate_json", "object_resolution", "embed_texts", "decide"}:
+        if task_kind not in {
+            "generate_json",
+            "object_resolution",
+            "embed_texts",
+            "decide",
+        }:
             raise ValueError(
                 "task_kind must be generate_json, object_resolution, or embed_texts"
             )
@@ -483,7 +504,9 @@ class CoreExecutionTask:
                 else None
             ),
             model_request=dict(model_request) if model_request is not None else None,
-            decision_request=dict(payload["decision_request"]) if isinstance(payload.get("decision_request"), dict) else None,
+            decision_request=dict(payload["decision_request"])
+            if isinstance(payload.get("decision_request"), dict)
+            else None,
             embedding_request=(
                 dict(embedding_request) if embedding_request is not None else None
             ),
@@ -541,7 +564,12 @@ class CoreExecutionResult:
     def __post_init__(self) -> None:
         _required(self.task_id, "result.task_id")
         _required(self.operation, "result.operation")
-        if self.task_kind not in {"generate_json", "object_resolution", "embed_texts", "decide"}:
+        if self.task_kind not in {
+            "generate_json",
+            "object_resolution",
+            "embed_texts",
+            "decide",
+        }:
             raise ValueError("result.task_kind is invalid")
         if self.status != "completed":
             raise ValueError("result.status must be completed")
@@ -622,7 +650,12 @@ class CoreExecutionResult:
             "object-facet execution result",
         )
         task_kind = payload.get("task_kind")
-        if task_kind not in {"generate_json", "object_resolution", "embed_texts", "decide"}:
+        if task_kind not in {
+            "generate_json",
+            "object_resolution",
+            "embed_texts",
+            "decide",
+        }:
             raise ValueError("result.task_kind is invalid")
         if payload.get("status") != "completed":
             raise ValueError("result.status must be completed")
@@ -794,10 +827,13 @@ class RetrieveContextCommand:
     explanation_level: str = "compact"
     semantic_delivery: bool = False
     scoped_dependencies: bool = False
+    candidate_policy: Literal["formula", "semantic"] = "formula"
 
     def __post_init__(self) -> None:
         if self.scoped_dependencies and not self.semantic_delivery:
             raise ValueError("scoped dependencies require semantic delivery")
+        if self.candidate_policy not in {"formula", "semantic"}:
+            raise ValueError("candidate_policy must be formula or semantic")
         _required(self.request_id, "request_id")
         _required(self.memory_space_id, "memory_space_id")
         _required(self.query_text, "query_text")
@@ -842,14 +878,27 @@ class RetrieveContextCommand:
             raise ValueError("explanation_level must be compact or none")
         if len(set(self.related_object_ids)) != len(self.related_object_ids):
             raise ValueError("related_object_ids must be unique")
-        if len(self.visible_value_ids) > 4096 or len(set(self.visible_value_ids)) != len(self.visible_value_ids) or any(not value_id or len(value_id) > 200 for value_id in self.visible_value_ids):
-            raise ValueError("visible_value_ids must contain at most 4096 unique non-empty ids")
+        if (
+            len(self.visible_value_ids) > 4096
+            or len(set(self.visible_value_ids)) != len(self.visible_value_ids)
+            or any(
+                not value_id or len(value_id) > 200
+                for value_id in self.visible_value_ids
+            )
+        ):
+            raise ValueError(
+                "visible_value_ids must contain at most 4096 unique non-empty ids"
+            )
         if len(set(self.requested_facets)) != len(self.requested_facets):
             raise ValueError("requested_facets must be unique")
 
     def to_payload(self) -> dict[str, object]:
-        return {
-            "schema_version": 5 if self.scoped_dependencies else 4 if self.semantic_delivery else 2,
+        payload: dict[str, object] = {
+            "schema_version": 5
+            if self.scoped_dependencies
+            else 4
+            if self.semantic_delivery
+            else 2,
             "memory_space_id": self.memory_space_id,
             "query_text": self.query_text,
             "query_embedding": list(self.query_embedding),
@@ -874,6 +923,9 @@ class RetrieveContextCommand:
             "requested_facets": list(self.requested_facets),
             "explanation_level": self.explanation_level,
         }
+        if self.semantic_delivery:
+            payload["candidate_policy"] = self.candidate_policy
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -1149,9 +1201,7 @@ class ObjectFacetStatistics:
             payload.get("integrity_finding_count"), "integrity_finding_count"
         )
         blocking_integrity_finding_count = _non_negative_int(
-            payload.get(
-                "blocking_integrity_finding_count", integrity_finding_count
-            ),
+            payload.get("blocking_integrity_finding_count", integrity_finding_count),
             "blocking_integrity_finding_count",
         )
         if blocking_integrity_finding_count > integrity_finding_count:

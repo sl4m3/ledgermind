@@ -62,8 +62,8 @@ class ContextView(ProtocolModel):
         if self.schema_version in {4, 5} and any(item.semantic_safety is None for item in self.items):
             raise ValueError("semantic context requires safety metadata for every value")
         if self.schema_version in {4, 5} and (
-            self.memory_injection is None or self.memory_injection.format != ("semantic_units_v3" if self.schema_version == 5 else "semantic_units_v2")
-            or self.memory_injection.semantic_contract_version != "memory_semantics_v2"
+            self.memory_injection is None or self.memory_injection.format != "semantic_units"
+            or self.memory_injection.semantic_contract_version != "memory_semantics"
         ):
             raise ValueError("semantic context requires its versioned memory injection")
         if len(set(self.delivered_value_ids)) != len(self.delivered_value_ids):

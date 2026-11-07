@@ -11,11 +11,6 @@ from pathlib import Path
 from typing import Any, Literal, TypeVar, cast
 
 import httpx
-from ledgermind_inference.batch_result_store import (
-    BatchResultNotReady,
-    BatchResultSource,
-    FileBatchResultSource,
-)
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from ..embedding_purpose import EmbeddingPurpose
@@ -32,7 +27,9 @@ from .providers.base import ChatMessage, ProviderCancelledError, ProviderTimeout
 from .structured_json_provider import StructuredJsonProvider
 
 TaskKind = Literal["generate_json", "object_resolution", "embed_texts", "decide"]
-ExecutionStatus = Literal["completed", "failed", "unknown_task_kind", "cancelled", "timeout"]
+ExecutionStatus = Literal[
+    "completed", "failed", "unknown_task_kind", "cancelled", "timeout"
+]
 
 T = TypeVar("T")
 
@@ -193,7 +190,12 @@ def _normalize_packaging_output(output: Any) -> Any:
         for claim in claims:
             if isinstance(claim, dict):
                 copy = claim.get("copy")
-                if isinstance(copy, list) and len(copy) > 1 and "b" not in claim and "f" in claim:
+                if (
+                    isinstance(copy, list)
+                    and len(copy) > 1
+                    and "b" not in claim
+                    and "f" in claim
+                ):
                     new_claim = dict(claim)
                     del new_claim["copy"]
                     new_claim["b"] = [{"copy": copy}]
@@ -213,67 +215,6 @@ def _normalize_packaging_output(output: Any) -> Any:
     return new_output
 
 
-def batch_lookup_keys(task: GenericExecutionTask) -> list[str]:
-    """Return deterministic cache keys for one task, most specific first."""
-    op_input = task.operation_input or {}
-    raw_round = op_input.get("raw_round")
-    source = raw_round.get("source") if isinstance(raw_round, dict) else None
-    source_round_id = source.get("round_id") if isinstance(source, dict) else None
-
-    round_identifiers = [
-        source_round_id,
-        op_input.get("round_id"),
-        op_input.get("raw_round_id"),
-        task.task_id,
-    ]
-
-    round_memory = op_input.get("round_memory")
-    stage = round_memory.get("stage") if isinstance(round_memory, dict) else None
-    contract = (
-        (task.model_request.output_contract or {}).get("contract_name")
-        if task.model_request
-        else None
-    )
-
-    stage_variants: list[str] = []
-    if isinstance(stage, str) and stage:
-        stage_variants.append(stage)
-    if isinstance(contract, str) and contract:
-        stage_variants.append(contract)
-        if contract.startswith("operational_round_memory_"):
-            suffix = contract.removeprefix("operational_round_memory_")
-            if suffix not in stage_variants:
-                stage_variants.append(suffix)
-        elif contract.startswith("round_memory_"):
-            suffix = contract.removeprefix("round_memory_")
-            if suffix not in stage_variants:
-                stage_variants.append(suffix)
-
-    keys: list[str] = []
-    for rid in round_identifiers:
-        if not isinstance(rid, str) or not rid:
-            continue
-        keys.append(rid)
-        for stage_variant in stage_variants:
-            for separator in (":", "__", "-"):
-                keys.append(f"{rid}{separator}{stage_variant}")
-    return keys
-
-
-def cached_batch_entry_is_usable(
-    entry: Mapping[str, Any] | None,
-    spec: ModelRequestSpec,
-) -> bool:
-    """A cached entry is usable only when it is complete and contract-compatible."""
-    if not isinstance(entry, Mapping):
-        return False
-    if entry.get("status") != "completed" or entry.get("output") is None:
-        return False
-    expected_digest = (spec.output_contract or {}).get("schema_digest")
-    cached_digest = entry.get("contract_digest") or entry.get("schema_digest")
-    return not (expected_digest and cached_digest and expected_digest != cached_digest)
-
-
 class CoreTaskExecutor:
     """Dispatch generic tasks to providers by ``task_kind`` only.
 
@@ -291,8 +232,6 @@ class CoreTaskExecutor:
         generate_json_timeout_seconds: float,
         embed_texts_timeout_seconds: float,
         generation_concurrency: int = 1,
-        batch_cache_path: str | Path | None = None,
-        batch_result_source: BatchResultSource | None = None,
     ) -> None:
         self._json_provider = json_provider
         self._embedding_provider = embedding_provider
@@ -306,11 +245,6 @@ class CoreTaskExecutor:
         # Deprecated compatibility field: the worker owns concurrency and must
         # not multiply provider calls from this value.
         self.generation_concurrency = int(generation_concurrency)
-        self._batch_result_source = (
-            batch_result_source
-            if batch_result_source is not None
-            else FileBatchResultSource(batch_cache_path)
-        )
 
     def execute(
         self,
@@ -348,13 +282,6 @@ class CoreTaskExecutor:
             return self._execute_embed_texts_batch(normalized, cancellation_token)
         return tuple(self.execute(task, cancellation_token) for task in normalized)
 
-    def _lookup_batch_cache(self, task: GenericExecutionTask) -> Mapping[str, Any] | None:
-        """Lookup precomputed batch outputs for deterministic stage execution."""
-        return self._batch_result_source.lookup(
-            task_id=task.task_id,
-            keys=batch_lookup_keys(task),
-        )
-
     def _execute_generate_json(
         self,
         task: GenericExecutionTask,
@@ -364,7 +291,9 @@ class CoreTaskExecutor:
     ) -> GenericExecutionResult:
         spec = task.model_request
         if spec is None:
-            return self._failed_result(task, error_code="invalid_request", input_bytes=0)
+            return self._failed_result(
+                task, error_code="invalid_request", input_bytes=0
+            )
         input_bytes = _model_request_bytes(spec)
         precomputed = (task.operation_input or {}).get("core_precomputed_output")
         if precomputed is not None:
@@ -393,65 +322,15 @@ class CoreTaskExecutor:
                     provider="Core",
                     model="not-inferred",
                     input_bytes=0,
-                    output_bytes=len(json.dumps(precomputed, ensure_ascii=False).encode()),
+                    output_bytes=len(
+                        json.dumps(precomputed, ensure_ascii=False).encode()
+                    ),
                     input_tokens=0,
                     output_tokens=0,
                     total_tokens=0,
                     usage_unknown=False,
                     status="completed",
                 ),
-            )
-        is_round_memory = (
-            task.operation_input and task.operation_input.get("round_memory") is not None
-        ) or (
-            isinstance(task.operation, str)
-            and (
-                task.operation.startswith("operational_round_memory_")
-                or task.operation.startswith("round_memory_")
-            )
-        )
-        cached_entry = self._lookup_batch_cache(task)
-        if cached_entry is not None and cached_batch_entry_is_usable(cached_entry, spec):
-            if token is not None:
-                token.raise_if_cancelled()
-            cached_output = _normalize_packaging_output(cached_entry["output"])
-            usage = cached_entry.get("usage", {})
-            return GenericExecutionResult(
-                task_id=task.task_id,
-                task_kind=task.task_kind,
-                operation=task.operation,
-                operation_input=task.operation_input,
-                status="completed",
-                output=cached_output,
-                structured_output_mode=spec.mode,
-                contract_digest=(spec.output_contract or {}).get("schema_digest"),
-                metadata={
-                    "batch_cached_result": True,
-                    "model_calls": 1,
-                    "batch_id": cached_entry.get("batch_id"),
-                    "cost_status": "batch_reported",
-                },
-                egress_audit=EgressAuditRecord(
-                    task_id=task.task_id,
-                    task_kind=task.task_kind,
-                    profile_id="haiku-batch",
-                    provider="anthropic",
-                    model="anthropic/claude-haiku-5.5:batch",
-                    input_bytes=input_bytes,
-                    output_bytes=len(json.dumps(cached_output, ensure_ascii=False).encode()),
-                    input_tokens=usage.get("prompt_tokens", 0),
-                    output_tokens=usage.get("completion_tokens", 0),
-                    total_tokens=usage.get("total_tokens", 0),
-                    usage_unknown=False,
-                    status="completed",
-                ),
-            )
-        if is_round_memory:
-            raw_round_id = (task.operation_input or {}).get("raw_round_id")
-            raise BatchResultNotReady(
-                task.task_id,
-                task.operation,
-                raw_round_id if isinstance(raw_round_id, str) else None,
             )
         telemetry_operation = _telemetry_operation(task)
         structured_metadata = task.structured_generation or {}
@@ -469,14 +348,19 @@ class CoreTaskExecutor:
             else None
         )
         root_task_id = (
-            structured_metadata.get("chain_root_task_id") or structured_metadata.get("root_task_id")
+            structured_metadata.get("chain_root_task_id")
+            or structured_metadata.get("root_task_id")
             if isinstance(structured_metadata, dict)
             else None
         )
         request_reason = (
             "semantic_repair"
             if attempt_kind in {"repair", "empty_recheck"}
-            else ("agent_generation" if telemetry_operation == "agent_generation" else "primary")
+            else (
+                "agent_generation"
+                if telemetry_operation == "agent_generation"
+                else "primary"
+            )
         )
         record_task(
             kind="decision" if task.task_kind == "decide" else "generation",
@@ -500,34 +384,45 @@ class CoreTaskExecutor:
                             "decision_request": task.decision_request,
                             **(
                                 {
-                                    "decision_metadata_view": (task.operation_input or {})[
-                                        "decision_metadata_view"
-                                    ],
-                                    "decision_metadata_pipeline": (task.operation_input or {}).get(
-                                        "resolution_pipeline"
-                                    ),
+                                    "decision_metadata_view": (
+                                        task.operation_input or {}
+                                    )["decision_metadata_view"],
+                                    "decision_metadata_pipeline": (
+                                        task.operation_input or {}
+                                    ).get("resolution_pipeline"),
                                     "decision_metadata_operation": task.operation,
                                 }
-                                if "decision_metadata_view" in (task.operation_input or {})
+                                if "decision_metadata_view"
+                                in (task.operation_input or {})
                                 else {}
                             ),
                             **(
                                 {
-                                    "native_batch_plan": (task.operation_input or {})[
-                                        "native_kr_batch_plan"
-                                    ],
-                                    "native_batch_full_request": (task.operation_input or {}).get(
-                                        "full_decision_request"
+                                    "native_batch_plan": (
+                                        (task.operation_input or {}).get(
+                                            "native_kr_batch_plan"
+                                        )
+                                        or (task.operation_input or {}).get(
+                                            "native_kr_repack_plan"
+                                        )
                                     ),
-                                    "native_batch_index": (task.operation_input or {}).get(
-                                        "decision_batch_index"
-                                    ),
-                                    "native_batch_pipeline": (task.operation_input or {}).get(
-                                        "resolution_pipeline"
-                                    ),
+                                    "native_batch_full_request": (
+                                        task.operation_input or {}
+                                    ).get("full_decision_request"),
+                                    "native_batch_index": (
+                                        task.operation_input or {}
+                                    ).get("decision_batch_index"),
+                                    "native_batch_pipeline": (
+                                        task.operation_input or {}
+                                    ).get("resolution_pipeline"),
                                     "native_batch_operation": task.operation,
                                 }
-                                if "native_kr_batch_plan" in (task.operation_input or {})
+                                if (
+                                    "native_kr_batch_plan"
+                                    in (task.operation_input or {})
+                                    or "native_kr_repack_plan"
+                                    in (task.operation_input or {})
+                                )
                                 else {}
                             ),
                         }
@@ -545,7 +440,9 @@ class CoreTaskExecutor:
                     telemetry_context={
                         "task_id": task.task_id,
                         "root_task_id": root_task_id or task.task_id,
-                        "attempt_index": attempt_index if isinstance(attempt_index, int) else 0,
+                        "attempt_index": attempt_index
+                        if isinstance(attempt_index, int)
+                        else 0,
                         "request_reason": request_reason,
                         "attempt_kind": attempt_kind,
                         "resolution_pipeline": (task.operation_input or {}).get(
@@ -578,6 +475,7 @@ class CoreTaskExecutor:
                 and (
                     "decision_metadata_view" in (task.operation_input or {})
                     or "native_kr_batch_plan" in (task.operation_input or {})
+                    or "native_kr_repack_plan" in (task.operation_input or {})
                 )
                 else input_bytes
             ),
@@ -602,11 +500,15 @@ class CoreTaskExecutor:
             tool_name=result.tool_name,
             metadata={
                 **result.metadata,
-                "decision_task_id": (task.operation_input or {}).get("decision_task_id"),
+                "decision_task_id": (task.operation_input or {}).get(
+                    "decision_task_id"
+                ),
                 "decision_question_version": (task.operation_input or {}).get(
                     "decision_question_version"
                 ),
-                "resolution_stage": (task.operation_input or {}).get("resolution_stage"),
+                "resolution_stage": (task.operation_input or {}).get(
+                    "resolution_stage"
+                ),
                 "parsed_json": result.parsed_json,
                 "raw_text": result.raw_text,
                 "provider_request_id": result.provider_request_id,
@@ -620,7 +522,9 @@ class CoreTaskExecutor:
     ) -> GenericExecutionResult:
         spec = task.embedding_request
         if spec is None:
-            return self._failed_result(task, error_code="invalid_request", input_bytes=0)
+            return self._failed_result(
+                task, error_code="invalid_request", input_bytes=0
+            )
         input_bytes = sum(len(text.encode("utf-8")) for text in spec.texts)
         profile = None
         try:
@@ -636,7 +540,9 @@ class CoreTaskExecutor:
                             purpose=spec.purpose,
                             dimensions=spec.dimensions,
                             cache_keys=spec.cache_keys,
-                            cache_namespace=(spec.cache_namespace or spec.privacy_class),
+                            cache_namespace=(
+                                spec.cache_namespace or spec.privacy_class
+                            ),
                             profile_fingerprint=spec.profile_fingerprint,
                             config_fingerprint=spec.config_fingerprint,
                             privacy_class=spec.privacy_class,
@@ -835,7 +741,9 @@ class CoreTaskExecutor:
             finally:
                 done.set()
 
-        thread = threading.Thread(target=worker, daemon=True, name="ledgermind-core-executor")
+        thread = threading.Thread(
+            target=worker, daemon=True, name="ledgermind-core-executor"
+        )
         thread.start()
 
         deadline = time.monotonic() + timeout_seconds
@@ -975,22 +883,7 @@ def _telemetry_operation(task: GenericExecutionTask) -> object:
     if task.task_kind == "decide":
         return f"{task.operation}_decision"
     memory = (task.operation_input or {}).get("round_memory")
-    if isinstance(memory, dict) and memory.get("version") in {
-        "round_memory_two_stage_v1",
-        "round_memory_two_stage_v2",
-        "round_memory_two_stage_v3",
-        "round_memory_two_stage_v4",
-        "round_memory_two_stage_v5",
-        "addressed_write_v1",
-        "memory_write_v1",
-        "memory_write_v2",
-        "memory_write_v3",
-        "memory_write_v4",
-        "memory_write_v5",
-        "memory_write_v6",
-        "memory_write_v7",
-        "memory_write_v8",
-    }:
+    if isinstance(memory, dict) and memory.get("version") == "memory_write":
         stage = memory.get("stage")
         if stage in {"preparation", "packaging"}:
             return f"round_memory_{stage}"
@@ -1037,13 +930,18 @@ def _error_category(error_code: str) -> str:
         return "transport_failure"
     if error_code in {"provider_executor_unclassified", "execution_failed"}:
         return "executor_failure"
-    return "transport_failure" if error_code.startswith("provider_") else "schema_shape_failure"
+    return (
+        "transport_failure"
+        if error_code.startswith("provider_")
+        else "schema_shape_failure"
+    )
 
 
 def _model_request_bytes(spec: ModelRequestSpec) -> int:
     payload: dict[str, object] = {
         "messages": [
-            {"role": message.role, "content": message.content} for message in spec.messages
+            {"role": message.role, "content": message.content}
+            for message in spec.messages
         ],
         "max_output_tokens": spec.max_output_tokens,
         "output_contract": spec.output_contract,
@@ -1051,9 +949,9 @@ def _model_request_bytes(spec: ModelRequestSpec) -> int:
         "tool_name": spec.tool_name,
     }
     return len(
-        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
-            "utf-8"
-        )
+        json.dumps(
+            payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
     )
 
 

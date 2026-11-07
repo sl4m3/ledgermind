@@ -138,7 +138,7 @@ def test_failed_lookup_is_not_a_completed_result(tmp_path: Path) -> None:
     assert store.get("t1").status == "failed"  # type: ignore[union-attr]
 
 
-def test_failed_task_can_be_reenqueued(tmp_path: Path) -> None:
+def test_failed_task_requires_explicit_retry(tmp_path: Path) -> None:
     store = _store(tmp_path)
     store.enqueue(
         task_id="t1",
@@ -148,7 +148,7 @@ def test_failed_task_can_be_reenqueued(tmp_path: Path) -> None:
     )
     store.mark_failed("t1", "transient_provider_error")
 
-    assert store.enqueue(
+    assert not store.enqueue(
         task_id="t1",
         memory_space_id="space",
         custom_id="c1",
@@ -156,9 +156,19 @@ def test_failed_task_can_be_reenqueued(tmp_path: Path) -> None:
     )
     record = store.get("t1")
     assert record is not None
+    assert record.status == "failed"
+    assert [entry.task_id for entry in store.failed_pending()] == ["t1"]
+
+    store.mark_failure_delivered("t1")
+    assert store.failed_pending() == []
+
+    assert store.retry_failed("t1")
+    record = store.get("t1")
+    assert record is not None
     assert record.status == "pending"
     assert record.result is None
-    assert record.payload == {"task_id": "t1-retry"}
+    assert record.payload == {"task_id": "t1"}
+    assert record.failure_delivered_at is None
     assert store.lookup(task_id="t1", keys=[]) == {
         "status": "failed",
         "error_code": "batch_result_unavailable",
@@ -248,7 +258,9 @@ def test_plan_chunks_requires_a_pending_root(tmp_path: Path) -> None:
     assert not store.plan_chunks("root-1", _chunks())
 
 
-def test_record_batch_submission_marks_root_and_chunks_atomically(tmp_path: Path) -> None:
+def test_record_batch_submission_marks_root_and_chunks_atomically(
+    tmp_path: Path,
+) -> None:
     store = _store(tmp_path)
     _root(store)
     store.plan_chunks("root-1", _chunks(2))
@@ -262,14 +274,16 @@ def test_record_batch_submission_marks_root_and_chunks_atomically(tmp_path: Path
     )
 
     assert store.get("root-1").status == "submitted"  # type: ignore[union-attr]
-    assert {
-        chunk.status for chunk in store.chunks_for_batch("batch-1")
-    } == {"submitted"}
+    assert {chunk.status for chunk in store.chunks_for_batch("batch-1")} == {
+        "submitted"
+    }
     assert [job.batch_id for job in store.jobs()] == ["batch-1"]
     assert store.pending_chunks() == []
 
 
-def test_complete_chunked_root_publishes_result_and_removes_chunks(tmp_path: Path) -> None:
+def test_complete_chunked_root_publishes_result_and_removes_chunks(
+    tmp_path: Path,
+) -> None:
     store = _store(tmp_path)
     _root(store)
     store.plan_chunks("root-1", _chunks(2))
@@ -336,3 +350,48 @@ def test_record_batch_submission_keeps_explicit_next_poll_at(tmp_path: Path) -> 
 
     job = store.jobs()[0]
     assert job.next_poll_at == "2030-01-01T00:05:00+00:00"
+
+
+def test_existing_store_is_migrated_for_failure_delivery(tmp_path: Path) -> None:
+    import sqlite3
+
+    path = tmp_path / "batch.sqlite3"
+    connection = sqlite3.connect(path)
+    connection.execute(
+        """
+        CREATE TABLE batch_tasks (
+            task_id TEXT PRIMARY KEY,
+            memory_space_id TEXT NOT NULL,
+            custom_id TEXT NOT NULL UNIQUE,
+            batch_id TEXT,
+            status TEXT NOT NULL CHECK (
+                status IN ('pending','submitted','result_ready','completed','failed')
+            ),
+            payload_json TEXT NOT NULL,
+            result_json TEXT,
+            usage_json TEXT,
+            contract_digest TEXT,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error_code TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    connection.commit()
+    connection.close()
+
+    store = BatchSemanticStore(path)
+    assert store.enqueue(
+        task_id="t1",
+        memory_space_id="space",
+        custom_id="c1",
+        payload={"task_id": "t1"},
+    )
+    store.mark_failed("t1", "batch_result_missing")
+
+    assert [record.task_id for record in store.failed_pending()] == ["t1"]
+    store.mark_failure_delivered("t1")
+    assert store.failed_pending() == []
+    assert store.retry_failed("t1")
+    assert store.get("t1").status == "pending"  # type: ignore[union-attr]
