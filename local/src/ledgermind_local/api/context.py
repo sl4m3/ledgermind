@@ -20,7 +20,6 @@ from ledgermind_inference.retrieval_session import (
     merge_candidate_pools_quota,
     merge_injection_legends,
     split_query_aspects,
-    strip_retrieval_instructions,
 )
 from ledgermind_protocol.object_facet import ValueSemanticSafety
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
@@ -245,11 +244,6 @@ def create_context_router(
             raise HTTPException(
                 status_code=422, detail="query and task context exceed 20000 characters"
             )
-        retrieval_query = (
-            strip_retrieval_instructions(effective_query)
-            if query_embedder is not None
-            else effective_query
-        )
         try:
             embedding_model_id = payload.embedding_model_id or "retrieval-embedder"
             embedding_model_version = payload.embedding_model_version or "1"
@@ -325,7 +319,7 @@ def create_context_router(
             ):
                 try:
                     aspects = split_query_aspects(
-                        retrieval_query,
+                        effective_query,
                         max_aspects=retrieval_settings.multi_aspect_max_aspects,
                     )
                 except (TypeError, ValueError):
@@ -345,7 +339,7 @@ def create_context_router(
                         batch = embed_batch(
                             payload.memory_space_id,
                             [
-                                retrieval_query,
+                                effective_query,
                                 *(aspect.fragment for aspect in aspects),
                             ],
                         )
@@ -397,7 +391,7 @@ def create_context_router(
                     object_query_embedding,
                     embedding_model_id,
                     embedding_model_version,
-                ) = embed_query_fields(retrieval_query)
+                ) = embed_query_fields(effective_query)
             retrieve = getattr(context_gateway, "retrieve_context", None)
             if not callable(retrieve):
                 raise TransientCoreError("Core retrieval is unavailable")
@@ -480,7 +474,7 @@ def create_context_router(
                 )
 
             result = retrieve_command(
-                text=retrieval_query,
+                text=effective_query,
                 value_embedding=query_embedding,
                 object_embedding=object_query_embedding,
                 model_id=embedding_model_id,
@@ -731,9 +725,9 @@ def create_context_router(
                 started = time.monotonic()
                 ranking: list[dict[str, Any]] = []
                 rerank_query = (
-                    compose_rerank_query(retrieval_query, session_context)
+                    compose_rerank_query(effective_query, session_context)
                     if session_context
-                    else retrieval_query
+                    else effective_query
                 )
                 (
                     ranked,
@@ -746,7 +740,7 @@ def create_context_router(
                 ) = _rerank_candidates(
                     core_items=core_items,
                     reranker=reranker,
-                    effective_query=retrieval_query,
+                    effective_query=effective_query,
                     rerank_query=rerank_query,
                     has_session_context=bool(session_context),
                     dual_view=retrieval_settings.dual_view_rerank,

@@ -754,11 +754,7 @@ def test_multi_aspect_quota_retrieves_each_explicit_aspect() -> None:
 def test_multi_aspect_uses_one_batched_query_embedding_call() -> None:
     from types import SimpleNamespace
 
-    full_query = (
-        "deployment width, collapsed background and delay after restart. "
-        "Record every requested field through its action, then finish."
-    )
-    clean_query = "deployment width, collapsed background and delay after restart."
+    full_query = "deployment width, collapsed background and delay after restart"
 
     class Gateway(_Gateway):
         def __init__(self) -> None:
@@ -772,7 +768,7 @@ def test_multi_aspect_uses_one_batched_query_embedding_call() -> None:
             self.limits.append(request.limit)
             self.embeddings.append(tuple(request.query_embedding))
             original = super().retrieve_context(request).payload
-            if request.query_text == clean_query:
+            if request.query_text == full_query:
                 ids = ["full-1", "full-2"]
             else:
                 aspect_index = len(
@@ -836,12 +832,12 @@ def test_multi_aspect_uses_one_batched_query_embedding_call() -> None:
 
     assert response.status_code == 200
     assert embedder.batch_texts == [
-        clean_query,
+        full_query,
         "deployment width",
         "collapsed background",
         "delay after restart",
     ]
-    assert gateway.queries[0] == clean_query
+    assert gateway.queries[0] == full_query
     assert gateway.limits == [32, 8, 8, 8]
     assert gateway.embeddings == [
         (0.0, 0.0),
