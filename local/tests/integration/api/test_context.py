@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
 from ledgermind_local.api.context import create_context_router
 from ledgermind_local.core_gateway.contracts import (
     RecordRetrievalOutcomeCommand,
@@ -650,7 +652,10 @@ def test_session_context_is_embedded_retrieved_and_used_for_reranking(tmp_path) 
     assert len(gateway.requests) == 2
     assert all(request.candidate_policy == "semantic" for request in gateway.requests)
     assert "security review" in gateway.requests[1].query_text
-    assert "security review" in reranker.queries[0]
+    assert len(reranker.queries) == 2
+    assert "давай" in reranker.queries[0]
+    assert any("security review" in query for query in reranker.queries)
+    assert payload["selection_diagnostics"]["rerank_views"] == ["task", "context"]
     assert payload["selection_diagnostics"]["session_context_chars"] > 0
     assert payload["selection_diagnostics"]["session_context_chunks"] == 1
     assert payload["selection_diagnostics"]["session_context_candidates"] == 1
@@ -658,3 +663,193 @@ def test_session_context_is_embedded_retrieved_and_used_for_reranking(tmp_path) 
         "value-primary",
         "value-context",
     }
+
+
+def test_multi_aspect_quota_retrieves_each_explicit_aspect() -> None:
+    from types import SimpleNamespace
+
+    class Gateway(_Gateway):
+        def __init__(self) -> None:
+            super().__init__()
+            self.queries: list[str] = []
+
+        def retrieve_context(self, request):
+            self.queries.append(request.query_text)
+            original = super().retrieve_context(request).payload
+            if (
+                request.query_text
+                == "deployment width, collapsed background and delay after restart"
+            ):
+                ids = ["full-1", "full-2"]
+            else:
+                index = len(
+                    [
+                        q
+                        for q in self.queries
+                        if q
+                        != "deployment width, collapsed background and delay after restart"
+                    ]
+                )
+                ids = [f"aspect-{index}-{row}" for row in range(1, 4)]
+            original["items"] = [
+                {
+                    **original["items"][0],
+                    "value_id": value_id,
+                    "content": f"Fact {value_id}.",
+                }
+                for value_id in ids
+            ]
+            original["memory_injection"]["item_count"] = len(ids)
+            return RetrieveContextResult(original)
+
+    class Embedder:
+        def embed_query_with_metadata(self, memory_space_id, query):
+            assert memory_space_id == "space"
+            return (0.1, 0.2), "embedder", "2026-08"
+
+        def embed_object_query_with_metadata(self, memory_space_id, query):
+            assert memory_space_id == "space"
+            return (0.3, 0.4), "embedder", "2026-08"
+
+    class Reranker:
+        def score(self, query, documents):
+            return [0.9 - index * 0.01 for index in range(len(documents))]
+
+    gateway = Gateway()
+    app = FastAPI()
+    app.include_router(
+        create_context_router(
+            lambda: "token",
+            gateway,
+            max_body_bytes=100_000,
+            query_embedder=Embedder(),
+            reranker=Reranker(),
+            reranker_config=SimpleNamespace(
+                soft_budget=100_000,
+                selection_policy="adaptive_k",
+                candidate_policy="semantic",
+            ),
+        )
+    )
+    response = TestClient(app).post(
+        "/context/retrieve",
+        json={
+            "memory_space_id": "space",
+            "query": "deployment width, collapsed background and delay after restart",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(gateway.queries) == 4
+    assert payload["selection_diagnostics"]["aspect_query_count"] == 3
+    assert payload["selection_diagnostics"]["aspect_candidate_count"] >= 8
+    assert payload["selection_diagnostics"]["multi_aspect_quota"] is True
+    assert "aspect:0" in payload["selection_diagnostics"]["rerank_views"]
+    ranking_ids = {
+        row["value_id"] for row in payload["selection_diagnostics"]["ranking"]
+    }
+    assert any(value_id.startswith("aspect-") for value_id in ranking_ids)
+
+
+def test_multi_aspect_uses_one_batched_query_embedding_call() -> None:
+    from types import SimpleNamespace
+
+    full_query = (
+        "deployment width, collapsed background and delay after restart. "
+        "Record every requested field through its action, then finish."
+    )
+    clean_query = "deployment width, collapsed background and delay after restart."
+
+    class Gateway(_Gateway):
+        def __init__(self) -> None:
+            super().__init__()
+            self.queries: list[str] = []
+            self.limits: list[int] = []
+            self.embeddings: list[tuple[float, ...]] = []
+
+        def retrieve_context(self, request):
+            self.queries.append(request.query_text)
+            self.limits.append(request.limit)
+            self.embeddings.append(tuple(request.query_embedding))
+            original = super().retrieve_context(request).payload
+            if request.query_text == clean_query:
+                ids = ["full-1", "full-2"]
+            else:
+                aspect_index = len(
+                    [query for query in self.queries if query != full_query]
+                )
+                ids = [f"aspect-{aspect_index}-{row}" for row in range(1, 4)]
+            original["items"] = [
+                {
+                    **original["items"][0],
+                    "value_id": value_id,
+                    "content": f"Fact {value_id}.",
+                }
+                for value_id in ids
+            ]
+            original["memory_injection"]["item_count"] = len(ids)
+            return RetrieveContextResult(original)
+
+    class BatchEmbedder:
+        def __init__(self) -> None:
+            self.batch_texts: list[str] | None = None
+
+        def embed_query_batch_with_metadata(self, memory_space_id, texts):
+            assert memory_space_id == "space"
+            self.batch_texts = list(texts)
+            return [
+                ((float(index), 0.0), (0.0, float(index)), "embedder", "2026-08")
+                for index, _ in enumerate(texts)
+            ]
+
+        def embed_query_with_metadata(self, memory_space_id, query):
+            raise AssertionError("per-text query embedding must not be used")
+
+        def embed_object_query_with_metadata(self, memory_space_id, query):
+            raise AssertionError("per-text object embedding must not be used")
+
+    class Reranker:
+        def score(self, query, documents):
+            return [0.9 - index * 0.01 for index in range(len(documents))]
+
+    gateway = Gateway()
+    embedder = BatchEmbedder()
+    app = FastAPI()
+    app.include_router(
+        create_context_router(
+            lambda: "token",
+            gateway,
+            max_body_bytes=100_000,
+            query_embedder=embedder,
+            reranker=Reranker(),
+            reranker_config=SimpleNamespace(
+                soft_budget=100_000,
+                selection_policy="adaptive_k",
+                candidate_policy="semantic",
+            ),
+        )
+    )
+    response = TestClient(app).post(
+        "/context/retrieve",
+        json={"memory_space_id": "space", "query": full_query},
+    )
+
+    assert response.status_code == 200
+    assert embedder.batch_texts == [
+        clean_query,
+        "deployment width",
+        "collapsed background",
+        "delay after restart",
+    ]
+    assert gateway.queries[0] == clean_query
+    assert gateway.limits == [32, 8, 8, 8]
+    assert gateway.embeddings == [
+        (0.0, 0.0),
+        (1.0, 0.0),
+        (2.0, 0.0),
+        (3.0, 0.0),
+    ]
+    assert len(gateway.queries) == 4
+    payload = response.json()
+    assert payload["selection_diagnostics"]["aspect_query_count"] == 3
+    assert payload["selection_diagnostics"]["aspect_candidate_count"] >= 8

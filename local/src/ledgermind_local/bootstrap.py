@@ -9,22 +9,18 @@ import sqlite3
 import tempfile
 import time
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
-from ledgermind_inference.core_task_executor import CoreTaskExecutor
-from ledgermind_inference.embedding_provider import EmbeddingProvider
 from ledgermind_inference.embedding_purpose import (
     KNOWLEDGE_QUERY_ROLE,
     OBJECT_QUERY_ROLE,
 )
-from ledgermind_inference.openai_vectorizer import OpenAIEmbeddingVectorizer
 from ledgermind_inference.semantic_contract import configured_resolution_pipeline
 from ledgermind_inference.strict import STRICT_JSON_SCHEMA_MODE
-from ledgermind_inference.structured_json_provider import StructuredJsonProvider
 
 from ledgermind_local.config import CURRENT_CONFIG_VERSION, LocalConfig, WorkerConfig
 from ledgermind_local.core_gateway import (
@@ -48,8 +44,14 @@ from ledgermind_local.core_gateway.supervisor import (
     CoreSupervisorError,
     CoreSupervisorTimeout,
 )
-from ledgermind_local.inference.embedding_provider import PersistentEmbeddingCache
+from ledgermind_local.inference.core_task_executor import CoreTaskExecutor
+from ledgermind_local.inference.embedding_provider import (
+    EmbeddingBatchRequest,
+    EmbeddingProvider,
+    PersistentEmbeddingCache,
+)
 from ledgermind_local.inference.gguf_vectorizer import GGUFVectorizer
+from ledgermind_local.inference.openai_vectorizer import OpenAIEmbeddingVectorizer
 from ledgermind_local.inference.profile_slots import (
     DatabaseBackedProfileResolver,
     ProfileSlot,
@@ -59,6 +61,7 @@ from ledgermind_local.inference.profile_store import (
     InferenceProfileStore,
 )
 from ledgermind_local.inference.secrets import SecretStore
+from ledgermind_local.inference.structured_json_provider import StructuredJsonProvider
 from ledgermind_local.maintenance.coordinated_restore import (
     CoordinatedRestoreError,
     CoordinatedRestoreService,
@@ -112,9 +115,6 @@ def _build_runtime_vectorizer_factory(
         return unavailable_vectorizer
 
     if config.embedding.provider_mode == "api":
-        from ledgermind_inference.model_gateway import ensure_gateway
-
-        ensure_gateway()
         if (
             not config.embedding.endpoint
             or not config.embedding.model
@@ -510,34 +510,36 @@ class LocalRuntime:
 
         return self.embed_query_with_metadata(memory_space_id, query)[0]
 
-    def _ensure_model_gateway(self) -> None:
-        if getattr(self, "_model_gateway_ready", False):
-            return
-        from ledgermind_inference.model_gateway import ensure_gateway
-
-        ensure_gateway()
-        self._model_gateway_ready = True
-
     @property
     def retrieval_reranker(self) -> Any | None:
         """Create the configured scorer lazily; disabled installs stay Core-only."""
         if not self.config.reranker.enabled:
             return None
-        from ledgermind_local.inference.retrieval_reranker import ApiReranker
+        from ledgermind_local.inference.retrieval_reranker import (
+            ApiReranker,
+            QwenWorkerReranker,
+        )
 
         scorer = getattr(self, "_retrieval_reranker", None)
         if scorer is None:
-            # Both Local modes use the one shared gateway.  A legacy local
-            # config must not load a second Qwen replica inside 8822.
-            self._ensure_model_gateway()
-            secret_ref = self.config.reranker.secret_ref or "embedding-local"
-            token = SecretStore(self.config.inference_secrets_path).get(secret_ref)
-            scorer = ApiReranker(
-                self.config.reranker.endpoint or "http://127.0.0.1:8767/rerank",
-                token,
-                self.config.reranker.model or "Qwen/Qwen3-Reranker-0.6B",
-                timeout_seconds=self.config.reranker.timeout_seconds,
-            )
+            if (
+                self.config.reranker.mode == "local"
+                and not self.config.reranker.endpoint
+            ):
+                scorer = QwenWorkerReranker(
+                    str(self.config.reranker.model_path),
+                    self.config.reranker.device,
+                    runtime_path=self.config.reranker.runtime_path,
+                )
+            else:
+                secret_ref = self.config.reranker.secret_ref or "embedding-local"
+                token = SecretStore(self.config.inference_secrets_path).get(secret_ref)
+                scorer = ApiReranker(
+                    self.config.reranker.endpoint or "http://127.0.0.1:8767/rerank",
+                    token,
+                    self.config.reranker.model or "Qwen/Qwen3-Reranker-0.6B",
+                    timeout_seconds=self.config.reranker.timeout_seconds,
+                )
             self._retrieval_reranker = scorer
         return scorer
 
@@ -577,6 +579,66 @@ class LocalRuntime:
             role=OBJECT_QUERY_ROLE,
         )
         return batch.vectors[0], batch.model, batch.model_version
+
+    def embed_query_batch_with_metadata(
+        self, memory_space_id: str, texts: Sequence[str]
+    ) -> list[tuple[tuple[float, ...], tuple[float, ...] | None, str, str]]:
+        """Embed several retrieval texts with one profile resolution.
+
+        Value and object requests are grouped separately so a future role
+        rollback still produces two valid batches instead of an incompatible
+        mixed batch. Within each group all texts share one provider call.
+        """
+
+        if not texts:
+            return []
+        resolver = DatabaseBackedProfileResolver(self.database_path)
+        profile = resolver.resolve_profile(memory_space_id, ProfileSlot.EMBEDDING)
+        provider = EmbeddingProvider(
+            vectorizer_factory=_build_runtime_vectorizer_factory(
+                self.config, priority="interactive"
+            )
+        )
+        value_batches = provider.embed_many(
+            tuple(
+                EmbeddingBatchRequest(
+                    texts=(text,),
+                    profile=profile,
+                    purpose="retrieval_query",
+                    role=KNOWLEDGE_QUERY_ROLE,
+                )
+                for text in texts
+            )
+        )
+        object_batches = provider.embed_many(
+            tuple(
+                EmbeddingBatchRequest(
+                    texts=(text,),
+                    profile=profile,
+                    purpose="object_candidate_query",
+                    role=OBJECT_QUERY_ROLE,
+                )
+                for text in texts
+            )
+        )
+        if len(value_batches) != len(texts) or len(object_batches) != len(texts):
+            raise TransientCoreError("query embedding batch result is incomplete")
+        model_id = value_batches[0].model
+        model_version = value_batches[0].model_version
+        for batch in (*value_batches, *object_batches):
+            if (batch.model, batch.model_version) != (model_id, model_version):
+                raise TransientCoreError(
+                    "value and object query embedding identities disagree"
+                )
+        return [
+            (
+                value_batches[index].vectors[0],
+                object_batches[index].vectors[0],
+                model_id,
+                model_version,
+            )
+            for index in range(len(texts))
+        ]
 
     def embedding_profile_metadata(self, memory_space_id: str) -> dict[str, object]:
         """Resolve the active embedding identity without exposing provider secrets."""
@@ -662,9 +724,6 @@ class LocalRuntime:
         self._shutdown_timed_out_workers = []
         self._workers.clear()
         reranker = getattr(self, "_retrieval_reranker", None)
-        from ledgermind_inference.kev_runtime import close_all as close_decision_models
-
-        close_decision_models()
         if reranker is not None:
             reranker.close()
             self._retrieval_reranker = None

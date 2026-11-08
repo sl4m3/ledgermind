@@ -83,6 +83,25 @@ class RerankerConfig(BaseModel):
         return self.mode != "disabled"
 
 
+class RetrievalConfig(BaseModel):
+    """Local retrieval policy for session-aware context assembly."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dual_view_rerank: bool = True
+    adaptive_merge: bool = True
+    # 0 disables the secondary-retrieval context cap.
+    session_context_query_chars: int = Field(default=96, ge=0, le=1000)
+    # Explicit comma/semicolon-separated multi-aspect queries reserve a
+    # bounded part of the 32-candidate pool for each aspect. The full query
+    # keeps the majority of the pool.
+    multi_aspect_quota: bool = True
+    multi_aspect_max_aspects: int = Field(default=4, ge=1, le=6)
+    multi_aspect_primary_slots: int = Field(default=24, ge=0, le=32)
+    multi_aspect_aspect_slots: int = Field(default=8, ge=0, le=32)
+    multi_aspect_rerank_limit: int = Field(default=15, ge=1, le=32)
+
+
 class RuntimeResidencyConfig(BaseModel):
     """Installed process/model residency policy."""
 
@@ -261,6 +280,7 @@ class LocalConfig(BaseModel):
     allow_remote_bind: bool = False
     embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
     reranker: RerankerConfig = Field(default_factory=RerankerConfig)
+    retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
     runtime_residency: RuntimeResidencyConfig = Field(
         default_factory=RuntimeResidencyConfig
     )

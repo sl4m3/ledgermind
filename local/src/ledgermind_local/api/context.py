@@ -11,15 +11,21 @@ from typing import Any, Literal, Protocol
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from ledgermind_inference.retrieval_session import (
     CANDIDATE_POOL_LIMIT,
+    QueryAspect,
     chunk_context_for_embedding,
     compose_rerank_query,
     load_recent_session_context,
     merge_candidate_pools,
+    merge_candidate_pools_adaptive,
+    merge_candidate_pools_quota,
     merge_injection_legends,
+    split_query_aspects,
+    strip_retrieval_instructions,
 )
 from ledgermind_protocol.object_facet import ValueSemanticSafety
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 
+from ledgermind_local.config import RetrievalConfig
 from ledgermind_local.core_gateway import (
     DomainRejectedError,
     RecordRetrievalOutcomeCommand,
@@ -28,9 +34,12 @@ from ledgermind_local.core_gateway import (
     TransientCoreError,
 )
 from ledgermind_local.inference.retrieval_reranker import (
+    ApiReranker,
     Reranker,
+    RerankView,
     pack_items_with_dependencies,
     rank_items_with_scores,
+    rank_items_with_views,
 )
 
 from .http import build_request_id, error_payload, validate_json_request_headers
@@ -188,7 +197,9 @@ def create_context_router(
     reranker: Reranker | None = None,
     reranker_config: object | None = None,
     session_context_database_path: str | Path | None = None,
+    retrieval_config: RetrievalConfig | None = None,
 ) -> APIRouter:
+    retrieval_settings = retrieval_config or RetrievalConfig()
     router = APIRouter()
 
     @router.post("/context/injection-events", status_code=202)
@@ -234,6 +245,11 @@ def create_context_router(
             raise HTTPException(
                 status_code=422, detail="query and task context exceed 20000 characters"
             )
+        retrieval_query = (
+            strip_retrieval_instructions(effective_query)
+            if query_embedder is not None
+            else effective_query
+        )
         try:
             embedding_model_id = payload.embedding_model_id or "retrieval-embedder"
             embedding_model_version = payload.embedding_model_version or "1"
@@ -301,12 +317,87 @@ def create_context_router(
                     ]
                 return value_embedding, object_embedding, model_id, model_version
 
-            (
-                query_embedding,
-                object_query_embedding,
-                embedding_model_id,
-                embedding_model_version,
-            ) = embed_query_fields(effective_query)
+            aspects: list[QueryAspect] = []
+            if (
+                reranker is not None
+                and query_embedder is not None
+                and retrieval_settings.multi_aspect_quota
+            ):
+                try:
+                    aspects = split_query_aspects(
+                        retrieval_query,
+                        max_aspects=retrieval_settings.multi_aspect_max_aspects,
+                    )
+                except (TypeError, ValueError):
+                    aspects = []
+            aspect_embeddings: list[
+                tuple[list[float], list[float] | None, str, str] | None
+            ] = [None] * len(aspects)
+            batch_embedding: (
+                tuple[Sequence[float], Sequence[float] | None, str, str] | None
+            ) = None
+            if aspects and query_embedder is not None:
+                embed_batch = getattr(
+                    query_embedder, "embed_query_batch_with_metadata", None
+                )
+                if callable(embed_batch):
+                    try:
+                        batch = embed_batch(
+                            payload.memory_space_id,
+                            [
+                                retrieval_query,
+                                *(aspect.fragment for aspect in aspects),
+                            ],
+                        )
+                    except (
+                        HTTPException,
+                        RuntimeError,
+                        TransientCoreError,
+                        TypeError,
+                        ValueError,
+                    ) as exc:
+                        logger.warning(
+                            "query embedding batch skipped: %s",
+                            type(exc).__name__,
+                        )
+                        batch = None
+                    if batch is not None and len(batch) == 1 + len(aspects):
+                        batch_embedding = batch[0]
+                        aspect_embeddings = [
+                            (
+                                [float(component) for component in value],
+                                (
+                                    [float(component) for component in object_value]
+                                    if object_value is not None
+                                    else None
+                                ),
+                                model_id,
+                                model_version,
+                            )
+                            for value, object_value, model_id, model_version in batch[
+                                1:
+                            ]
+                        ]
+            if batch_embedding is not None:
+                (
+                    query_embedding,
+                    object_query_embedding,
+                    embedding_model_id,
+                    embedding_model_version,
+                ) = batch_embedding
+                query_embedding = [float(component) for component in query_embedding]
+                object_query_embedding = (
+                    [float(component) for component in object_query_embedding]
+                    if object_query_embedding is not None
+                    else None
+                )
+            else:
+                (
+                    query_embedding,
+                    object_query_embedding,
+                    embedding_model_id,
+                    embedding_model_version,
+                ) = embed_query_fields(retrieval_query)
             retrieve = getattr(context_gateway, "retrieve_context", None)
             if not callable(retrieve):
                 raise TransientCoreError("Core retrieval is unavailable")
@@ -341,6 +432,7 @@ def create_context_router(
                 model_id: str,
                 model_version: str,
                 command_request_id: str,
+                candidate_limit: int | None = None,
             ) -> Any:
                 return retrieve(
                     RetrieveContextCommand(
@@ -358,8 +450,11 @@ def create_context_router(
                         request_time=payload.request_time,
                         # The public caller limit remains the old safety cap in
                         # Core-only mode. Reranking requires the Core-admitted pool.
+                        # Aspect retrievals request only the slots the quota can use.
                         limit=(
-                            CANDIDATE_POOL_LIMIT
+                            candidate_limit
+                            if candidate_limit is not None
+                            else CANDIDATE_POOL_LIMIT
                             if reranker is not None
                             else payload.limit
                         ),
@@ -385,7 +480,7 @@ def create_context_router(
                 )
 
             result = retrieve_command(
-                text=effective_query,
+                text=retrieval_query,
                 value_embedding=query_embedding,
                 object_embedding=object_query_embedding,
                 model_id=embedding_model_id,
@@ -406,9 +501,112 @@ def create_context_router(
                 "selection_mode": selection_mode,
             }
             core_items = response_payload["items"]
+            aspect_views: list[RerankView] = []
+            aspect_query_count = 0
+            aspect_candidate_count = 0
+            if (
+                reranker is not None
+                and query_embedder is not None
+                and retrieval_settings.multi_aspect_quota
+                and core_items
+                and aspects
+            ):
+                aspect_pools: list[list[dict[str, Any]]] = []
+                aspect_injections: list[Mapping[str, Any]] = []
+                for index, aspect in enumerate(aspects):
+                    try:
+                        precomputed = aspect_embeddings[index]
+                        if precomputed is not None:
+                            (
+                                aspect_value_embedding,
+                                aspect_object_embedding,
+                                aspect_model_id,
+                                aspect_model_version,
+                            ) = precomputed
+                        else:
+                            (
+                                aspect_value_embedding,
+                                aspect_object_embedding,
+                                aspect_model_id,
+                                aspect_model_version,
+                            ) = embed_query_fields(aspect.fragment)
+                        aspect_result = retrieve_command(
+                            text=aspect.fragment,
+                            value_embedding=aspect_value_embedding,
+                            object_embedding=aspect_object_embedding,
+                            model_id=aspect_model_id,
+                            model_version=aspect_model_version,
+                            command_request_id=f"{request_id}:aspect:{index}",
+                            candidate_limit=max(
+                                1,
+                                retrieval_settings.multi_aspect_aspect_slots,
+                            ),
+                        )
+                        aspect_payload = _context_response(aspect_result.payload)
+                    except (
+                        DomainRejectedError,
+                        HTTPException,
+                        RuntimeError,
+                        TransientCoreError,
+                        TypeError,
+                        ValueError,
+                    ) as exc:
+                        logger.warning(
+                            "multi-aspect retrieval skipped: %s",
+                            type(exc).__name__,
+                        )
+                        continue
+                    aspect_query_count += 1
+                    aspect_items = aspect_payload.get("items")
+                    if isinstance(aspect_items, list) and aspect_items:
+                        aspect_pools.append(
+                            [
+                                dict(item)
+                                for item in aspect_items
+                                if isinstance(item, Mapping)
+                            ]
+                        )
+                    aspect_injection = aspect_payload.get("memory_injection")
+                    if isinstance(aspect_injection, Mapping):
+                        aspect_injections.append(aspect_injection)
+                if aspect_pools:
+                    primary_ids = {str(item["value_id"]) for item in core_items}
+                    core_items = merge_candidate_pools_quota(
+                        core_items,
+                        aspect_pools,
+                        limit=CANDIDATE_POOL_LIMIT,
+                        primary_quota=retrieval_settings.multi_aspect_primary_slots,
+                        aspect_quota=retrieval_settings.multi_aspect_aspect_slots,
+                    )
+                    aspect_candidate_count = sum(
+                        1
+                        for item in core_items
+                        if str(item["value_id"]) not in primary_ids
+                    )
+                    response_payload["items"] = core_items
+                    if aspect_injections:
+                        response_payload["memory_injection"] = merge_injection_legends(
+                            response_payload.get("memory_injection") or {},
+                            aspect_injections,
+                        )
+                    aspect_views = [
+                        RerankView(
+                            name=f"aspect:{index}",
+                            query=aspect.question,
+                        )
+                        for index, aspect in enumerate(aspects)
+                    ]
+                    logger.info(
+                        "multi-aspect quota aspects=%d candidates=%d",
+                        len(aspect_views),
+                        len(core_items),
+                    )
             session_context = ""
             session_context_chunks = 0
             session_context_candidates = 0
+            session_context_query_chars = 0
+            session_context_query_truncated = False
+            session_context_retrieval_skipped = False
             if (
                 reranker is not None
                 and query_embedder is not None
@@ -426,9 +624,37 @@ def create_context_router(
                 if session_context:
                     secondary_items: list[dict[str, Any]] = []
                     secondary_injections: list[Mapping[str, Any]] = []
-                    for index, chunk in enumerate(
-                        chunk_context_for_embedding(session_context)
+                    chunks = chunk_context_for_embedding(session_context)
+                    if (
+                        aspect_views
+                        and retrieval_settings.adaptive_merge
+                        and len(core_items) >= CANDIDATE_POOL_LIMIT
                     ):
+                        # Weighted RRF for a long query ranks every primary row
+                        # above every session row (0.8 vs 0.2). With a full
+                        # primary pool, chunk retrieval cannot change the
+                        # candidate set; keep the session text for the context
+                        # rerank view without paying for embedding and Core.
+                        logger.info(
+                            "session context candidate retrieval skipped: "
+                            "full aspect candidate pool"
+                        )
+                        chunks = []
+                        session_context_retrieval_skipped = True
+                    if retrieval_settings.session_context_query_chars > 0:
+                        limited_chunks: list[str] = []
+                        for raw_chunk in chunks:
+                            limited = _truncate_context_query(
+                                raw_chunk,
+                                retrieval_settings.session_context_query_chars,
+                            )
+                            if len(limited) != len(raw_chunk):
+                                session_context_query_truncated = True
+                            if limited:
+                                limited_chunks.append(limited)
+                        chunks = limited_chunks
+                    session_context_query_chars = sum(len(chunk) for chunk in chunks)
+                    for index, chunk in enumerate(chunks):
                         try:
                             (
                                 chunk_value_embedding,
@@ -478,7 +704,16 @@ def create_context_router(
                             secondary_injections.append(chunk_injection)
                     if secondary_items:
                         primary_item_count = len(core_items)
-                        core_items = merge_candidate_pools(core_items, secondary_items)
+                        if retrieval_settings.adaptive_merge:
+                            core_items = merge_candidate_pools_adaptive(
+                                core_items,
+                                secondary_items,
+                                query=effective_query,
+                            )
+                        else:
+                            core_items = merge_candidate_pools(
+                                core_items, secondary_items
+                            )
                         response_payload["items"] = core_items
                         session_context_candidates = (
                             len(core_items) - primary_item_count
@@ -494,32 +729,30 @@ def create_context_router(
             if reranker is not None and core_items:
                 original = response_payload.get("memory_injection") or {}
                 started = time.monotonic()
-                fallback_reason: str | None = None
                 ranking: list[dict[str, Any]] = []
                 rerank_query = (
-                    compose_rerank_query(effective_query, session_context)
+                    compose_rerank_query(retrieval_query, session_context)
                     if session_context
-                    else effective_query
+                    else retrieval_query
                 )
-                try:
-                    ranked, ranking = rank_items_with_scores(
-                        rerank_query, core_items, reranker
-                    )
-                    selection_status = "reranked"
-                except (
-                    ImportError,
-                    OSError,
-                    RuntimeError,
-                    TimeoutError,
-                    TypeError,
-                    ValueError,
-                ) as exc:
-                    logger.warning(
-                        "local reranker fallback to Core order: %s", type(exc).__name__
-                    )
-                    ranked = core_items
-                    selection_status = "core_fallback"
-                    fallback_reason = type(exc).__name__
+                (
+                    ranked,
+                    ranking,
+                    selection_status,
+                    fallback_reason,
+                    rerank_views,
+                    rerank_fallback,
+                    packing_query,
+                ) = _rerank_candidates(
+                    core_items=core_items,
+                    reranker=reranker,
+                    effective_query=retrieval_query,
+                    rerank_query=rerank_query,
+                    has_session_context=bool(session_context),
+                    dual_view=retrieval_settings.dual_view_rerank,
+                    aspect_views=aspect_views,
+                    aspect_rerank_limit=retrieval_settings.multi_aspect_rerank_limit,
+                )
                 try:
                     counter = (
                         getattr(reranker, "count_tokens", None)
@@ -539,15 +772,24 @@ def create_context_router(
                         soft_budget=int(getattr(reranker_config, "soft_budget", 4096)),
                         token_counter=counter,
                         dependency_links=pipeline.get("dependency_links"),
+                        max_items=(
+                            retrieval_settings.multi_aspect_rerank_limit
+                            if aspect_views
+                            else 32
+                        ),
                         selection_policy=(
-                            getattr(reranker_config, "selection_policy", "adaptive_k")
+                            "hybrid"
+                            if aspect_views
+                            else getattr(
+                                reranker_config, "selection_policy", "adaptive_k"
+                            )
                             if selection_status == "reranked"
                             else "hybrid"
                         ),
                         reranker_scores={
                             row["value_id"]: row["reranker_score"] for row in ranking
                         },
-                        query=rerank_query,
+                        query=packing_query,
                     )
                     response_payload["items"] = selected
                     response_payload["memory_injection"] = injection
@@ -569,6 +811,23 @@ def create_context_router(
                         "session_context_chars": len(session_context),
                         "session_context_chunks": session_context_chunks,
                         "session_context_candidates": session_context_candidates,
+                        "session_context_retrieval_skipped": (
+                            session_context_retrieval_skipped
+                        ),
+                        "session_context_query_chars": session_context_query_chars,
+                        "session_context_query_truncated": (
+                            session_context_query_truncated
+                        ),
+                        "merge_policy": (
+                            "adaptive"
+                            if retrieval_settings.adaptive_merge
+                            else "interleave"
+                        ),
+                        "rerank_views": rerank_views,
+                        "rerank_fallback": rerank_fallback,
+                        "multi_aspect_quota": retrieval_settings.multi_aspect_quota,
+                        "aspect_query_count": aspect_query_count,
+                        "aspect_candidate_count": aspect_candidate_count,
                         "ranking": ranking,
                         "selected_value_ids": [
                             str(item["value_id"]) for item in selected
@@ -613,6 +872,23 @@ def create_context_router(
                         "latency_ms": round((time.monotonic() - started) * 1000, 2),
                         "fallback_reason": type(exc).__name__,
                         "ranking": ranking,
+                        "session_context_retrieval_skipped": (
+                            session_context_retrieval_skipped
+                        ),
+                        "session_context_query_chars": session_context_query_chars,
+                        "session_context_query_truncated": (
+                            session_context_query_truncated
+                        ),
+                        "merge_policy": (
+                            "adaptive"
+                            if retrieval_settings.adaptive_merge
+                            else "interleave"
+                        ),
+                        "rerank_views": rerank_views,
+                        "rerank_fallback": rerank_fallback,
+                        "multi_aspect_quota": retrieval_settings.multi_aspect_quota,
+                        "aspect_query_count": aspect_query_count,
+                        "aspect_candidate_count": aspect_candidate_count,
                         "injection_size_unit": "unknown",
                     }
             record_outcome = getattr(context_gateway, "record_retrieval_outcome", None)
@@ -799,3 +1075,181 @@ def _normalize_legacy_context_payload(payload: dict[str, object]) -> dict[str, o
         items.append(item)
     normalized["items"] = items
     return normalized
+
+
+_RERANK_ERRORS = (
+    ImportError,
+    OSError,
+    RuntimeError,
+    TimeoutError,
+    TypeError,
+    ValueError,
+)
+
+
+def _truncate_context_query(text: str, limit: int) -> str:
+    """Cut a session-context retrieval query at a word boundary."""
+
+    if limit < 1 or len(text) <= limit:
+        return text
+    cut = text[:limit]
+    if cut.count("`") % 2:
+        cut = cut[: cut.rfind("`")]
+    boundary = max(cut.rfind(" "), cut.rfind("\n"), cut.rfind("\t"))
+    if boundary <= 0:
+        return ""
+    return cut[:boundary].rstrip()
+
+
+def _rerank_candidates(
+    *,
+    core_items: list[dict[str, Any]],
+    reranker: Reranker,
+    effective_query: str,
+    rerank_query: str,
+    has_session_context: bool,
+    dual_view: bool,
+    aspect_views: Sequence[RerankView] = (),
+    aspect_rerank_limit: int = 15,
+) -> tuple[
+    list[dict[str, Any]],
+    list[dict[str, Any]],
+    str,
+    str | None,
+    list[str],
+    str | None,
+    str,
+]:
+    """Rank candidates, preferring dual-view and degrading one view at a time."""
+
+    if aspect_views:
+        views = [RerankView(name="task", query=effective_query), *aspect_views]
+        if has_session_context:
+            views.append(RerankView(name="context", query=rerank_query))
+        try:
+            ranked, ranking = rank_items_with_views(
+                core_items,
+                views,
+                reranker,
+                fusion="best_rank",
+                max_workers=(len(views) if isinstance(reranker, ApiReranker) else 1),
+            )
+            return (
+                ranked,
+                ranking,
+                "reranked",
+                None,
+                [view.name for view in views],
+                None,
+                effective_query,
+            )
+        except _RERANK_ERRORS as exc:
+            logger.warning(
+                "multi-aspect rerank failed (%s); retrying single view",
+                type(exc).__name__,
+            )
+            ranked, ranking = rank_items_with_scores(
+                effective_query, core_items[:aspect_rerank_limit], reranker
+            )
+            return (
+                ranked,
+                ranking,
+                "reranked",
+                None,
+                ["task"],
+                "aspect_views",
+                effective_query,
+            )
+
+    if dual_view and has_session_context:
+        try:
+            dual_views = [
+                RerankView(name="task", query=effective_query),
+                RerankView(name="context", query=rerank_query),
+            ]
+            ranked, ranking = rank_items_with_views(
+                core_items,
+                dual_views,
+                reranker,
+                max_workers=(
+                    len(dual_views) if isinstance(reranker, ApiReranker) else 1
+                ),
+            )
+            return (
+                ranked,
+                ranking,
+                "reranked",
+                None,
+                ["task", "context"],
+                None,
+                rerank_query,
+            )
+        except _RERANK_ERRORS as exc:
+            logger.warning(
+                "dual-view rerank failed (%s); retrying context view",
+                type(exc).__name__,
+            )
+        try:
+            ranked, ranking = rank_items_with_scores(rerank_query, core_items, reranker)
+            return (
+                ranked,
+                ranking,
+                "reranked",
+                None,
+                ["context"],
+                "context_view",
+                rerank_query,
+            )
+        except _RERANK_ERRORS as exc:
+            logger.warning(
+                "context-view rerank failed (%s); retrying task view",
+                type(exc).__name__,
+            )
+        try:
+            ranked, ranking = rank_items_with_scores(
+                effective_query, core_items, reranker
+            )
+            return (
+                ranked,
+                ranking,
+                "reranked",
+                None,
+                ["task"],
+                "task_view",
+                effective_query,
+            )
+        except _RERANK_ERRORS as exc:
+            logger.warning(
+                "local reranker fallback to Core order: %s", type(exc).__name__
+            )
+            return (
+                core_items,
+                [],
+                "core_fallback",
+                type(exc).__name__,
+                [],
+                "core_order",
+                rerank_query,
+            )
+    try:
+        ranked, ranking = rank_items_with_scores(rerank_query, core_items, reranker)
+        return (
+            ranked,
+            ranking,
+            "reranked",
+            None,
+            ["context"] if has_session_context else [],
+            None,
+            rerank_query,
+        )
+    except _RERANK_ERRORS as exc:
+        logger.warning("local reranker fallback to Core order: %s", type(exc).__name__)
+        return (
+            core_items,
+            [],
+            "core_fallback",
+            type(exc).__name__,
+            [],
+            "core_order",
+            rerank_query,
+        )
