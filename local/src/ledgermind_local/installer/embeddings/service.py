@@ -89,12 +89,16 @@ class EmbeddingService:
         if queue_timeout <= 0:
             raise ValueError("queue_timeout must be positive")
         self._vectorizer = vectorizer
+        if self._vectorizer is None and backend is not None:
+            self._vectorizer = getattr(backend, "__self__", None)
         self._vectorizer_factory = vectorizer_factory
         self._backend_factory = backend_factory
         self._saved_backend = backend
         self._backend = backend
 
         self._raw_reranker = reranker_instance
+        if self._raw_reranker is None and reranker is not None:
+            self._raw_reranker = getattr(reranker, "__self__", None)
         self._reranker_factory = reranker_factory
         self._saved_reranker = reranker
         self._reranker = reranker
@@ -150,6 +154,8 @@ class EmbeddingService:
         self._backend = val
         if val is not None:
             self._saved_backend = val
+            if self._vectorizer is None:
+                self._vectorizer = getattr(val, "__self__", None)
 
     @property
     def reranker(self) -> RerankBackend | None:
@@ -160,6 +166,8 @@ class EmbeddingService:
         self._reranker = val
         if val is not None:
             self._saved_reranker = val
+            if self._raw_reranker is None:
+                self._raw_reranker = getattr(val, "__self__", None)
 
     @property
     def loaded(self) -> bool:
@@ -182,10 +190,8 @@ class EmbeddingService:
             if self._vectorizer_factory is not None:
                 self._vectorizer = self._vectorizer_factory()
                 self._backend = getattr(self._vectorizer, "encode", self._vectorizer)
-                self._saved_backend = self._backend
             elif self._backend_factory is not None:
                 self._backend = self._backend_factory()
-                self._saved_backend = self._backend
             elif self._saved_backend is not None:
                 self._backend = self._saved_backend
 
@@ -198,13 +204,14 @@ class EmbeddingService:
             if self._reranker_factory is not None:
                 self._raw_reranker = self._reranker_factory()
                 self._reranker = getattr(self._raw_reranker, "score", self._raw_reranker)
-                self._saved_reranker = self._reranker
             elif self._saved_reranker is not None:
                 self._reranker = self._saved_reranker
 
     def unload_idle(self, force: bool = False) -> bool:
         """Unload models if idle timeout expired and no requests in flight."""
         if self.is_busy and not force:
+            return False
+        if not force and self.idle_unload_seconds <= 0:
             return False
         now = time.monotonic()
         if not force and self.idle_unload_seconds > 0:
@@ -221,18 +228,21 @@ class EmbeddingService:
             if self._vectorizer is not None and hasattr(self._vectorizer, "close"):
                 try:
                     self._vectorizer.close()
-                except Exception:
+                except Exception:  # noqa: BLE001, S110
                     pass
             self._vectorizer = None
             self._backend = None
+            self._saved_backend = None
 
             if self._raw_reranker is not None and hasattr(self._raw_reranker, "close"):
                 try:
                     self._raw_reranker.close()
-                except Exception:
+                except Exception:  # noqa: BLE001, S110
                     pass
             self._raw_reranker = None
             self._reranker = None
+            if self._reranker_factory is not None:
+                self._saved_reranker = None
 
             gc.collect()
             self.release_cuda_cache()
@@ -473,9 +483,9 @@ class EmbeddingService:
                             "idle_unload_seconds": service.idle_unload_seconds,
                             "loaded": service.loaded,
                             "embedding": {
-                                "model": service.model if (service._backend is not None or service._saved_backend is not None) else None,
-                                "dimensions": service.dimensions if (service._backend is not None or service._saved_backend is not None) else None,
-                                "device": service.device if (service._backend is not None or service._saved_backend is not None) else None,
+                                "model": service.model if (service._backend is not None or service._saved_backend is not None or service._vectorizer_factory is not None or service._backend_factory is not None) else None,
+                                "dimensions": service.dimensions if (service._backend is not None or service._saved_backend is not None or service._vectorizer_factory is not None or service._backend_factory is not None) else None,
+                                "device": service.device if (service._backend is not None or service._saved_backend is not None or service._vectorizer_factory is not None or service._backend_factory is not None) else None,
                                 "loaded": service.embedding_loaded,
                                 "fingerprint": service.embedding_fingerprint,
                             },
@@ -483,7 +493,11 @@ class EmbeddingService:
                                 "model": service.reranker_model or None,
                                 "device": (
                                     service.reranker_device
-                                    if (service._reranker is not None or service._saved_reranker is not None)
+                                    if (
+                                        service._reranker is not None
+                                        or service._saved_reranker is not None
+                                        or service._reranker_factory is not None
+                                    )
                                     else None
                                 ),
                                 "loaded": service.reranker_loaded,
@@ -495,7 +509,11 @@ class EmbeddingService:
                 self._json(404, {"error": "not_found"})
 
             def _handle_rerank(self, payload: dict[str, Any]) -> None:
-                if service.reranker is None:
+                if (
+                    service._reranker is None
+                    and service._saved_reranker is None
+                    and service._reranker_factory is None
+                ):
                     self._json(503, {"error": "reranker_unavailable"})
                     return
                 model = payload.get("model")

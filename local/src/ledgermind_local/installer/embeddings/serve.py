@@ -97,8 +97,9 @@ def main(argv: list[str] | None = None) -> int:
             print("model gateway is already running", file=sys.stderr)
             lock_handle.close()
             return 0
-    vectorizer = None
     backend = None
+    vectorizer_factory = None
+    reranker_factory = None
     model = args.model or ""
     dimensions = args.dimensions
     embedding_fingerprint: str | None = None
@@ -157,23 +158,35 @@ def main(argv: list[str] | None = None) -> int:
         dimensions = proxy_dimensions
         embedding_fingerprint = proxy_fingerprint
     elif args.model_path is not None:
-        if args.model_path.suffix.lower() == ".gguf":
-            vectorizer = GGUFVectorizer(
-                model_path=args.model_path,
-                n_threads=args.threads,
-                gpu_layers=args.gpu_layers,
-            )
+        model_path = Path(args.model_path).expanduser()
+        threads = args.threads
+        gpu_layers = args.gpu_layers
+        device = args.device
+        expected_dimension = args.dimensions
+        max_seq_length = args.max_seq_length
+        if model_path.suffix.lower() == ".gguf":
+            def vectorizer_factory():
+                return GGUFVectorizer(
+                    model_path=model_path,
+                    n_threads=threads,
+                    gpu_layers=gpu_layers,
+                )
+
+            embedding_fingerprint = GGUFVectorizer._compute_fingerprint(None, model_path)
+            model = args.model or embedding_fingerprint
+            dimensions = expected_dimension
         else:
-            vectorizer = SentenceTransformerVectorizer(
-                model_path=args.model_path,
-                device=args.device,
-                expected_dimension=args.dimensions,
-                max_seq_length=args.max_seq_length,
-            )
-        backend = vectorizer.encode
-        model = args.model or vectorizer.fingerprint
-        dimensions = vectorizer.dimension
-        embedding_fingerprint = vectorizer.fingerprint
+            def vectorizer_factory():
+                return SentenceTransformerVectorizer(
+                    model_path=model_path,
+                    device=device,
+                    expected_dimension=expected_dimension,
+                    max_seq_length=max_seq_length,
+                )
+
+            embedding_fingerprint = SentenceTransformerVectorizer._tree_fingerprint(model_path)
+            model = args.model or embedding_fingerprint
+            dimensions = expected_dimension
     elif args.reranker_model_path is None:
         raise RuntimeError(
             "--model-path, --embedding-proxy-endpoint, or --reranker-model-path is required"
@@ -183,28 +196,35 @@ def main(argv: list[str] | None = None) -> int:
         token = args.token_file.read_text(encoding="utf-8").strip()
         if not token:
             raise RuntimeError("local embedding token file is empty")
-    reranker = None
+    reranker_factory = None
     if args.reranker_model_path is not None:
-        if args.reranker_runtime is not None:
-            site_packages = args.reranker_runtime.expanduser() / "site-packages"
-            if site_packages.is_dir() and str(site_packages) not in sys.path:
-                sys.path.insert(0, str(site_packages))
-        from ledgermind_inference.retrieval_reranker import QwenLocalReranker
+        reranker_model_path = args.reranker_model_path
+        reranker_device = args.reranker_device
+        reranker_runtime = args.reranker_runtime
 
-        reranker = QwenLocalReranker(args.reranker_model_path, args.reranker_device)
+        def reranker_factory():
+            if reranker_runtime is not None:
+                site_packages = reranker_runtime.expanduser() / "site-packages"
+                if site_packages.is_dir() and str(site_packages) not in sys.path:
+                    sys.path.insert(0, str(site_packages))
+            from ledgermind_inference.retrieval_reranker import QwenLocalReranker
+
+            return QwenLocalReranker(reranker_model_path, reranker_device)
     service = EmbeddingService(
         backend=backend,
+        vectorizer_factory=vectorizer_factory,
         model=model,
         dimensions=dimensions,
-        device=args.device if backend is not None else args.reranker_device,
+        device=args.device if (backend is not None or vectorizer_factory is not None) else args.reranker_device,
         host=args.host,
         port=args.port,
         token=token,
         embedding_fingerprint=embedding_fingerprint,
         embedding_aliases=args.embedding_alias,
-        reranker=reranker.score if reranker is not None else None,
-        reranker_model=args.reranker_model if reranker is not None else None,
-        reranker_device=args.reranker_device if reranker is not None else None,
+        reranker=None,
+        reranker_factory=reranker_factory,
+        reranker_model=args.reranker_model if (reranker_factory is not None or args.reranker_model_path is not None) else None,
+        reranker_device=args.reranker_device if (reranker_factory is not None or args.reranker_model_path is not None) else None,
         max_request_texts=args.max_request_texts,
         max_request_chars=args.max_request_chars,
         max_request_documents=args.max_request_docs,
@@ -244,8 +264,6 @@ def main(argv: list[str] | None = None) -> int:
         stopped.wait()
     finally:
         service.stop()
-        if vectorizer is not None:
-            vectorizer.close()
         if lock_handle is not None:
             lock_handle.close()
     return 0
