@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """LedgerMind Public Isolation and Core Code Separation Verification.
 
-Audits the public repository, distribution packages, and platform bundle payload
-across 4 distinct tiers:
+Audits the public repository, distribution packages, platform bundle payload, and
+git history across 5 distinct tiers:
   Tier 1: Repo file tree audit (0 *.rs, 0 Cargo manifests, 0 forbidden root dirs, absence of deleted internal scripts)
   Tier 2: Source AST & grep audit (0 imports of ledgermind_lab, ledgermind_cloud.service, core.crates; no proprietary license leaks)
   Tier 3: Distribution package audit (wheel & sdist namelist inspection, only ledgermind_local, 0 .rs or private sources)
   Tier 4: Platform bundle payload audit (bin/ledgermind-core ELF binary verification with detached .sig, 0 Rust sources)
+  Tier 5: Git history audit (all local branches, origin refs, and tags; deleted private files still leak)
 """
 
 from __future__ import annotations
@@ -119,20 +120,26 @@ def audit_repo_file_tree(repo_root: Path) -> list[str]:
     for path in repo_root.rglob("*.rs"):
         if any(part in IGNORE_DIR_NAMES for part in path.parts):
             continue
-        violations.append(f"Forbidden Rust source file found: {path.relative_to(repo_root)}")
+        violations.append(
+            f"Forbidden Rust source file found: {path.relative_to(repo_root)}"
+        )
 
     # 2. Zero Cargo.toml / Cargo.lock files
     for pattern in ("Cargo.toml", "Cargo.lock"):
         for path in repo_root.rglob(pattern):
             if any(part in IGNORE_DIR_NAMES for part in path.parts):
                 continue
-            violations.append(f"Forbidden Cargo manifest found: {path.relative_to(repo_root)}")
+            violations.append(
+                f"Forbidden Cargo manifest found: {path.relative_to(repo_root)}"
+            )
 
     # 3. Forbidden private directories at repository root
     for forbidden_dir in FORBIDDEN_ROOT_DIRS:
         target = repo_root / forbidden_dir
         if target.exists() and target.is_dir():
-            violations.append(f"Forbidden private directory at repository root: {forbidden_dir}/")
+            violations.append(
+                f"Forbidden private directory at repository root: {forbidden_dir}/"
+            )
 
     # 4. Absence of deleted internal runtime scripts
     for rel_path in DELETED_INTERNAL_PATHS:
@@ -140,6 +147,98 @@ def audit_repo_file_tree(repo_root: Path) -> list[str]:
         if target.exists():
             violations.append(f"Deprecated internal script still present: {rel_path}")
 
+    return violations
+
+
+HISTORY_ROOT_PREFIXES = (
+    "core/",
+    "crates/",
+    "cloud-service/",
+    "cloud-connector/",
+    "lab/",
+    "deploy/",
+    "site/",
+)
+
+
+def _history_path_forbidden(path: str) -> bool:
+    normalized = path.replace("\\", "/")
+    name = normalized.rsplit("/", 1)[-1]
+    if name in {"Cargo.toml", "Cargo.lock"} or normalized.endswith(".rs"):
+        return True
+    return normalized.startswith(HISTORY_ROOT_PREFIXES)
+
+
+def _history_refs(repo_root: Path) -> list[str]:
+    proc = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "for-each-ref",
+            "--format=%(refname)",
+            "refs/heads",
+            "refs/remotes/origin",
+            "refs/tags",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return []
+    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
+
+def audit_git_history(repo_root: Path) -> list[str]:
+    """Detect private files that remain reachable in published git history.
+
+    A clean working tree is not enough: a file deleted in a later commit is still
+    part of the repository and is served by GitHub.  Audit every local branch,
+    origin branch, and tag rather than only HEAD.
+    """
+    if not (repo_root / ".git").exists():
+        return [f"Not a git repository: {repo_root}"]
+
+    refs = _history_refs(repo_root)
+    if not refs:
+        return ["Git history audit found no branches, origin refs, or tags"]
+
+    leaked: dict[str, set[str]] = {}
+    for ref in refs:
+        proc = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-list", ref, "--objects"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if proc.returncode != 0:
+            return [f"Git history audit failed for {ref}: {proc.stderr.strip()}"]
+        for line in proc.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            path = parts[1]
+            if _history_path_forbidden(path):
+                leaked.setdefault(path, set()).add(ref)
+
+    violations: list[str] = []
+    ordered = sorted(leaked)
+    for path in ordered[:50]:
+        refs_for_path = sorted(leaked[path])
+        if len(refs_for_path) <= 4:
+            ref_label = ", ".join(refs_for_path)
+        else:
+            ref_label = (
+                ", ".join(refs_for_path[:3]) + f", +{len(refs_for_path) - 3} more"
+            )
+        violations.append(
+            f"Git history contains forbidden path: {path} (refs: {ref_label})"
+        )
+    if len(ordered) > 50:
+        violations.append(
+            f"Git history audit truncated: {len(ordered)} forbidden paths total"
+        )
     return violations
 
 
@@ -235,7 +334,14 @@ def audit_distribution_packages(repo_root: Path, work_dir: Path) -> list[str]:
         local_dir,
         temp_source,
         ignore=shutil.ignore_patterns(
-            ".git", ".venv", "venv", "__pycache__", ".pytest_cache", "build", "dist", "*.egg-info"
+            ".git",
+            ".venv",
+            "venv",
+            "__pycache__",
+            ".pytest_cache",
+            "build",
+            "dist",
+            "*.egg-info",
         ),
     )
     dist_out = work_dir / "dist_out"
@@ -245,11 +351,20 @@ def audit_distribution_packages(repo_root: Path, work_dir: Path) -> list[str]:
     if uv_bin:
         cmd = [uv_bin, "build", "--out-dir", str(dist_out), str(temp_source)]
     else:
-        cmd = [sys.executable, "-m", "build", "--out-dir", str(dist_out), str(temp_source)]
+        cmd = [
+            sys.executable,
+            "-m",
+            "build",
+            "--out-dir",
+            str(dist_out),
+            str(temp_source),
+        ]
 
     proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if proc.returncode != 0:
-        violations.append(f"Distribution build failed (exit code {proc.returncode}):\n{proc.stderr or proc.stdout}")
+        violations.append(
+            f"Distribution build failed (exit code {proc.returncode}):\n{proc.stderr or proc.stdout}"
+        )
         return violations
 
     wheels = list(dist_out.glob("*.whl"))
@@ -281,9 +396,13 @@ def audit_distribution_packages(repo_root: Path, work_dir: Path) -> list[str]:
                         f"Wheel {wheel.name} contains unexpected top-level component: {top_part}"
                     )
 
-            sql_files = [n for n in namelist if n.endswith(".sql") and "rounds_migrations" in n]
+            sql_files = [
+                n for n in namelist if n.endswith(".sql") and "rounds_migrations" in n
+            ]
             if not sql_files:
-                violations.append(f"Wheel {wheel.name} is missing rounds_migrations SQL files")
+                violations.append(
+                    f"Wheel {wheel.name} is missing rounds_migrations SQL files"
+                )
 
     for sdist in sdists:
         with tarfile.open(sdist, "r:gz") as tf:
@@ -295,7 +414,14 @@ def audit_distribution_packages(repo_root: Path, work_dir: Path) -> list[str]:
                         f"Sdist {sdist.name} contains forbidden source extension: {name}"
                     )
                 for part in entry.parts:
-                    if part in ("core", "cloud-service", "cloud-connector", "lab", "deploy", "site"):
+                    if part in (
+                        "core",
+                        "cloud-service",
+                        "cloud-connector",
+                        "lab",
+                        "deploy",
+                        "site",
+                    ):
                         violations.append(
                             f"Sdist {sdist.name} contains forbidden directory part: {part} in {name}"
                         )
@@ -347,7 +473,9 @@ def audit_bundle_payload(bundle_dir: Path) -> list[str]:
         if pub_file and core_binary.is_file():
             try:
                 import base64
-                from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+                from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+                    Ed25519PublicKey,
+                )
 
                 sig_bytes = sig_file.read_bytes().strip()
                 if len(sig_bytes) != 64:
@@ -388,11 +516,15 @@ def audit_bundle_payload(bundle_dir: Path) -> list[str]:
     return violations
 
 
-def resolve_or_create_bundle(repo_root: Path, bundle_arg: Path | None, work_dir: Path) -> Path:
+def resolve_or_create_bundle(
+    repo_root: Path, bundle_arg: Path | None, work_dir: Path
+) -> Path:
     if bundle_arg is not None:
         return bundle_arg.expanduser().resolve()
 
-    env_bundle = os.environ.get("LEDGERMIND_PLATFORM_BUNDLE") or os.environ.get("LEDGERMIND_BUNDLE_PATH")
+    env_bundle = os.environ.get("LEDGERMIND_PLATFORM_BUNDLE") or os.environ.get(
+        "LEDGERMIND_BUNDLE_PATH"
+    )
     if env_bundle:
         p = Path(env_bundle).expanduser().resolve()
         if p.is_dir():
@@ -413,7 +545,14 @@ def resolve_or_create_bundle(repo_root: Path, bundle_arg: Path | None, work_dir:
     sig_dir.mkdir(parents=True, exist_ok=True)
 
     core_binary_path = bin_dir / "ledgermind-core"
-    existing_core = repo_root.parent / "ledgermind-platform" / "core" / "target" / "release" / "ledgermind-core"
+    existing_core = (
+        repo_root.parent
+        / "ledgermind-platform"
+        / "core"
+        / "target"
+        / "release"
+        / "ledgermind-core"
+    )
     if existing_core.is_file():
         shutil.copy2(existing_core, core_binary_path)
     else:
@@ -444,6 +583,7 @@ def run_isolation_verification(
     repo_root: Path,
     bundle_path: Path | None = None,
     verbose: bool = False,
+    skip_history: bool = False,
 ) -> AuditReport:
     report = AuditReport(status="passed", violations_count=0)
 
@@ -483,8 +623,19 @@ def run_isolation_verification(
             violations=t4_violations,
         )
 
+        # Tier 5
+        if skip_history:
+            t5_violations = []
+        else:
+            t5_violations = audit_git_history(repo_root)
+        report.tiers["tier_5_git_history"] = TierResult(
+            name="Git History Audit",
+            status="passed" if not t5_violations else "failed",
+            violations=t5_violations,
+        )
+
     all_violations = (
-        t1_violations + t2_violations + t3_violations + t4_violations
+        t1_violations + t2_violations + t3_violations + t4_violations + t5_violations
     )
     report.violations_count = len(all_violations)
     report.status = "passed" if not all_violations else "failed"
@@ -519,6 +670,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Enable verbose output",
     )
+    parser.add_argument(
+        "--skip-history",
+        action="store_true",
+        help="Audit only the working tree, packages, and bundle (skip git history)",
+    )
 
     args = parser.parse_args(argv)
     repo_root = args.repo_root.resolve()
@@ -527,6 +683,7 @@ def main(argv: list[str] | None = None) -> int:
         repo_root=repo_root,
         bundle_path=args.bundle_path,
         verbose=args.verbose,
+        skip_history=args.skip_history,
     )
 
     if args.json:
@@ -556,7 +713,9 @@ def main(argv: list[str] | None = None) -> int:
             print("ALL TIERS PASSED: Public repository is cleanly isolated from Core.")
             print("=" * 64)
         else:
-            print(f"FAILED: Isolation verification detected {report.violations_count} violation(s).")
+            print(
+                f"FAILED: Isolation verification detected {report.violations_count} violation(s)."
+            )
             print("=" * 64)
 
     return 0 if report.status == "passed" else 1

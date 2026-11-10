@@ -29,19 +29,34 @@ spec.loader.exec_module(verify_mod)
 def test_verify_public_isolation_cli_passes():
     """Verify that the verification script CLI runs and passes with exit code 0."""
     result = subprocess.run(
-        [sys.executable, str(VERIFY_SCRIPT), "--repo-root", str(REPO_ROOT)],
+        [
+            sys.executable,
+            str(VERIFY_SCRIPT),
+            "--repo-root",
+            str(REPO_ROOT),
+            "--skip-history",
+        ],
         capture_output=True,
         text=True,
         check=False,
     )
-    assert result.returncode == 0, f"Script failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    assert result.returncode == 0, (
+        f"Script failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
     assert "ALL TIERS PASSED" in result.stdout
 
 
 def test_verify_public_isolation_cli_json():
     """Verify that the verification script JSON output is complete and clean."""
     result = subprocess.run(
-        [sys.executable, str(VERIFY_SCRIPT), "--repo-root", str(REPO_ROOT), "--json"],
+        [
+            sys.executable,
+            str(VERIFY_SCRIPT),
+            "--repo-root",
+            str(REPO_ROOT),
+            "--json",
+            "--skip-history",
+        ],
         capture_output=True,
         text=True,
         check=False,
@@ -56,9 +71,12 @@ def test_verify_public_isolation_cli_json():
     assert "tier_2_source_ast" in tiers
     assert "tier_3_distribution_package" in tiers
     assert "tier_4_bundle_payload" in tiers
+    assert "tier_5_git_history" in tiers
 
     for tier_key, tier_data in tiers.items():
-        assert tier_data["status"] == "passed", f"{tier_key} failed: {tier_data['violations']}"
+        assert tier_data["status"] == "passed", (
+            f"{tier_key} failed: {tier_data['violations']}"
+        )
         assert tier_data["violations"] == []
 
 
@@ -86,7 +104,9 @@ def test_tier1_detects_forbidden_file_tree(tmp_path: Path):
     core_dir = tmp_path / "core"
     core_dir.mkdir()
     violations = verify_mod.audit_repo_file_tree(tmp_path)
-    assert any("Forbidden private directory at repository root: core/" in v for v in violations)
+    assert any(
+        "Forbidden private directory at repository root: core/" in v for v in violations
+    )
 
 
 def test_tier2_detects_forbidden_ast_imports(tmp_path: Path):
@@ -109,9 +129,13 @@ def test_tier2_detects_forbidden_ast_imports(tmp_path: Path):
     assert any("Forbidden from-import 'core.crates'" in v for v in violations)
 
     # Import ledgermind_cloud.service
-    test_py.write_text("from " + "ledgermind_cloud" + " import service\n", encoding="utf-8")
+    test_py.write_text(
+        "from " + "ledgermind_cloud" + " import service\n", encoding="utf-8"
+    )
     violations = verify_mod.audit_source_code(tmp_path)
-    assert any("Forbidden from-import 'ledgermind_cloud.service'" in v for v in violations)
+    assert any(
+        "Forbidden from-import 'ledgermind_cloud.service'" in v for v in violations
+    )
 
 
 def test_tier4_detects_invalid_bundle(tmp_path: Path):
@@ -150,3 +174,66 @@ def test_tier4_detects_invalid_bundle(tmp_path: Path):
     leaked_rs.write_text("fn leak() {}", encoding="utf-8")
     violations = verify_mod.audit_bundle_payload(bundle_dir)
     assert any("Bundle contains forbidden Rust source file" in v for v in violations)
+
+
+def _commit_all(repo: Path, message: str) -> None:
+    subprocess.run(
+        ["git", "-C", str(repo), "add", "-A"],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.name=isolation-test",
+            "-c",
+            "user.email=isolation@example.com",
+            "commit",
+            "-m",
+            message,
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+
+def test_tier5_detects_deleted_private_git_history(tmp_path: Path):
+    """A file deleted from HEAD must still be reported while reachable in history."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(
+        ["git", "-C", str(repo), "init", "-b", "main"],
+        check=True,
+        capture_output=True,
+    )
+    rust_file = repo / "crates" / "core" / "lib.rs"
+    rust_file.parent.mkdir(parents=True)
+    rust_file.write_text("fn private_core() {}", encoding="utf-8")
+    cargo_file = repo / "Cargo.toml"
+    cargo_file.write_text("[package]\nname = 'private-core'\n", encoding="utf-8")
+    _commit_all(repo, "import private core")
+
+    rust_file.unlink()
+    cargo_file.unlink()
+    _commit_all(repo, "remove private core from HEAD")
+
+    violations = verify_mod.audit_git_history(repo)
+    assert any("crates/core/lib.rs" in v for v in violations)
+    assert any("Cargo.toml" in v for v in violations)
+
+
+def test_tier5_clean_history_passes(tmp_path: Path):
+    repo = tmp_path / "clean"
+    repo.mkdir()
+    subprocess.run(
+        ["git", "-C", str(repo), "init", "-b", "main"],
+        check=True,
+        capture_output=True,
+    )
+    (repo / "README.md").write_text("public only\n", encoding="utf-8")
+    _commit_all(repo, "public")
+
+    assert verify_mod.audit_git_history(repo) == []
