@@ -109,20 +109,26 @@ def copy_signed_core(binary: Path, paths: ServicePaths) -> None:
     )
 
 
-def _generation_for_task(lab_config: Any, task_kind: str) -> Any:
-    """Resolve the Lab task route without inventing a production fallback."""
+def _generation_for_task(runtime_config: Any, task_kind: str) -> Any:
+    """Resolve the task route without inventing a production fallback."""
 
-    profile_name = lab_config.generation_profile_for_task(task_kind)
-    return lab_config.with_profiles(generation_profile=profile_name).generation
+    profile_name = runtime_config.generation_profile_for_task(task_kind)
+    return runtime_config.with_profiles(generation_profile=profile_name).generation
 
 
-def config_for(*, home: Path, lab_config: Any, port: int) -> LocalConfig:
+def config_for(
+    *, home: Path, runtime_config: Any | None = None, port: int, **kwargs: Any
+) -> LocalConfig:
     """Build the same secure Local configuration used by pre-production gates."""
 
-    embedding = lab_config.embedding
+    if runtime_config is None:
+        runtime_config = kwargs.pop("lab_config", None)
+    if runtime_config is None or kwargs:
+        raise TypeError("config_for requires runtime_config")
+    embedding = runtime_config.embedding
     return LocalConfig(
         config_version=2,
-        semantic_language=lab_config.semantic_language,
+        semantic_language=runtime_config.semantic_language,
         bind_host="127.0.0.1",
         bind_port=port,
         rounds_database_path="rounds.db",
@@ -150,12 +156,14 @@ def config_for(*, home: Path, lab_config: Any, port: int) -> LocalConfig:
         worker_max_attempts=3,
         worker_retry_delay_seconds=1.0,
         worker_lease_seconds=420.0,
-        generation_concurrency=int(getattr(lab_config, "generation_concurrency", 1)),
+        generation_concurrency=int(
+            getattr(runtime_config, "generation_concurrency", 1)
+        ),
         provider_capability_ttl_seconds=86_400,
         inference_secrets_path=str(home / "secrets.json"),
         profile_slots=ProfileSlotsConfig(
             resolution_decision="resolution-decision"
-            if getattr(lab_config, "resolution_decision", None) is not None
+            if getattr(runtime_config, "resolution_decision", None) is not None
             else None,
             operational="generation-operational",
             object_resolution="generation-object-resolution",
@@ -181,16 +189,23 @@ def seed_local(
     *,
     paths: ServicePaths,
     config: LocalConfig,
-    lab_config: Any,
+    runtime_config: Any | None = None,
     memory_space_id: str,
     source_client: str = "hermes-production-local",
+    **kwargs: Any,
 ) -> None:
     """Create the migration-owned seed state and bind all inference slots."""
 
-    generation = _generation_for_task(lab_config, "round_semantic")
-    object_resolution_generation = _generation_for_task(lab_config, "object_resolution")
-    background_generation = _generation_for_task(lab_config, "execution_semantic")
-    embedding = lab_config.embedding
+    if runtime_config is None:
+        runtime_config = kwargs.pop("lab_config", None)
+    if runtime_config is None or kwargs:
+        raise TypeError("seed_local requires runtime_config")
+    generation = _generation_for_task(runtime_config, "round_semantic")
+    object_resolution_generation = _generation_for_task(
+        runtime_config, "object_resolution"
+    )
+    background_generation = _generation_for_task(runtime_config, "execution_semantic")
+    embedding = runtime_config.embedding
     configured_output_modes = tuple(generation.structured_output_modes)
     background_output_preference = background_structured_output_preference(
         configured_output_modes
@@ -286,57 +301,27 @@ def seed_local(
                 )
             )
             store.bind_slot(memory_space_id, slot=slot, profile_id=profile_id)
-        decision = getattr(lab_config, "resolution_decision", None)
+        decision = getattr(runtime_config, "resolution_decision", None)
         if decision is not None:
-            operational = store.get("generation-operational")
-            assert operational is not None
-            if decision.backend == "generative":
-                extra = dict(operational.extra_body)
-                if generation.route:
-                    extra["provider"] = {
-                        "order": [generation.route],
-                        "only": [generation.route],
-                        "allow_fallbacks": False,
-                    }
-                elif "openrouter.ai" in operational.base_url:
-                    raise ProductionSupportError(
-                        "OpenRouter decision profile requires a single provider route"
-                    )
-                profile = operational.model_copy(
-                    update={
-                        "profile_id": "resolution-decision",
-                        "decision_backend": "generative",
-                        "extra_body": extra,
-                    }
+            if decision.backend != "jev":
+                raise ProductionSupportError(
+                    "only Jev is supported for resolution_decision"
                 )
-            elif decision.backend == "jev":
-                secret_store.put(
-                    "resolution-decision-api", decision.token.get_secret_value()
-                )
-                profile = InferenceProfile(
-                    profile_id="resolution-decision",
-                    decision_backend="jev",
-                    base_url="https://openrouter.ai/api/alpha/decisions",
-                    model="typesafe/jev-1.14",
-                    secret_ref="resolution-decision-api",
-                    max_input_tokens=DEFAULT_GENERATION_MAX_INPUT_TOKENS,
-                    max_output_tokens=6144,
-                )
-            else:
-                profile = InferenceProfile(
-                    profile_id="resolution-decision",
-                    decision_backend="kev",
-                    base_url="http://127.0.0.1",
-                    model="jaredpalmer/kev-4b",
-                    secret_ref="local-decision-unused",
-                    timeout_seconds=600,
-                    max_output_tokens=6144,
-                    extra_body={
-                        "runtime_path": decision.runtime_path,
-                        "residency_mode": decision.residency_mode,
-                        "idle_timeout_seconds": decision.idle_timeout_seconds,
-                    },
-                )
+            decision_token = (
+                decision.token.get_secret_value()
+                if decision.token.get_secret_value()
+                else generation.resolved_token()
+            )
+            secret_store.put("resolution-decision-api", decision_token)
+            profile = InferenceProfile(
+                profile_id="resolution-decision",
+                decision_backend="jev",
+                base_url="https://openrouter.ai/api/alpha/decisions",
+                model="typesafe/jev-1.14",
+                secret_ref="resolution-decision-api",
+                max_input_tokens=DEFAULT_GENERATION_MAX_INPUT_TOKENS,
+                max_output_tokens=6144,
+            )
             store.upsert(profile)
             store.bind_slot(
                 memory_space_id,
@@ -379,17 +364,6 @@ def probe_generation_profiles(
         ProfileSlot.OBJECT_RESOLUTION,
         ProfileSlot.BACKGROUND,
     ]
-    try:
-        decision_profile = resolver.resolve_profile(
-            memory_space_id, ProfileSlot.RESOLUTION_DECISION
-        )
-    except MissingProfileError:
-        decision_profile = None
-    if (
-        decision_profile is not None
-        and decision_profile.decision_backend == "generative"
-    ):
-        slots.append(ProfileSlot.RESOLUTION_DECISION)
     for slot in slots:
         result = probe.probe(memory_space_id, slot, force=False, reprobe=False)
         results[slot.value] = {

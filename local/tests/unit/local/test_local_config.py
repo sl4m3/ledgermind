@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
-
 from ledgermind_local.config import LocalConfig
+from pydantic import ValidationError
 
 
 def test_config_version_required() -> None:
@@ -137,3 +136,49 @@ def test_reranker_candidate_policy_defaults_to_semantic_and_accepts_formula() ->
     assert RerankerConfig(candidate_policy="formula").candidate_policy == "formula"
     with pytest.raises(ValidationError):
         RerankerConfig(candidate_policy="lexical")  # type: ignore[arg-type]
+
+
+def test_retrieval_defaults_enable_dual_view_and_adaptive_merge() -> None:
+    config = LocalConfig(config_version=1, semantic_language="ru")
+
+    assert config.retrieval.dual_view_rerank is True
+    assert config.retrieval.adaptive_merge is True
+    assert config.retrieval.session_context_query_chars == 96
+
+
+def test_retrieval_config_validation() -> None:
+    from ledgermind_local.config import RetrievalConfig
+
+    with pytest.raises(ValidationError):
+        RetrievalConfig(session_context_query_chars=-1)
+    with pytest.raises(ValidationError):
+        RetrievalConfig(session_context_query_chars=1001)
+    assert RetrievalConfig(session_context_query_chars=0).session_context_query_chars == 0
+
+
+def test_retrieval_config_is_optional_for_old_configurations() -> None:
+    config = LocalConfig.model_validate(
+        {"config_version": 2, "semantic_language": "ru"}
+    )
+
+    assert config.retrieval.dual_view_rerank is True
+
+
+def test_retrieval_config_round_trips_through_json() -> None:
+    from ledgermind_local.config import RetrievalConfig
+
+    config = LocalConfig(
+        config_version=2,
+        semantic_language="ru",
+        retrieval=RetrievalConfig(
+            dual_view_rerank=False,
+            adaptive_merge=False,
+            session_context_query_chars=0,
+        ),
+    )
+
+    restored = LocalConfig.model_validate_json(config.to_json())
+
+    assert restored.retrieval.dual_view_rerank is False
+    assert restored.retrieval.adaptive_merge is False
+    assert restored.retrieval.session_context_query_chars == 0

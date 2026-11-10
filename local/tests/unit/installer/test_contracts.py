@@ -1218,8 +1218,69 @@ def test_installed_local_embedding_uses_its_signed_device_runtime(
     assert command[command.index("--dimensions") + 1] == "2048"
     assert command[command.index("--device") + 1] == "cuda"
     assert command[command.index("--gpu-layers") + 1] == "99"
+    assert command[command.index("--port") + 1] == "8767"
     assert "--token-file" in command
     assert (
         paths.data_dir / "embedding" / "server.token"
     ).stat().st_mode & 0o777 == 0o600
     assert "embedding-local" not in " ".join(command)
+
+
+def test_installed_local_embedding_and_local_reranker_share_model_service(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ledgermind_local.installer.models import RerankerConfig, RerankerLocalConfig
+
+    monkeypatch.setenv("LEDGERMIND_SECRET_BACKEND", "file")
+    paths = InstallerPaths(home_override=tmp_path)
+    paths.ensure()
+    release = paths.release_dir("test")
+    (release / "bin").mkdir(parents=True)
+    local = release / "bin" / "ledgermind-local"
+    local.write_text("#!/bin/sh\n", encoding="utf-8")
+    local.chmod(0o700)
+    paths.current_link.symlink_to(release)
+    runtime = paths.data_dir / "embedding-runtimes" / "nemotron" / "cpu"
+    runtime_python = runtime / "bin" / "python3"
+    runtime_python.parent.mkdir(parents=True)
+    runtime_python.write_text("#!/bin/sh\n", encoding="utf-8")
+    runtime_python.chmod(0o700)
+    reranker_runtime = paths.data_dir / "reranker-runtimes" / "qwen" / "cpu"
+    reranker_model_path = reranker_runtime / "model"
+    config = _config().model_copy(
+        update={
+            "embedding": EmbeddingConfig(
+                mode="local",
+                local=InstallerLocalEmbeddingConfig(
+                    catalog_id="nemotron",
+                    device="cpu",
+                    model_storage_path=str(paths.models_dir / "nemotron"),
+                    runtime_id="nemotron",
+                    runtime_path=str(runtime),
+                    dimensions=2048,
+                ),
+            ),
+            "reranker": RerankerConfig(
+                mode="local",
+                local=RerankerLocalConfig(
+                    model_path=str(reranker_model_path),
+                    runtime_path=str(reranker_runtime),
+                    device="cpu",
+                ),
+            ),
+        }
+    )
+    write_installer_config(config, paths)
+
+    command = tuple(_runtime(paths).commands["embedding"])
+
+    assert command[0] == str(runtime_python)
+    assert command[command.index("--device") + 1] == "cpu"
+    assert command[command.index("--gpu-layers") + 1] == "0"
+    assert command[command.index("--port") + 1] == "8767"
+    assert command[command.index("--reranker-model-path") + 1] == str(
+        reranker_model_path
+    )
+    assert command[command.index("--reranker-device") + 1] == "cpu"
+    assert command[command.index("--reranker-runtime") + 1] == str(reranker_runtime)
+

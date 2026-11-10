@@ -4,15 +4,28 @@ import pytest
 
 from ledgermind_local.installer.models import GenerationConfig, ResolutionDecisionConfig
 from ledgermind_local.installer.profiles.probes import probe_resolution_decision
-from ledgermind_local.installer.profiles.resolution_decision import build_resolution_profile, build_runtime_profiles
+from ledgermind_local.installer.profiles.resolution_decision import (
+    build_resolution_profile,
+    build_runtime_profiles,
+)
 
 
 def config(backend=None):
-    return SimpleNamespace(resolution_decision=None if backend is None else ResolutionDecisionConfig(
-        backend=backend, runtime_path="/tmp/installed-kev" if backend == "kev" else None),
-        generation=GenerationConfig(endpoint="https://openrouter.ai/api/v1", model="generation-model", secret_ref="generation-key",
-            route="primary", fallback_routes=("fallback",)),
-        runtime=SimpleNamespace(residency_mode="idle", idle_timeout_seconds=60))
+    return SimpleNamespace(
+        resolution_decision=(
+            None
+            if backend is None
+            else ResolutionDecisionConfig(backend=backend, token="decision-key")
+        ),
+        generation=GenerationConfig(
+            endpoint="https://openrouter.ai/api/v1",
+            model="generation-model",
+            secret_ref="generation-key",
+            route="primary",
+            fallback_routes=("fallback",),
+        ),
+        runtime=SimpleNamespace(residency_mode="idle", idle_timeout_seconds=60),
+    )
 
 
 def test_old_config_is_legacy_and_generation_settings_are_unchanged():
@@ -28,30 +41,32 @@ def test_old_config_is_legacy_and_generation_settings_are_unchanged():
     assert profile["max_input_tokens"] == 64_000
 
 
-def test_generative_decision_has_no_fallback_and_does_not_change_round_semantic():
-    new = config("generative")
-    profile = build_resolution_profile(new)
-    assert profile["extra_body"]["provider"]["allow_fallbacks"] is False
-    assert profile["extra_body"]["provider"]["only"] == ["primary"]
-    assert build_runtime_profiles(new)[0]["extra_body"]["provider"]["allow_fallbacks"] is True
-
-
-def test_kev_warned_quality_is_not_used_as_preflight_success(monkeypatch):
+def test_jev_probe_uses_technical_transport_probe_only(monkeypatch):
     seen = []
-    def predict(profile, packet):
-        seen.append((profile, packet))
-        return {"data": {"choices": {"probe": "ready"}}, "body": {"model": profile.model},
-                "latency_ms": 1, "request_id": None}
-    monkeypatch.setattr("ledgermind_inference.kev_runtime.kev_decide", predict)
-    result = probe_resolution_decision(config("kev"))
+
+    def predict(profile, token, packet):
+        seen.append((profile, token, packet))
+        return {
+            "data": {"choices": {"probe": "ready"}},
+            "body": {"model": profile.model},
+            "latency_ms": 1,
+            "request_id": "req-1",
+        }
+
+    monkeypatch.setattr("ledgermind_inference.decision_provider.jev_decide", predict)
+    result = probe_resolution_decision(config("jev"), token="decision-key")
     assert result["status"] == "passed"
+    assert result["backend"] == "jev"
     assert result.get("accuracy") is None
-    assert seen[0][0].extra_body["residency_mode"] == "idle"
-    assert seen[0][1]["questions"]["probe"]["criteria"].keys() == {"ready", "absent"}
+    assert seen[0][0].model == "typesafe/jev-1.14"
+    assert seen[0][1] == "decision-key"
+    assert seen[0][2]["questions"]["probe"]["criteria"].keys() == {"ready", "absent"}
 
 
-def test_backend_does_not_accept_another_backends_credentials():
+def test_resolution_decision_only_accepts_jev_backend():
     with pytest.raises(ValueError):
-        ResolutionDecisionConfig(backend="generative", token="private")
+        ResolutionDecisionConfig(backend="generative")  # type: ignore[arg-type]
     with pytest.raises(ValueError):
-        ResolutionDecisionConfig(backend="kev")
+        ResolutionDecisionConfig(backend="kev")  # type: ignore[arg-type]
+    with pytest.raises(ValueError):
+        ResolutionDecisionConfig(runtime_path="/tmp/kev")  # type: ignore[call-arg]

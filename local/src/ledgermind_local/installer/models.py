@@ -434,22 +434,12 @@ class IntegrationConfig(BaseModel):
 
 class ResolutionDecisionConfig(BaseModel):
     """Explicit opt-in; absent in old configs means the legacy resolution pipeline."""
+
     model_config = ConfigDict(extra="forbid")
-    backend: Literal["jev", "kev", "generative"] = "jev"
+    backend: Literal["jev"] = "jev"
     token: str | None = None
     token_env: str | None = None
     secret_ref: str | None = None
-    runtime_path: str | None = None
-
-    @model_validator(mode="after")
-    def validate_backend(self):
-        if self.backend == "kev" and not self.runtime_path:
-            raise ValueError("Kev requires the separately installed signed CPU/BF16 runtime")
-        if self.backend != "kev" and self.runtime_path is not None:
-            raise ValueError("runtime_path belongs only to Kev")
-        if self.backend != "jev" and any((self.token, self.token_env, self.secret_ref)):
-            raise ValueError("only Jev accepts a separate API credential")
-        return self
 
 
 class InstallerConfig(BaseModel):

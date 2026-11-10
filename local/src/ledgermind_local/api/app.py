@@ -42,9 +42,7 @@ def _resolve_session_context_database_path(
     )
     if runtime_config is not None and callable(resolve_core_database):
         try:
-            return Path(
-                resolve_core_database(runtime_config.knowledge_database_path)
-            )
+            return Path(resolve_core_database(runtime_config.knowledge_database_path))
         except (OSError, ValueError):
             pass
     return fallback
@@ -109,6 +107,7 @@ def create_app(
     )
     reranker = getattr(runtime, "retrieval_reranker", None)
     reranker_config = getattr(getattr(runtime, "config", None), "reranker", None)
+    retrieval_config = getattr(getattr(runtime, "config", None), "retrieval", None)
     session_context_database_path = _resolve_session_context_database_path(
         runtime, app.state.database_path
     )
@@ -143,6 +142,7 @@ def create_app(
             reranker=reranker,
             reranker_config=reranker_config,
             session_context_database_path=session_context_database_path,
+            retrieval_config=retrieval_config,
         )
     )
     app.include_router(create_maintenance_router(require_token, runtime))

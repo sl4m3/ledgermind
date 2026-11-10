@@ -57,10 +57,7 @@ def _assert_generation_capabilities_ready(database: Path) -> None:
                 if profile is None:
                     missing.append(f"{slot.value}:{profile_id}:missing_profile")
                     continue
-                if (
-                    slot == ProfileSlot.RESOLUTION_DECISION
-                    and profile.decision_backend != "generative"
-                ):
+                if slot == ProfileSlot.RESOLUTION_DECISION:
                     continue
                 capabilities = store.get_capabilities(
                     profile_id,

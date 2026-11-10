@@ -24,13 +24,13 @@ INSTALL_CONFIG_SCHEMA: dict[str, Any] = {
         },
         "memory_data_path": {"type": ["string", "null"]},
         "resolution_decision": {
-            "type": ["object", "null"], "additionalProperties": False,
+            "type": ["object", "null"],
+            "additionalProperties": False,
             "properties": {
-                "backend": {"enum": ["jev", "kev", "generative"]},
+                "backend": {"enum": ["jev"]},
                 "token": {"type": ["string", "null"]},
                 "token_env": {"type": ["string", "null"]},
                 "secret_ref": {"type": ["string", "null"]},
-                "runtime_path": {"type": ["string", "null"]},
             },
         },
         "generation": {

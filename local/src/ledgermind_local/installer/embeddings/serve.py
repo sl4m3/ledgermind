@@ -19,11 +19,11 @@ from .service import BackendUnavailable, EmbeddingService
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="serve a verified local embedding model"
+        description="serve verified local embedding and reranker models"
     )
     parser.add_argument("--model-path", type=Path)
     parser.add_argument("--model", default=None)
-    parser.add_argument("--device", choices=("cuda",), default="cuda")
+    parser.add_argument("--device", choices=("cpu", "cuda", "rocm"), default="cpu")
     parser.add_argument("--embedding-proxy-endpoint")
     parser.add_argument("--embedding-proxy-token-file", type=Path)
     parser.add_argument("--threads", type=int, default=4)
@@ -36,17 +36,20 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--chunk-texts", type=int, default=8)
     parser.add_argument("--queue-timeout", type=float, default=10.0)
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument("--port", type=int, default=8767)
     parser.add_argument("--token")
     parser.add_argument("--token-file", type=Path)
     parser.add_argument("--embedding-alias", action="append", default=[])
     parser.add_argument("--reranker-model-path", type=Path)
     parser.add_argument("--reranker-model", default="Qwen/Qwen3-Reranker-0.6B")
-    parser.add_argument("--reranker-device", choices=("cuda",), default="cuda")
+    parser.add_argument(
+        "--reranker-device", choices=("cpu", "cuda", "rocm"), default="cpu"
+    )
+    parser.add_argument("--reranker-runtime", type=Path)
     parser.add_argument(
         "--lock-file",
         type=Path,
-        default=Path("~/.local/share/ledgermind/model-gateway.lock"),
+        default=Path("~/.local/share/ledgermind/embedding.lock"),
     )
     return parser
 
@@ -89,7 +92,11 @@ def main(argv: list[str] | None = None) -> int:
             lock_handle.close()
             return 0
     vectorizer = None
-    if not args.embedding_proxy_endpoint:
+    backend = None
+    model = args.model or ""
+    dimensions = args.dimensions
+    embedding_fingerprint: str | None = None
+    if args.model_path is not None and not args.embedding_proxy_endpoint:
         print(
             f"local embedding max_seq_length={args.max_seq_length} "
             f"chunk_texts={args.chunk_texts}",
@@ -104,8 +111,6 @@ def main(argv: list[str] | None = None) -> int:
         health = _proxy_json(
             args.embedding_proxy_endpoint, proxy_token, "/health/ready"
         )
-        if health.get("device") != "cuda":
-            raise RuntimeError("embedding proxy is not running on CUDA")
         proxy_model = str(health["embedding_model"])
         proxy_dimensions = int(health["embedding_dimensions"])
         proxy_fingerprint = str(health.get("embedding_fingerprint") or "")
@@ -145,9 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         model = proxy_model
         dimensions = proxy_dimensions
         embedding_fingerprint = proxy_fingerprint
-    else:
-        if args.model_path is None:
-            raise RuntimeError("--model-path or --embedding-proxy-endpoint is required")
+    elif args.model_path is not None:
         if args.model_path.suffix.lower() == ".gguf":
             vectorizer = GGUFVectorizer(
                 model_path=args.model_path,
@@ -165,6 +168,10 @@ def main(argv: list[str] | None = None) -> int:
         model = args.model or vectorizer.fingerprint
         dimensions = vectorizer.dimension
         embedding_fingerprint = vectorizer.fingerprint
+    elif args.reranker_model_path is None:
+        raise RuntimeError(
+            "--model-path, --embedding-proxy-endpoint, or --reranker-model-path is required"
+        )
     token = args.token
     if args.token_file is not None:
         token = args.token_file.read_text(encoding="utf-8").strip()
@@ -172,6 +179,10 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError("local embedding token file is empty")
     reranker = None
     if args.reranker_model_path is not None:
+        if args.reranker_runtime is not None:
+            site_packages = args.reranker_runtime.expanduser() / "site-packages"
+            if site_packages.is_dir() and str(site_packages) not in sys.path:
+                sys.path.insert(0, str(site_packages))
         from ledgermind_inference.retrieval_reranker import QwenLocalReranker
 
         reranker = QwenLocalReranker(args.reranker_model_path, args.reranker_device)
@@ -179,7 +190,7 @@ def main(argv: list[str] | None = None) -> int:
         backend=backend,
         model=model,
         dimensions=dimensions,
-        device=args.device,
+        device=args.device if backend is not None else args.reranker_device,
         host=args.host,
         port=args.port,
         token=token,
@@ -187,6 +198,7 @@ def main(argv: list[str] | None = None) -> int:
         embedding_aliases=args.embedding_alias,
         reranker=reranker.score if reranker is not None else None,
         reranker_model=args.reranker_model if reranker is not None else None,
+        reranker_device=args.reranker_device if reranker is not None else None,
         max_request_texts=args.max_request_texts,
         max_request_chars=args.max_request_chars,
         max_request_documents=args.max_request_docs,

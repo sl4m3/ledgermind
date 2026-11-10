@@ -39,6 +39,9 @@ from .secret_refs import (
 from .secrets.base import SecretBackend
 from .secrets.file_store import FileSecretStore
 
+LOCAL_MODEL_SERVICE_ENDPOINT = "http://127.0.0.1:8767"
+LOCAL_RERANKER_ENDPOINT = f"{LOCAL_MODEL_SERVICE_ENDPOINT}/rerank"
+
 
 def _write_private_json(path: Path, payload: object) -> None:
     ensure_private_dir(path.parent)
@@ -142,9 +145,23 @@ def resolve_decision_token(config: InstallerConfig, paths: InstallerPaths) -> st
     decision = config.resolution_decision
     if decision is None or decision.backend != "jev":
         return ""
-    return _secret_value(decision.token, decision.token_env, None,
-                         secret_ref=decision.secret_ref or DECISION_SECRET_REF,
-                         backend=select_secret_backend(paths))
+    backend = select_secret_backend(paths)
+    try:
+        return _secret_value(
+            decision.token,
+            decision.token_env,
+            None,
+            secret_ref=decision.secret_ref or DECISION_SECRET_REF,
+            backend=backend,
+        )
+    except ValueError:
+        return _secret_value(
+            config.generation.token,
+            config.generation.token_env,
+            None,
+            secret_ref=config.generation.secret_ref or GENERATION_SECRET_REF,
+            backend=backend,
+        )
 
 
 def resolve_provider_tokens(
@@ -292,8 +309,16 @@ def write_installer_config(
                 if not backend.get(DECISION_SECRET_REF):
                     raise ValueError("installed decision credential is missing")
             else:
-                decision_token = _secret_value(config.resolution_decision.token, config.resolution_decision.token_env,
-                    None, secret_ref=config.resolution_decision.secret_ref, backend=backend)
+                try:
+                    decision_token = _secret_value(
+                        config.resolution_decision.token,
+                        config.resolution_decision.token_env,
+                        None,
+                        secret_ref=config.resolution_decision.secret_ref,
+                        backend=backend,
+                    )
+                except ValueError:
+                    decision_token = generation_token
                 backend.put(DECISION_SECRET_REF, decision_token)
         profiles.append(decision_profile)
     if config.reranker.mode == "api" and config.reranker.api is not None:
@@ -305,6 +330,14 @@ def write_installer_config(
             backend=backend,
         )
         backend.put(RERANKER_SECRET_REF, reranker_token)
+    if config.embedding.mode == "local" or config.reranker.mode == "local":
+        local_embedding_token = backend.get(LOCAL_EMBEDDING_SECRET_REF)
+        if not local_embedding_token:
+            local_embedding_token = secrets.token_urlsafe(32)
+            backend.put(LOCAL_EMBEDDING_SECRET_REF, local_embedding_token)
+        local_embedding_token_file = _write_local_embedding_token(
+            paths, local_embedding_token
+        )
     if config.embedding.mode == "api":
         assert config.embedding.api is not None
         embedding_ref = EMBEDDING_SECRET_REF
@@ -334,18 +367,11 @@ def write_installer_config(
         )
     else:
         assert config.embedding.local is not None
-        local_embedding_token = backend.get(LOCAL_EMBEDDING_SECRET_REF)
-        if not local_embedding_token:
-            local_embedding_token = secrets.token_urlsafe(32)
-            backend.put(LOCAL_EMBEDDING_SECRET_REF, local_embedding_token)
-        local_embedding_token_file = _write_local_embedding_token(
-            paths, local_embedding_token
-        )
         profiles.append(
             {
                 "profile_id": "embedding-local",
                 "slot": "embedding",
-                "endpoint": "http://127.0.0.1:8766",
+                "endpoint": LOCAL_MODEL_SERVICE_ENDPOINT,
                 "model": config.embedding.local.catalog_id,
                 "secret_ref": LOCAL_EMBEDDING_SECRET_REF,
                 "device": config.embedding.local.device,
@@ -408,14 +434,15 @@ def build_local_config(
         )
         device = config.embedding.local.device
         if device == "auto":
-            # Local embeddings are CUDA-only; never persist a CPU fallback.
-            device = "cuda"
+            from .hardware import choose_device
+
+            device = choose_device("auto", supported={"cpu", "cuda", "rocm"}).kind
         embedding = LocalEmbeddingConfig(
             enabled=True,
             model_path=model_path,
             gpu_layers=99 if device != "cpu" else 0,
             provider_mode="api",
-            endpoint="http://127.0.0.1:8766",
+            endpoint=LOCAL_MODEL_SERVICE_ENDPOINT,
             model=config.embedding.local.catalog_id,
             dimensions=config.embedding.local.dimensions,
             batch_size=config.embedding.local.batch_size,
@@ -459,14 +486,13 @@ def build_local_config(
         ),
         embedding=embedding,
         reranker=LocalRerankerConfig(
-            # The local runtime always talks to the shared model gateway.  The
-            # installer's ``local`` mode only controls who loads the weights.
+            # The local runtime talks to the supervisor-managed local model service.
             mode=("api" if config.reranker.mode == "local" else config.reranker.mode),
             model_path=config.reranker.model_path,
             runtime_path=config.reranker.runtime_path,
-            device=("cuda" if config.reranker.mode == "local" else config.reranker.device),
+            device=config.reranker.device,
             endpoint=(
-                "http://127.0.0.1:8767/rerank"
+                LOCAL_RERANKER_ENDPOINT
                 if config.reranker.mode == "local"
                 else (config.reranker.api.endpoint if config.reranker.api else None)
             ),
@@ -476,7 +502,7 @@ def build_local_config(
                 else (config.reranker.api.model if config.reranker.api else None)
             ),
             secret_ref=(
-                "embedding-local"
+                LOCAL_EMBEDDING_SECRET_REF
                 if config.reranker.mode == "local"
                 else (RERANKER_SECRET_REF if config.reranker.api else None)
             ),
@@ -593,7 +619,7 @@ def write_local_profiles(
             assert config.embedding.local is not None
             embedding_profile = InferenceProfile(
                 profile_id="embedding-local",
-                base_url="http://127.0.0.1:8766",
+                base_url=LOCAL_MODEL_SERVICE_ENDPOINT,
                 model=config.embedding.local.catalog_id,
                 secret_ref=LOCAL_EMBEDDING_SECRET_REF,
                 timeout_seconds=60.0,
@@ -738,7 +764,7 @@ def persist_generation_probe(
         now = datetime.now(timezone.utc)
         timestamp = now.isoformat(timespec="seconds")
         for profile_spec in build_runtime_profiles(config):
-            if profile_spec.get("decision_backend") in {"jev", "kev"}:
+            if profile_spec.get("decision_backend") == "jev":
                 continue
             profile_id = str(profile_spec["profile_id"])
             profile = store.get(profile_id)

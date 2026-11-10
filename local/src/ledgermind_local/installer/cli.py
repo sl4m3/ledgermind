@@ -271,30 +271,12 @@ def _runtime(paths: InstallerPaths) -> RuntimeSupervisor:
             str(paths.data_dir / "local"),
             "serve",
         )
-    if (
-        config is not None
-        and config.embedding.mode == "local"
-        and config.embedding.local is not None
+    if config is not None and (
+        (config.embedding.mode == "local" and config.embedding.local is not None)
+        or config.reranker.mode == "local"
     ):
         from .hardware import choose_device
 
-        local_config = config.embedding.local
-        device: str = local_config.device
-        if device == "auto":
-            device = choose_device("auto", supported={"cpu", "cuda", "rocm"}).kind
-        model_path = local_config.model_path or local_config.model_storage_path
-        if model_path is None:
-            model_path = str(paths.models_dir / local_config.catalog_id)
-        runtime_path = (
-            Path(local_config.runtime_path).expanduser()
-            if local_config.runtime_path
-            else None
-        )
-        runtime_python = runtime_path / "bin" / "python3" if runtime_path else None
-        if runtime_python is None or not runtime_python.is_file():
-            raise ConfigurationError(
-                "signed local embedding runtime is missing; run ledgermind repair"
-            )
         local_embedding_token_file = paths.data_dir / "embedding" / "server.token"
         if not local_embedding_token_file.is_file():
             raise ConfigurationError(
@@ -307,36 +289,90 @@ def _runtime(paths: InstallerPaths) -> RuntimeSupervisor:
             "runpy.run_module('ledgermind_local.installer.embeddings.serve',"
             "run_name='__main__')"
         )
-        if device != "cuda":
-            raise ConfigurationError(
-                "local embeddings require CUDA; CPU execution is disabled"
+        if config.embedding.mode == "local" and config.embedding.local is not None:
+            local_config = config.embedding.local
+            device: str = local_config.device
+            if device == "auto":
+                device = choose_device("auto", supported={"cpu", "cuda", "rocm"}).kind
+            model_path = local_config.model_path or local_config.model_storage_path
+            if model_path is None:
+                model_path = str(paths.models_dir / local_config.catalog_id)
+            runtime_path = (
+                Path(local_config.runtime_path).expanduser()
+                if local_config.runtime_path
+                else None
             )
-        embedding_command = [
-            str(runtime_python),
-            "-c",
-            module_bootstrap,
-            "--model-path",
-            str(Path(model_path).expanduser()),
-            "--model",
-            local_config.catalog_id,
-            "--device",
-            "cuda",
-            "--threads",
-            str(local_config.threads or 4),
-            "--gpu-layers",
-            "99",
-            "--dimensions",
-            str(local_config.dimensions),
-            "--port",
-            "8766",
-            "--token-file",
-            str(local_embedding_token_file),
-            "--embedding-alias",
-            "nvidia/nemotron-3-embed-1b-local-bf16",
-        ]
-        # The Local supervisor owns the single embedding replica on 8766.
-        # The shared front on 8767 owns the single reranker replica and
-        # proxies embeddings to this process; never load Qwen here.
+            runtime_python = runtime_path / "bin" / "python3" if runtime_path else None
+            if runtime_python is None or not runtime_python.is_file():
+                raise ConfigurationError(
+                    "signed local embedding runtime is missing; run ledgermind repair"
+                )
+            embedding_command = [
+                str(runtime_python),
+                "-c",
+                module_bootstrap,
+                "--model-path",
+                str(Path(model_path).expanduser()),
+                "--model",
+                local_config.catalog_id,
+                "--device",
+                device,
+                "--threads",
+                str(local_config.threads or 4),
+                "--gpu-layers",
+                "99" if device != "cpu" else "0",
+                "--dimensions",
+                str(local_config.dimensions),
+                "--port",
+                "8767",
+                "--lock-file",
+                str(paths.runtime_dir / "embedding.lock"),
+                "--token-file",
+                str(local_embedding_token_file),
+                "--embedding-alias",
+                "nvidia/nemotron-3-embed-1b-local-bf16",
+            ]
+        else:
+            reranker_runtime = (
+                Path(config.reranker.runtime_path).expanduser()
+                if config.reranker.runtime_path
+                else None
+            )
+            candidate_python = (
+                reranker_runtime / "bin" / "python3" if reranker_runtime else None
+            )
+            runtime_python = (
+                candidate_python
+                if candidate_python is not None and candidate_python.is_file()
+                else Path(sys.executable)
+            )
+            embedding_command = [
+                str(runtime_python),
+                "-c",
+                module_bootstrap,
+                "--port",
+                "8767",
+                "--lock-file",
+                str(paths.runtime_dir / "embedding.lock"),
+                "--token-file",
+                str(local_embedding_token_file),
+            ]
+        if config.reranker.mode == "local" and config.reranker.model_path:
+            embedding_command.extend(
+                [
+                    "--reranker-model-path",
+                    str(Path(config.reranker.model_path).expanduser()),
+                    "--reranker-device",
+                    config.reranker.device,
+                ]
+            )
+            if config.reranker.runtime_path:
+                embedding_command.extend(
+                    [
+                        "--reranker-runtime",
+                        str(Path(config.reranker.runtime_path).expanduser()),
+                    ]
+                )
         commands["embedding"] = tuple(embedding_command)
     return RuntimeSupervisor(
         paths,
@@ -536,6 +572,9 @@ def _existing_install(
     provider_config = existing.model_copy(
         update={
             "generation": candidate.generation,
+            "resolution_decision": (
+                existing.resolution_decision or candidate.resolution_decision
+            ),
             "embedding": candidate.embedding,
             "reranker": candidate.reranker,
         }

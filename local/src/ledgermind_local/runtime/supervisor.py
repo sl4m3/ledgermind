@@ -499,10 +499,13 @@ class RuntimeSupervisor:
             raise RuntimeError("invalid Local runtime endpoint")
         candidates = [port]
         if port == 8765:
-            candidates.extend(range(8767, 8800))  # 8766 belongs to local embeddings.
+            # 8766..8768 are reserved for model inference / reranker services.
+            candidates.extend(range(8769, 8800))
         else:
             candidates.extend(range(port + 1, min(port + 33, 65536)))
-            candidates.extend(candidate for candidate in range(8767, 8800) if candidate != port)
+            candidates.extend(
+                candidate for candidate in range(8769, 8800) if candidate != port
+            )
         for candidate in candidates:
             if not self._port_available(host, candidate):
                 continue

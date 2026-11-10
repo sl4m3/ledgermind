@@ -8,11 +8,10 @@
       "type": ["object", "null"],
       "additionalProperties": false,
       "properties": {
-        "backend": {"enum": ["jev", "kev", "generative"]},
+        "backend": {"enum": ["jev"]},
         "token": {"type": ["string", "null"]},
         "token_env": {"type": ["string", "null"]},
-        "secret_ref": {"type": ["string", "null"]},
-        "runtime_path": {"type": ["string", "null"]}
+        "secret_ref": {"type": ["string", "null"]}
       }
     },
     "schema_version": {"const": 2},

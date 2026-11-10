@@ -86,7 +86,7 @@ def test_installer_projects_explicit_local_reranker_without_enabling_legacy_inst
     assert local.reranker.endpoint == "http://127.0.0.1:8767/rerank"
     assert local.reranker.model == "Qwen/Qwen3-Reranker-0.6B"
     assert local.reranker.secret_ref == "embedding-local"
-    assert local.reranker.device == "cuda"
+    assert local.reranker.device == "cpu"
     assert local.reranker.model_path == "/models/pinned/snapshots/revision"
     assert local.reranker.runtime_path == "/runtime/pinned"
     assert local.reranker.soft_budget == 4096
@@ -144,7 +144,7 @@ def test_installer_projects_local_embedding_service_credential(tmp_path: Path) -
     local = build_local_config(configured, paths)
 
     assert local.embedding.provider_mode == "api"
-    assert local.embedding.endpoint == "http://127.0.0.1:8766"
+    assert local.embedding.endpoint == "http://127.0.0.1:8767"
     assert local.embedding.model == "nemotron"
     assert local.embedding.secret_ref == "embedding-local"
 
@@ -249,7 +249,6 @@ def test_terminal_wizard_uses_reference_openrouter_configuration(
             "",  # reference embedding model
             "",  # keep Core ranking; reranker is opt-in
             "",  # session model residency
-            "",  # recommended Jev resolution decisions
             "",  # install
         )
     )
@@ -289,6 +288,8 @@ def test_terminal_wizard_uses_reference_openrouter_configuration(
     assert config.runtime.residency_mode == "session"
     assert config.runtime.session_safety_ttl_seconds == 3_600.0
     assert config.generation.model == wizard.REFERENCE_GENERATION_MODEL
+    assert config.resolution_decision is not None
+    assert config.resolution_decision.backend == "jev"
     assert config.embedding.api is not None
     assert config.embedding.api.endpoint == "https://openrouter.ai/api/v1"
     assert config.embedding.api.model == "nvidia/nemotron-3-embed-1b:free"
@@ -404,7 +405,6 @@ def test_terminal_wizard_offers_local_embedding_only_from_signed_catalog(
             "",  # automatic device
             "",  # keep Core ranking; reranker is opt-in
             "",  # session model residency
-            "",  # recommended Jev resolution decisions
             "",  # install
         )
     )

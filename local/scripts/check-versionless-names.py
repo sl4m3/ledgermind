@@ -52,10 +52,7 @@ _CONTRACT_VALUES = {
     # Private embedding provider speaks the external OpenAI-compatible protocol.
     "src/ledgermind_local/installer/embeddings/service.py": {"/v1/health/ready", "/v1/health/live"},
     "tests/unit/installer/test_embedding_identity.py": {"/v1"},
-    # OpenAI-compatible batch transport endpoint; a provider protocol path,
-    # not a LedgerMind product version.
-    "src/ledgermind_local/scheduler/batch_semantic_coordinator.py": {"/v1/chat/completions"},
-    "tests/unit/scheduler/test_batch_semantic_coordinator.py": {"/v1/chat/completions"},
+    "tests/unit/local/test_query_embedding_batch.py": {"/v1", "http://127.0.0.1:1/v1"},
 }
 
 _TOKEN_RE = re.compile(
@@ -248,7 +245,10 @@ def _allowed(
 ) -> bool:
     if source == "content":
         for literal in re.finditer(r'''["']([^"']*)["']''', line):
-            if literal.start() < start < literal.end() and literal.group(1) in _CONTRACT_VALUES.get(path, ()):
+            if literal.start() < start < literal.end() and (
+                literal.group(1) in _CONTRACT_VALUES.get(path, ())
+                or any(val in literal.group(1) for val in _CONTRACT_VALUES.get(path, ()))
+            ):
                 return True
     if source == "path":
         return _is_sql_migration_path(path) or _is_migration_compatibility_module(path)

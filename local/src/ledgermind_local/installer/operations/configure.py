@@ -74,6 +74,7 @@ def configure(
         paths.secrets_file,
         paths.config_dir / "local-config.json",
         paths.data_dir / "local" / "config.json",
+        paths.data_dir / "embedding" / "server.token",
     )
     backups = {
         path: (

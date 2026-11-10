@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import TextIO
 
 from .errors import ConfigurationError
-from .models import InstallerConfig
+from .models import InstallerConfig, ResolutionDecisionConfig
 from .permissions import assert_private
 
 
@@ -33,6 +33,16 @@ def load_non_interactive_config(
         config = InstallerConfig.model_validate(payload)
     except ValueError as exc:
         raise ConfigurationError(f"install config is invalid: {exc}") from exc
+    if (
+        isinstance(payload, dict)
+        and "resolution_decision" not in payload
+        and config.resolution_decision is None
+    ):
+        config = config.model_copy(
+            update={
+                "resolution_decision": ResolutionDecisionConfig(backend="jev")
+            }
+        )
     generation_stdin: str | None = None
     embedding_stdin: str | None = None
     if config.generation.token_stdin:
@@ -53,7 +63,12 @@ def load_non_interactive_config(
             raise ConfigurationError(
                 "embedding token_stdin was requested but stdin is empty"
             )
-    for env_name in (config.generation.token_env,):
+    for env_name in (
+        config.generation.token_env,
+        config.resolution_decision.token_env
+        if config.resolution_decision is not None
+        else None,
+    ):
         if env_name and not os.environ.get(env_name):
             raise ConfigurationError(
                 f"required secret environment variable is empty: {env_name}"

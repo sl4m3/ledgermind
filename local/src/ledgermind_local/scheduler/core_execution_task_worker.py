@@ -10,14 +10,14 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import cast
 
-from ledgermind_inference.core_task_executor import (
+from ledgermind_local.inference.core_task_executor import (
     CoreTaskExecutor,
     EmbeddingRequestSpec,
     GenericExecutionTask,
     ModelRequestSpec,
 )
-from ledgermind_inference.profiles import StructuredOutputMode
-from ledgermind_inference.providers.base import (
+from ledgermind_local.inference.profiles import StructuredOutputMode
+from ledgermind_local.inference.providers.base import (
     ChatMessage,
     ProviderAuthenticationError,
     ProviderConfigurationError,

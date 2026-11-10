@@ -51,10 +51,10 @@ class EmbeddingService:
     def __init__(
         self,
         *,
-        backend: EmbeddingBackend,
-        model: str,
-        dimensions: int,
-        device: str,
+        backend: EmbeddingBackend | None = None,
+        model: str = "",
+        dimensions: int = 0,
+        device: str = "cpu",
         host: str = "127.0.0.1",
         port: int = 0,
         token: str | None = None,
@@ -62,6 +62,7 @@ class EmbeddingService:
         embedding_aliases: Sequence[str] = (),
         reranker: RerankBackend | None = None,
         reranker_model: str | None = None,
+        reranker_device: str | None = None,
         reranker_fingerprint: str | None = None,
         max_request_texts: int = 512,
         max_request_chars: int = 1_000_000,
@@ -102,6 +103,7 @@ class EmbeddingService:
         self.embedding_fingerprint = embedding_fingerprint
         self.reranker = reranker
         self.reranker_model = reranker_model or ""
+        self.reranker_device = reranker_device or (device if reranker is not None else None)
         self.reranker_fingerprint = reranker_fingerprint
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
@@ -155,6 +157,8 @@ class EmbeddingService:
 
     def encode(self, texts: Sequence[str], role: str | None) -> list[list[float]]:
         """Run one FIFO embedding request; chunks are internal and ordered."""
+        if self.backend is None:
+            raise BackendUnavailable("embedding_unavailable")
         values = list(texts)
         if not values:
             return []
@@ -264,25 +268,34 @@ class EmbeddingService:
                 path = self.path.split("?", 1)[0].rstrip("/")
                 if path in {"/health/ready", "/v1/health/ready"}:
                     fingerprint = service.embedding_fingerprint
-                    if (
+                    if service.backend is not None and (
                         not isinstance(fingerprint, str)
                         or not fingerprint.strip()
                         or fingerprint.strip() == "unknown"
                     ):
                         self._json(503, {"error": "embedding_identity_unavailable"})
                         return
+                    if service.backend is None and service.reranker is None:
+                        self._json(503, {"error": "backend_unavailable"})
+                        return
                     self._json(
                         200,
                         {
                             "status": "ready",
-                            "embedding_model": service.model,
-                            "embedding_dimensions": service.dimensions,
-                            "embedding_fingerprint": fingerprint.strip(),
+                            "embedding_model": service.model if service.backend is not None else None,
+                            "embedding_dimensions": service.dimensions if service.backend is not None else None,
+                            "embedding_fingerprint": (
+                                fingerprint.strip()
+                                if isinstance(fingerprint, str) and fingerprint.strip()
+                                else None
+                            ),
                             "device": service.device,
                             "reranker_model": service.reranker_model or None,
                             "reranker_loaded": service.reranker is not None,
                             "reranker_device": (
-                                service.device if service.reranker is not None else None
+                                service.reranker_device
+                                if service.reranker is not None
+                                else None
                             ),
                         },
                     )
@@ -299,16 +312,16 @@ class EmbeddingService:
                             "dimensions": service.dimensions,
                             "device": service.device,
                             "embedding": {
-                                "model": service.model,
-                                "dimensions": service.dimensions,
-                                "device": service.device,
-                                "loaded": True,
+                                "model": service.model if service.backend is not None else None,
+                                "dimensions": service.dimensions if service.backend is not None else None,
+                                "device": service.device if service.backend is not None else None,
+                                "loaded": service.backend is not None,
                                 "fingerprint": service.embedding_fingerprint,
                             },
                             "reranker": {
                                 "model": service.reranker_model or None,
                                 "device": (
-                                    service.device
+                                    service.reranker_device
                                     if service.reranker is not None
                                     else None
                                 ),

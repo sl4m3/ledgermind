@@ -50,7 +50,7 @@ prebuilt wheel:
 - `local/release/dependency-wheels.json` records the wheel name, version and
   SHA-256 for each release line;
 - the wheel itself is attached to the public release as
-  `ledgermind_inference-<version>-py3-none-any.whl`;
+  `ledgermind_inference-<version>-cp310-abi3-linux_x86_64.whl`;
 - installers embed the same wheel inside the signed payload, so installation
   never needs PyPI for it.
 
