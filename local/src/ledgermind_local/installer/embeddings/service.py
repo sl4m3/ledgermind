@@ -124,13 +124,15 @@ class EmbeddingService:
         # Supplied by the loaded vectorizer, never derived from a served alias.
         self.embedding_fingerprint = embedding_fingerprint
         self.reranker_model = reranker_model or ""
-        self.reranker_device = reranker_device or (device if reranker is not None else None)
+        self.reranker_device = reranker_device or (
+            device if reranker is not None else None
+        )
         self.reranker_fingerprint = reranker_fingerprint
 
         if idle_unload_seconds is None:
-            env_val = os.environ.get("LEDGERMIND_EMBEDDING_IDLE_UNLOAD_SECONDS") or os.environ.get(
-                "LEDGERMIND_IDLE_UNLOAD_SECONDS"
-            )
+            env_val = os.environ.get(
+                "LEDGERMIND_EMBEDDING_IDLE_UNLOAD_SECONDS"
+            ) or os.environ.get("LEDGERMIND_IDLE_UNLOAD_SECONDS")
             if env_val:
                 try:
                     idle_unload_seconds = float(env_val)
@@ -203,7 +205,9 @@ class EmbeddingService:
                 return
             if self._reranker_factory is not None:
                 self._raw_reranker = self._reranker_factory()
-                self._reranker = getattr(self._raw_reranker, "score", self._raw_reranker)
+                self._reranker = getattr(
+                    self._raw_reranker, "score", self._raw_reranker
+                )
             elif self._saved_reranker is not None:
                 self._reranker = self._saved_reranker
 
@@ -215,9 +219,25 @@ class EmbeddingService:
             return False
         now = time.monotonic()
         if not force and self.idle_unload_seconds > 0:
-            if self.last_activity > 0 and (now - self.last_activity < self.idle_unload_seconds):
+            if self.last_activity > 0 and (
+                now - self.last_activity < self.idle_unload_seconds
+            ):
                 return False
         if not self.loaded:
+            return False
+        # A backend supplied directly (including serve.py's embedding-proxy
+        # path) has no factory that can rebuild it.  Unloading it would make
+        # every later request fail with embedding_unavailable, so only drop
+        # components that can be lazily reconstructed.  force=True is an
+        # explicit shutdown-style request and may drop them anyway.
+        can_reload_embedding = (
+            self._vectorizer_factory is not None or self._backend_factory is not None
+        )
+        unload_embedding = self._backend is not None and (force or can_reload_embedding)
+        unload_reranker = self._reranker is not None and (
+            force or self._reranker_factory is not None
+        )
+        if not unload_embedding and not unload_reranker:
             return False
         acquired = self._gpu_lock.acquire(timeout=2.0)
         if not acquired:
@@ -225,23 +245,26 @@ class EmbeddingService:
         try:
             if self.is_busy and not force:
                 return False
-            if self._vectorizer is not None and hasattr(self._vectorizer, "close"):
-                try:
-                    self._vectorizer.close()
-                except Exception:  # noqa: BLE001, S110
-                    pass
-            self._vectorizer = None
-            self._backend = None
-            self._saved_backend = None
+            if unload_embedding:
+                if self._vectorizer is not None and hasattr(self._vectorizer, "close"):
+                    try:
+                        self._vectorizer.close()
+                    except Exception:  # noqa: BLE001, S110
+                        pass
+                self._vectorizer = None
+                self._backend = None
+                self._saved_backend = None
 
-            if self._raw_reranker is not None and hasattr(self._raw_reranker, "close"):
-                try:
-                    self._raw_reranker.close()
-                except Exception:  # noqa: BLE001, S110
-                    pass
-            self._raw_reranker = None
-            self._reranker = None
-            if self._reranker_factory is not None:
+            if unload_reranker:
+                if self._raw_reranker is not None and hasattr(
+                    self._raw_reranker, "close"
+                ):
+                    try:
+                        self._raw_reranker.close()
+                    except Exception:  # noqa: BLE001, S110
+                        pass
+                self._raw_reranker = None
+                self._reranker = None
                 self._saved_reranker = None
 
             gc.collect()
@@ -253,12 +276,18 @@ class EmbeddingService:
     check_idle_unload = unload_idle
 
     def _idle_monitor_loop(self) -> None:
-        interval = min(1.0, max(0.05, self.idle_unload_seconds / 5.0)) if self.idle_unload_seconds > 0 else 1.0
+        interval = (
+            min(1.0, max(0.05, self.idle_unload_seconds / 5.0))
+            if self.idle_unload_seconds > 0
+            else 1.0
+        )
         while self._idle_stop is not None and not self._idle_stop.wait(interval):
             if self.unload_policy_active and self.idle_unload_seconds > 0:
                 if not self.is_busy and self.loaded:
                     now = time.monotonic()
-                    if self.last_activity > 0 and (now - self.last_activity >= self.idle_unload_seconds):
+                    if self.last_activity > 0 and (
+                        now - self.last_activity >= self.idle_unload_seconds
+                    ):
                         self.unload_idle(force=False)
 
     @property
@@ -436,7 +465,10 @@ class EmbeddingService:
                         or service._reranker_factory is not None
                         or bool(service.model)
                     )
-                    if (service._backend is not None or service._saved_backend is not None) and (
+                    if (
+                        service._backend is not None
+                        or service._saved_backend is not None
+                    ) and (
                         not isinstance(fingerprint, str)
                         or not fingerprint.strip()
                         or fingerprint.strip() == "unknown"
@@ -483,9 +515,30 @@ class EmbeddingService:
                             "idle_unload_seconds": service.idle_unload_seconds,
                             "loaded": service.loaded,
                             "embedding": {
-                                "model": service.model if (service._backend is not None or service._saved_backend is not None or service._vectorizer_factory is not None or service._backend_factory is not None) else None,
-                                "dimensions": service.dimensions if (service._backend is not None or service._saved_backend is not None or service._vectorizer_factory is not None or service._backend_factory is not None) else None,
-                                "device": service.device if (service._backend is not None or service._saved_backend is not None or service._vectorizer_factory is not None or service._backend_factory is not None) else None,
+                                "model": service.model
+                                if (
+                                    service._backend is not None
+                                    or service._saved_backend is not None
+                                    or service._vectorizer_factory is not None
+                                    or service._backend_factory is not None
+                                )
+                                else None,
+                                "dimensions": service.dimensions
+                                if (
+                                    service._backend is not None
+                                    or service._saved_backend is not None
+                                    or service._vectorizer_factory is not None
+                                    or service._backend_factory is not None
+                                )
+                                else None,
+                                "device": service.device
+                                if (
+                                    service._backend is not None
+                                    or service._saved_backend is not None
+                                    or service._vectorizer_factory is not None
+                                    or service._backend_factory is not None
+                                )
+                                else None,
                                 "loaded": service.embedding_loaded,
                                 "fingerprint": service.embedding_fingerprint,
                             },
