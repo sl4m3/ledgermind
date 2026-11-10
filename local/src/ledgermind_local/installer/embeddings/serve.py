@@ -47,6 +47,12 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--reranker-runtime", type=Path)
     parser.add_argument(
+        "--idle-unload-seconds",
+        type=float,
+        default=None,
+        help="Seconds of idle before unloading model from memory",
+    )
+    parser.add_argument(
         "--lock-file",
         type=Path,
         default=Path("~/.local/share/ledgermind/embedding.lock"),
@@ -204,6 +210,7 @@ def main(argv: list[str] | None = None) -> int:
         max_request_documents=args.max_request_docs,
         chunk_texts=args.chunk_texts,
         queue_timeout=args.queue_timeout,
+        idle_unload_seconds=args.idle_unload_seconds,
     )
     stopped = Event()
 

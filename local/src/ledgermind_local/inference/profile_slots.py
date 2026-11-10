@@ -2,68 +2,19 @@
 
 from __future__ import annotations
 
-from enum import Enum
 from pathlib import Path
 
+from ledgermind_inference.profile_slots import (
+    MissingProfileError,
+    ProfileResolver,
+    ProfileSlot,
+)
 from .profile_store import InferenceProfileStore
 from .profiles import InferenceProfile
 
 
-class ProfileSlot(str, Enum):
-    """Closed set of technical slots selecting a configured inference profile.
-
-    A slot is a selection of a configured profile, not a domain facet.
-    """
-
-    OPERATIONAL = "operational"
-    OBJECT_RESOLUTION = "object_resolution"
-    RESOLUTION_DECISION = "resolution_decision"
-    BACKGROUND = "background"
-    EMBEDDING = "embedding"
-
-    def __str__(self) -> str:
-        return self.value
-
-
-class MissingProfileError(RuntimeError):
-    """Structured failure raised when a slot has no resolvable profile."""
-
-    code = "profile_missing"
-
-    def __init__(
-        self,
-        *,
-        slot: ProfileSlot,
-        memory_space_id: str,
-        profile_id: str | None = None,
-        reason: str = "profile_not_found",
-    ) -> None:
-        self.slot = slot
-        self.memory_space_id = memory_space_id
-        self.profile_id = profile_id
-        self.reason = reason
-        super().__init__(
-            f"no {slot.value} profile for memory space {memory_space_id!r}"
-            + (f" (profile {profile_id!r} {reason})" if profile_id else f" ({reason})")
-        )
-
-
-class ProfileResolver:
-    """Service interface selecting a configured profile for a technical slot."""
-
-    def resolve_profile(
-        self, memory_space_id: str, slot: ProfileSlot
-    ) -> InferenceProfile:
-        """Return the configured profile for ``slot`` or raise MissingProfileError."""
-        raise NotImplementedError
-
-
 class StoreBackedProfileResolver(ProfileResolver):
-    """Base resolution over the existing inference profile store.
-
-    Extension point for C2: real storage/settings wiring can subclass this
-    resolver (or implement ProfileResolver directly) without touching A3 code.
-    """
+    """Base resolution over the existing inference profile store."""
 
     def __init__(
         self, profile_store: InferenceProfileStore
@@ -73,7 +24,6 @@ class StoreBackedProfileResolver(ProfileResolver):
     @property
     def profile_store(self) -> InferenceProfileStore:
         """Expose the same Local-owned store for capability lookups."""
-
         return self._profile_store
 
     def resolve_profile(
@@ -102,6 +52,7 @@ class StoreBackedProfileResolver(ProfileResolver):
                 reason="profile_disabled",
             )
         return profile
+
 
 class DatabaseBackedProfileResolver(ProfileResolver):
     """Resolve a slot using a fresh Local SQLite connection per lookup."""

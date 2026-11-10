@@ -1,11 +1,22 @@
 """Inference provider implementations."""
+import sys
+import ledgermind_inference.providers
+import ledgermind_inference.providers.base
+import ledgermind_inference.providers.openai_compatible
+import ledgermind_inference.providers.google_boundary
 
-from .base import (
+sys.modules["ledgermind_local.inference.providers.base"] = ledgermind_inference.providers.base
+sys.modules["ledgermind_local.inference.providers.openai_compatible"] = ledgermind_inference.providers.openai_compatible
+sys.modules["ledgermind_local.inference.providers.google_boundary"] = ledgermind_inference.providers.google_boundary
+
+from ledgermind_inference.providers import (
     ChatMessage,
     GenerationTransport,
+    GoogleGenerationTransport,
     InferenceProvider,
     ModelRequest,
     ModelResponse,
+    OpenAICompatibleProvider,
     ProviderAuthenticationError,
     ProviderConfigurationError,
     ProviderError,
@@ -16,22 +27,12 @@ from .base import (
     normalize_error,
     normalize_usage,
 )
-from .openai_compatible import (
-    OpenAICompatibleProvider,
-    build_payload_json_object,
-    build_payload_json_schema,
-    build_payload_prompt_only,
-    build_payload_tool_call,
-    parse_content_response,
-    parse_tool_call_response,
-)
-from .google_boundary import GoogleGenerationTransport
 
 __all__ = [
     "ChatMessage",
     "GenerationTransport",
-    "InferenceProvider",
     "GoogleGenerationTransport",
+    "InferenceProvider",
     "ModelRequest",
     "ModelResponse",
     "OpenAICompatibleProvider",
@@ -44,10 +45,4 @@ __all__ = [
     "TransientProviderError",
     "normalize_error",
     "normalize_usage",
-    "build_payload_json_object",
-    "build_payload_json_schema",
-    "build_payload_prompt_only",
-    "build_payload_tool_call",
-    "parse_content_response",
-    "parse_tool_call_response",
 ]
