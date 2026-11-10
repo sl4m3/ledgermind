@@ -217,7 +217,9 @@ def test_clean_import_installed_packages(installed_clean_venv: tuple[Path, Path]
         "import ledgermind_local\n"
         "import ledgermind_protocol\n"
         "import ledgermind_inference\n"
+        "assert ledgermind_local.__version__ == '4.1.0', f'Unexpected version: {ledgermind_local.__version__}'\n"
         "print('IMPORTS_SUCCESSFUL')\n"
+        "print(f'VERSION: {ledgermind_local.__version__}')\n"
     )
     proc = subprocess.run(
         [str(venv_python), "-c", script],
@@ -226,6 +228,23 @@ def test_clean_import_installed_packages(installed_clean_venv: tuple[Path, Path]
     )
     assert proc.returncode == 0, f"Import test failed:\n{proc.stdout}\n{proc.stderr}"
     assert "IMPORTS_SUCCESSFUL" in proc.stdout
+    assert "VERSION: 4.1.0" in proc.stdout
+
+
+def test_clean_import_version(installed_clean_venv: tuple[Path, Path]) -> None:
+    """Verify that ledgermind_local.__version__ equals '4.1.0' when imported."""
+    _venv_dir, venv_python = installed_clean_venv
+    proc = subprocess.run(
+        [
+            str(venv_python),
+            "-c",
+            "import ledgermind_local; print(ledgermind_local.__version__)",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, f"Version check failed:\n{proc.stdout}\n{proc.stderr}"
+    assert proc.stdout.strip() == "4.1.0"
 
 
 def test_cli_help_in_clean_venv(installed_clean_venv: tuple[Path, Path]) -> None:
