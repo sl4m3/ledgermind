@@ -1142,6 +1142,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "export-config",
         "import-config",
         "runtime",
+        "integrations",
+        "integration-hook",
     }
     command = _first_command(raw_argv)
     if command in installer_commands:

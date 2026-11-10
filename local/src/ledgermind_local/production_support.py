@@ -121,8 +121,10 @@ def config_for(
 ) -> LocalConfig:
     """Build the same secure Local configuration used by pre-production gates."""
 
-    if runtime_config is None:
-        runtime_config = kwargs.pop("lab_config", None)
+    if runtime_config is None and kwargs:
+        if len(kwargs) == 1:
+            runtime_config = next(iter(kwargs.values()))
+            kwargs.clear()
     if runtime_config is None or kwargs:
         raise TypeError("config_for requires runtime_config")
     embedding = runtime_config.embedding
@@ -196,8 +198,10 @@ def seed_local(
 ) -> None:
     """Create the migration-owned seed state and bind all inference slots."""
 
-    if runtime_config is None:
-        runtime_config = kwargs.pop("lab_config", None)
+    if runtime_config is None and kwargs:
+        if len(kwargs) == 1:
+            runtime_config = next(iter(kwargs.values()))
+            kwargs.clear()
     if runtime_config is None or kwargs:
         raise TypeError("seed_local requires runtime_config")
     generation = _generation_for_task(runtime_config, "round_semantic")

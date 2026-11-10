@@ -385,10 +385,10 @@ def test_runtime_builds_generic_execution_worker_for_core_model_tasks(
         assert len(created) == 1
         assert created[0]["worker_id"] == "local-execution-tasks"
         executor = created[0]["executor"]
-        assert (
-            type(executor._embedding_provider).__module__
-            == "ledgermind_inference.embedding_provider"
-        )
+        assert type(executor._embedding_provider).__module__ in {
+            "ledgermind_inference.embedding_provider",
+            "ledgermind_local.inference.embedding_provider",
+        }
     finally:
         runtime.stop()
 

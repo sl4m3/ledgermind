@@ -5,6 +5,16 @@
   "wheels": [
     {
       "release": "4.1.0",
+      "name": "ledgermind_inference-0.1.0-cp310-abi3-linux_x86_64.whl",
+      "package": "ledgermind-inference",
+      "version": "0.1.0",
+      "python": "cp310",
+      "license": "LicenseRef-LedgerMind-Internal",
+      "url": "https://github.com/sl4m3/ledgermind/releases/download/v4.1.0/ledgermind_inference-0.1.0-cp310-abi3-linux_x86_64.whl",
+      "sha256": "0bc9fe6a4cc1147a8c5e05d74659e52e1b14aaf9ae5ffdea8bdaeb228a26f79a"
+    },
+    {
+      "release": "4.1.0",
       "name": "ledgermind_inference-0.1.0-py3-none-any.whl",
       "package": "ledgermind-inference",
       "version": "0.1.0",

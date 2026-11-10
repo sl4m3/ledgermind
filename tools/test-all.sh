@@ -37,6 +37,8 @@ if [ -n "${LEDGERMIND_INFERENCE_WHEEL:-}" ]; then
     INFERENCE_DEP="--with $LEDGERMIND_INFERENCE_WHEEL"
 elif [ -d "$ROOT/../inference/src" ]; then
     INFERENCE_DEP="--with-editable $ROOT/../inference"
+elif [ -d "$ROOT/../ledgermind-platform/inference/src" ]; then
+    INFERENCE_DEP="--with-editable $ROOT/../ledgermind-platform/inference"
 else
     printf '%s\n' \
         'ledgermind-inference is required for the Local suite.' \
