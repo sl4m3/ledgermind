@@ -63,22 +63,18 @@ def test_inference_profile_rejects_invalid_provider_and_limits() -> None:
         )
 
 
-def test_inference_profile_exposes_runinfra_prompt_cache_capability() -> None:
-    runinfra = InferenceProfile(
-        profile_id="generation-runinfra",
-        base_url="https://api.runinfra.ai/v1",
-        model="test-model",
-        secret_ref="generation-test",
-    )
-    openrouter = InferenceProfile(
-        profile_id="generation-openrouter",
-        base_url="https://openrouter.ai/api/v1",
-        model="test-model",
-        secret_ref="generation-test",
-    )
+def test_inference_profile_enables_prompt_cache_for_supported_hosts() -> None:
+    def profile(base_url: str) -> InferenceProfile:
+        return InferenceProfile(
+            profile_id="generation",
+            base_url=base_url,
+            model="test-model",
+            secret_ref="generation-test",
+        )
 
-    assert runinfra.supports_prompt_cache_key is True
-    assert openrouter.supports_prompt_cache_key is False
+    assert profile("https://api.runinfra.ai/v1").supports_prompt_cache_key is True
+    assert profile("https://openrouter.ai/api/v1").supports_prompt_cache_key is True
+    assert profile("https://provider.example/v1").supports_prompt_cache_key is False
 
 
 def test_embedding_profile_fingerprint_is_stable_token_free_and_config_sensitive() -> None:
