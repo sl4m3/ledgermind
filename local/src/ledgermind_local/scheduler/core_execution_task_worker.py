@@ -2,31 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import sqlite3
+import threading
+import time
 import uuid
+import warnings
+from collections import defaultdict, deque
 from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import cast
-
-from ledgermind_local.inference.core_task_executor import (
-    CoreTaskExecutor,
-    EmbeddingRequestSpec,
-    GenericExecutionTask,
-    ModelRequestSpec,
-)
-from ledgermind_local.inference.profiles import StructuredOutputMode
-from ledgermind_local.inference.providers.base import (
-    ChatMessage,
-    ProviderAuthenticationError,
-    ProviderConfigurationError,
-    ProviderError,
-    ProviderResponseError,
-    ProviderTimeoutError,
-    ProviderTransportError,
-    TransientProviderError,
-)
 
 from ledgermind_local.core_gateway.base import CoreGateway
 from ledgermind_local.core_gateway.contracts import (
@@ -38,8 +26,26 @@ from ledgermind_local.core_gateway.contracts import (
     TransientCoreError,
 )
 from ledgermind_local.embedding_purpose import validate_embedding_purpose
+from ledgermind_local.inference.core_task_executor import (
+    CoreTaskExecutor,
+    EmbeddingRequestSpec,
+    GenericExecutionTask,
+    ModelRequestSpec,
+)
 from ledgermind_local.inference.profile_slots import ProfileSlot
 from ledgermind_local.inference.profile_store import InferenceProfileStore
+from ledgermind_local.inference.profiles import StructuredOutputMode
+from ledgermind_local.inference.provider_lanes import TaskLane, task_lane
+from ledgermind_local.inference.providers.base import (
+    ChatMessage,
+    ProviderAuthenticationError,
+    ProviderConfigurationError,
+    ProviderError,
+    ProviderResponseError,
+    ProviderTimeoutError,
+    ProviderTransportError,
+    TransientProviderError,
+)
 from ledgermind_local.inference.secrets import SecretNotFoundError
 from ledgermind_local.persistence import open_sqlite_connection
 from ledgermind_local.persistence import rounds_migrations as migrations
@@ -391,7 +397,12 @@ ConnectionFactory = Callable[[str | Path], sqlite3.Connection]
 
 
 class CoreExecutionTaskWorker:
-    """Execute generic Core tasks without interpreting operation metadata."""
+    """Execute generic Core tasks without interpreting operation metadata.
+
+    Polling is only a lease/fetch hint. One poll never forms a batch barrier:
+    each task is submitted to its lane immediately, and the next poll asks for
+    tasks only when a lane has free capacity.
+    """
 
     def __init__(
         self,
@@ -400,37 +411,111 @@ class CoreExecutionTaskWorker:
         gateway: CoreGateway,
         executor: CoreTaskExecutor,
         worker_id: str,
-        poll_limit: int = 10,
+        lease_batch: int = 50,
+        poll_limit: int | None = None,
+        decision_inflight: int | None = None,
+        generation_concurrency: int = 50,
+        embedding_concurrency: int = 4,
+        embedding_batch_size: int = 32,
         lease_seconds: int = 300,
         connection_factory: ConnectionFactory = open_sqlite_connection,
     ) -> None:
         if not worker_id.strip():
             raise ValueError("worker_id must not be empty")
-        if not 1 <= poll_limit <= 100:
-            raise ValueError("poll_limit must be between 1 and 100")
+        if poll_limit is not None:
+            warnings.warn(
+                "poll_limit is deprecated; use lease_batch (a fetch hint, not concurrency)",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            lease_batch = poll_limit
+        if not 1 <= lease_batch <= 100:
+            raise ValueError("lease_batch must be between 1 and 100")
+        if decision_inflight is not None and decision_inflight < 1:
+            raise ValueError("decision_inflight must be positive or None")
+        if generation_concurrency < 1:
+            raise ValueError("generation_concurrency must be positive")
+        if embedding_concurrency < 1:
+            raise ValueError("embedding_concurrency must be positive")
+        if embedding_batch_size < 1:
+            raise ValueError("embedding_batch_size must be positive")
         if not 1 <= lease_seconds <= 3600:
             raise ValueError("lease_seconds must be between 1 and 3600")
         self._database_path = str(database_path)
         self._gateway = gateway
         self._executor = executor
         self._worker_id = worker_id
-        self._poll_limit = poll_limit
+        self._lease_batch = lease_batch
+        self._decision_inflight_limit = decision_inflight
+        self._generation_concurrency = generation_concurrency
+        self._embedding_concurrency = embedding_concurrency
+        self._embedding_batch_size = embedding_batch_size
         self._lease_seconds = lease_seconds
         self._connection_factory = connection_factory
+        self._migrations_applied = False
         self._closed = False
         self._provider_circuit_open = False
+
+        # In-flight accounting is shared between the polling thread and the
+        # dedicated asyncio loop thread.
+        self._state = threading.Condition()
+        self._decision_inflight = 0
+        self._generation_inflight = 0
+        self._embedding_inflight = 0
+        self._serial_outstanding: dict[str, int] = {}
+        self._delivery_pending = 0
+        self._sequences: dict[str, int] = {}
+        self._delivery_buffer: dict[
+            str, dict[int, tuple[GenericExecutionTask, object]]
+        ] = defaultdict(dict)
+        self._next_delivery: dict[str, int] = {}
+        self._delivery_running: dict[str, bool] = {}
+        self._serial_queues: dict[str, deque[tuple[GenericExecutionTask, int]]] = {}
+        self._serial_running: dict[str, bool] = {}
+        self._embedding_pending: dict[str, list[tuple[GenericExecutionTask, int]]] = (
+            defaultdict(list)
+        )
+        self._embedding_scheduled: set[str] = set()
+
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._loop_thread: threading.Thread | None = None
+        self._loop_lock = threading.Lock()
+        self._generation_semaphore: asyncio.Semaphore | None = None
+        self._embedding_semaphore: asyncio.Semaphore | None = None
+        self._decision_semaphore: asyncio.Semaphore | None = None
+        self._generation_pool = ThreadPoolExecutor(
+            max_workers=generation_concurrency,
+            thread_name_prefix="ledgermind-generation",
+        )
+        self._embedding_pool = ThreadPoolExecutor(
+            max_workers=embedding_concurrency,
+            thread_name_prefix="ledgermind-embedding",
+        )
+        self._delivery_pool = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="ledgermind-delivery"
+        )
+
         require_capabilities = getattr(gateway, "require_capabilities", None)
         if callable(require_capabilities):
             require_capabilities("execution_tasks")
 
     def process_once(self) -> int:
+        """Compatibility alias: submit available work without waiting for it."""
+
+        return self.dispatch_available()
+
+    def dispatch_available(self) -> int:
+        """Poll free lane slots and submit every leased task immediately."""
+
         if self._closed:
             raise RuntimeError("Core execution task worker is closed")
         if self._provider_circuit_open:
             return 0
         connection = self._connection_factory(self._database_path)
         try:
-            migrations.apply_migrations(connection)
+            if not self._migrations_applied:
+                migrations.apply_migrations(connection)
+                self._migrations_applied = True
             # Migration helpers may leave a write transaction open.  Do not
             # retain that connection while executing provider work: embedding
             # execution uses a second connection for the persistent vector
@@ -442,17 +527,24 @@ class CoreExecutionTaskWorker:
             ).fetchall()
         finally:
             connection.close()
+        memory_spaces = [str(row[0]) for row in spaces]
+        with self._state:
+            free_slots = self._free_capacity_locked(memory_spaces)
+        if free_slots <= 0:
+            return 0
 
         processed = 0
-        for row in spaces:
-            memory_space_id = str(row[0])
+        remaining = free_slots
+        for memory_space_id in memory_spaces:
+            if remaining <= 0:
+                break
             try:
                 polled = self._gateway.poll_execution_tasks(
                     PollExecutionTasksCommand(
                         request_id=self._request_id("poll"),
                         memory_space_id=memory_space_id,
                         worker_id=self._worker_id,
-                        limit=self._poll_limit,
+                        limit=remaining,
                         lease_seconds=self._lease_seconds,
                     )
                 )
@@ -466,11 +558,41 @@ class CoreExecutionTaskWorker:
                     },
                 )
                 continue
-            processed += len(polled.tasks)
-            self._process_tasks(polled.tasks, memory_space_id)
+            tasks = list(polled.tasks)
+            processed += len(tasks)
+            remaining -= len(tasks)
+            self._process_tasks(tasks, memory_space_id)
             if self._provider_circuit_open:
                 break
         return processed
+
+    def _free_capacity_locked(self, memory_spaces: list[str]) -> int:
+        """Return how many more tasks this worker may lease right now."""
+
+        generation_overfetch = max(
+            0, self._generation_inflight - self._generation_concurrency
+        )
+        embedding_capacity = self._embedding_concurrency * self._embedding_batch_size
+        embedding_overfetch = max(0, self._embedding_inflight - embedding_capacity)
+        if generation_overfetch + embedding_overfetch >= self._lease_batch:
+            # Stop leasing more provider work until the bounded lanes drain.
+            # The queue is lane-blind, so further polling would only stack
+            # leases behind a saturated provider budget.
+            return 0
+        free = 0
+        if self._decision_inflight_limit is None:
+            # Core leases at most one memory mutation per space at a time.
+            # Probe that many slots instead of the whole lease batch so a
+            # saturated generation lane cannot cause unbounded overfetch.
+            free += max(1, len(memory_spaces))
+        else:
+            free += max(0, self._decision_inflight_limit - self._decision_inflight)
+        free += max(0, self._generation_concurrency - self._generation_inflight)
+        free += max(0, embedding_capacity - self._embedding_inflight)
+        free += sum(
+            1 for space in memory_spaces if self._serial_outstanding.get(space, 0) == 0
+        )
+        return min(free, self._lease_batch)
 
     @property
     def provider_circuit_open(self) -> bool:
@@ -500,49 +622,358 @@ class CoreExecutionTaskWorker:
             )
 
     def close(self) -> None:
-        self._closed = True
+        """Stop polling, drain every in-flight task, then stop the async loop."""
 
-    def _process_task(self, raw_task: dict[str, object], memory_space_id: str) -> None:
+        with self._state:
+            if self._closed:
+                return
+            self._closed = True
+            self._state.notify_all()
         try:
-            task = execution_task_from_wire(raw_task, memory_space_id)
-            result = self._executor.execute(task)
-            self._open_provider_circuit_on_failure(result)
-            self._deliver_result_with_structured_retry(task, result, memory_space_id)
-        except Exception as exc:  # noqa: BLE001 - release every leased task
-            self._fail_task(raw_task, memory_space_id, exc)
+            self.wait_for_idle()
+        finally:
+            loop = self._loop
+            close_executor = getattr(self._executor, "aclose", None)
+            if loop is not None and callable(close_executor) and loop.is_running():
+                try:
+                    asyncio.run_coroutine_threadsafe(close_executor(), loop).result(10)
+                except Exception:  # noqa: BLE001 - shutdown must continue
+                    logger.warning(
+                        "provider async transport close failed",
+                        extra={"worker": self._worker_id},
+                    )
+            self._stop_loop()
+            self._generation_pool.shutdown(wait=False, cancel_futures=True)
+            self._embedding_pool.shutdown(wait=False, cancel_futures=True)
+            self._delivery_pool.shutdown(wait=False, cancel_futures=True)
+
+    def wait_for_idle(self, timeout: float | None = None) -> None:
+        """Block until every leased task and delivery has finished."""
+
+        if timeout is not None and timeout < 0:
+            raise ValueError("timeout must not be negative")
+        deadline = None if timeout is None else time.monotonic() + timeout
+        with self._state:
+            while not self._idle_locked():
+                remaining = None if deadline is None else deadline - time.monotonic()
+                if remaining is not None and remaining <= 0:
+                    raise TimeoutError("Core execution task worker did not become idle")
+                self._state.wait(remaining)
+
+    def _idle_locked(self) -> bool:
+        return (
+            self._decision_inflight == 0
+            and self._generation_inflight == 0
+            and self._embedding_inflight == 0
+            and self._delivery_pending == 0
+            and not any(self._serial_outstanding.values())
+            and not any(self._embedding_pending.values())
+        )
+
+    def lane_inflight(self) -> dict[str, int]:
+        """Content-free in-flight snapshot for operational checks."""
+
+        with self._state:
+            return {
+                TaskLane.DECISION.value: self._decision_inflight,
+                TaskLane.GENERATION.value: self._generation_inflight,
+                TaskLane.EMBEDDING.value: self._embedding_inflight,
+                TaskLane.SERIAL.value: sum(self._serial_outstanding.values()),
+                "delivery_pending": self._delivery_pending,
+            }
+
+    def _ensure_loop(self) -> asyncio.AbstractEventLoop:
+        with self._loop_lock:
+            if self._loop is not None:
+                return self._loop
+            if self._closed:
+                raise RuntimeError("Core execution task worker is closed")
+            loop = asyncio.new_event_loop()
+            ready = threading.Event()
+
+            def bootstrap() -> None:
+                self._generation_semaphore = asyncio.Semaphore(
+                    self._generation_concurrency
+                )
+                self._embedding_semaphore = asyncio.Semaphore(
+                    self._embedding_concurrency
+                )
+                if self._decision_inflight_limit is not None:
+                    self._decision_semaphore = asyncio.Semaphore(
+                        self._decision_inflight_limit
+                    )
+                ready.set()
+
+            def run_loop() -> None:
+                asyncio.set_event_loop(loop)
+                loop.call_soon(bootstrap)
+                loop.run_forever()
+
+            thread = threading.Thread(
+                target=run_loop,
+                name=f"ledgermind-core-execution-{self._worker_id}",
+                daemon=True,
+            )
+            thread.start()
+            if not ready.wait(timeout=5):
+                loop.call_soon_threadsafe(loop.stop)
+                raise RuntimeError("Core execution task loop did not start")
+            self._loop = loop
+            self._loop_thread = thread
+            return loop
+
+    def _stop_loop(self) -> None:
+        with self._loop_lock:
+            loop = self._loop
+            thread = self._loop_thread
+            self._loop = None
+            self._loop_thread = None
+        if loop is None:
+            return
+        loop.call_soon_threadsafe(loop.stop)
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=10)
+        if thread is None or not thread.is_alive():
+            loop.close()
+
+    def _submit_task(self, task: GenericExecutionTask, memory_space_id: str) -> None:
+        lane = task_lane(task)
+        try:
+            loop = self._ensure_loop()
+        except Exception as exc:  # noqa: BLE001 - release the lease on failure
+            self._fail_task(task.model_dump(mode="json"), memory_space_id, exc)
+            return
+        with self._state:
+            sequence = self._sequences.get(memory_space_id, 0)
+            self._sequences[memory_space_id] = sequence + 1
+            if lane is TaskLane.DECISION:
+                self._decision_inflight += 1
+            elif lane is TaskLane.GENERATION:
+                self._generation_inflight += 1
+            elif lane is TaskLane.EMBEDDING:
+                self._embedding_inflight += 1
+            else:
+                self._serial_outstanding[memory_space_id] = (
+                    self._serial_outstanding.get(memory_space_id, 0) + 1
+                )
+        try:
+            loop.call_soon_threadsafe(
+                self._dispatch_on_loop, task, memory_space_id, lane, sequence
+            )
+        except RuntimeError as exc:
+            self._release_submission(lane, memory_space_id)
+            self._fail_task(task.model_dump(mode="json"), memory_space_id, exc)
+
+    def _release_submission(self, lane: TaskLane, memory_space_id: str) -> None:
+        with self._state:
+            if lane is TaskLane.DECISION:
+                self._decision_inflight = max(0, self._decision_inflight - 1)
+            elif lane is TaskLane.GENERATION:
+                self._generation_inflight = max(0, self._generation_inflight - 1)
+            elif lane is TaskLane.EMBEDDING:
+                self._embedding_inflight = max(0, self._embedding_inflight - 1)
+            else:
+                self._serial_outstanding[memory_space_id] = max(
+                    0, self._serial_outstanding.get(memory_space_id, 0) - 1
+                )
+            self._state.notify_all()
+
+    def _dispatch_on_loop(
+        self,
+        task: GenericExecutionTask,
+        memory_space_id: str,
+        lane: TaskLane,
+        sequence: int,
+    ) -> None:
+        if lane is TaskLane.DECISION:
+            asyncio.create_task(self._run_decision(task, memory_space_id, sequence))
+        elif lane is TaskLane.GENERATION:
+            asyncio.create_task(self._run_generation(task, memory_space_id, sequence))
+        elif lane is TaskLane.EMBEDDING:
+            self._embedding_pending[memory_space_id].append((task, sequence))
+            self._schedule_embedding_flush(memory_space_id)
+        else:
+            self._serial_queues.setdefault(memory_space_id, deque()).append(
+                (task, sequence)
+            )
+            if not self._serial_running.get(memory_space_id):
+                self._serial_running[memory_space_id] = True
+                asyncio.create_task(self._run_serial_queue(memory_space_id))
+
+    async def _run_decision(
+        self, task: GenericExecutionTask, memory_space_id: str, sequence: int
+    ) -> None:
+        semaphore = self._decision_semaphore
+        try:
+            if semaphore is None:
+                result = await self._executor.execute_async(task)
+            else:
+                async with semaphore:
+                    result = await self._executor.execute_async(task)
+        except Exception as exc:  # noqa: BLE001 - every lease gets an outcome
+            self._queue_delivery(task, memory_space_id, sequence, exc)
+        else:
+            self._queue_delivery(task, memory_space_id, sequence, result)
+        finally:
+            self._release_submission(TaskLane.DECISION, memory_space_id)
+
+    async def _run_generation(
+        self, task: GenericExecutionTask, memory_space_id: str, sequence: int
+    ) -> None:
+        semaphore = self._generation_semaphore
+        assert semaphore is not None
+        try:
+            async with semaphore:
+                result = await asyncio.get_running_loop().run_in_executor(
+                    self._generation_pool, self._executor.execute, task
+                )
+        except Exception as exc:  # noqa: BLE001 - every lease gets an outcome
+            self._queue_delivery(task, memory_space_id, sequence, exc)
+        else:
+            self._queue_delivery(task, memory_space_id, sequence, result)
+        finally:
+            self._release_submission(TaskLane.GENERATION, memory_space_id)
+
+    def _schedule_embedding_flush(self, memory_space_id: str) -> None:
+        if memory_space_id in self._embedding_scheduled:
+            return
+        self._embedding_scheduled.add(memory_space_id)
+        asyncio.create_task(self._flush_embeddings(memory_space_id))
+
+    async def _flush_embeddings(self, memory_space_id: str) -> None:
+        try:
+            # Let every task from the same poll land in the pending list before
+            # taking one technical embedding batch.
+            await asyncio.sleep(0)
+            pending = self._embedding_pending.get(memory_space_id) or []
+            batch = pending[: self._embedding_batch_size]
+            del pending[: len(batch)]
+        finally:
+            self._embedding_scheduled.discard(memory_space_id)
+            if self._embedding_pending.get(memory_space_id):
+                self._schedule_embedding_flush(memory_space_id)
+        if not batch:
+            return
+        tasks = tuple(task for task, _ in batch)
+        try:
+            execute_batch = getattr(self._executor, "execute_batch", None)
+            if callable(execute_batch):
+                results = await asyncio.get_running_loop().run_in_executor(
+                    self._embedding_pool, execute_batch, tasks
+                )
+            else:
+                results = []
+                for task in tasks:
+                    results.append(
+                        await asyncio.get_running_loop().run_in_executor(
+                            self._embedding_pool, self._executor.execute, task
+                        )
+                    )
+            if len(results) != len(batch):
+                raise RuntimeError("embedding batch returned an incomplete result set")
+        except Exception as exc:  # noqa: BLE001 - every lease gets an outcome
+            for task, sequence in batch:
+                self._queue_delivery(task, memory_space_id, sequence, exc)
+        else:
+            for (task, sequence), result in zip(batch, results, strict=True):
+                self._queue_delivery(task, memory_space_id, sequence, result)
+        finally:
+            for _task, _sequence in batch:
+                self._release_submission(TaskLane.EMBEDDING, memory_space_id)
+
+    async def _run_serial_queue(self, memory_space_id: str) -> None:
+        try:
+            while True:
+                queue = self._serial_queues.get(memory_space_id)
+                if not queue:
+                    return
+                task, sequence = queue.popleft()
+                try:
+                    result = await asyncio.to_thread(self._executor.execute, task)
+                except Exception as exc:  # noqa: BLE001 - every lease gets an outcome
+                    self._queue_delivery(task, memory_space_id, sequence, exc)
+                else:
+                    self._queue_delivery(task, memory_space_id, sequence, result)
+                finally:
+                    self._release_submission(TaskLane.SERIAL, memory_space_id)
+        finally:
+            self._serial_running[memory_space_id] = False
+
+    def _queue_delivery(
+        self,
+        task: GenericExecutionTask,
+        memory_space_id: str,
+        sequence: int,
+        outcome: object,
+    ) -> None:
+        with self._state:
+            self._delivery_buffer[memory_space_id][sequence] = (task, outcome)
+            self._delivery_pending += 1
+            if not self._delivery_running.get(memory_space_id):
+                self._delivery_running[memory_space_id] = True
+                asyncio.create_task(self._drain_delivery(memory_space_id))
+
+    async def _drain_delivery(self, memory_space_id: str) -> None:
+        try:
+            while True:
+                with self._state:
+                    expected = self._next_delivery.get(memory_space_id, 0)
+                    entry = self._delivery_buffer[memory_space_id].pop(expected, None)
+                if entry is None:
+                    return
+                task, outcome = entry
+                await asyncio.get_running_loop().run_in_executor(
+                    self._delivery_pool,
+                    self._deliver_outcome,
+                    task,
+                    memory_space_id,
+                    outcome,
+                )
+                with self._state:
+                    self._next_delivery[memory_space_id] = expected + 1
+                    self._delivery_pending -= 1
+                    self._state.notify_all()
+        finally:
+            with self._state:
+                self._delivery_running[memory_space_id] = False
+
+    def _deliver_outcome(
+        self,
+        task: GenericExecutionTask,
+        memory_space_id: str,
+        outcome: object,
+    ) -> None:
+        try:
+            if isinstance(outcome, BaseException):
+                self._fail_task(task.model_dump(mode="json"), memory_space_id, outcome)
+                return
+            self._open_provider_circuit_on_failure(outcome)
+            self._deliver_result_with_structured_retry(task, outcome, memory_space_id)
+        except Exception as exc:  # noqa: BLE001 - isolate one delivery
+            logger.warning(
+                "Core execution result delivery failed",
+                extra={"worker": self._worker_id, "task_id": task.task_id},
+            )
+            try:
+                self._fail_task(task.model_dump(mode="json"), memory_space_id, exc)
+            except Exception:  # noqa: BLE001 - delivery failure is already logged
+                logger.warning(
+                    "could not release leased execution task",
+                    extra={"worker": self._worker_id, "task_id": task.task_id},
+                )
 
     def _process_tasks(
         self, raw_tasks: list[dict[str, object]], memory_space_id: str
     ) -> None:
-        """Batch only compatible embedding tasks; keep one Core result per task."""
+        """Submit one poll batch; execution continues on the lane runtime."""
 
-        converted: list[GenericExecutionTask] = []
         for raw_task in raw_tasks:
             try:
-                converted.append(execution_task_from_wire(raw_task, memory_space_id))
+                task = execution_task_from_wire(raw_task, memory_space_id)
             except Exception as exc:  # noqa: BLE001 - isolate malformed leases
                 self._fail_task(raw_task, memory_space_id, exc)
-        if not converted:
-            return
-
-        immediate = converted
-        if not immediate:
-            return
-
-        try:
-            results = self._executor.execute_batch(tuple(immediate))
-        except Exception as exc:  # noqa: BLE001 - release every leased task
-            for task in immediate:
-                self._fail_task(task.model_dump(mode="json"), memory_space_id, exc)
-            return
-        for task, result in zip(immediate, results, strict=True):
-            self._open_provider_circuit_on_failure(result)
-            try:
-                self._deliver_result_with_structured_retry(
-                    task, result, memory_space_id
-                )
-            except Exception as exc:  # noqa: BLE001 - isolate delivery failures
-                self._fail_task(task.model_dump(mode="json"), memory_space_id, exc)
+                continue
+            self._submit_task(task, memory_space_id)
 
     def _deliver_result_with_structured_retry(
         self,
@@ -648,7 +1079,9 @@ class CoreExecutionTaskWorker:
             return
         connection = self._connection_factory(self._database_path)
         try:
-            migrations.apply_migrations(connection)
+            if not self._migrations_applied:
+                migrations.apply_migrations(connection)
+                self._migrations_applied = True
             InferenceProfileStore(connection).record_egress_audit(
                 memory_space_id=memory_space_id,
                 profile_id=getattr(audit, "profile_id", None),

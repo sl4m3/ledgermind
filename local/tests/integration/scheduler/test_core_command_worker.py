@@ -224,3 +224,64 @@ def test_core_command_worker_request_stop_stops_created_loop(tmp_path: Path) -> 
     loop.start()
     worker.request_stop()
     assert loop.join(timeout=1) is True
+
+
+def test_claim_core_command_preserves_insertion_order_within_same_timestamp(
+    tmp_path: Path,
+) -> None:
+    connection = open_sqlite_connection(tmp_path / "fifo.db")
+    migrations.apply_migrations(connection)
+    connection.execute(
+        """
+        INSERT INTO memory_spaces (
+            memory_space_id, display_name, source_client, created_at, updated_at
+        ) VALUES ('space-1', 'Test space', 'test',
+                  '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')
+        """
+    )
+    repository = SQLiteRawRoundRepository(connection)
+    same_ts = "2026-08-03T00:00:00+00:00"
+    for cmd_id, round_id in [
+        ("zzz-first-inserted", "round-1"),
+        ("aaa-second-inserted", "round-2"),
+    ]:
+        repository.insert(
+            raw_round_id=round_id,
+            memory_space_id="space-1",
+            source_system="hermes",
+            source_instance_id="instance-1",
+            source_profile_id="profile-1",
+            source_session_id="session-1",
+            source_round_id=round_id,
+            source_round_key=round_id,
+            capture_schema_version=1,
+            adapter_version="test/1",
+            payload_json='{"round":{"events":[]}}',
+            payload_digest="sha256:" + "a" * 64,
+            started_at=same_ts,
+            completed_at=same_ts,
+        )
+        repository.create_core_command(
+            command_id=cmd_id,
+            command_type="ingest_raw_round",
+            memory_space_id="space-1",
+            idempotency_key=f"idem:{round_id}",
+            payload_json=json.dumps({"raw_round_id": round_id}),
+            payload_digest="sha256:" + "a" * 64,
+            available_at=same_ts,
+        )
+    connection.commit()
+
+    first = repository.claim_core_command(
+        worker_id="worker-1",
+        now="2026-08-03T00:00:01+00:00",
+    )
+    assert first is not None and first.command_id == "zzz-first-inserted"
+    assert "." in first.created_at
+
+    second = repository.claim_core_command(
+        worker_id="worker-1",
+        now="2026-08-03T00:00:01+00:00",
+    )
+    assert second is not None and second.command_id == "aaa-second-inserted"
+    connection.close()
