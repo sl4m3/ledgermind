@@ -289,3 +289,36 @@ def test_state_reader_does_not_mark_tool_call_narration_as_final(tmp_path: Path)
 
     assert [event["kind"] for event in events] == ["message", "message", "tool_call"]
     assert not any(event.get("final") for event in events)
+
+def test_load_config_reads_failed_promotion_limits(tmp_path: Path) -> None:
+    from ledgermind_integrations.adapters.hermes.config import load_config
+    from ledgermind_integrations.runtime.spool import (
+        DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS,
+        DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS,
+    )
+
+    path = tmp_path / "hermes.json"
+    payload: dict[str, object] = {
+        "endpoint": "http://127.0.0.1:8765",
+        "memory_space_id": "workspace_01",
+        "source_instance_id": "src_hermes_local",
+        "profile_id": "default",
+        "retryable_failed_max_attempts": 7,
+        "retryable_failed_max_age_seconds": 60,
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    config = load_config(path)
+    assert config.retryable_failed_max_attempts == 7
+    assert config.retryable_failed_max_age_seconds == 60.0
+
+    del payload["retryable_failed_max_attempts"]
+    del payload["retryable_failed_max_age_seconds"]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    defaults = load_config(path)
+    assert defaults.retryable_failed_max_attempts == DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS
+    assert (
+        defaults.retryable_failed_max_age_seconds
+        == DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS
+    )

@@ -62,8 +62,8 @@ class DeliveryWorker:
         except LedgerMindPermanentError as exc:
             # Non-core failure (4xx, invalid payload): quarantine immediately so it
             # does not block the queue. retryable keeps it recoverable after the
-            # client (key/limit/payload) is fixed. Persist the attempt count so the
-            # quarantine record shows how many tries were made.
+            # client (key/limit/payload) is fixed, but the promotion back to
+            # ready/ is bounded: migration reads this attempt count as a ceiling.
             self.spool.fail(
                 item_name,
                 exc.reason or type(exc).__name__,

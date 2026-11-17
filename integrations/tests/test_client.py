@@ -183,13 +183,37 @@ def test_submit_round_requires_explicit_acceptance(monkeypatch: pytest.MonkeyPat
 
     monkeypatch.setattr(client_module, "validate_raw_round", lambda _payload: Validated())
     client = _client()
-    monkeypatch.setattr(client, "_request", lambda *_args: {})
+    monkeypatch.setattr(client, "_request", lambda *_args: {"status": "unknown"})
     with pytest.raises(LedgerMindResponseError, match="acceptance"):
         client.submit_round({})
     monkeypatch.setattr(
         client, "_request", lambda *_args: {"status": "accepted", "round_id": "round-1"}
     )
     assert client.submit_round({})["round_id"] == "round-1"
+
+
+def test_empty_successful_rounds_response_confirms_acceptance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 204 No Content (empty body) on /rounds is acceptance without a receipt."""
+
+    class Validated:
+        def model_dump(self, **_kwargs: Any) -> dict[str, str]:
+            return {"idempotency_key": "round-1"}
+
+    from ledgermind_integrations.runtime import client as client_module
+    from ledgermind_integrations.runtime.client import round_acceptance_confirmed
+
+    monkeypatch.setattr(client_module, "validate_raw_round", lambda _payload: Validated())
+    client = _client()
+    monkeypatch.setattr(client, "_request", lambda *_args: {})
+
+    response = client.submit_round({})
+
+    assert round_acceptance_confirmed(response) is True
+    # The normalisation is endpoint-specific: an empty mapping never confirms
+    # acceptance on its own, and _request keeps returning {} for 204.
+    assert round_acceptance_confirmed({}) is False
 
 
 @pytest.mark.parametrize("status", ["queued_for_core", "retry_wait", "rejected"])

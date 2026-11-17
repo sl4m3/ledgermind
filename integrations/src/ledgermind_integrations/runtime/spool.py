@@ -28,6 +28,15 @@ class SpoolStats:
     failed: int
 
 
+# Promotion of a quarantined retryable record back to ready/ is bounded: a
+# permanent 4xx (bad key, rejected payload) never becomes valid by retrying, so
+# an unlimited promotion loop would resend it forever. Both limits are
+# defaults here and overridable through integration config; the migration code
+# only ever reads them from the spool instance.
+DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS = 5
+DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS = 86_400.0
+
+
 class FileSpool:
     def __init__(
         self,
@@ -37,6 +46,8 @@ class FileSpool:
         max_bytes: int = 50_000_000,
         max_files: int = 1_000,
         inflight_ttl_seconds: float = 300.0,
+        retryable_failed_max_attempts: int = DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS,
+        retryable_failed_max_age_seconds: float = DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS,
         worker_id: str | None = None,
     ) -> None:
         self.root = Path(root).expanduser()
@@ -48,6 +59,10 @@ class FileSpool:
         self.max_bytes = max(int(max_bytes), 1)
         self.max_files = max(int(max_files), 1)
         self.inflight_ttl_seconds = max(float(inflight_ttl_seconds), 0.1)
+        self.retryable_failed_max_attempts = max(int(retryable_failed_max_attempts), 1)
+        self.retryable_failed_max_age_seconds = max(
+            float(retryable_failed_max_age_seconds), 1.0
+        )
         self.worker_id = worker_id or f"worker-{uuid4().hex}"
         self.delivery_status_path = self.root / "delivery-status.json"
 
@@ -254,10 +269,17 @@ class FileSpool:
                 continue
             delivery = envelope.get("delivery")
             claimed_at = delivery.get("claimed_at") if isinstance(delivery, dict) else None
+            if claimed_at is None:
+                # pop_ready renames ready/->inflight/ before it rewrites the
+                # record with claimed_at, and rename() preserves mtime. A
+                # missing claim means "someone is claiming right now", so it
+                # must stay live: reclaiming it would duplicate the round.
+                continue
             try:
-                expired = claimed_at is None or now - float(claimed_at) >= self.inflight_ttl_seconds
+                expired = now - float(claimed_at) >= self.inflight_ttl_seconds
             except (TypeError, ValueError):
-                expired = True
+                # An unreadable claim is treated as live, not as expired.
+                continue
             if not expired:
                 continue
             if isinstance(delivery, dict):
@@ -276,9 +298,24 @@ class FileSpool:
             claimed = self.inflight_dir / path.name
             try:
                 path.replace(claimed)
+            except FileNotFoundError:
+                # Another worker won the glob->claim race: its live claim now
+                # sits in inflight/ and must stay untouched. Quarantining by
+                # name here would move a round that is being delivered into
+                # failed/ and silently lose it.
+                continue
+            except OSError as exc:
+                # A transient filesystem error says nothing about the record:
+                # leave it in ready/ for the next drain instead of turning it
+                # into a quarantine (which would be a loss, not a protection).
+                self.note_delivery_failure(type(exc).__name__)
+                continue
+            try:
                 payload = json.loads(claimed.read_text(encoding="utf-8"))
-            except (FileNotFoundError, OSError, json.JSONDecodeError):
-                self.fail_inflight(path.name, "invalid_json")
+            except (OSError, json.JSONDecodeError):
+                # The rename succeeded, so this record is our own claim: the
+                # by-name quarantine cannot touch a rival worker's claim.
+                self.fail_inflight(claimed.name, "invalid_json")
                 continue
             if not isinstance(payload, dict):
                 self.fail_inflight(path.name, "invalid_envelope")
@@ -334,6 +371,11 @@ class FileSpool:
             delivery = {}
         delivery["failure_reason"] = reason
         delivery["retryable"] = retryable
+        # Promotion back to ready/ is bounded by attempt count and by the age
+        # of the latest failure, so this timestamp is always refreshed. The
+        # attempt ceiling stays the primary bound; the age catches records that
+        # sat in failed/ without new attempts (e.g. a stop of the drain loop).
+        delivery["failed_at"] = time.time()
         if delivery_patch:
             # Persist extra per-attempt metadata (e.g. attempts) into the
             # quarantine record so it is visible without replaying delivery.

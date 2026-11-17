@@ -165,6 +165,13 @@ class LedgerMindClient:
             "/rounds",
             validated.model_dump(mode="json", exclude_none=True),
         )
+        if not response:
+            # 204 No Content (and an empty body on 200/201/202) is a successful
+            # round submission without a receipt: /rounds confirmed capture at
+            # the transport level. Normalised here, for this endpoint only:
+            # _request stays generic and round_acceptance_confirmed still never
+            # infers acceptance from an empty payload.
+            return {"accepted": True}
         if not round_acceptance_confirmed(response):
             raise LedgerMindResponseError("round acceptance was not confirmed")
         return response

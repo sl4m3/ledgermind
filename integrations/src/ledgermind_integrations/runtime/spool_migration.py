@@ -38,6 +38,7 @@ class SpoolMigrationResult:
     migrated_ready: int = 0
     migrated_failed: int = 0
     promoted_failed: int = 0
+    retired_failed: int = 0
 
 
 def _copy_json(value: Mapping[str, Any]) -> dict[str, Any]:
@@ -205,26 +206,28 @@ def _recover_inflight(spool: FileSpool) -> int:
     # live worker/drain; stealing it here would duplicate delivery work. This
     # mirrors FileSpool._reclaim_expired_inflight so a single drain under a
     # shared lock never re-queues another instance's live claim.
+    #
+    # A missing claimed_at is a live claim, not an old one: pop_ready renames
+    # ready/->inflight/ before it rewrites the record with claimed_at, and
+    # rename() preserves mtime, so mtime is not evidence of age. Residual risk
+    # (accepted): a process dying inside that window leaves the record in
+    # inflight/ without claimed_at forever, recoverable only by hand. Losing or
+    # duplicating a round is worse than one stuck record.
     recovered = 0
     now = time.time()
     ttl = spool.inflight_ttl_seconds
     for path in sorted(spool.inflight_dir.glob("*.json")):
-        try:
-            claimed_at = path.stat().st_mtime
-        except OSError:
-            continue
         payload = _migrate_record(_read_record(path))
         delivery = payload.get("delivery")
-        if isinstance(delivery, dict) and delivery.get("claimed_at") is not None:
-            try:
-                claimed_at = float(delivery["claimed_at"])
-            except (TypeError, ValueError):
-                pass
+        raw_claimed = delivery.get("claimed_at") if isinstance(delivery, dict) else None
+        if raw_claimed is None:
+            continue
         try:
-            expired = now - claimed_at >= ttl
+            claimed_at = float(raw_claimed)
         except (TypeError, ValueError):
-            expired = True
-        if not expired:
+            # An unreadable claim is treated as live, not as expired.
+            continue
+        if now - claimed_at < ttl:
             continue
         if not isinstance(delivery, dict):
             delivery = {}
@@ -250,9 +253,52 @@ def _migrate_directory(directory: Path) -> int:
     return migrated
 
 
-def _migrate_failed(spool: FileSpool) -> tuple[int, int]:
+def _failed_promotion_exhausted(
+    spool: FileSpool, delivery: Mapping[str, Any], path: Path, now: float
+) -> str | None:
+    """Name the limit that forbids promoting a quarantined record back to ready/.
+
+    Both limits live on the spool instance, so they come from integration config
+    and never from literals here.
+    """
+
+    try:
+        attempts = int(delivery.get("attempts", 0))
+    except (TypeError, ValueError):
+        attempts = 0
+    if attempts >= spool.retryable_failed_max_attempts:
+        return "attempts"
+    raw_failed_at = delivery.get("failed_at")
+    failed_at: float | None
+    if raw_failed_at is None:
+        # Legacy quarantines predate failed_at: their age is the file's age.
+        try:
+            failed_at = path.stat().st_mtime
+        except OSError:
+            failed_at = None
+    else:
+        try:
+            failed_at = float(raw_failed_at)
+        except (TypeError, ValueError):
+            failed_at = None  # an unreadable age is not evidence of expiry
+    if failed_at is not None and now - failed_at >= spool.retryable_failed_max_age_seconds:
+        return "age"
+    return None
+
+
+def _migrate_failed(spool: FileSpool) -> tuple[int, int, int]:
+    """Rewrite failed/ records and promote the ones still worth another attempt.
+
+    Promotion is bounded by attempt count and by the age of the latest failure:
+    a permanent 4xx (bad key, rejected payload) never turns into acceptance by
+    retrying, so exhausted records stay in failed/ with ``retryable=False``,
+    ``retired_at`` and ``retirement_reason`` instead of being resent forever.
+    """
+
     migrated = 0
     promoted = 0
+    retired = 0
+    now = time.time()
     for path in sorted(spool.failed_dir.glob("*.json")):
         original = _read_record(path)
         current = _migrate_record(original)
@@ -264,31 +310,50 @@ def _migrate_failed(spool: FileSpool) -> tuple[int, int]:
         delivery = current.get("delivery")
         if not isinstance(delivery, dict):
             continue
+        exhausted = _failed_promotion_exhausted(spool, delivery, path, now)
+        if exhausted is not None:
+            # Keep the payload for manual recovery; only stop the automatic
+            # promotion loop.
+            delivery["retryable"] = False
+            delivery["retired_at"] = now
+            delivery["retirement_reason"] = f"retryable_failed_{exhausted}_exhausted"
+            if "retryable" in current:
+                current["retryable"] = False  # legacy top-level flag
+            _atomic_write(path, current)
+            retired += 1
+            continue
         delivery.pop("failure_reason", None)
+        delivery.pop("failed_at", None)
         delivery.pop("worker_id", None)
         delivery.pop("claimed_at", None)
         delivery["next_attempt_at"] = 0.0
         _atomic_write(spool.ready_dir / path.name, current)
         path.unlink(missing_ok=True)
         promoted += 1
-    return migrated, promoted
+    return migrated, promoted, retired
 
 
 def migrate_spool(spool: FileSpool | str | Path) -> SpoolMigrationResult:
-    """Recover and rewrite all persisted records before delivery starts."""
+    """Recover and rewrite all persisted records before delivery starts.
+
+    Failed records are promoted back to ready/ only while they stay within the
+    spool's attempt and age limits; exhausted ones remain in failed/ with
+    ``retryable=False`` and a retirement reason.
+    """
 
     target = spool if isinstance(spool, FileSpool) else FileSpool(spool)
     target._ensure()
     recovered = _recover_inflight(target)
     pending = _migrate_directory(target.pending_dir)
     ready = _migrate_directory(target.ready_dir)
-    failed, promoted = _migrate_failed(target)
+    failed, promoted, retired = _migrate_failed(target)
     return SpoolMigrationResult(
         recovered_inflight=recovered,
         migrated_pending=pending,
         migrated_ready=ready,
         migrated_failed=failed,
         promoted_failed=promoted,
+        retired_failed=retired,
     )
 
 

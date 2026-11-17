@@ -7,6 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
+from ...runtime.spool import (
+    DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS,
+    DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class LifecycleConfig:
@@ -33,6 +38,8 @@ class LifecycleConfig:
     spool_max_bytes: int = 50_000_000
     spool_max_files: int = 1_000
     max_round_payload_bytes: int = 5_000_000
+    retryable_failed_max_attempts: int = DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS
+    retryable_failed_max_age_seconds: float = DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS
 
 
 _REQUIRED = (
@@ -99,6 +106,23 @@ def load_lifecycle_config(path: str | Path) -> LifecycleConfig:
         spool_max_bytes=max(int(payload.get("spool_max_bytes", 50_000_000)), 1),
         spool_max_files=max(int(payload.get("spool_max_files", 1_000)), 1),
         max_round_payload_bytes=max(int(payload.get("max_round_payload_bytes", 5_000_000)), 1),
+        retryable_failed_max_attempts=max(
+            int(
+                payload.get(
+                    "retryable_failed_max_attempts", DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS
+                )
+            ),
+            1,
+        ),
+        retryable_failed_max_age_seconds=max(
+            float(
+                payload.get(
+                    "retryable_failed_max_age_seconds",
+                    DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS,
+                )
+            ),
+            1.0,
+        ),
     )
 
 

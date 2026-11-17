@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any, cast
@@ -164,3 +165,111 @@ def test_migration_recovers_expired_inflight_claim(tmp_path: Path) -> None:
     recovered = _read(next(spool.ready_dir.glob("*.json")))
     assert "claimed_at" not in recovered["delivery"]
     assert "worker_id" not in recovered["delivery"]
+
+def test_migration_does_not_steal_claim_without_claimed_at(tmp_path: Path) -> None:
+    # pop_ready renames ready/->inflight/ first and only then rewrites the record
+    # with claimed_at, while rename() keeps mtime. A record without claimed_at is
+    # therefore being claimed right now, not abandoned: recovering it would queue
+    # a duplicate round for delivery.
+    spool = FileSpool(tmp_path / "spool", inflight_ttl_seconds=0.1)
+    spool.enqueue_ready("round-1", _raw_round())
+    spool.pop_ready()
+    inflight = spool.inflight_dir / "round-1.json"
+    payload = _read(inflight)
+    payload["delivery"].pop("claimed_at")
+    inflight.write_text(json.dumps(payload), encoding="utf-8")
+    old = time.time() - 3_600
+    os.utime(inflight, (old, old))  # mtime is not evidence of claim age
+
+    result = migrate_spool(spool)
+
+    assert result.recovered_inflight == 0
+    assert inflight.exists()
+    assert spool.stats().ready_delivery == 0
+    assert spool.stats().inflight == 1
+
+
+def test_failed_promotion_stops_after_attempt_ceiling(tmp_path: Path) -> None:
+    # A permanent 4xx never becomes valid by retrying, so an exhausted record
+    # must stay in failed/ instead of bouncing between ready/ and failed/.
+    spool = FileSpool(tmp_path / "spool", retryable_failed_max_attempts=2)
+    spool._ensure()
+    failed = spool.failed_dir / "exhausted.json"
+    failed.write_text(
+        json.dumps(
+            {
+                "request": _raw_round(),
+                "delivery": {"attempts": 2, "retryable": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = migrate_spool(spool)
+
+    assert result.promoted_failed == 0
+    assert result.retired_failed == 1
+    assert spool.stats().ready_delivery == 0
+    assert failed.exists()
+    delivery = _read(failed)["delivery"]
+    assert delivery["retryable"] is False
+    assert delivery["retirement_reason"] == "retryable_failed_attempts_exhausted"
+    assert delivery["retired_at"]
+
+    second = migrate_spool(spool)
+    assert second.retired_failed == 0
+    assert second.promoted_failed == 0
+    assert failed.exists()
+
+
+def test_failed_promotion_stops_after_age_ceiling(tmp_path: Path) -> None:
+    spool = FileSpool(tmp_path / "spool", retryable_failed_max_age_seconds=1.0)
+    spool._ensure()
+    failed = spool.failed_dir / "stale.json"
+    failed.write_text(
+        json.dumps(
+            {
+                "request": _raw_round(),
+                "delivery": {
+                    "attempts": 0,
+                    "retryable": True,
+                    "failed_at": time.time() - 10,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = migrate_spool(spool)
+
+    assert result.promoted_failed == 0
+    assert result.retired_failed == 1
+    assert failed.exists()
+    delivery = _read(failed)["delivery"]
+    assert delivery["retryable"] is False
+    assert "age" in delivery["retirement_reason"]
+
+
+def test_failed_promotion_within_limits_still_promotes(tmp_path: Path) -> None:
+    # The ceiling must not swallow a record that is still worth one more try.
+    spool = FileSpool(tmp_path / "spool")
+    spool._ensure()
+    failed = spool.failed_dir / "fixable.json"
+    failed.write_text(
+        json.dumps(
+            {
+                "request": _raw_round(),
+                "delivery": {"attempts": 1, "retryable": True, "failed_at": time.time()},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = migrate_spool(spool)
+
+    assert result.promoted_failed == 1
+    assert result.retired_failed == 0
+    assert spool.stats().failed == 0
+    promoted = _read(spool.ready_dir / "fixable.json")["delivery"]
+    assert "failed_at" not in promoted
+    assert "failure_reason" not in promoted

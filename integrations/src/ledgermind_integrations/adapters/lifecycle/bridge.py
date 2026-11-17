@@ -219,6 +219,8 @@ def _spool(config: LifecycleConfig) -> FileSpool:
         max_payload_bytes=config.max_round_payload_bytes,
         max_bytes=config.spool_max_bytes,
         max_files=config.spool_max_files,
+        retryable_failed_max_attempts=config.retryable_failed_max_attempts,
+        retryable_failed_max_age_seconds=config.retryable_failed_max_age_seconds,
     )
 
 
@@ -618,8 +620,10 @@ def drain_ready(config: LifecycleConfig, *, max_seconds: float = 120.0) -> int:
         # key/limit/payload is retried on the next drain instead of waiting for a
         # process restart. This MUST run under delivery-worker.lock: concurrent
         # drain subprocesses (one per Stop) would otherwise race the same queue.
-        # migrate_spool is TTL-aware and never steals a live in-flight record. A
-        # single corrupt record or a glob->claim race must not abort the drain.
+        # migrate_spool is TTL-aware and never steals a live in-flight record.
+        # A single corrupt record or a glob->claim race must not abort the drain;
+        # pop_ready itself survives losing the claim race without quarantining
+        # the winner's live record.
         try:
             migrate_spool(spool)
         except (SpoolMigrationError, OSError):

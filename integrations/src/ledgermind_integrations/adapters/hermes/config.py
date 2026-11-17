@@ -8,6 +8,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, cast
 
+from ...runtime.spool import (
+    DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS,
+    DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS,
+)
+
 
 @dataclass(frozen=True, slots=True)
 class HermesConfig:
@@ -33,6 +38,8 @@ class HermesConfig:
     max_spool_bytes: int = 50_000_000
     max_spool_files: int = 1_000
     inflight_ttl_seconds: float = 300.0
+    retryable_failed_max_attempts: int = DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS
+    retryable_failed_max_age_seconds: float = DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS
     runtime_endpoint: str | None = None
     runtime_state_file: str | None = None
     runtime_command: str | None = None
@@ -118,6 +125,23 @@ def load_config(path: str | Path) -> HermesConfig:
             )), 1
         ),
         inflight_ttl_seconds=max(float(payload.get("inflight_ttl_seconds", 300.0)), 0.1),
+        retryable_failed_max_attempts=max(
+            int(
+                payload.get(
+                    "retryable_failed_max_attempts", DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS
+                )
+            ),
+            1,
+        ),
+        retryable_failed_max_age_seconds=max(
+            float(
+                payload.get(
+                    "retryable_failed_max_age_seconds",
+                    DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS,
+                )
+            ),
+            1.0,
+        ),
         runtime_endpoint=(
             str(payload["runtime_endpoint"]).rstrip("/")
             if payload.get("runtime_endpoint")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import stat
 import time
 from pathlib import Path
@@ -54,6 +55,76 @@ def test_spool_is_private_and_claims_ready_atomically(tmp_path: Path) -> None:
     assert (spool.inflight_dir / "round-1.json").exists()
     assert claimed[0][1]["delivery"]["worker_id"]
     assert claimed[0][1]["delivery"]["claimed_at"]
+
+
+def test_spool_does_not_reclaim_claim_without_claimed_at(tmp_path: Path) -> None:
+    # pop_ready renames ready/->inflight/ before writing claimed_at. Such a record
+    # is a claim in progress; reclaiming it (which pop_ready triggers first) would
+    # let a second worker deliver the same round twice.
+    spool = FileSpool(tmp_path / "spool", inflight_ttl_seconds=0.1)
+    spool.enqueue_ready("round-1", {"id": "round-1"})
+    spool.pop_ready()
+    inflight = spool.inflight_dir / "round-1.json"
+    payload = json.loads(inflight.read_text(encoding="utf-8"))
+    payload["delivery"].pop("claimed_at")
+    inflight.write_text(json.dumps(payload), encoding="utf-8")
+    old = time.time() - 3_600
+    os.utime(inflight, (old, old))
+
+    spool._reclaim_expired_inflight()
+
+    assert inflight.exists()
+    assert spool.stats().ready_delivery == 0
+    assert spool.stats().inflight == 1
+
+
+def test_pop_ready_leaves_rival_claim_untouched(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Two workers can glob the same ready/ record; only one wins rename(). The
+    # loser must leave the winner's live inflight/ claim alone: quarantining it
+    # by name would drop a round that is already being delivered.
+    from pathlib import Path as _Path
+
+    spool = FileSpool(tmp_path / "spool")
+    spool.enqueue_ready("round-1", {"id": "round-1"})
+    original_replace = _Path.replace
+
+    def racing_replace(self: _Path, target: _Path) -> _Path:
+        if self.parent == spool.ready_dir:
+            rival = spool.inflight_dir / self.name
+            payload = json.loads(self.read_text(encoding="utf-8"))
+            payload["delivery"].update({"worker_id": "rival", "claimed_at": time.time()})
+            rival.write_text(json.dumps(payload), encoding="utf-8")
+            self.unlink()
+            raise FileNotFoundError(self)
+        return original_replace(self, target)
+
+    monkeypatch.setattr(_Path, "replace", racing_replace)
+
+    assert spool.pop_ready() == []
+
+    inflight = spool.inflight_dir / "round-1.json"
+    assert inflight.exists()
+    assert not list(spool.failed_dir.glob("*.json"))
+    claim = json.loads(inflight.read_text(encoding="utf-8"))["delivery"]
+    assert claim["worker_id"] == "rival"
+
+
+def test_pop_ready_quarantines_only_its_own_broken_claim(tmp_path: Path) -> None:
+    # A record whose rename succeeded is ours; unreadable JSON in it is still a
+    # quarantine, with no retry ceiling (it was never attempted).
+    spool = FileSpool(tmp_path / "spool")
+    spool.ready_dir.mkdir(parents=True, exist_ok=True)
+    (spool.ready_dir / "broken.json").write_text("{not json", encoding="utf-8")
+
+    assert spool.pop_ready() == []
+
+    quarantined = spool.failed_dir / "broken.json"
+    assert quarantined.exists()
+    delivery = json.loads(quarantined.read_text(encoding="utf-8"))["delivery"]
+    assert delivery["failure_reason"] == "invalid_json"
+    assert delivery["retryable"] is False
 
 
 def test_spool_reclaims_expired_inflight(tmp_path: Path) -> None:
@@ -464,3 +535,35 @@ def test_runtime_can_restart_after_worker_stop(tmp_path: Path) -> None:
         assert runtime.loop.thread.is_alive()
     finally:
         runtime.shutdown()
+
+def test_hermes_skips_migration_when_lock_is_held(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import fcntl
+
+    from ledgermind_integrations.adapters.hermes import runtime as runtime_module
+
+    spool = FileSpool(tmp_path / "spool")
+    spool.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    calls: list[Path] = []
+    monkeypatch.setattr(
+        runtime_module, "migrate_spool", lambda target: calls.append(target.root)
+    )
+
+    lock_path = spool.root / "spool-migration.lock"
+    with lock_path.open("a+b") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            first = HermesPluginRuntime(
+                config=_config(tmp_path), client=cast(Any, object()), spool=spool
+            )
+            first.stop()
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+    assert calls == []
+
+    second = HermesPluginRuntime(
+        config=_config(tmp_path), client=cast(Any, object()), spool=spool
+    )
+    second.stop()
+    assert calls == [spool.root]

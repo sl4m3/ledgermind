@@ -23,7 +23,7 @@ from ...runtime.delivery import DeliveryWorker
 from ...runtime.endpoint import resolve_runtime_endpoint, runtime_state_running
 from ...runtime.lease import RuntimeLease
 from ...runtime.spool import FileSpool
-from ...runtime.spool_migration import migrate_spool
+from ...runtime.spool_migration import SpoolMigrationError, migrate_spool
 from ...runtime.worker_loop import HermesWorkerLoop
 from ..lifecycle.visibility import advance_epoch, assume_hook_returned, note_content, visible_ids
 from .config import HermesConfig, load_config
@@ -125,6 +125,43 @@ class SessionState:
     formatted_context: str = ""
 
 
+def _safe_migrate_spool(spool: FileSpool) -> None:
+    try:
+        migrate_spool(spool)
+    except (SpoolMigrationError, OSError):
+        pass  # a corrupt record must not break plugin load
+
+
+def _migrate_spool_locked(spool: FileSpool) -> None:
+    """Migrate the spool under its own lock.
+
+    Concurrent plugin loads (two hosts, a restart overlapping a live process)
+    would otherwise rewrite the same records at once. The lock is non-blocking
+    and best-effort: migration is idempotent and runs again on the next load or
+    drain, so waiting inside plugin startup is not worth it. It is deliberately
+    not ``delivery-worker.lock``: that lock belongs to the drain process, and
+    the two roles must not share a lock file.
+    """
+
+    spool.root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lock_path = spool.root / "spool-migration.lock"
+    try:
+        import fcntl
+    except ImportError:  # pragma: no cover - non-POSIX hosts
+        _safe_migrate_spool(spool)
+        return
+    with lock_path.open("a+b") as lock:
+        os.fchmod(lock.fileno(), 0o600)
+        try:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return  # another process is migrating this queue right now
+        try:
+            _safe_migrate_spool(spool)
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
 class HermesPluginRuntime:
     def __init__(
         self,
@@ -142,7 +179,7 @@ class HermesPluginRuntime:
             self.capture, max_attempts=config.max_pending_attempts
         )
         self.state_reader = HermesStateReader(config.state_db_path)
-        migrate_spool(spool)
+        _migrate_spool_locked(spool)
         self.delivery = DeliveryWorker(spool, client)
         self.loop = HermesWorkerLoop(
             delivery_worker=self.delivery,
@@ -182,6 +219,8 @@ class HermesPluginRuntime:
             max_bytes=config.max_spool_bytes,
             max_files=config.max_spool_files,
             inflight_ttl_seconds=config.inflight_ttl_seconds,
+            retryable_failed_max_attempts=config.retryable_failed_max_attempts,
+            retryable_failed_max_age_seconds=config.retryable_failed_max_age_seconds,
         )
         metadata: dict[str, Any] = {}
         for name in (

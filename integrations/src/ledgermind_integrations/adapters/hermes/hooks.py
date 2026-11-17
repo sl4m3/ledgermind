@@ -59,6 +59,8 @@ class HermesRoundCapture:
             max_bytes=config.max_spool_bytes,
             max_files=config.max_spool_files,
             inflight_ttl_seconds=config.inflight_ttl_seconds,
+            retryable_failed_max_attempts=config.retryable_failed_max_attempts,
+            retryable_failed_max_age_seconds=config.retryable_failed_max_age_seconds,
         )
 
     def capture_or_defer(

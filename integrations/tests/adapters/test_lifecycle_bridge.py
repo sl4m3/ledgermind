@@ -887,3 +887,30 @@ def test_empty_selection_does_not_inject_legend_only() -> None:
         "items": [],
         "memory_injection": {"text": "How to read memory: ...", "item_count": 0},
     }) == ""
+
+def test_lifecycle_config_reads_failed_promotion_limits(tmp_path: Path) -> None:
+    from ledgermind_integrations.runtime.spool import (
+        DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS,
+        DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS,
+    )
+
+    config_path = tmp_path / "limits.json"
+    payload = asdict(_config(tmp_path))
+    payload["retryable_failed_max_attempts"] = 7
+    payload["retryable_failed_max_age_seconds"] = 60
+    config_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    config = load_lifecycle_config(config_path)
+    assert config.retryable_failed_max_attempts == 7
+    assert config.retryable_failed_max_age_seconds == 60.0
+
+    del payload["retryable_failed_max_attempts"]
+    del payload["retryable_failed_max_age_seconds"]
+    config_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    defaults = load_lifecycle_config(config_path)
+    assert defaults.retryable_failed_max_attempts == DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS
+    assert (
+        defaults.retryable_failed_max_age_seconds
+        == DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS
+    )
