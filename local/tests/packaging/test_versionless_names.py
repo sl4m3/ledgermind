@@ -34,6 +34,27 @@ class LocalVersionlessNamesTests(unittest.TestCase):
             match = next(gate._TOKEN_RE.finditer(forbidden))
             self.assertFalse(gate._allowed(path, forbidden, match.start(), match.group(), "content", ""))
 
+    def test_external_model_literal_allowance_is_exact(self) -> None:
+        gate = _load_gate()
+        path = "tests/unit/installer/test_model_defaults.py"
+        allowed = (
+            'assert defaults.generation_openrouter == "deepseek/deepseek-v4-flash-0731"'
+        )
+        match = next(gate._TOKEN_RE.finditer(allowed))
+        self.assertTrue(
+            gate._allowed(path, allowed, match.start(), match.group(), "content", "")
+        )
+        for forbidden in (
+            'assert defaults.generation_openrouter == "deepseek/deepseek-v4-flash-9999"',
+            'payload = {"product": "product-v4"}',
+        ):
+            match = next(gate._TOKEN_RE.finditer(forbidden))
+            self.assertFalse(
+                gate._allowed(
+                    path, forbidden, match.start(), match.group(), "content", ""
+                )
+            )
+
     def test_current_checkout_passes_without_versioned_surface(self) -> None:
         result = subprocess.run(
             [sys.executable, str(SCRIPT)],

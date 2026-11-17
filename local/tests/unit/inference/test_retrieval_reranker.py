@@ -211,14 +211,19 @@ def test_rank_scores_preserved_without_mutating_candidates():
 
 def test_packer_uses_injected_tokenizer_and_keeps_minimum_whole():
     counter = lambda text: len(text.encode("utf-8"))
-    minimum = counter(render_injection(_items()[:6], _injection(), "ru")["text"])
+    minimum = counter(
+        render_injection(_items()[:6], _injection(), "ru", ordered=False)["text"]
+    )
     items, injection, tokens = pack_items(_items(), _injection(), "ru",
         soft_budget=minimum, token_counter=counter)
-    assert len(items) == 6
-    assert tokens == counter(injection["text"])
+    assert [item["value_id"] for item in items] == [f"item{i}" for i in range(1, 7)]
+    assert tokens == counter(injection["text"]) == minimum
+    assert tokens != len(TOKEN_RE.findall(injection["text"]))
+    assert "M6: [constraint] Project: Rule 6 is required." in injection["text"]
+    assert "M7:" not in injection["text"]
 
 
-def test_injection_groups_repeated_object_facets_without_losing_ranked_claims():
+def test_flat_render_repeats_object_facet_identity_without_losing_ranked_claims():
     items = [
         {"value_id": "v1", "primary_object_id": "object-a", "object_name": "Agent A",
          "facet": "state", "content": "Initial state is retained.", "conditions": []},
@@ -233,17 +238,23 @@ def test_injection_groups_repeated_object_facets_without_losing_ranked_claims():
         "legend": ["state — current state.", "event — history."],
     }
 
-    rendered = render_injection(items, original, "en")
+    rendered = render_injection(items, original, "en", ordered=False)
     text = rendered["text"]
+    lines = text.splitlines()
 
     assert rendered["item_count"] == 3
-    assert text.count("[state] Agent A") == 1
+    assert rendered["legend"] == ["event — history.", "state — current state."]
+    assert lines[0].startswith("Entries may not be in time order.")
+    assert "newest first" not in lines[0]
+    assert "G1:" not in text
+    assert text.count("[state] Agent A") == 2
     assert text.count("[event] Agent B") == 1
-    assert "M1: Initial state is retained." in text
-    assert "M2: [event] Agent B: An independent event happened." in text
-    assert "M3: Current state is healthy. | when after verification" in text
-    assert text.index("G1: [state] Agent A:") < text.index("M2: [event] Agent B:")
-    assert render_injection(items, original, "en") == rendered
+    assert lines[-3:] == [
+        "M1: [state] Agent A: Initial state is retained.",
+        "M2: [event] Agent B: An independent event happened.",
+        "M3: [state] Agent A: Current state is healthy. | when after verification",
+    ]
+    assert render_injection(items, original, "en", ordered=False) == rendered
 
 
 def test_grouped_packing_preserves_whole_long_claim_and_uses_final_rendering_budget():
@@ -327,7 +338,9 @@ def test_core_dependencies_survive_soft_budget_without_recursion_or_score_boost(
     assert diagnostics["context_tokens_after_expansion"] == count > before
     assert count == len(TOKEN_RE.findall(injection["text"]))
     assert diagnostics["dependency_items_omitted"] == 0
-    assert diagnostics["injection_rendering"] == "object_facet_groups_v1"
+    assert diagnostics["injection_rendering"] == "flat_unsorted_v1"
+    assert diagnostics["injection_order_note"] is False
+    assert diagnostics["timestamped_item_count"] == 0
     assert diagnostics["injection_group_count"] == 1
     assert diagnostics["injection_claim_count"] == 7
     assert items == original

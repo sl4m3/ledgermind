@@ -264,16 +264,16 @@ def test_optional_reranker_uses_core_pool_and_records_only_injected_values() -> 
         == "word_punctuation_units"
     )
     assert payload["selection_diagnostics"]["estimated_injection_tokens"] is None
-    assert (
-        payload["selection_diagnostics"]["injection_rendering"]
-        == "object_facet_groups_v1"
-    )
+    assert payload["selection_diagnostics"]["injection_rendering"] == "flat_unsorted_v1"
+    assert payload["selection_diagnostics"]["injection_order_note"] is False
     assert payload["selection_diagnostics"]["injection_group_count"] == 1
     assert payload["selection_diagnostics"]["injection_claim_count"] == len(
         payload["items"]
     )
     assert payload["memory_injection"]["item_count"] == len(payload["items"])
-    assert payload["memory_injection"]["text"].count("[property] Deployment") == 1
+    text = payload["memory_injection"]["text"]
+    assert text.count("[property] Deployment") == len(payload["items"])
+    assert text.splitlines()[0].startswith("Entries may not be in time order.")
     assert gateway.outcomes[0].delivered_value_ids == tuple(
         payload["delivered_value_ids"]
     )

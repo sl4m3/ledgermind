@@ -45,14 +45,22 @@ _CONTRACT_VALUES = {
     "src/ledgermind_local/inference/core_task_executor.py": {"round_memory_two_stage_v1", "round_memory_two_stage_v2", "round_memory_two_stage_v3"},
     "src/ledgermind_local/inference/structured_json_provider.py": {"resolution_decision_v1"},
     "src/ledgermind_local/api/context.py": {"semantic_units_v2", "semantic_units_v3", "memory_semantics_v2"},
-    "tests/integration/api/test_context.py": {"object_facet_groups_v1"},
+    "tests/integration/api/test_context.py": {"flat_unsorted_v1"},
     "tests/integration/scheduler/test_retrieval_outbox.py": {"v1", "v2"},
-    "tests/unit/inference/test_retrieval_reranker.py": {"v1", "v2", "v3", "object_facet_groups_v1"},
+    "tests/unit/inference/test_retrieval_reranker.py": {"v1", "v2", "v3", "flat_unsorted_v1"},
     "tests/unit/core_gateway/test_sandbox.py": {"semantic_units_v2", "memory_write_v8"},
     # Private embedding provider speaks the external OpenAI-compatible protocol.
     "src/ledgermind_local/installer/embeddings/service.py": {"/v1/health/ready", "/v1/health/live"},
     "tests/unit/installer/test_embedding_identity.py": {"/v1"},
     "tests/unit/local/test_query_embedding_batch.py": {"/v1", "http://127.0.0.1:1/v1"},
+}
+
+# Provider-owned model identifiers ("owner/name") are data, not product
+# versions. Allow only these exact literals at their known consumers so a new
+# versioned product name in the same file is still reported.
+_EXTERNAL_MODEL_LITERALS = {
+    "src/ledgermind_local/model-defaults.json": {"deepseek/deepseek-v4-flash-0731"},
+    "tests/unit/installer/test_model_defaults.py": {"deepseek/deepseek-v4-flash-0731"},
 }
 
 _TOKEN_RE = re.compile(
@@ -245,9 +253,12 @@ def _allowed(
 ) -> bool:
     if source == "content":
         for literal in re.finditer(r'''["']([^"']*)["']''', line):
-            if literal.start() < start < literal.end() and (
-                literal.group(1) in _CONTRACT_VALUES.get(path, ())
-                or any(val in literal.group(1) for val in _CONTRACT_VALUES.get(path, ()))
+            if not (literal.start() < start < literal.end()):
+                continue
+            if literal.group(1) in _EXTERNAL_MODEL_LITERALS.get(path, ()):
+                return True
+            if literal.group(1) in _CONTRACT_VALUES.get(path, ()) or any(
+                val in literal.group(1) for val in _CONTRACT_VALUES.get(path, ())
             ):
                 return True
     if source == "path":
