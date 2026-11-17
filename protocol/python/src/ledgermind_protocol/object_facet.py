@@ -1136,17 +1136,14 @@ class DependencyScopeAssessment(ProtocolModel):
 
 
 class ValueSemanticSafety(ProtocolModel):
-    lifecycle_status: Literal["active", "superseded", "invalidated", "contested", "resolved"]
     dependencies: list[DependencyAssessment] = Field(max_length=1000)
     scope_checks: list[DependencyScopeAssessment] = Field(
         default_factory=list, max_length=1000, exclude_if=lambda value: not value
     )
 
     def requires_revalidation(self) -> bool:
-        return (
-            self.lifecycle_status != "active"
-            or any(row.state != "satisfied" for row in self.dependencies)
-            or any(row.state != "satisfied" for row in self.scope_checks)
+        return any(row.state != "satisfied" for row in self.dependencies) or any(
+            row.state != "satisfied" for row in self.scope_checks
         )
 
 
@@ -1171,6 +1168,7 @@ class RetrievalItem(ProtocolModel):
     )
     source_event_ids: list[str] = Field(min_length=1, max_length=MAX_SOURCE_EVENT_IDS)
     relevance: float = Field(ge=0.0, le=1.0)
+    last_observed_at: str | None = Field(default=None, exclude_if=lambda value: value is None)
     explanation: RetrievalExplanation
     semantic_safety: ValueSemanticSafety | None = Field(
         default=None, exclude_if=lambda value: value is None
@@ -1315,6 +1313,11 @@ class MemoryInjection(ProtocolModel):
     text: str = Field(max_length=65_536)
     legend: list[str] = Field(max_length=14)
     item_count: int = Field(ge=0, le=MAX_RETRIEVAL_ITEMS)
+    omitted_item_ids: list[str] = Field(
+        default_factory=list,
+        max_length=MAX_RETRIEVAL_ITEMS,
+        exclude_if=lambda value: not value,
+    )
 
     @model_validator(mode="after")
     def validate_injection(self) -> MemoryInjection:

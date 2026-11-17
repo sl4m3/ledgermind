@@ -58,7 +58,6 @@ class _Gateway:
         }
         if request.semantic_delivery:
             item["semantic_safety"] = {
-                "lifecycle_status": "active",
                 "dependencies": [],
                 "scope_checks": [],
             }
@@ -524,7 +523,12 @@ def test_packing_failure_never_returns_entire_candidate_pool():
         def retrieve_context(self, request):
             original = super().retrieve_context(request).payload
             original["items"] = [
-                {**original["items"][0], "value_id": f"v{i}"} for i in range(32)
+                {
+                    **original["items"][0],
+                    "value_id": f"v{i}",
+                    "content": f"Deployments require review {i}.",
+                }
+                for i in range(32)
             ]
             original["memory_injection"]["item_count"] = 32
             return RetrieveContextResult(original)
@@ -849,3 +853,341 @@ def test_multi_aspect_uses_one_batched_query_embedding_call() -> None:
     payload = response.json()
     assert payload["selection_diagnostics"]["aspect_query_count"] == 3
     assert payload["selection_diagnostics"]["aspect_candidate_count"] >= 8
+
+
+def test_multi_aspect_uses_adaptive_k_and_allows_more_than_15_items() -> None:
+    from types import SimpleNamespace
+
+    full_query = "dispatcher slice, its entrypoint and production activation status"
+
+    class Gateway(_Gateway):
+        def retrieve_context(self, request):
+            original = super().retrieve_context(request).payload
+            if request.query_text == full_query:
+                ids = [f"item-{i}" for i in range(1, 25)]
+            else:
+                ids = [f"item-{i}" for i in range(1, 5)]
+            original["items"] = [
+                {
+                    **original["items"][0],
+                    "value_id": value_id,
+                    "content": f"Fact {value_id}.",
+                    "relevance": 0.5 - idx * 0.01,
+                }
+                for idx, value_id in enumerate(ids)
+            ]
+            original["memory_injection"]["item_count"] = len(ids)
+            return RetrieveContextResult(original)
+
+    class BatchEmbedder:
+        def embed_query_batch_with_metadata(self, memory_space_id, texts):
+            assert memory_space_id == "space"
+            return [
+                ((float(index), 0.0), (0.0, float(index)), "embedder", "2026-08")
+                for index, _ in enumerate(texts)
+            ]
+
+    class Reranker:
+        def score(self, query, documents):
+            if query == full_query:
+                # 18 relevant items tightly clustered high, then a sharp drop.
+                return [
+                    4.0 - index * 0.02 if index < 18 else -3.0 - index * 0.1
+                    for index in range(len(documents))
+                ]
+            # Dead aspect queries score near-zero across all candidates.
+            return [-4.0 for _ in documents]
+
+    gateway = Gateway()
+    app = FastAPI()
+    app.include_router(
+        create_context_router(
+            lambda: "token",
+            gateway,
+            max_body_bytes=100_000,
+            query_embedder=BatchEmbedder(),
+            reranker=Reranker(),
+            reranker_config=SimpleNamespace(
+                soft_budget=100_000,
+                selection_policy="adaptive_k",
+                candidate_policy="semantic",
+            ),
+        )
+    )
+    response = TestClient(app).post(
+        "/context/retrieve",
+        json={"memory_space_id": "space", "query": full_query},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    diag = payload["selection_diagnostics"]
+    assert diag["aspect_query_count"] == 3
+    assert diag["selection_policy"] == "adaptive_k"
+    assert diag["adaptive_k_cutoff"] == 18
+    assert len(payload["items"]) == 18
+    assert [row["fusion"] for row in diag["ranking"]] == ["max"] * len(diag["ranking"])
+    scores = [row["reranker_score"] for row in diag["ranking"]]
+    assert scores == sorted(scores, reverse=True)
+
+
+def test_multi_aspect_reranker_failure_degrades_to_core_fallback() -> None:
+    from types import SimpleNamespace
+
+    full_query = (
+        "What is the authorized next dispatcher slice, "
+        "its entrypoint and production activation status?"
+    )
+
+    class BatchEmbedder:
+        def embed_query_batch_with_metadata(self, memory_space_id, texts):
+            assert memory_space_id == "space"
+            return [
+                ((float(index), 0.0), (0.0, float(index)), "embedder", "2026-08")
+                for index, _ in enumerate(texts)
+            ]
+
+    class FailingReranker:
+        def score(self, query, documents):
+            raise RuntimeError("reranker unavailable")
+
+    app = FastAPI()
+    app.include_router(
+        create_context_router(
+            lambda: "token",
+            _Gateway(),
+            max_body_bytes=100_000,
+            query_embedder=BatchEmbedder(),
+            reranker=FailingReranker(),
+            reranker_config=SimpleNamespace(
+                soft_budget=100_000,
+                selection_policy="adaptive_k",
+                candidate_policy="semantic",
+            ),
+        )
+    )
+    response = TestClient(app).post(
+        "/context/retrieve",
+        json={"memory_space_id": "space", "query": full_query},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-LedgerMind-Selection"] == "core_fallback"
+    diag = response.json()["selection_diagnostics"]
+    assert diag["status"] == "core_fallback"
+    assert diag["selection_policy"] == "hybrid"
+    assert diag["aspect_query_count"] == 3
+
+
+def test_merged_pools_exclude_visible_ids_and_duplicate_claim_projections() -> None:
+    from types import SimpleNamespace
+
+    class MultiAspectDuplicateGateway(_Gateway):
+        def retrieve_context(
+            self, request: RetrieveContextCommand
+        ) -> RetrieveContextResult:
+            template = dict(super().retrieve_context(request).payload["items"][0])
+            self.request = request
+            is_aspect = ":aspect:" in (request.request_id or "")
+            items = [
+                {
+                    **template,
+                    "value_id": "v-primary",
+                    "primary_object_id": "object-1",
+                    "object_name": "Deployment",
+                    "facet": "property",
+                    "content": "Deployments require review.",
+                    "relevance": 0.9,
+                },
+                {
+                    **template,
+                    "value_id": "v-already-visible",
+                    "primary_object_id": "object-1",
+                    "object_name": "Deployment",
+                    "facet": "property",
+                    "content": "Visible claim must not pass.",
+                    "relevance": 0.8,
+                },
+            ]
+            if is_aspect:
+                items = [
+                    {
+                        **template,
+                        "value_id": "v-duplicate-id",
+                        "primary_object_id": "object-1",
+                        "object_name": "Deployment",
+                        "facet": "property",
+                        "content": "Deployments require review.",
+                        "relevance": 0.95,
+                    },
+                    {
+                        **template,
+                        "value_id": "v-unique-aspect",
+                        "primary_object_id": "object-2",
+                        "object_name": "Canary",
+                        "facet": "procedure",
+                        "content": "Promote canary after green smoke checks.",
+                        "relevance": 0.85,
+                        "explanation": {
+                            **template["explanation"],
+                            "item_facet": "procedure",
+                        },
+                    },
+                ]
+            return RetrieveContextResult(
+                {
+                    "schema_version": 2,
+                    "retrieval_request_id": "retrieval-dup-test",
+                    "items": items,
+                    "memory_injection": {
+                        "format": "facet_legend",
+                        "text": (
+                            "How to read memory:\n"
+                            "property — a stable characteristic.\n"
+                            "procedure — a repeatable process.\n\n"
+                            "M1: [property] Deployment: Deployments require review."
+                        ),
+                        "legend": [
+                            "property — a stable characteristic.",
+                            "procedure — a repeatable process.",
+                        ],
+                        "item_count": len(items),
+                    },
+                }
+            )
+
+    class BatchEmbedder:
+        def embed_query_batch_with_metadata(self, memory_space_id, texts):
+            assert memory_space_id == "space"
+            return [
+                ((float(index + 1), 0.0), (0.0, float(index + 1)), "embedder", "2026-08")
+                for index, _ in enumerate(texts)
+            ]
+
+    class EchoReranker:
+        def score(self, query, documents):
+            return [1.0 - (index * 0.1) for index, _ in enumerate(documents)]
+
+    app = FastAPI()
+    app.include_router(
+        create_context_router(
+            lambda: "token",
+            MultiAspectDuplicateGateway(),
+            max_body_bytes=100_000,
+            query_embedder=BatchEmbedder(),
+            reranker=EchoReranker(),
+            reranker_config=SimpleNamespace(
+                soft_budget=100_000,
+                selection_policy="adaptive_k",
+                candidate_policy="semantic",
+            ),
+        )
+    )
+    response = TestClient(app).post(
+        "/context/retrieve",
+        json={
+            "memory_space_id": "space",
+            "query": (
+                "What is the authorized next dispatcher slice, "
+                "its entrypoint and production activation status?"
+            ),
+            "visible_value_ids": ["v-already-visible"],
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    ids = [item["value_id"] for item in payload["items"]]
+    assert "v-already-visible" not in ids
+    assert "v-duplicate-id" not in ids
+    assert "v-primary" in ids
+    assert "v-unique-aspect" in ids
+
+
+def test_multi_aspect_preserves_all_32_primary_candidates_and_appends_8_aspects() -> None:
+    from types import SimpleNamespace
+
+    full_query = "dispatcher slice, its entrypoint and production activation status"
+
+    class Gateway(_Gateway):
+        def retrieve_context(self, request):
+            original = super().retrieve_context(request).payload
+            template = dict(original["items"][0])
+            if request.query_text == full_query:
+                ids = [f"primary-{index}" for index in range(1, 33)]
+            else:
+                suffix = request.request_id.rsplit(":", 1)[-1]
+                ids = [f"aspect-{suffix}-{row}" for row in range(1, 9)]
+            original["items"] = [
+                {
+                    **template,
+                    "value_id": value_id,
+                    "content": f"Fact for {value_id}.",
+                    "relevance": 0.9 - idx * 0.01,
+                }
+                for idx, value_id in enumerate(ids)
+            ]
+            original["memory_injection"]["item_count"] = len(ids)
+            return RetrieveContextResult(original)
+
+    class BatchEmbedder:
+        def embed_query_batch_with_metadata(self, memory_space_id, texts):
+            return [
+                ((float(index), 0.0), (0.0, float(index)), "embedder", "2026-08")
+                for index, _ in enumerate(texts)
+            ]
+
+    class InspectingReranker:
+        def __init__(self) -> None:
+            self.seen_counts: list[int] = []
+
+        def score(self, query, documents):
+            self.seen_counts.append(len(documents))
+            return [
+                5.0
+                if "primary-29." in doc
+                else 4.9
+                if "primary-30." in doc
+                else 4.8
+                if "aspect-0-1." in doc
+                else -5.0
+                for doc in documents
+            ]
+
+    reranker = InspectingReranker()
+    app = FastAPI()
+    app.include_router(
+        create_context_router(
+            lambda: "token",
+            Gateway(),
+            max_body_bytes=100_000,
+            query_embedder=BatchEmbedder(),
+            reranker=reranker,
+            reranker_config=SimpleNamespace(
+                soft_budget=100_000,
+                selection_policy="adaptive_k",
+                candidate_policy="semantic",
+            ),
+        )
+    )
+    response = TestClient(app).post(
+        "/context/retrieve",
+        json={"memory_space_id": "space", "query": full_query},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    diag = payload["selection_diagnostics"]
+    assert diag["aspect_query_count"] == 3
+    assert diag["aspect_candidate_count"] == 8
+    assert diag["candidate_count"] == 40
+    assert all(count == 40 for count in reranker.seen_counts)
+    assert {row["value_id"] for row in diag["ranking"][:3]} == {
+        "primary-29",
+        "primary-30",
+        "aspect-0-1",
+    }
+    assert {item["value_id"] for item in payload["items"]} == {
+        "primary-29",
+        "primary-30",
+        "aspect-0-1",
+    }

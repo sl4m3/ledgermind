@@ -124,6 +124,9 @@ class ContextItemResponse(BaseModel):
     content_language: str | None = None
     conditions: list[dict[str, str]] = Field(default_factory=list)
     relevance: float = Field(ge=0.0, le=1.0)
+    last_observed_at: str | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
     explanation: dict[str, object]
     semantic_safety: ValueSemanticSafety | None = Field(
         default=None, exclude_if=lambda value: value is None
@@ -157,6 +160,9 @@ class MemoryInjectionResponse(BaseModel):
     text: str = Field(max_length=65_536)
     legend: list[str] = Field(default_factory=list, max_length=14)
     item_count: int = Field(ge=0, le=100)
+    omitted_item_ids: list[str] = Field(
+        default_factory=list, max_length=100, exclude_if=lambda value: not value
+    )
 
 
 class ContextViewResponse(BaseModel):
@@ -568,7 +574,11 @@ def create_context_router(
                     core_items = merge_candidate_pools_quota(
                         core_items,
                         aspect_pools,
-                        limit=CANDIDATE_POOL_LIMIT,
+                        limit=max(
+                            1,
+                            retrieval_settings.multi_aspect_primary_slots
+                            + retrieval_settings.multi_aspect_aspect_slots,
+                        ),
                         primary_quota=retrieval_settings.multi_aspect_primary_slots,
                         aspect_quota=retrieval_settings.multi_aspect_aspect_slots,
                     )
@@ -719,6 +729,19 @@ def create_context_router(
                                     primary_injection, secondary_injections
                                 )
                             )
+            core_items = _deduplicate_candidate_items(
+                core_items, visible_value_ids=payload.visible_value_ids
+            )
+            response_payload["items"] = core_items
+            if not core_items and isinstance(
+                response_payload.get("memory_injection"), Mapping
+            ):
+                response_payload["memory_injection"] = {
+                    **response_payload["memory_injection"],
+                    "text": "",
+                    "legend": [],
+                    "item_count": 0,
+                }
             candidate_ids = tuple(str(item["value_id"]) for item in core_items)
             if reranker is not None and core_items:
                 original = response_payload.get("memory_injection") or {}
@@ -745,7 +768,6 @@ def create_context_router(
                     has_session_context=bool(session_context),
                     dual_view=retrieval_settings.dual_view_rerank,
                     aspect_views=aspect_views,
-                    aspect_rerank_limit=retrieval_settings.multi_aspect_rerank_limit,
                 )
                 try:
                     counter = (
@@ -766,17 +788,9 @@ def create_context_router(
                         soft_budget=int(getattr(reranker_config, "soft_budget", 4096)),
                         token_counter=counter,
                         dependency_links=pipeline.get("dependency_links"),
-                        max_items=(
-                            retrieval_settings.multi_aspect_rerank_limit
-                            if aspect_views
-                            else 32
-                        ),
+                        max_items=32,
                         selection_policy=(
-                            "hybrid"
-                            if aspect_views
-                            else getattr(
-                                reranker_config, "selection_policy", "adaptive_k"
-                            )
+                            getattr(reranker_config, "selection_policy", "adaptive_k")
                             if selection_status == "reranked"
                             else "hybrid"
                         ),
@@ -969,6 +983,49 @@ __all__ = [
 ]
 
 
+def _candidate_projection_key(item: Mapping[str, Any]) -> tuple[Any, ...]:
+    conditions = tuple(
+        sorted(
+            str(condition.get("surface_text") or "").strip()
+            for condition in (item.get("conditions") or ())
+            if isinstance(condition, Mapping)
+        )
+    )
+    return (
+        str(item.get("primary_object_id") or item.get("object_name") or ""),
+        str(item.get("target_id") or ""),
+        str(item.get("facet") or ""),
+        str(item.get("content") or "").strip(),
+        conditions,
+        item.get("valid_from"),
+        item.get("valid_to"),
+    )
+
+
+def _deduplicate_candidate_items(
+    items: Sequence[Mapping[str, Any]],
+    *,
+    visible_value_ids: Sequence[str] = (),
+) -> list[dict[str, Any]]:
+    visible_id_set = {str(value_id) for value_id in visible_value_ids if value_id}
+    seen_ids: set[str] = set()
+    seen_projections: set[tuple[Any, ...]] = set()
+    deduplicated: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        value_id = str(item.get("value_id") or "")
+        if not value_id or value_id in visible_id_set or value_id in seen_ids:
+            continue
+        projection = _candidate_projection_key(item)
+        if projection in seen_projections:
+            continue
+        seen_ids.add(value_id)
+        seen_projections.add(projection)
+        deduplicated.append(dict(item))
+    return deduplicated
+
+
 def _context_response(payload: dict[str, object]) -> dict[str, Any]:
     try:
         from ledgermind_protocol.object_facet import RetrievalResponse
@@ -1104,7 +1161,6 @@ def _rerank_candidates(
     has_session_context: bool,
     dual_view: bool,
     aspect_views: Sequence[RerankView] = (),
-    aspect_rerank_limit: int = 15,
 ) -> tuple[
     list[dict[str, Any]],
     list[dict[str, Any]],
@@ -1118,14 +1174,14 @@ def _rerank_candidates(
 
     if aspect_views:
         views = [RerankView(name="task", query=effective_query), *aspect_views]
-        if has_session_context:
+        if dual_view and has_session_context:
             views.append(RerankView(name="context", query=rerank_query))
         try:
             ranked, ranking = rank_items_with_views(
                 core_items,
                 views,
                 reranker,
-                fusion="best_rank",
+                fusion="max",
                 max_workers=(len(views) if isinstance(reranker, ApiReranker) else 1),
             )
             return (
@@ -1142,18 +1198,33 @@ def _rerank_candidates(
                 "multi-aspect rerank failed (%s); retrying single view",
                 type(exc).__name__,
             )
-            ranked, ranking = rank_items_with_scores(
-                effective_query, core_items[:aspect_rerank_limit], reranker
-            )
-            return (
-                ranked,
-                ranking,
-                "reranked",
-                None,
-                ["task"],
-                "aspect_views",
-                effective_query,
-            )
+            try:
+                ranked, ranking = rank_items_with_scores(
+                    effective_query, core_items, reranker
+                )
+                return (
+                    ranked,
+                    ranking,
+                    "reranked",
+                    None,
+                    ["task"],
+                    "aspect_views",
+                    effective_query,
+                )
+            except _RERANK_ERRORS as fallback_exc:
+                logger.warning(
+                    "local reranker fallback to Core order: %s",
+                    type(fallback_exc).__name__,
+                )
+                return (
+                    core_items,
+                    [],
+                    "core_fallback",
+                    type(fallback_exc).__name__,
+                    [],
+                    "core_order",
+                    effective_query,
+                )
 
     if dual_view and has_session_context:
         try:

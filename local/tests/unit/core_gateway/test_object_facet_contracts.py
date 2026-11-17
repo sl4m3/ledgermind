@@ -240,3 +240,33 @@ def test_control_maintenance_replay_is_explicit_and_bounded() -> None:
         RunControlMaintenanceCommand("replay", retry_memory_space_id="x" * 201)
     with pytest.raises(ValueError, match="requires"):
         RunControlMaintenanceCommand("replay", automatic_recovery=True)
+
+
+def test_object_facet_statistics_excludes_legacy_superseded_value_count() -> None:
+    from ledgermind_local.core_gateway.contracts import ObjectFacetStatistics
+
+    payload = {
+        "object_count": 3,
+        "active_value_count": 12,
+        "operational_backlog": 0,
+        "background_backlog": 0,
+        "embedding_backlog": 0,
+        "integrity_finding_count": 0,
+        "blocking_integrity_finding_count": 0,
+        "missing_card_embeddings": 0,
+        "missing_facet_embeddings": 0,
+        "knowledge_row_count": 12,
+        "execution_row_count": 0,
+        "diagnostic_row_count": 0,
+        "database_bytes": 4096,
+        "oldest_diagnostic": None,
+        "diagnostic_cleanup_candidate_count": 0,
+    }
+
+    stats = ObjectFacetStatistics.from_payload(payload)
+    assert stats.object_count == 3
+    assert stats.active_value_count == 12
+    assert not hasattr(stats, "superseded_value_count")
+
+    with pytest.raises(ValueError, match="unknown fields"):
+        ObjectFacetStatistics.from_payload({**payload, "superseded_value_count": 0})

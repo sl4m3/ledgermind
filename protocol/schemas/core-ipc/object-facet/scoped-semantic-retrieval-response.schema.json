@@ -291,6 +291,15 @@
           "minimum": 0,
           "title": "Item Count",
           "type": "integer"
+        },
+        "omitted_item_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Omitted Item Ids",
+          "default": []
         }
       },
       "required": [
@@ -437,6 +446,18 @@
           "title": "Relevance",
           "type": "number"
         },
+        "last_observed_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Observed At"
+        },
         "explanation": {
           "$ref": "#/$defs/RetrievalExplanation"
         },
@@ -468,9 +489,6 @@
             "properties": {
               "semantic_safety": {
                 "properties": {
-                  "lifecycle_status": {
-                    "const": "active"
-                  },
                   "dependencies": {
                     "items": {
                       "properties": {
@@ -774,17 +792,6 @@
     "ValueSemanticSafety": {
       "additionalProperties": false,
       "properties": {
-        "lifecycle_status": {
-          "enum": [
-            "active",
-            "superseded",
-            "invalidated",
-            "contested",
-            "resolved"
-          ],
-          "title": "Lifecycle Status",
-          "type": "string"
-        },
         "dependencies": {
           "items": {
             "$ref": "#/$defs/DependencyAssessment"
@@ -803,7 +810,6 @@
         }
       },
       "required": [
-        "lifecycle_status",
         "dependencies"
       ],
       "title": "ValueSemanticSafety",
