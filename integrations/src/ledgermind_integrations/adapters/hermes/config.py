@@ -12,6 +12,7 @@ from ...runtime.defaults import (
     DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS,
     DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS,
     DEFAULT_PENDING_CAPTURE_BACKOFF_SECONDS,
+    DEFAULT_PENDING_CAPTURE_MAX_ATTEMPTS,
     DEFAULT_VISIBILITY_MAX_AGE_TOKENS,
     DEFAULT_VISIBILITY_MAX_ENTRIES,
 )
@@ -40,7 +41,7 @@ class HermesConfig:
     context_timeout_seconds: float = 1.5
     request_timeout_seconds: float = 5.0
     worker_poll_seconds: float = 0.5
-    max_pending_attempts: int = 3
+    max_pending_attempts: int = DEFAULT_PENDING_CAPTURE_MAX_ATTEMPTS
     max_raw_round_bytes: int = 5_000_000
     max_spool_bytes: int = 50_000_000
     max_spool_files: int = 1_000
@@ -136,7 +137,7 @@ def load_config(path: str | Path) -> HermesConfig:
         context_timeout_seconds=max(float(payload.get("context_timeout_seconds", 1.5)), 0.1),
         request_timeout_seconds=max(float(payload.get("request_timeout_seconds", 5.0)), 0.1),
         worker_poll_seconds=max(float(payload.get("worker_poll_seconds", 0.5)), 0.05),
-        max_pending_attempts=max(int(payload.get("max_pending_attempts", 3)), 1),
+        max_pending_attempts=max(int(payload.get("max_pending_attempts", DEFAULT_PENDING_CAPTURE_MAX_ATTEMPTS)), 1),
         max_raw_round_bytes=max(int(payload.get("max_raw_round_bytes", 5_000_000)), 1),
         max_spool_bytes=max(
             int(payload.get(
