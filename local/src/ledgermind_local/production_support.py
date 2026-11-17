@@ -35,7 +35,6 @@ from .config import (
 )
 from .inference.profile_slots import (
     DatabaseBackedProfileResolver,
-    MissingProfileError,
     ProfileSlot,
 )
 from .inference.profile_store import (
@@ -48,6 +47,7 @@ from .inference.profiles import (
 )
 from .inference.provider_probe import ProviderProbe
 from .inference.secrets import SecretStore
+from .model_defaults import load_model_defaults
 from .paths import ServicePaths
 from .persistence import open_sqlite_connection, rounds_migrations
 
@@ -128,6 +128,49 @@ def config_for(
     if runtime_config is None or kwargs:
         raise TypeError("config_for requires runtime_config")
     embedding = runtime_config.embedding
+    benchmark = getattr(runtime_config, "benchmark", None)
+    local_runtime = getattr(benchmark, "local_runtime", None)
+    if local_runtime is not None:
+        intervals = local_runtime.worker_intervals
+        workers = WorkerSetConfig(
+            retention=WorkerConfig(enabled=True, interval_seconds=intervals.retention),
+            core_commands=WorkerConfig(
+                enabled=True, interval_seconds=intervals.core_commands
+            ),
+            core_model_tasks=WorkerConfig(
+                enabled=True,
+                interval_seconds=intervals.core_model_tasks,
+                lease_batch=getattr(
+                    local_runtime,
+                    "lease_batch",
+                    getattr(local_runtime, "poll_limit", 50),
+                ),
+            ),
+        )
+        worker_max_attempts = local_runtime.worker_max_attempts
+        worker_retry_delay_seconds = local_runtime.worker_retry_delay_seconds
+        worker_lease_seconds = local_runtime.worker_lease_seconds
+        generation_concurrency = local_runtime.generation_concurrency
+        decision_inflight = getattr(local_runtime, "decision_inflight", None)
+        provider_capability_ttl_seconds = local_runtime.provider_capability_ttl_seconds
+        core_startup_timeout_seconds = local_runtime.core_startup_timeout_seconds
+        core_request_timeout_seconds = local_runtime.core_request_timeout_seconds
+    else:
+        workers = WorkerSetConfig(
+            retention=WorkerConfig(enabled=True, interval_seconds=300.0),
+            core_commands=WorkerConfig(enabled=True, interval_seconds=0.2),
+            core_model_tasks=WorkerConfig(enabled=True, interval_seconds=0.2),
+        )
+        worker_max_attempts = 3
+        worker_retry_delay_seconds = 1.0
+        worker_lease_seconds = 420.0
+        generation_concurrency = int(
+            getattr(runtime_config, "generation_concurrency", 1)
+        )
+        decision_inflight = None
+        provider_capability_ttl_seconds = 86_400
+        core_startup_timeout_seconds = 30.0
+        core_request_timeout_seconds = 120.0
     return LocalConfig(
         config_version=2,
         semantic_language=runtime_config.semantic_language,
@@ -140,8 +183,8 @@ def config_for(
         core_signature_path="bin/ledgermind-core.sig",
         core_public_key_path="bin/ledgermind-core.pub",
         verify_core_signature=True,
-        core_startup_timeout_seconds=30.0,
-        core_request_timeout_seconds=120.0,
+        core_startup_timeout_seconds=core_startup_timeout_seconds,
+        core_request_timeout_seconds=core_request_timeout_seconds,
         core_security=CoreSecurityConfig(
             profile="secure",
             require_network_isolation=True,
@@ -150,18 +193,13 @@ def config_for(
             require_environment_sanitized=True,
             require_signature=True,
         ),
-        workers=WorkerSetConfig(
-            retention=WorkerConfig(enabled=True, interval_seconds=300.0),
-            core_commands=WorkerConfig(enabled=True, interval_seconds=0.2),
-            core_model_tasks=WorkerConfig(enabled=True, interval_seconds=0.2),
-        ),
-        worker_max_attempts=3,
-        worker_retry_delay_seconds=1.0,
-        worker_lease_seconds=420.0,
-        generation_concurrency=int(
-            getattr(runtime_config, "generation_concurrency", 1)
-        ),
-        provider_capability_ttl_seconds=86_400,
+        workers=workers,
+        worker_max_attempts=worker_max_attempts,
+        worker_retry_delay_seconds=worker_retry_delay_seconds,
+        worker_lease_seconds=worker_lease_seconds,
+        generation_concurrency=generation_concurrency,
+        decision_inflight=decision_inflight,
+        provider_capability_ttl_seconds=provider_capability_ttl_seconds,
         inference_secrets_path=str(home / "secrets.json"),
         profile_slots=ProfileSlotsConfig(
             resolution_decision="resolution-decision"
@@ -321,7 +359,7 @@ def seed_local(
                 profile_id="resolution-decision",
                 decision_backend="jev",
                 base_url="https://openrouter.ai/api/alpha/decisions",
-                model="typesafe/jev-1.14",
+                model=load_model_defaults().resolution_decision,
                 secret_ref="resolution-decision-api",
                 max_input_tokens=DEFAULT_GENERATION_MAX_INPUT_TOKENS,
                 max_output_tokens=6144,

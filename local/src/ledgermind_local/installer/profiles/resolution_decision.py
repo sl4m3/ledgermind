@@ -2,6 +2,7 @@
 
 from ledgermind_inference.profiles import DEFAULT_GENERATION_MAX_INPUT_TOKENS
 
+from ...model_defaults import load_model_defaults
 from .generation import build_generation_profiles
 
 DECISION_SECRET_REF = "resolution-decision-api"
@@ -21,7 +22,7 @@ def build_resolution_profile(config):
         "timeout_seconds": config.generation.timeout_seconds,
         "endpoint": "https://openrouter.ai/api/alpha/decisions",
         "provider_kind": "openai_compatible",
-        "model": "typesafe/jev-1.14",
+        "model": load_model_defaults().resolution_decision,
         "secret_ref": DECISION_SECRET_REF,
         # Jev's supported default request window is 64k tokens
         # (32k per question). Do not inherit the generic 12k profile

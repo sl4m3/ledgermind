@@ -14,6 +14,7 @@ from urllib.request import Request, urlopen
 
 from ...inference.gguf_vectorizer import GGUFVectorizer
 from ...inference.sentence_transformer_vectorizer import SentenceTransformerVectorizer
+from ...model_defaults import load_model_defaults
 from .service import BackendUnavailable, EmbeddingService
 
 
@@ -41,7 +42,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--token-file", type=Path)
     parser.add_argument("--embedding-alias", action="append", default=[])
     parser.add_argument("--reranker-model-path", type=Path)
-    parser.add_argument("--reranker-model", default="Qwen/Qwen3-Reranker-0.6B")
+    parser.add_argument(
+        "--reranker-model", default=load_model_defaults().reranker_local
+    )
     parser.add_argument(
         "--reranker-device", choices=("cpu", "cuda", "rocm"), default="cpu"
     )
@@ -165,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
         expected_dimension = args.dimensions
         max_seq_length = args.max_seq_length
         if model_path.suffix.lower() == ".gguf":
+
             def vectorizer_factory():
                 return GGUFVectorizer(
                     model_path=model_path,
@@ -172,10 +176,13 @@ def main(argv: list[str] | None = None) -> int:
                     gpu_layers=gpu_layers,
                 )
 
-            embedding_fingerprint = GGUFVectorizer._compute_fingerprint(None, model_path)
+            embedding_fingerprint = GGUFVectorizer._compute_fingerprint(
+                None, model_path
+            )
             model = args.model or embedding_fingerprint
             dimensions = expected_dimension
         else:
+
             def vectorizer_factory():
                 return SentenceTransformerVectorizer(
                     model_path=model_path,
@@ -184,7 +191,9 @@ def main(argv: list[str] | None = None) -> int:
                     max_seq_length=max_seq_length,
                 )
 
-            embedding_fingerprint = SentenceTransformerVectorizer._tree_fingerprint(model_path)
+            embedding_fingerprint = SentenceTransformerVectorizer._tree_fingerprint(
+                model_path
+            )
             model = args.model or embedding_fingerprint
             dimensions = expected_dimension
     elif args.reranker_model_path is None:
@@ -210,12 +219,15 @@ def main(argv: list[str] | None = None) -> int:
             from ledgermind_inference.retrieval_reranker import QwenLocalReranker
 
             return QwenLocalReranker(reranker_model_path, reranker_device)
+
     service = EmbeddingService(
         backend=backend,
         vectorizer_factory=vectorizer_factory,
         model=model,
         dimensions=dimensions,
-        device=args.device if (backend is not None or vectorizer_factory is not None) else args.reranker_device,
+        device=args.device
+        if (backend is not None or vectorizer_factory is not None)
+        else args.reranker_device,
         host=args.host,
         port=args.port,
         token=token,
@@ -223,8 +235,12 @@ def main(argv: list[str] | None = None) -> int:
         embedding_aliases=args.embedding_alias,
         reranker=None,
         reranker_factory=reranker_factory,
-        reranker_model=args.reranker_model if (reranker_factory is not None or args.reranker_model_path is not None) else None,
-        reranker_device=args.reranker_device if (reranker_factory is not None or args.reranker_model_path is not None) else None,
+        reranker_model=args.reranker_model
+        if (reranker_factory is not None or args.reranker_model_path is not None)
+        else None,
+        reranker_device=args.reranker_device
+        if (reranker_factory is not None or args.reranker_model_path is not None)
+        else None,
         max_request_texts=args.max_request_texts,
         max_request_chars=args.max_request_chars,
         max_request_documents=args.max_request_docs,

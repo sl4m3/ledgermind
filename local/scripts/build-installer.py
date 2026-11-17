@@ -185,7 +185,9 @@ def main(argv: list[str] | None = None) -> int:
     }
     public_key = ""
     if args.public_key is not None:
-        raw_key = args.public_key.expanduser().read_bytes().strip()
+        raw_key = args.public_key.expanduser().read_bytes()
+        if len(raw_key) != 32:
+            raw_key = raw_key.strip()
         if len(raw_key) != 32:
             raise SystemExit("public key must contain 32 raw bytes")
         public_key = base64.b64encode(raw_key).decode("ascii")

@@ -14,6 +14,7 @@ from typing import Any
 
 from ledgermind_local.runtime.supervisor import RuntimeSupervisor
 
+from ..model_defaults import load_model_defaults
 from .errors import (
     ConfigurationError,
     ExitCode,
@@ -330,7 +331,7 @@ def _runtime(paths: InstallerPaths) -> RuntimeSupervisor:
                 "--token-file",
                 str(local_embedding_token_file),
                 "--embedding-alias",
-                "nvidia/nemotron-3-embed-1b-local-bf16",
+                load_model_defaults().embedding_local_alias,
             ]
         else:
             reranker_runtime = (
@@ -406,7 +407,9 @@ def _normalize_argv(argv: Sequence[str]) -> list[str]:
             prefix.append(raw[index])
         index += 1
     if index >= len(raw):
-        return raw
+        if "-h" in raw or "--help" in raw:
+            return raw
+        return ["install", *raw]
     return [raw[index], *prefix, *raw[index + 1 :]]
 
 

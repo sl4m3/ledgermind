@@ -23,11 +23,16 @@ from ledgermind_local.config import (
 )
 from ledgermind_local.config import RerankerConfig as LocalRerankerConfig
 
+from ..model_defaults import load_model_defaults
 from .models import InstallerConfig
 from .paths import InstallerPaths
 from .permissions import ensure_private_dir
 from .profiles.generation import build_generation_profiles
-from .profiles.resolution_decision import build_resolution_profile, build_runtime_profiles, DECISION_SECRET_REF
+from .profiles.resolution_decision import (
+    DECISION_SECRET_REF,
+    build_resolution_profile,
+    build_runtime_profiles,
+)
 from .secret_refs import (
     EMBEDDING_SECRET_REF,
     GENERATION_SECRET_REF,
@@ -476,7 +481,9 @@ def build_local_config(
         profile_slots=ProfileSlotsConfig(
             operational="generation-operational",
             object_resolution="generation-object-resolution",
-            resolution_decision="resolution-decision" if config.resolution_decision is not None else None,
+            resolution_decision="resolution-decision"
+            if config.resolution_decision is not None
+            else None,
             background="generation-background",
             embedding=(
                 "embedding-default"
@@ -497,7 +504,7 @@ def build_local_config(
                 else (config.reranker.api.endpoint if config.reranker.api else None)
             ),
             model=(
-                "Qwen/Qwen3-Reranker-0.6B"
+                load_model_defaults().reranker_local
                 if config.reranker.mode == "local"
                 else (config.reranker.api.model if config.reranker.api else None)
             ),
@@ -507,9 +514,7 @@ def build_local_config(
                 else (RERANKER_SECRET_REF if config.reranker.api else None)
             ),
             timeout_seconds=(
-                config.reranker.api.timeout_seconds
-                if config.reranker.api
-                else 30.0
+                config.reranker.api.timeout_seconds if config.reranker.api else 30.0
             ),
         ),
         runtime_residency=RuntimeResidencyConfig(
@@ -653,7 +658,9 @@ def write_local_profiles(
     }
 
 
-def rebind_managed_embedding_slots(store, connection, selected_profile_id: str) -> list[str]:
+def rebind_managed_embedding_slots(
+    store, connection, selected_profile_id: str
+) -> list[str]:
     """Align built-in default bindings only, never custom per-space encoders."""
     if selected_profile_id not in {"embedding-default", "embedding-local"}:
         raise ValueError("selected profile must be a managed embedding profile")
@@ -662,11 +669,14 @@ def rebind_managed_embedding_slots(store, connection, selected_profile_id: str) 
     rows = connection.execute(
         "SELECT memory_space_id FROM memory_space_model_profiles "
         "WHERE profile_slot='embedding' AND profile_id IN ('embedding-default','embedding-local') "
-        "AND profile_id != ? ORDER BY memory_space_id", (selected_profile_id,),
+        "AND profile_id != ? ORDER BY memory_space_id",
+        (selected_profile_id,),
     ).fetchall()
     rebound = [str(row[0]) for row in rows]
     for memory_space_id in rebound:
-        store.bind_slot(memory_space_id, slot="embedding", profile_id=selected_profile_id)
+        store.bind_slot(
+            memory_space_id, slot="embedding", profile_id=selected_profile_id
+        )
     return rebound
 
 

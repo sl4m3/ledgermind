@@ -1146,7 +1146,6 @@ class ControlMaintenanceResult:
 class ObjectFacetStatistics:
     object_count: int
     active_value_count: int
-    superseded_value_count: int
     operational_backlog: int
     background_backlog: int
     embedding_backlog: int
@@ -1170,7 +1169,6 @@ class ObjectFacetStatistics:
             {
                 "object_count",
                 "active_value_count",
-                "superseded_value_count",
                 "operational_backlog",
                 "background_backlog",
                 "embedding_backlog",
@@ -1213,9 +1211,6 @@ class ObjectFacetStatistics:
             object_count=_non_negative_int(payload.get("object_count"), "object_count"),
             active_value_count=_non_negative_int(
                 payload.get("active_value_count"), "active_value_count"
-            ),
-            superseded_value_count=_non_negative_int(
-                payload.get("superseded_value_count"), "superseded_value_count"
             ),
             operational_backlog=_non_negative_int(
                 payload.get("operational_backlog"), "operational_backlog"

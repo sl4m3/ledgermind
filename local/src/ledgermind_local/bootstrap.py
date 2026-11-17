@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
 
+import httpx
 from ledgermind_inference.embedding_purpose import (
     KNOWLEDGE_QUERY_ROLE,
     OBJECT_QUERY_ROLE,
@@ -67,6 +68,7 @@ from ledgermind_local.maintenance.coordinated_restore import (
     CoordinatedRestoreService,
 )
 from ledgermind_local.maintenance.core_backup import CoreBackupService
+from ledgermind_local.model_defaults import load_model_defaults
 from ledgermind_local.paths import ServicePaths
 from ledgermind_local.persistence import open_sqlite_connection
 from ledgermind_local.persistence import rounds_migrations as migrations
@@ -537,7 +539,7 @@ class LocalRuntime:
                 scorer = ApiReranker(
                     self.config.reranker.endpoint or "http://127.0.0.1:8767/rerank",
                     token,
-                    self.config.reranker.model or "Qwen/Qwen3-Reranker-0.6B",
+                    self.config.reranker.model or load_model_defaults().reranker_local,
                     timeout_seconds=self.config.reranker.timeout_seconds,
                 )
             self._retrieval_reranker = scorer
@@ -896,7 +898,6 @@ class LocalRuntime:
         object_facet_empty = bool(
             statistics.get("object_count") == 0
             and statistics.get("active_value_count") == 0
-            and statistics.get("superseded_value_count") == 0
         )
         object_facet_no_work = all(
             not _is_positive_int(statistics.get(name))
@@ -1459,7 +1460,6 @@ class LocalRuntime:
                     for name in (
                         "object_count",
                         "active_value_count",
-                        "superseded_value_count",
                         "operational_backlog",
                         "background_backlog",
                         "embedding_backlog",
@@ -1576,7 +1576,6 @@ class LocalRuntime:
         self._object_facet_bootstrap_pending = bool(
             statistics.get("object_count") == 0
             and statistics.get("active_value_count") == 0
-            and statistics.get("superseded_value_count") == 0
             and any(
                 _is_positive_int(statistics.get(name))
                 for name in (
@@ -1609,7 +1608,6 @@ class LocalRuntime:
                 for name in (
                     "object_count",
                     "active_value_count",
-                    "superseded_value_count",
                     "operational_backlog",
                     "background_backlog",
                     "embedding_backlog",
@@ -1804,6 +1802,13 @@ class LocalRuntime:
                     capability_store=DatabaseBackedCapabilityStore(
                         str(self.database_path)
                     ),
+                    async_http_client=httpx.AsyncClient(
+                        limits=httpx.Limits(
+                            max_connections=1000,
+                            max_keepalive_connections=100,
+                        ),
+                        follow_redirects=False,
+                    ),
                 ),
                 embedding_provider=EmbeddingProvider(
                     vectorizer_factory=_build_runtime_vectorizer_factory(
@@ -1821,6 +1826,11 @@ class LocalRuntime:
                 gateway=self.core_gateway,
                 executor=executor,
                 worker_id=worker_id,
+                lease_batch=self.config.workers.core_model_tasks.lease_batch,
+                decision_inflight=self.config.decision_inflight,
+                generation_concurrency=self.config.generation_concurrency,
+                embedding_concurrency=self.config.embedding.max_concurrency,
+                embedding_batch_size=self.config.embedding.batch_size,
                 lease_seconds=max(
                     int(self.config.worker_lease_seconds),
                     MIN_CORE_MODEL_TASK_LEASE_SECONDS,

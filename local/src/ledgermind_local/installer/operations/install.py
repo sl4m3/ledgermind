@@ -7,11 +7,12 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from ...model_defaults import load_model_defaults
 from ..config_writer import (
     build_local_config,
     persist_generation_probe,
-    resolve_provider_tokens,
     resolve_decision_token,
+    resolve_provider_tokens,
     resolve_reranker_token,
     write_installer_config,
     write_local_config,
@@ -30,9 +31,12 @@ from ..models import InstallerConfig
 from ..paths import InstallerPaths
 from ..preflight import check_preflight
 from ..profiles.embedding_local import build_local_embedding_plan
-from ..profiles.generation import build_generation_profiles
+from ..profiles.probes import (
+    probe_embedding_api,
+    probe_generation,
+    probe_resolution_decision,
+)
 from ..profiles.resolution_decision import build_runtime_profiles
-from ..profiles.probes import probe_embedding_api, probe_generation, probe_resolution_decision
 from ..transaction import InstallTransaction
 from ..verify import (
     public_key_from_environment,
@@ -94,7 +98,8 @@ def install_plan(
 
 
 def _prepare_opt_in_reranker(
-    config: InstallerConfig, paths: InstallerPaths,
+    config: InstallerConfig,
+    paths: InstallerPaths,
     report: Callable[[str, str], None],
 ) -> InstallerConfig:
     """Never commit a configuration that would silently fall back forever."""
@@ -160,10 +165,7 @@ def _download_progress(label: str, transferred: int, total: int | None) -> str:
     width = 20
     filled = percent * width // 100
     bar = "━" * filled + "─" * (width - filled)
-    return (
-        f"{label}  {bar}  {percent:3d}%  "
-        f"{transferred_mib:.1f}/{total_mib:.1f} MiB"
-    )
+    return f"{label}  {bar}  {percent:3d}%  {transferred_mib:.1f}/{total_mib:.1f} MiB"
 
 
 def install(
@@ -494,7 +496,7 @@ def install(
         "embeddings": embedding_readiness,
         "reranker": (
             (
-                f"local-ready; model=Qwen3-Reranker-0.6B; "
+                f"local-ready; model={load_model_defaults().reranker_local}; "
                 f"device={effective_config.reranker.device}"
             )
             if effective_config.reranker.mode == "local"

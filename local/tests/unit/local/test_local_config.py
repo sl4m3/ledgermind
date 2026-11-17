@@ -30,6 +30,26 @@ def test_unknown_fields_are_rejected() -> None:
         LocalConfig.model_validate({"config_version": 1, "secret_api_key": "x"})
 
 
+def test_generation_concurrency_accepts_fifty_workers() -> None:
+    config = LocalConfig.model_validate(
+        {
+            "config_version": 2,
+            "semantic_language": "ru",
+            "generation_concurrency": 50,
+        }
+    )
+    assert config.generation_concurrency == 50
+
+    with pytest.raises(ValidationError):
+        LocalConfig.model_validate(
+            {
+                "config_version": 2,
+                "semantic_language": "ru",
+                "generation_concurrency": 0,
+            }
+        )
+
+
 def test_remote_bind_requires_explicit_allow_remote_bind() -> None:
     with pytest.raises(ValidationError):
         LocalConfig.model_validate(
@@ -144,6 +164,9 @@ def test_retrieval_defaults_enable_dual_view_and_adaptive_merge() -> None:
     assert config.retrieval.dual_view_rerank is True
     assert config.retrieval.adaptive_merge is True
     assert config.retrieval.session_context_query_chars == 96
+    assert config.retrieval.multi_aspect_quota is True
+    assert config.retrieval.multi_aspect_primary_slots == 32
+    assert config.retrieval.multi_aspect_aspect_slots == 8
 
 
 def test_retrieval_config_validation() -> None:
@@ -153,7 +176,9 @@ def test_retrieval_config_validation() -> None:
         RetrievalConfig(session_context_query_chars=-1)
     with pytest.raises(ValidationError):
         RetrievalConfig(session_context_query_chars=1001)
-    assert RetrievalConfig(session_context_query_chars=0).session_context_query_chars == 0
+    assert (
+        RetrievalConfig(session_context_query_chars=0).session_context_query_chars == 0
+    )
 
 
 def test_retrieval_config_is_optional_for_old_configurations() -> None:
@@ -182,3 +207,42 @@ def test_retrieval_config_round_trips_through_json() -> None:
     assert restored.retrieval.dual_view_rerank is False
     assert restored.retrieval.adaptive_merge is False
     assert restored.retrieval.session_context_query_chars == 0
+
+
+def test_worker_poll_limit_migrates_to_lease_batch_with_a_warning() -> None:
+    with pytest.warns(DeprecationWarning, match="poll_limit"):
+        config = LocalConfig.model_validate(
+            {
+                "config_version": 2,
+                "semantic_language": "ru",
+                "workers": {"core_model_tasks": {"poll_limit": 7}},
+            }
+        )
+
+    assert config.workers.core_model_tasks.lease_batch == 7
+    assert "poll_limit" not in config.workers.core_model_tasks.model_dump()
+
+
+def test_decision_inflight_defaults_to_unbounded() -> None:
+    config = LocalConfig.model_validate(
+        {"config_version": 2, "semantic_language": "ru"}
+    )
+    assert config.decision_inflight is None
+
+    bounded = LocalConfig.model_validate(
+        {
+            "config_version": 2,
+            "semantic_language": "ru",
+            "decision_inflight": 12,
+        }
+    )
+    assert bounded.decision_inflight == 12
+
+    with pytest.raises(ValidationError):
+        LocalConfig.model_validate(
+            {
+                "config_version": 2,
+                "semantic_language": "ru",
+                "decision_inflight": 0,
+            }
+        )

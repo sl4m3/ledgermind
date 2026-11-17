@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "generation": {
+    "openrouter": "deepseek/deepseek-v4-flash-0731",
+    "nvidia_nim": "nvidia/nemotron-3-super-120b-a12b"
+  },
+  "embedding": {
+    "api": "nvidia/nemotron-3-embed-1b:free",
+    "dimensions": 2048,
+    "local_catalog_id": "nemotron-3-embed-1b-bf16",
+    "local_alias": "nvidia/nemotron-3-embed-1b-local-bf16"
+  },
+  "reranker": {
+    "local": "Qwen/Qwen3-Reranker-0.6B"
+  },
+  "resolution_decision": {
+    "model": "typesafe/jev-1.14"
+  }
+}

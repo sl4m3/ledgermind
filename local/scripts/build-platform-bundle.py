@@ -139,29 +139,31 @@ def _integration_source(root: Path, target: str) -> Path:
 def _private_key(path: Path):
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-    raw = path.read_bytes().strip()
+    raw = path.read_bytes()
     if len(raw) != 32:
+        stripped = raw.strip()
         try:
-            raw = base64.b64decode(raw, validate=True)
+            raw = base64.b64decode(stripped, validate=True)
         except (ValueError, UnicodeError):
-            raw = bytes.fromhex(raw.decode("ascii"))
+            raw = bytes.fromhex(stripped.decode("ascii"))
     if len(raw) != 32:
         raise SystemExit("Ed25519 signing key must contain 32 raw bytes")
     return Ed25519PrivateKey.from_private_bytes(raw)
 
 
 def _public_key_bytes(path: Path) -> bytes:
-    raw = path.read_bytes().strip()
+    raw = path.read_bytes()
     if len(raw) == 32:
         return raw
+    stripped = raw.strip()
     try:
-        decoded = base64.b64decode(raw, validate=True)
+        decoded = base64.b64decode(stripped, validate=True)
     except (ValueError, UnicodeError):
         decoded = b""
     if len(decoded) == 32:
         return decoded
     try:
-        decoded = bytes.fromhex(raw.decode("ascii"))
+        decoded = bytes.fromhex(stripped.decode("ascii"))
     except (UnicodeError, ValueError) as exc:
         raise SystemExit("Ed25519 public key must be raw, base64, or hex") from exc
     if len(decoded) != 32:

@@ -53,7 +53,6 @@ class _ActivityGateway(_Gateway):
         return ObjectFacetStatistics(
             object_count=0,
             active_value_count=0,
-            superseded_value_count=0,
             operational_backlog=self.operational,
             background_backlog=self.background,
             embedding_backlog=self.embedding,

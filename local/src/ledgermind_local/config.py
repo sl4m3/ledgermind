@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import warnings
 from pathlib import Path
 from typing import Any, Literal
 
@@ -92,14 +93,13 @@ class RetrievalConfig(BaseModel):
     adaptive_merge: bool = True
     # 0 disables the secondary-retrieval context cap.
     session_context_query_chars: int = Field(default=96, ge=0, le=1000)
-    # Explicit comma/semicolon-separated multi-aspect queries reserve a
-    # bounded part of the 32-candidate pool for each aspect. The full query
-    # keeps the majority of the pool.
+    # Explicit comma/semicolon-separated multi-aspect queries keep all 32
+    # primary candidates and append up to 8 unique aspect candidates (<= 40)
+    # before reranking.
     multi_aspect_quota: bool = True
     multi_aspect_max_aspects: int = Field(default=4, ge=1, le=6)
-    multi_aspect_primary_slots: int = Field(default=24, ge=0, le=32)
+    multi_aspect_primary_slots: int = Field(default=32, ge=0, le=32)
     multi_aspect_aspect_slots: int = Field(default=8, ge=0, le=32)
-    multi_aspect_rerank_limit: int = Field(default=15, ge=1, le=32)
 
 
 class RuntimeResidencyConfig(BaseModel):
@@ -131,8 +131,24 @@ class WorkerConfig(BaseModel):
 
     enabled: bool = False
     interval_seconds: float = Field(default=1.0, ge=0.0)
+    # Maximum lease/fetch batch. This is not a provider concurrency limit.
+    lease_batch: int = Field(default=50, ge=1, le=100)
+    # Accepted for one compatibility window; mapped to ``lease_batch``.
+    poll_limit: int | None = Field(default=None, ge=1, le=100, exclude=True)
     max_backoff_seconds: float = Field(default=30.0, ge=0.0)
     shutdown_timeout_seconds: float = Field(default=5.0, gt=0.0)
+
+    @model_validator(mode="after")
+    def migrate_poll_limit(self) -> WorkerConfig:
+        if self.poll_limit is not None:
+            warnings.warn(
+                "workers.*.poll_limit is deprecated; use lease_batch",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.lease_batch = self.poll_limit
+            self.poll_limit = None
+        return self
 
 
 class WorkerSetConfig(BaseModel):
@@ -272,7 +288,10 @@ class LocalConfig(BaseModel):
     worker_max_attempts: int = Field(default=3, ge=1)
     worker_retry_delay_seconds: float = Field(default=30.0, ge=0.0)
     worker_lease_seconds: float = Field(default=300.0, ge=1.0)
-    generation_concurrency: int = Field(default=1, ge=1, le=32)
+    generation_concurrency: int = Field(default=1, ge=1)
+    # Decision calls dispatch immediately; None keeps the lane unbounded and
+    # limits only the lease batch, not provider concurrency.
+    decision_inflight: int | None = Field(default=None, ge=1)
     provider_capability_ttl_seconds: int = Field(default=86_400, ge=1, le=31_536_000)
     inference_secrets_path: str = "secrets.json"
     max_raw_round_bytes: int = Field(default=5_000_000, ge=1)

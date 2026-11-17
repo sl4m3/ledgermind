@@ -114,7 +114,6 @@ def _patch_noop_core_runtime(monkeypatch) -> None:
             return ObjectFacetStatistics(
                 object_count=0,
                 active_value_count=0,
-                superseded_value_count=0,
                 operational_backlog=0,
                 background_backlog=0,
                 embedding_backlog=0,

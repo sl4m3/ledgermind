@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,10 +348,10 @@ class SQLiteRawRoundRepository:
         )
         if now_datetime.tzinfo is None:
             now_datetime = now_datetime.replace(tzinfo=timezone.utc)
-        now_value = now_datetime.isoformat(timespec="seconds")
+        now_value = now_datetime.isoformat(timespec="microseconds")
         lease_expires_at = (
             now_datetime + timedelta(seconds=max(float(lease_seconds), 1))
-        ).isoformat(timespec="seconds")
+        ).isoformat(timespec="microseconds")
         row = self._connection.execute(
             """
             SELECT * FROM core_commands
@@ -362,7 +362,7 @@ class SQLiteRawRoundRepository:
                 AND lease_expires_at IS NOT NULL
                 AND lease_expires_at <= ?
             )
-            ORDER BY available_at, command_id
+            ORDER BY available_at, rowid
             LIMIT 1
             """,
             (now_value, now_value),
@@ -406,10 +406,10 @@ class SQLiteRawRoundRepository:
         if status not in {"completed", "retry_wait", "rejected", "failed"}:
             raise ValueError(f"unsupported core command status: {status}")
         now_datetime = datetime.now(timezone.utc)
-        now_value = now_datetime.isoformat(timespec="seconds")
+        now_value = now_datetime.isoformat(timespec="microseconds")
         available_at = (
             now_datetime + timedelta(seconds=max(float(retry_delay_seconds), 0))
-        ).isoformat(timespec="seconds")
+        ).isoformat(timespec="microseconds")
         updated = self._connection.execute(
             """
             UPDATE core_commands

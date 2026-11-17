@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, TextIO, cast
 
+from ..model_defaults import load_model_defaults
 from .errors import UserCancelledError
 from .models import (
     AdvancedConfig,
@@ -35,11 +36,15 @@ from .provider_profiles import GenerationProviderProfileId
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 NVIDIA_NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
-REFERENCE_GENERATION_MODEL = "deepseek/deepseek-v4-flash-0731"
-REFERENCE_NVIDIA_GENERATION_MODEL = "nvidia/nemotron-3-super-120b-a12b"
-REFERENCE_EMBEDDING_MODEL = "nvidia/nemotron-3-embed-1b:free"
-REFERENCE_EMBEDDING_DIMENSIONS = 2048
-REFERENCE_LOCAL_EMBEDDING_CATALOG_ID = "nemotron-3-embed-1b-bf16"
+_MODEL_DEFAULTS = load_model_defaults()
+REFERENCE_GENERATION_MODEL = _MODEL_DEFAULTS.generation_openrouter
+REFERENCE_NVIDIA_GENERATION_MODEL = _MODEL_DEFAULTS.generation_nvidia_nim
+REFERENCE_EMBEDDING_MODEL = _MODEL_DEFAULTS.embedding_api
+REFERENCE_EMBEDDING_DIMENSIONS = _MODEL_DEFAULTS.embedding_dimensions
+REFERENCE_LOCAL_EMBEDDING_CATALOG_ID = _MODEL_DEFAULTS.embedding_local_catalog_id
+REFERENCE_LOCAL_EMBEDDING_ALIAS = _MODEL_DEFAULTS.embedding_local_alias
+REFERENCE_RERANKER_MODEL = _MODEL_DEFAULTS.reranker_local
+REFERENCE_RESOLUTION_DECISION_MODEL = _MODEL_DEFAULTS.resolution_decision
 
 
 @dataclass(frozen=True, slots=True)
@@ -815,12 +820,13 @@ def build_interactive_config(
             )
 
         resolution_decision = (
-            existing_config.resolution_decision
-            if existing_config is not None
-            else None
+            existing_config.resolution_decision if existing_config is not None else None
         )
         if existing_config is None:
-            ui.line("  Resolution decisions: Jev API (typesafe/jev-1.14)")
+            ui.line(
+                "  Resolution decisions: Jev API "
+                f"({REFERENCE_RESOLUTION_DECISION_MODEL})"
+            )
             decision_token = (
                 token
                 if generation_provider == "openrouter"
@@ -1002,7 +1008,11 @@ __all__ = [
     "REFERENCE_EMBEDDING_DIMENSIONS",
     "REFERENCE_EMBEDDING_MODEL",
     "REFERENCE_GENERATION_MODEL",
+    "REFERENCE_LOCAL_EMBEDDING_ALIAS",
+    "REFERENCE_LOCAL_EMBEDDING_CATALOG_ID",
     "REFERENCE_NVIDIA_GENERATION_MODEL",
+    "REFERENCE_RERANKER_MODEL",
+    "REFERENCE_RESOLUTION_DECISION_MODEL",
     "build_interactive_config",
     "choose_existing_install_action",
     "choose_integrations_to_connect",

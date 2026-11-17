@@ -319,7 +319,6 @@ def main() -> int:
                     {
                         "object_count": 1,
                         "active_value_count": 1,
-                        "superseded_value_count": 0,
                         "operational_backlog": 0,
                         "background_backlog": 0,
                         "embedding_backlog": 0,
