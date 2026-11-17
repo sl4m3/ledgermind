@@ -78,7 +78,8 @@ The optional `visible_value_ids` field excludes versions already assumed in
 the session before Core forms its candidate pool. A private adapter ledger
 stores IDs and an approximate new-content token cursor, not knowledge text.
 It survives restarts and resets after successful compaction or a session reset;
-entries expire around 200,000 new-content tokens. Local and Cloud accept the
+entries expire around 200,000 new-content tokens by default
+(`visibility_max_age_tokens`). Local and Cloud accept the
 same best-effort `/context/injection-events` receipt. Its `stage` is one of two
 hook-returned stages, `hook_returned_assumed_visible` or
 `hook_returned_turn_scoped`; both mean assumed visibility, never host
