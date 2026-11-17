@@ -8,6 +8,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, cast
 
+from ...runtime.defaults import (
+    DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS,
+    DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS,
+    DEFAULT_PENDING_CAPTURE_BACKOFF_SECONDS,
+    DEFAULT_VISIBILITY_MAX_AGE_TOKENS,
+    DEFAULT_VISIBILITY_MAX_ENTRIES,
+)
 from ...runtime.spool import (
     DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS,
     DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS,
@@ -40,6 +47,11 @@ class HermesConfig:
     inflight_ttl_seconds: float = 300.0
     retryable_failed_max_attempts: int = DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS
     retryable_failed_max_age_seconds: float = DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS
+    visibility_max_age_tokens: int = DEFAULT_VISIBILITY_MAX_AGE_TOKENS
+    visibility_max_entries: int = DEFAULT_VISIBILITY_MAX_ENTRIES
+    delivery_base_backoff_seconds: float = DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS
+    delivery_max_backoff_seconds: float = DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS
+    pending_capture_backoff_seconds: tuple[float, ...] = DEFAULT_PENDING_CAPTURE_BACKOFF_SECONDS
     runtime_endpoint: str | None = None
     runtime_state_file: str | None = None
     runtime_command: str | None = None
@@ -55,6 +67,20 @@ class HermesConfig:
 
 
 _REQUIRED = ("endpoint", "memory_space_id", "source_instance_id", "profile_id")
+
+
+def _positive_seconds(raw: object, default: tuple[float, ...]) -> tuple[float, ...]:
+    if raw is None:
+        return default
+    if not isinstance(raw, (list, tuple)) or not raw:
+        raise ValueError("pending_capture_backoff_seconds must be a non-empty list")
+    try:
+        values = tuple(float(value) for value in raw)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("pending_capture_backoff_seconds must contain numbers") from exc
+    if any(value <= 0 for value in values):
+        raise ValueError("pending_capture_backoff_seconds must be positive")
+    return values
 
 
 def load_config(path: str | Path) -> HermesConfig:
@@ -141,6 +167,32 @@ def load_config(path: str | Path) -> HermesConfig:
                 )
             ),
             1.0,
+        ),
+        visibility_max_age_tokens=max(
+            int(payload.get("visibility_max_age_tokens", DEFAULT_VISIBILITY_MAX_AGE_TOKENS)), 1
+        ),
+        visibility_max_entries=max(
+            int(payload.get("visibility_max_entries", DEFAULT_VISIBILITY_MAX_ENTRIES)), 1
+        ),
+        delivery_base_backoff_seconds=max(
+            float(
+                payload.get(
+                    "delivery_base_backoff_seconds", DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS
+                )
+            ),
+            0.01,
+        ),
+        delivery_max_backoff_seconds=max(
+            float(
+                payload.get(
+                    "delivery_max_backoff_seconds", DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS
+                )
+            ),
+            0.01,
+        ),
+        pending_capture_backoff_seconds=_positive_seconds(
+            payload.get("pending_capture_backoff_seconds"),
+            DEFAULT_PENDING_CAPTURE_BACKOFF_SECONDS,
         ),
         runtime_endpoint=(
             str(payload["runtime_endpoint"]).rstrip("/")

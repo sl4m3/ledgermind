@@ -7,6 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
 
+from ...runtime.defaults import (
+    DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS,
+    DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS,
+    DEFAULT_DRAIN_MAX_SECONDS,
+    DEFAULT_VISIBILITY_MAX_AGE_TOKENS,
+    DEFAULT_VISIBILITY_MAX_ENTRIES,
+)
 from ...runtime.spool import (
     DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS,
     DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS,
@@ -40,6 +47,11 @@ class LifecycleConfig:
     max_round_payload_bytes: int = 5_000_000
     retryable_failed_max_attempts: int = DEFAULT_RETRYABLE_FAILED_MAX_ATTEMPTS
     retryable_failed_max_age_seconds: float = DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS
+    visibility_max_age_tokens: int = DEFAULT_VISIBILITY_MAX_AGE_TOKENS
+    visibility_max_entries: int = DEFAULT_VISIBILITY_MAX_ENTRIES
+    delivery_base_backoff_seconds: float = DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS
+    delivery_max_backoff_seconds: float = DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS
+    drain_max_seconds: float = DEFAULT_DRAIN_MAX_SECONDS
 
 
 _REQUIRED = (
@@ -122,6 +134,31 @@ def load_lifecycle_config(path: str | Path) -> LifecycleConfig:
                 )
             ),
             1.0,
+        ),
+        visibility_max_age_tokens=max(
+            int(payload.get("visibility_max_age_tokens", DEFAULT_VISIBILITY_MAX_AGE_TOKENS)), 1
+        ),
+        visibility_max_entries=max(
+            int(payload.get("visibility_max_entries", DEFAULT_VISIBILITY_MAX_ENTRIES)), 1
+        ),
+        delivery_base_backoff_seconds=max(
+            float(
+                payload.get(
+                    "delivery_base_backoff_seconds", DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS
+                )
+            ),
+            0.01,
+        ),
+        delivery_max_backoff_seconds=max(
+            float(
+                payload.get(
+                    "delivery_max_backoff_seconds", DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS
+                )
+            ),
+            0.01,
+        ),
+        drain_max_seconds=max(
+            float(payload.get("drain_max_seconds", DEFAULT_DRAIN_MAX_SECONDS)), 0.1
         ),
     )
 

@@ -290,3 +290,14 @@ def test_full_spool_can_still_record_failure_diagnostic(tmp_path):
     spool.max_bytes = 1
     spool.note_delivery_failure("SpoolFullError")
     assert json.loads(spool.delivery_status_path.read_text())["reason"] == "SpoolFullError"
+
+
+def test_worker_defaults_come_from_runtime_defaults(tmp_path: Path) -> None:
+    from ledgermind_integrations.runtime.defaults import (
+        DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS,
+        DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS,
+    )
+
+    worker = DeliveryWorker(FileSpool(tmp_path / "spool"), FakeClient())
+    assert worker.base_backoff_seconds == DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS
+    assert worker.max_backoff_seconds == DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS

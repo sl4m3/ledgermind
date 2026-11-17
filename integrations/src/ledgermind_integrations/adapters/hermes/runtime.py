@@ -176,11 +176,18 @@ class HermesPluginRuntime:
         self.spool = spool
         self.capture = HermesRoundCapture(config, spool)
         self.pending_capture = PendingCaptureWorker(
-            self.capture, max_attempts=config.max_pending_attempts
+            self.capture,
+            max_attempts=config.max_pending_attempts,
+            backoff_seconds=config.pending_capture_backoff_seconds,
         )
         self.state_reader = HermesStateReader(config.state_db_path)
         _migrate_spool_locked(spool)
-        self.delivery = DeliveryWorker(spool, client)
+        self.delivery = DeliveryWorker(
+            spool,
+            client,
+            base_backoff_seconds=config.delivery_base_backoff_seconds,
+            max_backoff_seconds=config.delivery_max_backoff_seconds,
+        )
         self.loop = HermesWorkerLoop(
             delivery_worker=self.delivery,
             pending_worker=self.pending_capture,

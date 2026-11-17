@@ -914,3 +914,68 @@ def test_lifecycle_config_reads_failed_promotion_limits(tmp_path: Path) -> None:
         defaults.retryable_failed_max_age_seconds
         == DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS
     )
+
+
+def test_lifecycle_config_reads_visibility_and_delivery_limits(tmp_path: Path) -> None:
+    from ledgermind_integrations.runtime.defaults import (
+        DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS,
+        DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS,
+        DEFAULT_DRAIN_MAX_SECONDS,
+        DEFAULT_VISIBILITY_MAX_AGE_TOKENS,
+        DEFAULT_VISIBILITY_MAX_ENTRIES,
+    )
+
+    limits = {
+        "visibility_max_age_tokens": 12_000,
+        "visibility_max_entries": 64,
+        "delivery_base_backoff_seconds": 1.5,
+        "delivery_max_backoff_seconds": 7.0,
+        "drain_max_seconds": 15.0,
+    }
+    config_path = tmp_path / "visibility-delivery-limits.json"
+    payload = asdict(_config(tmp_path))
+    payload.update(limits)
+    config_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    config = load_lifecycle_config(config_path)
+    for name, expected in limits.items():
+        assert getattr(config, name) == expected
+
+    for name in limits:
+        del payload[name]
+    config_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    defaults = load_lifecycle_config(config_path)
+    assert defaults.visibility_max_age_tokens == DEFAULT_VISIBILITY_MAX_AGE_TOKENS
+    assert defaults.visibility_max_entries == DEFAULT_VISIBILITY_MAX_ENTRIES
+    assert defaults.delivery_base_backoff_seconds == DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS
+    assert defaults.delivery_max_backoff_seconds == DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS
+    assert defaults.drain_max_seconds == DEFAULT_DRAIN_MAX_SECONDS
+
+
+def test_delivery_worker_uses_configured_backoff(tmp_path: Path) -> None:
+    config = replace(
+        _config(tmp_path),
+        delivery_base_backoff_seconds=1.5,
+        delivery_max_backoff_seconds=7.0,
+    )
+    worker = bridge_module._delivery_worker(config, bridge_module._spool(config), _Client())
+    assert worker.base_backoff_seconds == 1.5
+    assert worker.max_backoff_seconds == 7.0
+
+
+def test_background_drain_accepts_explicit_deadline(tmp_path: Path, monkeypatch) -> None:
+    config = _config(tmp_path)
+    spool = bridge_module._spool(config)
+    for index in range(45):
+        spool.enqueue_ready(f"round-{index}", {"round": index})
+    client = _Client()
+
+    @contextmanager
+    def leased(_config: LifecycleConfig, _session_id: str):
+        yield client
+
+    monkeypatch.setattr(bridge_module, "_leased_client", leased)
+    assert bridge_module.drain_ready(config, max_seconds=5) == 45
+    assert spool.stats().ready_delivery == 0
+    assert len(client.submitted) == 45

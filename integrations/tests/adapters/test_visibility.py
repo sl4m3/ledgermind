@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+import pytest
+
 from ledgermind_integrations.adapters.lifecycle.config import LifecycleConfig
 from ledgermind_integrations.adapters.lifecycle.visibility import (
     MAX_AGE_TOKENS,
@@ -43,3 +45,15 @@ def test_unique_content_age_and_compaction(tmp_path) -> None:
     assume_hook_returned(config, "session", "new-request", ["value"])
     advance_epoch(config, "session")
     assert visible_ids(config, "session") == []
+
+
+def test_visibility_honors_configured_age_and_entry_limits(tmp_path) -> None:
+    limited = replace(_config(tmp_path), visibility_max_age_tokens=10, visibility_max_entries=1)
+    assume_hook_returned(limited, "session", "request", ["value"])
+    note_content(limited, "session", "event", "x" * 40)
+    assert visible_ids(limited, "session") == []
+
+    crowded = replace(_config(tmp_path / "crowded"), visibility_max_entries=1)
+    assume_hook_returned(crowded, "session", "request", ["value", "other"])
+    with pytest.raises(ValueError, match="retrieval exclusion limit"):
+        visible_ids(crowded, "session")

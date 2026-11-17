@@ -16,10 +16,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
+from ...runtime.defaults import DEFAULT_VISIBILITY_MAX_AGE_TOKENS
 from ..hermes.config import HermesConfig
 from .config import LifecycleConfig
 
-MAX_AGE_TOKENS = 200_000
+MAX_AGE_TOKENS = DEFAULT_VISIBILITY_MAX_AGE_TOKENS
 VisibilityConfig = LifecycleConfig | HermesConfig
 
 
@@ -66,14 +67,16 @@ def _ledger(config: VisibilityConfig, session_id: str) -> Iterator[dict]:
 
 
 def visible_ids(config: VisibilityConfig, session_id: str) -> list[str]:
+    age_limit = config.visibility_max_age_tokens
+    entries_limit = config.visibility_max_entries
     with _ledger(config, session_id) as state:
         cursor = int(state["cursor"])
         epoch = int(state["epoch"])
         entries = state["entries"]
         for value_id, entry in list(entries.items()):
-            if not isinstance(entry, dict) or entry.get("epoch") != epoch or cursor - int(entry.get("cursor", 0)) >= MAX_AGE_TOKENS:
+            if not isinstance(entry, dict) or entry.get("epoch") != epoch or cursor - int(entry.get("cursor", 0)) >= age_limit:
                 entries.pop(value_id, None)
-        if len(entries) > 4096:
+        if len(entries) > entries_limit:
             raise ValueError("visibility ledger exceeds the retrieval exclusion limit")
         return sorted(entries)
 
@@ -96,14 +99,15 @@ def note_content(config: VisibilityConfig, session_id: str, event_id: str, conte
     if not event_id or content is None:
         return
     rendered = content if isinstance(content, str) else json.dumps(content, ensure_ascii=False, sort_keys=True)
+    entries_limit = config.visibility_max_entries
     with _ledger(config, session_id) as state:
         seen = state["seen_events"]
         if event_id in seen:
             return
         state["cursor"] += (len(rendered.encode("utf-8")) + 3) // 4
         seen.append(event_id)
-        if len(seen) > 4096:
-            del seen[: len(seen) - 4096]
+        if len(seen) > entries_limit:
+            del seen[: len(seen) - entries_limit]
 
 
 def assume_hook_returned(

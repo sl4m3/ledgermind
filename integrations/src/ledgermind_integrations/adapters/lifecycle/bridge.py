@@ -20,7 +20,7 @@ from ledgermind_protocol import build_resolution_extension
 from ledgermind_protocol.validation import RawRoundValidationError
 
 from ...runtime.client import LedgerMindClient, LedgerMindClientError
-from ...runtime.delivery import DeliveryWorker
+from ...runtime.delivery import DeliveryWorker, RoundSubmitter
 from ...runtime.endpoint import resolve_runtime_endpoint, runtime_state_running
 from ...runtime.lease import RuntimeLease
 from ...runtime.spool import FileSpool, SpoolFullError
@@ -585,16 +585,27 @@ def _promote_completed_captures(config: LifecycleConfig) -> None:
         complete_capture(path)
 
 
+def _delivery_worker(
+    config: LifecycleConfig, spool: FileSpool, client: RoundSubmitter
+) -> DeliveryWorker:
+    return DeliveryWorker(
+        spool,
+        client,
+        base_backoff_seconds=config.delivery_base_backoff_seconds,
+        max_backoff_seconds=config.delivery_max_backoff_seconds,
+    )
+
+
 def _deliver_ready(config: LifecycleConfig, session_id: str) -> None:
     """Best-effort delivery performed only after lifecycle state is durable."""
 
     spool = _spool(config)
     try:
         if config.model_residency_mode == "session":
-            DeliveryWorker(spool, _client(config)).run_once(limit=10)
+            _delivery_worker(config, spool, _client(config)).run_once(limit=10)
         else:
             with _leased_client(config, session_id) as client:
-                DeliveryWorker(spool, client).run_once(limit=10)
+                _delivery_worker(config, spool, client).run_once(limit=10)
         if spool.stats().ready_delivery:
             spool.note_delivery_failure("delivery_pending_retry")
         else:
@@ -603,8 +614,11 @@ def _deliver_ready(config: LifecycleConfig, session_id: str) -> None:
         spool.note_delivery_failure(type(exc).__name__)
 
 
-def drain_ready(config: LifecycleConfig, *, max_seconds: float = 120.0) -> int:
-    """Drain one integration's durable queue in a single detached worker."""
+def drain_ready(config: LifecycleConfig, *, max_seconds: float | None = None) -> int:
+    """Drain one integration's durable queue in a single detached worker.
+
+    ``max_seconds`` overrides ``config.drain_max_seconds`` for one-off drains.
+    """
 
     spool = _spool(config)
     spool.root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -630,8 +644,9 @@ def drain_ready(config: LifecycleConfig, *, max_seconds: float = 120.0) -> int:
             pass
         try:
             with _leased_client(config, f"delivery-{os.getpid()}") as client:
-                worker = DeliveryWorker(spool, client)
-                deadline = time.monotonic() + max(float(max_seconds), 0.1)
+                worker = _delivery_worker(config, spool, client)
+                limit = config.drain_max_seconds if max_seconds is None else max_seconds
+                deadline = time.monotonic() + max(float(limit), 0.1)
                 while time.monotonic() < deadline:
                     _promote_completed_captures(config)
                     before = spool.stats().ready_delivery

@@ -322,3 +322,36 @@ def test_load_config_reads_failed_promotion_limits(tmp_path: Path) -> None:
         defaults.retryable_failed_max_age_seconds
         == DEFAULT_RETRYABLE_FAILED_MAX_AGE_SECONDS
     )
+
+
+def test_load_config_reads_pending_capture_backoff(tmp_path: Path) -> None:
+    import pytest
+
+    from ledgermind_integrations.adapters.hermes.config import load_config
+    from ledgermind_integrations.runtime.defaults import (
+        DEFAULT_PENDING_CAPTURE_BACKOFF_SECONDS,
+    )
+
+    path = tmp_path / "hermes-backoff.json"
+    payload: dict[str, object] = {
+        "endpoint": "http://127.0.0.1:8765",
+        "memory_space_id": "workspace_01",
+        "source_instance_id": "src_hermes_local",
+        "profile_id": "default",
+        "pending_capture_backoff_seconds": [0.5, 2],
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    assert load_config(path).pending_capture_backoff_seconds == (0.5, 2.0)
+
+    del payload["pending_capture_backoff_seconds"]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    assert (
+        load_config(path).pending_capture_backoff_seconds
+        == DEFAULT_PENDING_CAPTURE_BACKOFF_SECONDS
+    )
+
+    for invalid in ([], [-1], ["x"]):
+        payload["pending_capture_backoff_seconds"] = invalid
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with pytest.raises(ValueError, match="pending_capture_backoff_seconds"):
+            load_config(path)

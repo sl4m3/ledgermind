@@ -7,6 +7,10 @@ from collections.abc import Mapping
 from typing import Any, Protocol
 
 from .client import LedgerMindPermanentError, LedgerMindResponseError, round_acceptance_confirmed
+from .defaults import (
+    DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS,
+    DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS,
+)
 from .spool import FileSpool
 
 
@@ -21,8 +25,8 @@ class DeliveryWorker:
         client: RoundSubmitter,
         *,
         max_attempts: int | None = None,
-        base_backoff_seconds: float = 0.25,
-        max_backoff_seconds: float = 30.0,
+        base_backoff_seconds: float = DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS,
+        max_backoff_seconds: float = DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS,
     ) -> None:
         self.spool = spool
         self.client = client

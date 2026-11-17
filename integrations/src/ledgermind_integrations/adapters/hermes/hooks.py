@@ -11,6 +11,10 @@ from typing import Any
 
 from ledgermind_protocol import LedgerMindResolution, build_resolution_extension
 
+from ...runtime.defaults import (
+    DEFAULT_PENDING_CAPTURE_BACKOFF_SECONDS,
+    DEFAULT_PENDING_CAPTURE_MAX_ATTEMPTS,
+)
 from ...runtime.spool import FileSpool
 from .config import HermesConfig
 from .round_capture import build_raw_round
@@ -190,11 +194,16 @@ class HermesRoundCapture:
 class PendingCaptureWorker:
     """Promote pending captures after state.db exposes a final event."""
 
-    _BACKOFF_SECONDS = (1.0, 3.0, 10.0, 30.0, 120.0)
-
-    def __init__(self, capture: HermesRoundCapture, *, max_attempts: int = 3) -> None:
+    def __init__(
+        self,
+        capture: HermesRoundCapture,
+        *,
+        max_attempts: int = DEFAULT_PENDING_CAPTURE_MAX_ATTEMPTS,
+        backoff_seconds: tuple[float, ...] = DEFAULT_PENDING_CAPTURE_BACKOFF_SECONDS,
+    ) -> None:
         self.capture = capture
         self.max_attempts = max(int(max_attempts), 1)
+        self.backoff_seconds = tuple(backoff_seconds) or DEFAULT_PENDING_CAPTURE_BACKOFF_SECONDS
 
     def run_once(
         self, resolver: Callable[[Mapping[str, Any]], Sequence[Mapping[str, Any]] | None]
@@ -298,9 +307,9 @@ class PendingCaptureWorker:
         if not until_deadline and attempts >= self.max_attempts:
             self.capture.spool.fail_pending(item_name, reason)
             return
-        index = min(max(attempts - 1, 0), len(self._BACKOFF_SECONDS) - 1)
+        index = min(max(attempts - 1, 0), len(self.backoff_seconds) - 1)
         delivery["last_error"] = reason
-        delivery["next_attempt_at"] = time.time() + self._BACKOFF_SECONDS[index]
+        delivery["next_attempt_at"] = time.time() + self.backoff_seconds[index]
         self.capture.spool.retry_pending(item_name, pending)
 
     @staticmethod

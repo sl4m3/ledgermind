@@ -567,3 +567,16 @@ def test_hermes_skips_migration_when_lock_is_held(
     )
     second.stop()
     assert calls == [spool.root]
+
+
+def test_pending_capture_uses_configured_backoff(tmp_path: Path) -> None:
+    capture, spool = _pending(tmp_path)
+    worker = PendingCaptureWorker(capture, max_attempts=2, backoff_seconds=(5.0,))
+    assert worker.backoff_seconds == (5.0,)
+
+    assert worker.run_once(lambda _: None) == 0
+    pending_path = next(spool.pending_dir.glob("*.json"))
+    pending_payload = json.loads(pending_path.read_text(encoding="utf-8"))
+    assert pending_payload["delivery"]["next_attempt_at"] == pytest.approx(
+        time.time() + 5.0, abs=3.0
+    )
