@@ -104,7 +104,6 @@ class InjectionEventRequest(BaseModel):
     stage: Literal[
         "hook_returned_assumed_visible",
         "hook_returned_turn_scoped",
-        "host_confirmed_visible",
     ]
     value_ids: list[str] = Field(default_factory=list, max_length=100)
 

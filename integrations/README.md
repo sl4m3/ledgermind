@@ -79,10 +79,10 @@ the session before Core forms its candidate pool. A private adapter ledger
 stores IDs and an approximate new-content token cursor, not knowledge text.
 It survives restarts and resets after successful compaction or a session reset;
 entries expire around 200,000 new-content tokens. Local and Cloud accept the
-same idempotent `/context/injection-events` receipt. `service_selected`,
-`hook_returned_assumed_visible`, `hook_returned_turn_scoped`, and
-`host_confirmed_visible` are distinct stages; the last is only used when the
-host provides confirmation.
+same best-effort `/context/injection-events` receipt. `service_selected`,
+`hook_returned_assumed_visible`, and `hook_returned_turn_scoped` are distinct
+stages; both hook-returned stages are assumed visibility, never host
+confirmation.
 
 OpenCode persists a tagged memory block in the admitted message instead of
 adding it to every system prompt. Codex and Claude Code use their context
