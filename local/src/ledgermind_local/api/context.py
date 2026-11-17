@@ -1181,7 +1181,6 @@ def _rerank_candidates(
                 core_items,
                 views,
                 reranker,
-                fusion="max",
                 max_workers=(len(views) if isinstance(reranker, ApiReranker) else 1),
             )
             return (

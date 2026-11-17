@@ -926,7 +926,6 @@ def test_multi_aspect_uses_adaptive_k_and_allows_more_than_15_items() -> None:
     assert diag["selection_policy"] == "adaptive_k"
     assert diag["adaptive_k_cutoff"] == 18
     assert len(payload["items"]) == 18
-    assert [row["fusion"] for row in diag["ranking"]] == ["max"] * len(diag["ranking"])
     scores = [row["reranker_score"] for row in diag["ranking"]]
     assert scores == sorted(scores, reverse=True)
 
