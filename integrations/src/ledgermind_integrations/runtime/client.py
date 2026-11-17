@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from ledgermind_protocol import ContextView, validate_raw_round
+from ledgermind_protocol.validation import RawRoundValidationError
 from pydantic import ValidationError
 
 
@@ -19,19 +20,48 @@ class LedgerMindClientError(RuntimeError):
 
 
 class LedgerMindNetworkError(LedgerMindClientError):
-    """Temporary transport or 5xx error."""
+    """Temporary transport or 5xx error.
+
+    Transient failures (408, 425, 429, 5xx, connection reset, timeout, malformed
+    JSON) mean the request may still succeed later: callers must keep the round
+    queued and retry without a ceiling until the server confirms acceptance.
+    """
 
 
-class LedgerMindUnauthorizedError(LedgerMindClientError):
-    """The configured token was rejected."""
+class LedgerMindPermanentError(LedgerMindClientError):
+    """Client-side failure that retrying cannot fix.
+
+    Non-2xx 4xx responses and invalid request envelopes belong here: the request
+    is rejected regardless of transport. Callers quarantine these deliveries so
+    they neither block the queue nor get lost, typically with ``retryable=True``.
+    """
+
+    def __init__(self, message: str, *, status: int = 0, reason: str = "") -> None:
+        super().__init__(message)
+        self.status = int(status)
+        self.reason = reason
 
 
-class LedgerMindConflictError(LedgerMindClientError):
-    """The server rejected a source-round payload conflict."""
+class LedgerMindUnauthorizedError(LedgerMindPermanentError):
+    """The configured token was rejected (HTTP 401)."""
+
+    def __init__(self, message: str = "authentication failed", *, status: int = 401) -> None:
+        super().__init__(message, status=status, reason="unauthorized")
+
+
+class LedgerMindConflictError(LedgerMindPermanentError):
+    """The server rejected a source-round payload conflict (HTTP 409)."""
+
+    def __init__(self, message: str = "raw round conflict", *, status: int = 409) -> None:
+        super().__init__(message, status=status, reason="source_round_conflict")
 
 
 class LedgerMindResponseError(LedgerMindClientError):
-    """Non-retriable protocol or response error."""
+    """Protocol or response error from a reachable server.
+
+    Treated as server-side/transient: e.g. malformed JSON or an acknowledgement
+    that does not confirm acceptance. Callers keep the round queued and retry.
+    """
 
 
 def round_acceptance_confirmed(response: Mapping[str, Any]) -> bool:
@@ -122,7 +152,14 @@ class LedgerMindClient:
             raise LedgerMindResponseError("context response was not ContextView") from exc
 
     def submit_round(self, payload: Mapping[str, Any]) -> dict[str, Any]:
-        validated = validate_raw_round(payload)
+        try:
+            validated = validate_raw_round(payload)
+        except RawRoundValidationError as exc:
+            raise LedgerMindPermanentError(
+                "raw round payload was not valid",
+                status=422,
+                reason="invalid_raw_round",
+            ) from exc
         response = self._request(
             "POST",
             "/rounds",
@@ -215,13 +252,26 @@ class LedgerMindClient:
                 raise LedgerMindUnauthorizedError("authentication failed") from exc
             if status == 409:
                 raise LedgerMindConflictError("raw round conflict") from exc
-            if status == 429 or status >= 500:
+            if status in {408, 425, 429} or status >= 500:
+                # 408 (timeout), 425 (too early) and 429 are transient: the
+                # request may succeed later, so keep the round queued and retry.
                 raise LedgerMindNetworkError(f"server returned {status}") from exc
+            if 400 <= status < 500:
+                raise LedgerMindPermanentError(
+                    f"server returned {status}: {raw[:500]}",
+                    status=status,
+                    reason=f"http_{status}",
+                ) from exc
             raise LedgerMindResponseError(f"server returned {status}: {raw[:500]}") from exc
         except OSError as exc:
             raise LedgerMindNetworkError(str(exc)) from exc
+        if status == 204:
+            # 204 No Content is a successful response without a body.
+            return {}
         if status not in {200, 201, 202}:
-            raise LedgerMindResponseError(f"unexpected status {status}")
+            raise LedgerMindPermanentError(
+                f"unexpected status {status}", status=status, reason=f"http_{status}"
+            )
         if not raw:
             return {}
         try:

@@ -5,6 +5,7 @@ from .runtime.client import (
     LedgerMindClientError,
     LedgerMindConflictError,
     LedgerMindNetworkError,
+    LedgerMindPermanentError,
     LedgerMindResponseError,
     LedgerMindUnauthorizedError,
 )
@@ -16,6 +17,7 @@ __all__ = [
     "LedgerMindClientError",
     "LedgerMindConflictError",
     "LedgerMindNetworkError",
+    "LedgerMindPermanentError",
     "LedgerMindResponseError",
     "LedgerMindUnauthorizedError",
     "__version__",

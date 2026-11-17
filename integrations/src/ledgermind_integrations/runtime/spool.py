@@ -312,7 +312,14 @@ class FileSpool:
         )
         (self.inflight_dir / item_name).unlink(missing_ok=True)
 
-    def fail_inflight(self, item_name: str, reason: str) -> Path:
+    def fail_inflight(
+        self,
+        item_name: str,
+        reason: str,
+        *,
+        retryable: bool = False,
+        delivery_patch: Mapping[str, Any] | None = None,
+    ) -> Path:
         source = self.inflight_dir / item_name
         if not source.exists():
             source = self.ready_dir / item_name
@@ -326,13 +333,27 @@ class FileSpool:
         if not isinstance(delivery, dict):
             delivery = {}
         delivery["failure_reason"] = reason
+        delivery["retryable"] = retryable
+        if delivery_patch:
+            # Persist extra per-attempt metadata (e.g. attempts) into the
+            # quarantine record so it is visible without replaying delivery.
+            delivery.update(delivery_patch)
         payload["delivery"] = delivery
         target = self._write(self.failed_dir / item_name, payload, exclude=(source,))
         source.unlink(missing_ok=True)
         return target
 
-    def fail(self, item_name: str, reason: str) -> Path:
-        return self.fail_inflight(item_name, reason)
+    def fail(
+        self,
+        item_name: str,
+        reason: str,
+        *,
+        retryable: bool = False,
+        delivery_patch: Mapping[str, Any] | None = None,
+    ) -> Path:
+        return self.fail_inflight(
+            item_name, reason, retryable=retryable, delivery_patch=delivery_patch
+        )
 
     def stats(self) -> SpoolStats:
         self._ensure()

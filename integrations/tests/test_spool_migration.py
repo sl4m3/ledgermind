@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any, cast
 
@@ -51,7 +52,9 @@ def _read(path: Path) -> dict[str, Any]:
 
 
 def test_migration_recovers_and_rewrites_every_delivery_queue(tmp_path: Path) -> None:
-    spool = FileSpool(tmp_path / "spool")
+    # A tiny TTL lets the freshly claimed in-flight records expire so this
+    # exercises the full recovery path regardless of claim age.
+    spool = FileSpool(tmp_path / "spool", inflight_ttl_seconds=0.1)
     historical = _historical_round()
     source = historical["source"]
 
@@ -67,6 +70,7 @@ def test_migration_recovers_and_rewrites_every_delivery_queue(tmp_path: Path) ->
     spool.enqueue_ready("ready-round", historical)
     spool.enqueue_ready("inflight-round", historical)
     spool.pop_ready()
+    time.sleep(0.2)  # let both in-flight claims exceed the 0.1s TTL
     failed = spool.failed_dir / "retryable.json"
     failed.write_text(
         json.dumps(
@@ -125,3 +129,38 @@ def test_migration_recomputes_digest_without_changing_source_identity(tmp_path: 
     assert migrated["source"] == source
     assert migrated["payload_digest"] != "sha256:" + "0" * 64
     assert migrated["idempotency_key"] == migrated["payload_digest"]
+
+
+def test_migration_does_not_steal_live_inflight_claim(tmp_path: Path) -> None:
+    # A fresh in-flight record belongs to a live worker/drain. migrate_spool must
+    # leave it in inflight/ (the owner will complete or retry it), otherwise a
+    # concurrent drain would re-queue and re-send a round that is already being
+    # delivered. Only records older than the TTL are recovered.
+    spool = FileSpool(tmp_path / "spool", inflight_ttl_seconds=300.0)
+    spool.enqueue_ready("live", _raw_round())
+    spool.pop_ready()  # moves the record to inflight/ with a fresh claimed_at
+
+    assert spool.stats().inflight == 1
+    result = migrate_spool(spool)
+
+    assert result.recovered_inflight == 0
+    assert spool.stats().inflight == 1
+    assert spool.stats().ready_delivery == 0
+
+
+def test_migration_recovers_expired_inflight_claim(tmp_path: Path) -> None:
+    # Once the claim is older than the TTL the worker is presumed dead, so the
+    # record must return to ready/ for another drain to pick up.
+    spool = FileSpool(tmp_path / "spool", inflight_ttl_seconds=0.1)
+    spool.enqueue_ready("stale", _raw_round())
+    spool.pop_ready()
+    time.sleep(0.2)  # age the claim past the TTL
+
+    result = migrate_spool(spool)
+
+    assert result.recovered_inflight == 1
+    assert spool.stats().inflight == 0
+    assert spool.stats().ready_delivery == 1
+    recovered = _read(next(spool.ready_dir.glob("*.json")))
+    assert "claimed_at" not in recovered["delivery"]
+    assert "worker_id" not in recovered["delivery"]

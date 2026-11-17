@@ -6,7 +6,7 @@ import time
 from collections.abc import Mapping
 from typing import Any, Protocol
 
-from .client import LedgerMindClientError, LedgerMindConflictError, round_acceptance_confirmed
+from .client import LedgerMindPermanentError, LedgerMindResponseError, round_acceptance_confirmed
 from .spool import FileSpool
 
 
@@ -40,22 +40,39 @@ class DeliveryWorker:
     def _process(self, item_name: str, envelope: Mapping[str, Any]) -> None:
         request = envelope.get("request")
         if not isinstance(request, Mapping):
-            self.spool.fail(item_name, "invalid_request_envelope")
+            # A malformed request envelope will never be accepted by the server.
+            # Quarantine it (retryable) instead of retrying forever.
+            self.spool.fail(item_name, "invalid_request_envelope", retryable=True)
             return
         delivery = dict(envelope.get("delivery", {}))
         attempts = int(delivery.get("attempts", 0)) + 1
         delivery["attempts"] = attempts
         mutable = {"request": dict(request), "delivery": delivery}
         if self.max_attempts is not None and attempts > self.max_attempts:
+            # Only callers that explicitly set a ceiling use this branch; the
+            # production delivery paths keep max_attempts=None and retry forever.
             self.spool.fail(item_name, "max_attempts_exceeded")
             return
         try:
             response = self.client.submit_round(request)
             if not round_acceptance_confirmed(response):
-                raise LedgerMindClientError("round acceptance was not confirmed")
-        except LedgerMindConflictError:
-            self.spool.fail(item_name, "source_round_conflict")
-        except Exception as exc:  # noqa: BLE001 - preserve uncertain deliveries, including malformed acknowledgements
+                # The server answered but did not confirm durable acceptance:
+                # treat as transient and keep retrying until it confirms.
+                raise LedgerMindResponseError("round acceptance was not confirmed")
+        except LedgerMindPermanentError as exc:
+            # Non-core failure (4xx, invalid payload): quarantine immediately so it
+            # does not block the queue. retryable keeps it recoverable after the
+            # client (key/limit/payload) is fixed. Persist the attempt count so the
+            # quarantine record shows how many tries were made.
+            self.spool.fail(
+                item_name,
+                exc.reason or type(exc).__name__,
+                retryable=True,
+                delivery_patch={"attempts": attempts},
+            )
+        except Exception as exc:  # noqa: BLE001 - keep transient/core deliveries queued
+            # Server/network/transient failures: retry without a ceiling until the
+            # server confirms acceptance (200/202).
             delivery["last_error_type"] = type(exc).__name__
             delay = min(self.max_backoff_seconds, self.base_backoff_seconds * (2 ** min(attempts - 1, 16)))
             delivery["next_attempt_at"] = time.time() + delay

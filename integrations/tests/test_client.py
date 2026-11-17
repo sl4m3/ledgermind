@@ -12,8 +12,11 @@ import ledgermind_integrations
 from ledgermind_integrations.runtime import lease as lease_module
 from ledgermind_integrations.runtime.client import (
     LedgerMindClient,
+    LedgerMindConflictError,
     LedgerMindNetworkError,
+    LedgerMindPermanentError,
     LedgerMindResponseError,
+    LedgerMindUnauthorizedError,
 )
 
 
@@ -213,6 +216,78 @@ def test_rate_limit_is_retryable(monkeypatch: pytest.MonkeyPatch) -> None:
         _client()._request("POST", "/rounds", {})
 
 
+@pytest.mark.parametrize("status", [408, 425])
+def test_early_or_timeout_status_is_transient(monkeypatch: pytest.MonkeyPatch, status) -> None:
+    from ledgermind_integrations.runtime import client as client_module
+
+    def transient(*_args: Any, _status: int = status, **_kwargs: Any) -> Any:
+        raise urllib.error.HTTPError(
+            "http://127.0.0.1:8765/rounds", _status, "transient", {}, BytesIO(b"{}")
+        )
+
+    monkeypatch.setattr(client_module.urllib.request, "urlopen", transient)
+    with pytest.raises(LedgerMindNetworkError, match=str(status)):
+        _client()._request("POST", "/rounds", {})
+
+
+def test_204_no_content_is_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _NoContent:
+        status = 204
+
+        def read(self) -> bytes:
+            return b""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc: object) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "ledgermind_integrations.runtime.client.urllib.request.urlopen",
+        lambda *_args, **_kwargs: _NoContent(),
+    )
+    assert _client()._request("POST", "/rounds", {}) == {}
+
+
+def test_permanent_4xx_raises_permanent_error_with_status() -> None:
+    from ledgermind_integrations.runtime import client as client_module
+
+    for code in (400, 403, 404, 413, 422):
+
+        def denied(*_args: Any, _code: int = code, **_kwargs: Any) -> Any:
+            raise urllib.error.HTTPError(
+                "http://127.0.0.1:8765/rounds", _code, "denied", {}, BytesIO(b"{}")
+            )
+
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(client_module.urllib.request, "urlopen", denied)
+        with pytest.raises(LedgerMindPermanentError) as excinfo:
+            _client()._request("POST", "/rounds", {})
+        assert excinfo.value.status == code
+        assert excinfo.value.reason == f"http_{code}"
+        monkeypatch.undo()
+
+
+def test_unauthorized_and_conflict_are_permanent_subclasses() -> None:
+    assert issubclass(LedgerMindUnauthorizedError, LedgerMindPermanentError)
+    assert issubclass(LedgerMindConflictError, LedgerMindPermanentError)
+    unauthorized = LedgerMindUnauthorizedError()
+    assert unauthorized.status == 401
+    assert unauthorized.reason == "unauthorized"
+    conflict = LedgerMindConflictError()
+    assert conflict.status == 409
+    assert conflict.reason == "source_round_conflict"
+
+
+def test_invalid_raw_round_raises_permanent_error() -> None:
+    client = _client()
+    with pytest.raises(LedgerMindPermanentError) as excinfo:
+        client.submit_round({"schema_version": 2})
+    assert excinfo.value.status == 422
+    assert excinfo.value.reason == "invalid_raw_round"
+
+
 def test_runtime_bootstrap_updates_endpoint_and_waits_for_health(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -267,7 +342,9 @@ def test_runtime_lease_bootstraps_when_foreign_server_returns_404(
         endpoint = "http://127.0.0.1:8765"
 
         def runtime_acquire(self, **_kwargs: object) -> dict[str, str]:
-            raise LedgerMindResponseError("server returned 404")
+            # A foreign service on the expected port answers 404; the real client
+            # maps that to a permanent error, which must still trigger bootstrap.
+            raise LedgerMindPermanentError("server returned 404", status=404, reason="http_404")
 
         def runtime_heartbeat(self, _lease_id: str) -> dict[str, str]:
             return {}

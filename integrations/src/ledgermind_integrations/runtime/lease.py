@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from .client import (
     LedgerMindClient,
     LedgerMindNetworkError,
+    LedgerMindPermanentError,
     LedgerMindResponseError,
     LedgerMindUnauthorizedError,
 )
@@ -63,7 +64,12 @@ class RuntimeLease:
                 session_id=session_id,
                 ttl_seconds=ttl_seconds,
                 )
-            except (LedgerMindNetworkError, LedgerMindResponseError, LedgerMindUnauthorizedError):
+            except (
+                LedgerMindNetworkError,
+                LedgerMindResponseError,
+                LedgerMindPermanentError,
+                LedgerMindUnauthorizedError,
+            ):
                 response = _bootstrap_runtime(
                     client,
                     client_id=client_id,
@@ -202,7 +208,12 @@ def _bootstrap_runtime(
                 client.health_live()
                 ready = True
                 break
-            except (LedgerMindNetworkError, LedgerMindResponseError, LedgerMindUnauthorizedError):
+            except (
+                LedgerMindNetworkError,
+                LedgerMindResponseError,
+                LedgerMindPermanentError,
+                LedgerMindUnauthorizedError,
+            ):
                 time.sleep(0.1)
         if not ready:
             rollback()

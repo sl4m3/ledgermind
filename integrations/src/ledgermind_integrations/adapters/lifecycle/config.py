@@ -32,6 +32,7 @@ class LifecycleConfig:
     session_safety_ttl_seconds: float = 3_600.0
     spool_max_bytes: int = 50_000_000
     spool_max_files: int = 1_000
+    max_round_payload_bytes: int = 5_000_000
 
 
 _REQUIRED = (
@@ -97,6 +98,7 @@ def load_lifecycle_config(path: str | Path) -> LifecycleConfig:
         ),
         spool_max_bytes=max(int(payload.get("spool_max_bytes", 50_000_000)), 1),
         spool_max_files=max(int(payload.get("spool_max_files", 1_000)), 1),
+        max_round_payload_bytes=max(int(payload.get("max_round_payload_bytes", 5_000_000)), 1),
     )
 
 

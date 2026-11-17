@@ -24,6 +24,7 @@ from ...runtime.delivery import DeliveryWorker
 from ...runtime.endpoint import resolve_runtime_endpoint, runtime_state_running
 from ...runtime.lease import RuntimeLease
 from ...runtime.spool import FileSpool, SpoolFullError
+from ...runtime.spool_migration import SpoolMigrationError, migrate_spool
 from ..hermes.round_capture import build_raw_round
 from .capture_backlog import (
     capture_was_enqueued,
@@ -215,6 +216,7 @@ def _locked_capture_state(
 def _spool(config: LifecycleConfig) -> FileSpool:
     return FileSpool(
         config.spool_dir,
+        max_payload_bytes=config.max_round_payload_bytes,
         max_bytes=config.spool_max_bytes,
         max_files=config.spool_max_files,
     )
@@ -612,6 +614,16 @@ def drain_ready(config: LifecycleConfig, *, max_seconds: float = 120.0) -> int:
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return 0
+        # Return deferred retryable permanent failures back to ready/ so a fixed
+        # key/limit/payload is retried on the next drain instead of waiting for a
+        # process restart. This MUST run under delivery-worker.lock: concurrent
+        # drain subprocesses (one per Stop) would otherwise race the same queue.
+        # migrate_spool is TTL-aware and never steals a live in-flight record. A
+        # single corrupt record or a glob->claim race must not abort the drain.
+        try:
+            migrate_spool(spool)
+        except (SpoolMigrationError, OSError):
+            pass
         try:
             with _leased_client(config, f"delivery-{os.getpid()}") as client:
                 worker = DeliveryWorker(spool, client)

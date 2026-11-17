@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -199,10 +200,32 @@ def _is_retryable_failed_record(record: Mapping[str, Any]) -> bool:
 
 
 def _recover_inflight(spool: FileSpool) -> int:
+    # TTL-aware recovery: only records whose claim is older than the spool's
+    # inflight TTL are returned to ready/. A fresh in-flight record is owned by a
+    # live worker/drain; stealing it here would duplicate delivery work. This
+    # mirrors FileSpool._reclaim_expired_inflight so a single drain under a
+    # shared lock never re-queues another instance's live claim.
     recovered = 0
+    now = time.time()
+    ttl = spool.inflight_ttl_seconds
     for path in sorted(spool.inflight_dir.glob("*.json")):
+        try:
+            claimed_at = path.stat().st_mtime
+        except OSError:
+            continue
         payload = _migrate_record(_read_record(path))
         delivery = payload.get("delivery")
+        if isinstance(delivery, dict) and delivery.get("claimed_at") is not None:
+            try:
+                claimed_at = float(delivery["claimed_at"])
+            except (TypeError, ValueError):
+                pass
+        try:
+            expired = now - claimed_at >= ttl
+        except (TypeError, ValueError):
+            expired = True
+        if not expired:
+            continue
         if not isinstance(delivery, dict):
             delivery = {}
             payload["delivery"] = delivery
