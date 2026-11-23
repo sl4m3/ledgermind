@@ -3,3384 +3,16 @@
   "schema_version": 1,
   "probe_count": 24,
   "arms": [
-    "no_memory",
-    "mem0_oss",
-    "hindsight",
-    "cognee",
-    "supermemory_local",
-    "claude_mem",
-    "reme",
     "ledgermind",
-    "raw_history"
+    "raw_history",
+    "reme",
+    "claude_mem",
+    "cognee",
+    "hindsight",
+    "mem0_oss",
+    "supermemory_local"
   ],
   "records": [
-    {
-      "arm": "no_memory",
-      "task_id": "E1-P1",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint": "unknown",
-        "production": "unknown",
-        "slice": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 2442,
-        "output_tokens": 1086,
-        "cost_usd": 0.00060749,
-        "successful_calls": 4
-      },
-      "source_sha256": "1f8ad14b57a2cb50e0e99308d26e4602db1e8539dcfc02e3acc3404cf4039471"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "E1-P2",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint_owner": "unknown",
-        "migration_application": "unknown",
-        "production": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 3255,
-        "output_tokens": 1539,
-        "cost_usd": 0.00082927,
-        "successful_calls": 4
-      },
-      "source_sha256": "7da37aa30f52a22a7cc756e9e0bf2f6a65b58bb467dc2cf47f63a4c17b00704e"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "E2-P1",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "error": "unknown",
-        "test_status": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 1538,
-        "output_tokens": 893,
-        "cost_usd": 0.00048088,
-        "successful_calls": 3
-      },
-      "source_sha256": "f05b4183f042b4112834456b45c0937e7b6d1350051faa743b8239ec440585e8"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "E2-P2",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "earlier_failure": "unknown",
-        "segments": "unknown",
-        "speakers": "unknown",
-        "test_status": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 4622,
-        "output_tokens": 1512,
-        "cost_usd": 0.00084303,
-        "successful_calls": 5
-      },
-      "source_sha256": "82997d76e359b57a9d8dbacbb973f4760615a54eb370a06b6a7f309a084190a2"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "E3-P1",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "bottom_px": "-20",
-        "buffer": "::after",
-        "height_px": "20",
-        "location": "bottom only"
-      },
-      "semantic_verdict": "pass",
-      "notes": "guessed from the field contract",
-      "usage": {
-        "input_tokens": 5118,
-        "output_tokens": 2199,
-        "cost_usd": 0.00118698,
-        "successful_calls": 5
-      },
-      "source_sha256": "7b248fc13253e4ecea7e2ae827cf7efa33762da59032f391ae035625647ff9d8"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "E3-P2",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "buffer": "absent",
-        "debounce": "absent",
-        "raf": "absent",
-        "title": "static"
-      },
-      "semantic_verdict": "pass",
-      "notes": "guessed from the field contract",
-      "usage": {
-        "input_tokens": 4562,
-        "output_tokens": 1792,
-        "cost_usd": 0.00098932,
-        "successful_calls": 5
-      },
-      "source_sha256": "acf5b4c1ecb548f68c9a5021030897711dbd3612a68fbef275a576a9927ee1bd"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "I1-P1",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "unknown",
-        "diarizer": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 1554,
-        "output_tokens": 1196,
-        "cost_usd": 0.00065855,
-        "successful_calls": 3
-      },
-      "source_sha256": "6509bb3faa0d21459d5fa80642bb7e7fb368ab1c66dcfa1a4d75d5b7d222f121"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "I1-P2",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "unknown",
-        "diarizer": "unknown",
-        "transcription_model": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 2500,
-        "output_tokens": 1228,
-        "cost_usd": 0.00069658,
-        "successful_calls": 4
-      },
-      "source_sha256": "a887fe00b9d91efa99fde9c909500914993be9438e1cac4e07022c5e2749ca22"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "I2-P1",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "unknown",
-        "whole_card": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 1598,
-        "output_tokens": 1132,
-        "cost_usd": 0.00060638,
-        "successful_calls": 3
-      },
-      "source_sha256": "895cb89a7a6e73ae72160825aa4194e9b8eb12f1c880a9f75593333ad4f5c937"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "I2-P2",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "magnetic",
-        "whole_card": "not magnetic"
-      },
-      "semantic_verdict": "fail",
-      "notes": "swapped values: demo_link=magnetic, whole_card=not magnetic",
-      "usage": {
-        "input_tokens": 1584,
-        "output_tokens": 1612,
-        "cost_usd": 0.00084498,
-        "successful_calls": 3
-      },
-      "source_sha256": "41112c2d2202fce48bfb1a9d02b44e79fd4ee7d5db3333a84076348a5df435d5"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "I3-P1",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "unknown",
-        "child_state": "unknown",
-        "state_owner": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 3994,
-        "output_tokens": 677,
-        "cost_usd": 0.00041073,
-        "successful_calls": 4
-      },
-      "source_sha256": "f883eaf677a1302e5824d8cfbccd674e3384a640c8df69c45664112a20d9c94f"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "I3-P2",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "unknown",
-        "child_state": "unknown",
-        "state_owner": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 3990,
-        "output_tokens": 838,
-        "cost_usd": 0.00049083,
-        "successful_calls": 4
-      },
-      "source_sha256": "b0cd2bec45d257d9c20aacf50f031950d9a05724ca924519b656acfa3117b04b"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "K1-P1",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "unknown",
-        "expanded_background": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 1578,
-        "output_tokens": 1442,
-        "cost_usd": 0.00075938,
-        "successful_calls": 3
-      },
-      "source_sha256": "7a7fd015f42d3d53d2875c7b3cd06222619c1fe9a1f31712e6485e704caf6a12"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "K1-P2",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "unknown",
-        "leave_delay_ms": "unknown",
-        "width_px": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 2506,
-        "output_tokens": 2077,
-        "cost_usd": 0.0010971,
-        "successful_calls": 4
-      },
-      "source_sha256": "c4ff9629502871105d1d3788bb4cc748ad2684318087834de48c79673055482d"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "K2-P1",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "unknown",
-        "embedding_model": "unknown",
-        "scales": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 2522,
-        "output_tokens": 1656,
-        "cost_usd": 0.00092506,
-        "successful_calls": 4
-      },
-      "source_sha256": "69a1a4a86826f4e6b96ab2ea4407340dd510ae867a68f4b81988361bd8fbf64b"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "K2-P2",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "unknown",
-        "embedding_model": "unknown",
-        "omp_threads": "unknown",
-        "scales": "unknown",
-        "workers": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 5059,
-        "output_tokens": 1370,
-        "cost_usd": 0.00082917,
-        "successful_calls": 6
-      },
-      "source_sha256": "3c55f3ae69ce596a9e267737a7314e585066dc1e1ebdb635111603185cde494f"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "K3-P1",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "unknown",
-        "title": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 1580,
-        "output_tokens": 1162,
-        "cost_usd": 0.00061958,
-        "successful_calls": 3
-      },
-      "source_sha256": "100d097da6eef51dc7a4bf16899b801d24d8064c36a768ccb4dab32305819f8e"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "K3-P2",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "unknown",
-        "raf": "unknown",
-        "title": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 2478,
-        "output_tokens": 1409,
-        "cost_usd": 0.0008083,
-        "successful_calls": 4
-      },
-      "source_sha256": "8deb1d21780a5dbdf947dc35c291efc84fdf9d41ad1dcdbefd8958ea637e4cb9"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "R1-P1",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "unknown",
-        "max_children": "unknown",
-        "timeout_seconds": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 2456,
-        "output_tokens": 1187,
-        "cost_usd": 0.00065939,
-        "successful_calls": 4
-      },
-      "source_sha256": "83aa4cf6059fc9332add6a75fb9c75c5d12412b895e87627d15e0feb5e029aeb"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "R1-P2",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "current_max_children": "unknown",
-        "next_depth": "unknown",
-        "next_max_children": "unknown",
-        "next_timeout_seconds": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 3701,
-        "output_tokens": 1831,
-        "cost_usd": 0.00099645,
-        "successful_calls": 5
-      },
-      "source_sha256": "1a9fc09fce848f9c689ff7d7c51c0e8c323a3a9427b90453f089b8bc000d90eb"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "R2-P1",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "unknown",
-        "docker_argument": "unknown",
-        "order": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 2426,
-        "output_tokens": 1836,
-        "cost_usd": 0.00098089,
-        "successful_calls": 4
-      },
-      "source_sha256": "c0f78c42ecd7a3d755d8dadfcb11d2e4adac270452bba37b7ebb71d67fb7de29"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "R2-P2",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "docker_argument": "unknown",
-        "embedding_model": "unknown",
-        "order": "unknown",
-        "scales": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 3593,
-        "output_tokens": 1826,
-        "cost_usd": 0.00098315,
-        "successful_calls": 5
-      },
-      "source_sha256": "7fc569ddef6d897b72862a7305c48c6506cf81afe9ba543e5b401b21387aa338"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "R3-P1",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "unknown",
-        "max_children": "unknown",
-        "timeout_seconds": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 2418,
-        "output_tokens": 2100,
-        "cost_usd": 0.00111209,
-        "successful_calls": 4
-      },
-      "source_sha256": "350505b52232bb891f80fa4fd4bf0b982da1a4e9f283f11d47bbd781ccd6e804"
-    },
-    {
-      "arm": "no_memory",
-      "task_id": "R3-P2",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "unknown",
-        "max_children": "unknown",
-        "timeout_seconds": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "no memory: field answered unknown",
-      "usage": {
-        "input_tokens": 2518,
-        "output_tokens": 1217,
-        "cost_usd": 0.00068059,
-        "successful_calls": 4
-      },
-      "source_sha256": "b14ed1bbf5999ea5b1e148272d8cd30c92f1619682f68478cf7563c6147d3159"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "E1-P1",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint": "index.ts",
-        "production": "NO-GO",
-        "slice": "Wave 7A dispatcher runtime wiring"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 6654,
-        "output_tokens": 956,
-        "cost_usd": 0.00068106,
-        "successful_calls": 4
-      },
-      "source_sha256": "dbf819053e3d2ba38de719b21bbfc9a19a7dcd2d3af521458a824d6071c7bdb6"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "E1-P2",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint_owner": "parent",
-        "migration_application": "forbidden",
-        "production": "NO-GO"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 8195,
-        "output_tokens": 1148,
-        "cost_usd": 0.00082057,
-        "successful_calls": 4
-      },
-      "source_sha256": "91587ff7992741c97c89bea1fc7385f78c9689a1301778f9779c51de5bf43e6e"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "E2-P1",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "error": "AttributeError: 'dict' object has no attribute 'start'",
-        "test_status": "failed"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 4873,
-        "output_tokens": 710,
-        "cost_usd": 0.00053856,
-        "successful_calls": 3
-      },
-      "source_sha256": "7f09a181d064acc2a8ae35d3254d570ebbbd3fb2712c66111819a0cf54b4e28f"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "E2-P2",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "earlier_failure": "yes",
-        "segments": "4",
-        "speakers": "2",
-        "test_status": "completed"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 10958,
-        "output_tokens": 985,
-        "cost_usd": 0.00078305,
-        "successful_calls": 5
-      },
-      "source_sha256": "448400e7f1924d677bb84aa191a89378602ab243051ff7af3da2fb99b2304556"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "E3-P1",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "bottom_px": "-20",
-        "buffer": "::after pseudo-element",
-        "height_px": "20",
-        "location": "bottom only"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 10472,
-        "output_tokens": 2402,
-        "cost_usd": 0.00146753,
-        "successful_calls": 5
-      },
-      "source_sha256": "68279ee5c49d0e5cba97954ff4427b84c56843ff2c4e23d42bcf523167666b83"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "E3-P2",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "buffer": "absent",
-        "debounce": "absent",
-        "raf": "absent",
-        "title": "static"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 9683,
-        "output_tokens": 1123,
-        "cost_usd": 0.00081057,
-        "successful_calls": 5
-      },
-      "source_sha256": "f093cd6dd5d4e37d2c7c1185c68278b236bad0d904c3fbfb89e558511de6ec7f"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "I1-P1",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "diarizer": "NeMo Diarization"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 2673,
-        "output_tokens": 605,
-        "cost_usd": 0.00040122,
-        "successful_calls": 3
-      },
-      "source_sha256": "d33a3ea23dd4d8699da514b642bf59f073cd6d29981b3322dfe08e70c1d7aaff"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "I1-P2",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "diarizer": "NeMo Diarization",
-        "transcription_model": "whisper-large-v3"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 6853,
-        "output_tokens": 816,
-        "cost_usd": 0.00061868,
-        "successful_calls": 4
-      },
-      "source_sha256": "4ce1bbec10be85d714f30a254bea2897dcece228d4d282369bc42c4453974c51"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "I2-P1",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "no",
-        "whole_card": "yes"
-      },
-      "semantic_verdict": "fail",
-      "notes": "inverted facts: retrieved an older user request, not the implementation report",
-      "usage": {
-        "input_tokens": 4589,
-        "output_tokens": 2411,
-        "cost_usd": 0.00137294,
-        "successful_calls": 3
-      },
-      "source_sha256": "a69d5870844571b39af8134e691bca4c16fcd585ae42253644f691f8e7a023ef"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "I2-P2",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "regular <a> without magnet",
-        "whole_card": "MagneticButton wraps entire icon + card"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 4610,
-        "output_tokens": 855,
-        "cost_usd": 0.00059704,
-        "successful_calls": 3
-      },
-      "source_sha256": "f1f9b5ccbd98d83f385a890fc69509a90347e0c93f6d52927021b431efa94733"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "I3-P1",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "NicheFloat",
-        "child_state": "controlled",
-        "state_owner": "Niches.jsx"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 7710,
-        "output_tokens": 727,
-        "cost_usd": 0.00059844,
-        "successful_calls": 4
-      },
-      "source_sha256": "699c7319859b35c918c5713dd304006b2a364839812f2a874153ca1b4a519d87"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "I3-P2",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "NicheFloat",
-        "child_state": "controlled",
-        "state_owner": "Niches.jsx"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 7706,
-        "output_tokens": 782,
-        "cost_usd": 0.00060096,
-        "successful_calls": 4
-      },
-      "source_sha256": "c445d47c89183ee9ad6c49befcfc3ab8ba50393108534b2cf6776f75a8f2ecdf"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "K1-P1",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "transparent",
-        "expanded_background": "var(--color-bg-card)"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 4753,
-        "output_tokens": 654,
-        "cost_usd": 0.00051084,
-        "successful_calls": 3
-      },
-      "source_sha256": "adfc7d54885789d79277d6d3890bbc16f1c367f67733807655b00cb3eb70a76e"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "K1-P2",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "none",
-        "leave_delay_ms": "0ms",
-        "width_px": "340px"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 6474,
-        "output_tokens": 1839,
-        "cost_usd": 0.00111685,
-        "successful_calls": 4
-      },
-      "source_sha256": "c020009c5262199a28490d4cdb014373623da8028dc985825b2173ca4624b2bb"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "K2-P1",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "64",
-        "embedding_model": "TitaNet-Large",
-        "scales": "multiscale"
-      },
-      "semantic_verdict": "fail",
-      "notes": "answered multiscale without the exact count 5",
-      "usage": {
-        "input_tokens": 7774,
-        "output_tokens": 1032,
-        "cost_usd": 0.00075734,
-        "successful_calls": 4
-      },
-      "source_sha256": "b790c5dfdb954dfe7a41161a35812bc6a73d112f8e3b9ce38c2f21f0b8ec8e72"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "K2-P2",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "256",
-        "embedding_model": "TitaNet-Large",
-        "omp_threads": "16",
-        "scales": "multiscale",
-        "workers": "4"
-      },
-      "semantic_verdict": "fail",
-      "notes": "answered multiscale without the exact count 5",
-      "usage": {
-        "input_tokens": 12888,
-        "output_tokens": 1265,
-        "cost_usd": 0.00093288,
-        "successful_calls": 6
-      },
-      "source_sha256": "80df39437136e9be6666a60492f81b1300961c035ef6c562f9d5c749b533a178"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "K3-P1",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "50-100ms",
-        "title": "yes"
-      },
-      "semantic_verdict": "fail",
-      "notes": "stale leave delay and an animated title",
-      "usage": {
-        "input_tokens": 4655,
-        "output_tokens": 1690,
-        "cost_usd": 0.00101904,
-        "successful_calls": 3
-      },
-      "source_sha256": "418d26610f654447d286aa37ccb0dc082475f4fb142a7ffe243de14130fb89dc"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "K3-P2",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "200ms",
-        "raf": "requestAnimationFrame loop checking getBoundingClientRect of all triggers each frame on mouseleave",
-        "title": "Niches.jsx"
-      },
-      "semantic_verdict": "fail",
-      "notes": "stale state: 200ms leave delay, active rAF, class name as title",
-      "usage": {
-        "input_tokens": 6869,
-        "output_tokens": 3111,
-        "cost_usd": 0.00176778,
-        "successful_calls": 4
-      },
-      "source_sha256": "977e0b0ee64f8537f84a25a8d78d2082efb42112fe0af55da8f02a29d5edbf6e"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "R1-P1",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "1",
-        "max_children": "3",
-        "timeout_seconds": "0"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 6093,
-        "output_tokens": 663,
-        "cost_usd": 0.00051533,
-        "successful_calls": 4
-      },
-      "source_sha256": "b103bc5399741254b3815606cab39e7aee4a3be20bfbe8644457842944884aac"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "R1-P2",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "current_max_children": "unknown",
-        "next_depth": "unknown",
-        "next_max_children": "unknown",
-        "next_timeout_seconds": "unknown"
-      },
-      "semantic_verdict": "fail",
-      "notes": "answered unknown for all four limit parameters",
-      "usage": {
-        "input_tokens": 8045,
-        "output_tokens": 2962,
-        "cost_usd": 0.00170144,
-        "successful_calls": 5
-      },
-      "source_sha256": "fb9abd7e370152ceb6dc9c41903aa46d5d75e3272963413deb5d3442a7ea6afc"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "R2-P1",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "docker_argument": "--shm-size=2g",
-        "order": "Groq transcription, NeMo diarization, merging transcription and diarization segments"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 7032,
-        "output_tokens": 687,
-        "cost_usd": 0.00055979,
-        "successful_calls": 4
-      },
-      "source_sha256": "9e0ca983ebb3034c5b1c45b0d427ff12a97c3d8bec534329b7f1ddc0a1dcd325"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "R2-P2",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "docker_argument": "--shm-size=2g",
-        "embedding_model": "TitaNet-Large",
-        "order": "Groq transcription, NeMo Diarization, merging transcription and diarization segments",
-        "scales": "5 scales"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 10039,
-        "output_tokens": 875,
-        "cost_usd": 0.00069759,
-        "successful_calls": 5
-      },
-      "source_sha256": "147a04704c1fb8f285269732ac0d427f489918d6b6a8cc5b8e30022bccc5d3bc"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "R3-P1",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "2",
-        "max_children": "5",
-        "timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 6297,
-        "output_tokens": 641,
-        "cost_usd": 0.00051244,
-        "successful_calls": 4
-      },
-      "source_sha256": "9c4a5b5c9d5492ddde0e569c06a7902596dae57ce84704f8e794363091548c7d"
-    },
-    {
-      "arm": "mem0_oss",
-      "task_id": "R3-P2",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "2",
-        "max_children": "5",
-        "timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 6169,
-        "output_tokens": 747,
-        "cost_usd": 0.00056493,
-        "successful_calls": 4
-      },
-      "source_sha256": "2125effcca0e4e1db0f19d77b47bf9544a9284e21796f124249741ba08f8d939"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "E1-P1",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint": "src/index.ts",
-        "production": "NO-GO",
-        "slice": "Wave 7A"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 20623,
-        "output_tokens": 704,
-        "cost_usd": 0.00094435,
-        "successful_calls": 4
-      },
-      "source_sha256": "7cc7fa3e8ad5abd44570203cedaeb83e714269a9cf27ed6e0464bcf1e60c4e30"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "E1-P2",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint_owner": "parent",
-        "migration_application": "not authorized",
-        "production": "NO-GO"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 21167,
-        "output_tokens": 920,
-        "cost_usd": 0.00106988,
-        "successful_calls": 4
-      },
-      "source_sha256": "1246f130c0ddf3f36b727fcc3e6d9feb4c8af5d7454c2f1a6eed19321a968275"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "E2-P1",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "error": "GROQ_API_KEY environment variable was not set",
-        "test_status": "failed"
-      },
-      "semantic_verdict": "fail",
-      "notes": "reported an earlier container-start error instead of the final traceback",
-      "usage": {
-        "input_tokens": 15194,
-        "output_tokens": 597,
-        "cost_usd": 0.00086289,
-        "successful_calls": 3
-      },
-      "source_sha256": "178e576d1e531082c8950863444be998c06ce9d4b428e7139044c35e297c3fc2"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "E2-P2",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "earlier_failure": "yes",
-        "segments": "4",
-        "speakers": "2",
-        "test_status": "completed"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 26642,
-        "output_tokens": 2909,
-        "cost_usd": 0.00210923,
-        "successful_calls": 5
-      },
-      "source_sha256": "4d5bd494069d0fa78c415e3a6538a17ef181e6ad361e4ae685a052ebb38b3626"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "E3-P1",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "bottom_px": "-20",
-        "buffer": "::after",
-        "height_px": "20",
-        "location": "bottom only"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 27801,
-        "output_tokens": 849,
-        "cost_usd": 0.00109682,
-        "successful_calls": 5
-      },
-      "source_sha256": "156648e25dfcdb203fafb06bb490a52ed31821dff28de1dbb0fd8bfd2f508a98"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "E3-P2",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "buffer": "absent",
-        "debounce": "absent",
-        "raf": "absent",
-        "title": "static"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 26342,
-        "output_tokens": 732,
-        "cost_usd": 0.00100302,
-        "successful_calls": 5
-      },
-      "source_sha256": "5e1acd867e0fb30246e24d0c0ef394ce297f3f93bd1f0f1169e9e06b040dce68"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "I1-P1",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "diarizer": "NeMo Diarization"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 3512,
-        "output_tokens": 561,
-        "cost_usd": 0.00041397,
-        "successful_calls": 3
-      },
-      "source_sha256": "0aea62ff517e0ef87c723be8a35c74cfeccac2d0cfee3b1ef6c19b8596dbaf6a"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "I1-P2",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "diarizer": "nemo_titanet_large",
-        "transcription_model": "whisper-large-v3"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 19984,
-        "output_tokens": 1327,
-        "cost_usd": 0.0012411,
-        "successful_calls": 4
-      },
-      "source_sha256": "3657b2f800d8855c776ec98acef6e670c624bc58b8ccd462b19b8c5f09c387fa"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "I2-P1",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "MagneticButton",
-        "whole_card": "not MagneticButton"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 14781,
-        "output_tokens": 1368,
-        "cost_usd": 0.00123167,
-        "successful_calls": 3
-      },
-      "source_sha256": "90b5caf84d86ff17821e0170fae5476e5fce51db95afa2a4bcb3b097711f274b"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "I2-P2",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "regular <a> without the magnet",
-        "whole_card": "MagneticButton wraps entire icon + card as a whole"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 14977,
-        "output_tokens": 597,
-        "cost_usd": 0.00084119,
-        "successful_calls": 3
-      },
-      "source_sha256": "fac5d1e12c339330da6d5c95902855aa5a689a23439d111c36383542e310dcbe"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "I3-P1",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "NicheFloat",
-        "child_state": "controlled",
-        "state_owner": "Niches.jsx"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 21384,
-        "output_tokens": 1610,
-        "cost_usd": 0.0014243,
-        "successful_calls": 4
-      },
-      "source_sha256": "334b91eeb2530fe27492210d95771f6cea25a468639f8180eaffa67f16941151"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "I3-P2",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "NicheFloat",
-        "child_state": "controlled",
-        "state_owner": "Niches.jsx"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 21732,
-        "output_tokens": 805,
-        "cost_usd": 0.00100744,
-        "successful_calls": 4
-      },
-      "source_sha256": "c2225adb32d8b70d0a0d49a6fa429f51fc160976994067a4d0a827876ea39571"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "K1-P1",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "transparent",
-        "expanded_background": "var(--color-bg-card)"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 14575,
-        "output_tokens": 468,
-        "cost_usd": 0.00076107,
-        "successful_calls": 3
-      },
-      "source_sha256": "d809f4d47761a0f1fda62dd028cb2b37f0ebc95476e942f8c9b8bf8dd926645c"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "K1-P2",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "transparent",
-        "leave_delay_ms": "350ms",
-        "width_px": "280px"
-      },
-      "semantic_verdict": "fail",
-      "notes": "stale 280px width and 350ms leave delay",
-      "usage": {
-        "input_tokens": 19689,
-        "output_tokens": 758,
-        "cost_usd": 0.00141747,
-        "successful_calls": 4
-      },
-      "source_sha256": "94b0a6f68d9a31bd76d77033de2f258f00e4fb9604d0ed0262812665fe3ee6b1"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "K2-P1",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "64",
-        "embedding_model": "titanet_large",
-        "scales": "5"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 19224,
-        "output_tokens": 779,
-        "cost_usd": 0.00095254,
-        "successful_calls": 4
-      },
-      "source_sha256": "df27b63e14f999b74e8ac4b86497898a834bcea9fdcc9a56ac97410956b71956"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "K2-P2",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "256",
-        "embedding_model": "titanet_large",
-        "omp_threads": "16",
-        "scales": "5",
-        "workers": "4"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 30317,
-        "output_tokens": 1194,
-        "cost_usd": 0.00123945,
-        "successful_calls": 6
-      },
-      "source_sha256": "22491021627fab4c9705043fb38002cb6d3f4c9053d0d9ff34cef12e5021fe30"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "K3-P1",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "50ms",
-        "title": "always visible"
-      },
-      "semantic_verdict": "fail",
-      "notes": "50ms leave delay instead of the implemented 80ms",
-      "usage": {
-        "input_tokens": 14323,
-        "output_tokens": 1515,
-        "cost_usd": 0.00128394,
-        "successful_calls": 3
-      },
-      "source_sha256": "ecf8afd23d0b9ca4267cc753a307830d2f56e363915034b4aca4d9262e30bbf0"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "K3-P2",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "350ms",
-        "raf": "200ms hard fallback, cancelled on new trigger",
-        "title": "always visible, niche-title--hidden removed"
-      },
-      "semantic_verdict": "fail",
-      "notes": "stale 350ms leave delay and an old rAF fallback",
-      "usage": {
-        "input_tokens": 19658,
-        "output_tokens": 2137,
-        "cost_usd": 0.001208,
-        "successful_calls": 4
-      },
-      "source_sha256": "26d8fe4584e938eac30976e2fdfaadaeae60bf1f1409ad39020d8a880bf7faef"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "R1-P1",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "1",
-        "max_children": "3",
-        "timeout_seconds": "0"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 20774,
-        "output_tokens": 601,
-        "cost_usd": 0.00090795,
-        "successful_calls": 4
-      },
-      "source_sha256": "c5ac37f676799283028887a9d5f84e3cf6f606d40166b89cacb3937e027f6930"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "R1-P2",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "current_max_children": "3",
-        "next_depth": "2",
-        "next_max_children": "5",
-        "next_timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 26648,
-        "output_tokens": 919,
-        "cost_usd": 0.00110254,
-        "successful_calls": 5
-      },
-      "source_sha256": "86dd98902a9176aca734adf67c411781c488e0e4a990a7f4cf8c08276abaaf3f"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "R2-P1",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "cpu",
-        "docker_argument": "--shm-size=2g",
-        "order": "Groq + NeMo + Alignment"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 19572,
-        "output_tokens": 794,
-        "cost_usd": 0.00095798,
-        "successful_calls": 4
-      },
-      "source_sha256": "307293d506003ae71e4afe7c3c1ce19875665c9ce14cab207d90f1313c8a27b4"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "R2-P2",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "docker_argument": "--shm-size=2g",
-        "embedding_model": "TitaNet-Large",
-        "order": "Stage 1 Groq Transcription, Stage 2 NeMo Diarization",
-        "scales": "multiscale (5 scales)"
-      },
-      "semantic_verdict": "fail",
-      "notes": "ordered stages omitted the final alignment step",
-      "usage": {
-        "input_tokens": 25052,
-        "output_tokens": 1298,
-        "cost_usd": 0.00126761,
-        "successful_calls": 5
-      },
-      "source_sha256": "87b1ab82d0818aab1a7ea05900d5643078c8561b6ba673518aac4042da887394"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "R3-P1",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "2",
-        "max_children": "5",
-        "timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 20976,
-        "output_tokens": 458,
-        "cost_usd": 0.00037742,
-        "successful_calls": 4
-      },
-      "source_sha256": "407d505c0708daff3fac0b90a336be1430e5f2ee956f34ff4e00a73c35ac0cd5"
-    },
-    {
-      "arm": "hindsight",
-      "task_id": "R3-P2",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "2",
-        "max_children": "5",
-        "timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 20676,
-        "output_tokens": 615,
-        "cost_usd": 0.00090515,
-        "successful_calls": 4
-      },
-      "source_sha256": "ecbc60bac14dea39a2f71b0297a4a1eb2d735839c0888f656a5c3c11a594ead1"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "E1-P1",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint": "Connect dispatcher worker to src/index.ts, behind a feature flag disabled by default.",
-        "production": "NO-GO",
-        "slice": "Wave 7A — dispatcher runtime wiring (disposable only)"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 2969,
-        "output_tokens": 1638,
-        "cost_usd": 0.00089932,
-        "successful_calls": 4
-      },
-      "source_sha256": "e215e313acad66396035e38043aba2957d976ae95f691db576abf7a7e091a160"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "E1-P2",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint_owner": "parent",
-        "migration_application": "forbidden",
-        "production": "NO-GO"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 3510,
-        "output_tokens": 1023,
-        "cost_usd": 0.00063364,
-        "successful_calls": 4
-      },
-      "source_sha256": "c3ec62ceddec779ca58a4120e6ceb39b8a928ec62e7901d3dc8a96fcdefcecd7"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "E2-P1",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "error": "AttributeError: 'dict' object has no attribute 'start'",
-        "test_status": "failed"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 1725,
-        "output_tokens": 731,
-        "cost_usd": 0.00044315,
-        "successful_calls": 3
-      },
-      "source_sha256": "5ab0394ae61a010e098cae2e1698c19c285f0ba2a839f3083e4fe9125ce85c3f"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "E2-P2",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "earlier_failure": "yes",
-        "segments": "4",
-        "speakers": "2",
-        "test_status": "completed"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 5061,
-        "output_tokens": 1145,
-        "cost_usd": 0.00072801,
-        "successful_calls": 5
-      },
-      "source_sha256": "040167e955c1f5f3710fa683c52208ba4a150c00925311a9dc9e1d40409397c4"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "E3-P1",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "bottom_px": "-20",
-        "buffer": "::after",
-        "height_px": "20",
-        "location": "bottom only"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 5439,
-        "output_tokens": 717,
-        "cost_usd": 0.00050266,
-        "successful_calls": 5
-      },
-      "source_sha256": "7f51f53b05854212bcff05e938287fbc1b4c7371e14ce6cbcb498b6404aa3dac"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "E3-P2",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "buffer": "absent",
-        "debounce": "absent",
-        "raf": "absent",
-        "title": "static"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 5263,
-        "output_tokens": 610,
-        "cost_usd": 0.00045613,
-        "successful_calls": 5
-      },
-      "source_sha256": "2a395211658a191295caa5f38ab0b6c8aaab62aa215ed72bc63dff2a86492673"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "I1-P1",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "diarizer": "NeMo Diarization"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 1614,
-        "output_tokens": 542,
-        "cost_usd": 0.00031298,
-        "successful_calls": 3
-      },
-      "source_sha256": "0f842bc5bb18952e2bd7d01f0e6b291fa6d1b57e9d6980062841861b3c2b1f48"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "I1-P2",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "diarizer": "NeMo (ClusteringDiarizer)",
-        "transcription_model": "Groq whisper-large-v3"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 2752,
-        "output_tokens": 803,
-        "cost_usd": 0.00047241,
-        "successful_calls": 4
-      },
-      "source_sha256": "3e34b17d9a45d816e40407df204c99b7897d30a61b2c614ee1f55e8d5b1c745d"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "I2-P1",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "Yes",
-        "whole_card": "No"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 1751,
-        "output_tokens": 665,
-        "cost_usd": 0.00037589,
-        "successful_calls": 3
-      },
-      "source_sha256": "49dfb7dfe45b55e2bdcbb119a035a74930efda7e55e6a994184d31a720956528"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "I2-P2",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "No",
-        "whole_card": "Yes"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 1730,
-        "output_tokens": 1099,
-        "cost_usd": 0.00060308,
-        "successful_calls": 3
-      },
-      "source_sha256": "f42b3a000aebcfe16b0b764d528fc77f3cfbd729aa38ccc0312506d0d27cb5e6"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "I3-P1",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "NicheFloat",
-        "child_state": "controlled",
-        "state_owner": "Niches.jsx"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 4414,
-        "output_tokens": 627,
-        "cost_usd": 0.00045231,
-        "successful_calls": 4
-      },
-      "source_sha256": "c6b5511398a852b59acd3762a40c0fadda2755a11deec7bb56f6181d1cdaf7a6"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "I3-P2",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "NicheFloat",
-        "child_state": "controlled",
-        "state_owner": "Niches.jsx"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 4378,
-        "output_tokens": 676,
-        "cost_usd": 0.00046092,
-        "successful_calls": 4
-      },
-      "source_sha256": "53623e56b1be80d3b2ac94bf69774b8ffabcd0ebc61d3e7f97cd5d3c44b99ac6"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "K1-P1",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "transparent",
-        "expanded_background": "var(--color-bg-card)"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 1752,
-        "output_tokens": 618,
-        "cost_usd": 0.00036478,
-        "successful_calls": 3
-      },
-      "source_sha256": "cdbc8f6597b0bfa8ba31ac3004625ee7ee900dacdb4be420d3f8fe000f90dfeb"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "K1-P2",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "transparent",
-        "leave_delay_ms": "150ms",
-        "width_px": "340px"
-      },
-      "semantic_verdict": "fail",
-      "notes": "leave delay 150ms instead of 0ms",
-      "usage": {
-        "input_tokens": 2775,
-        "output_tokens": 677,
-        "cost_usd": 0.00041171,
-        "successful_calls": 4
-      },
-      "source_sha256": "ba50d93eb2ae687553cabea20aacafced1c4f84b8b17d6bc1b4c14d2b4f82a27"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "K2-P1",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "64",
-        "embedding_model": "titanet_large",
-        "scales": "5"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 2679,
-        "output_tokens": 725,
-        "cost_usd": 0.00042611,
-        "successful_calls": 4
-      },
-      "source_sha256": "546e93d3ee923d5c37edea5250cbe6c01f1512cfb965e9e08cbcaeb6acec0534"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "K2-P2",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "256",
-        "embedding_model": "titanet_large",
-        "omp_threads": "16",
-        "scales": "5",
-        "workers": "4"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 5459,
-        "output_tokens": 817,
-        "cost_usd": 0.00051894,
-        "successful_calls": 6
-      },
-      "source_sha256": "523f9b2ccfeabffe678027661caf17b9e51370f662bc657fb606b58cdb2183c5"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "K3-P1",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "150",
-        "title": "Yes"
-      },
-      "semantic_verdict": "fail",
-      "notes": "stale 150ms leave delay and an animated title",
-      "usage": {
-        "input_tokens": 1845,
-        "output_tokens": 442,
-        "cost_usd": 0.00029836,
-        "successful_calls": 3
-      },
-      "source_sha256": "bed8226c5317680b32d5e43fceb45a28e3f5413efd47f7128a3e28369e193278"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "K3-P2",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "200",
-        "raf": "requestAnimationFrame",
-        "title": "Static, not animated"
-      },
-      "semantic_verdict": "fail",
-      "notes": "intermediate state: 200ms leave delay and active rAF",
-      "usage": {
-        "input_tokens": 3211,
-        "output_tokens": 1241,
-        "cost_usd": 0.00072502,
-        "successful_calls": 4
-      },
-      "source_sha256": "da0eb2161a9f097985425c1bc90dab6628e4578768bf874353450030e472db48"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "R1-P1",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "1",
-        "max_children": "3",
-        "timeout_seconds": "0"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 2790,
-        "output_tokens": 720,
-        "cost_usd": 0.00045929,
-        "successful_calls": 4
-      },
-      "source_sha256": "d02886a9a02eda7e8c7e5332bcaf2c070b99027c0d74348b94bb11f931af470f"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "R1-P2",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "current_max_children": "3",
-        "next_depth": "2",
-        "next_max_children": "5",
-        "next_timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 4419,
-        "output_tokens": 858,
-        "cost_usd": 0.00055717,
-        "successful_calls": 5
-      },
-      "source_sha256": "c9bbd8e0cf6fdcaa2ed12469de1a61c218d82239fd28e9d780c22ed852a8adb1"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "R2-P1",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "docker_argument": "--shm-size=2g",
-        "order": "1. Groq Transcription (whisper-large-v3) → 2. NeMo Diarization → 3. Alignment"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 2926,
-        "output_tokens": 756,
-        "cost_usd": 0.0004786,
-        "successful_calls": 4
-      },
-      "source_sha256": "da80cddae80525880b53488e42f351d62ebc1c9c445e6f1db2e2e7c5bb20ad12"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "R2-P2",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "docker_argument": "--shm-size=2g",
-        "embedding_model": "titanet_large",
-        "order": "1. Groq Transcription → 2. NeMo Diarization → 3. Alignment",
-        "scales": "5 scales"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 4641,
-        "output_tokens": 1418,
-        "cost_usd": 0.00084708,
-        "successful_calls": 5
-      },
-      "source_sha256": "e9570a8625578e7d785bb288d0b1f41f8920ee803d5af50246243fdb2e230aed"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "R3-P1",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "2",
-        "max_children": "5",
-        "timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 3120,
-        "output_tokens": 580,
-        "cost_usd": 0.00039771,
-        "successful_calls": 4
-      },
-      "source_sha256": "e3e7577fcdb8dd0958605a36ea8eaf47e3f054bcbf89585e7e10f48c95ac9e45"
-    },
-    {
-      "arm": "cognee",
-      "task_id": "R3-P2",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "2",
-        "max_children": "5",
-        "timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 2816,
-        "output_tokens": 590,
-        "cost_usd": 0.00039689,
-        "successful_calls": 4
-      },
-      "source_sha256": "d715cf1351abd6136e09bd3eebb9b69851fc23e710ff8e176ed3a915fbab7c7c"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "E1-P1",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint": "src/index.ts",
-        "production": "NO-GO",
-        "slice": "Wave 7A"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 6424,
-        "output_tokens": 705,
-        "cost_usd": 0.00055714,
-        "successful_calls": 4
-      },
-      "source_sha256": "3a0e56bba67bcacc3b641db51dae1a759a04629b2aae04099b838aa2245610fe"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "E1-P2",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint_owner": "parent",
-        "migration_application": "not authorized",
-        "production": "NO-GO"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 8626,
-        "output_tokens": 1917,
-        "cost_usd": 0.0012236,
-        "successful_calls": 4
-      },
-      "source_sha256": "0a76e28fa766fdb430792a5301c92f67b830c21d1af376bc064b152e3550e047"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "E2-P1",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "error": "GROQ_API_KEY environment variable not set",
-        "test_status": "failed"
-      },
-      "semantic_verdict": "fail",
-      "notes": "reported an earlier container-start error",
-      "usage": {
-        "input_tokens": 5940,
-        "output_tokens": 745,
-        "cost_usd": 0.00060132,
-        "successful_calls": 3
-      },
-      "source_sha256": "5fd5389a85d2feb01c892227a638beb4027e66da0e4cfd3a8ad61c8f350f55a8"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "E2-P2",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "earlier_failure": "no",
-        "segments": "4",
-        "speakers": "2",
-        "test_status": "completed"
-      },
-      "semantic_verdict": "fail",
-      "notes": "earlier_failure=no contradicts the observed failure",
-      "usage": {
-        "input_tokens": 10025,
-        "output_tokens": 1859,
-        "cost_usd": 0.00118819,
-        "successful_calls": 5
-      },
-      "source_sha256": "7012f58b069da11ae5c360b4e786d152aaac5afd2f40d3abb48765d349469744"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "E3-P1",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "bottom_px": "-20",
-        "buffer": "wrapper element",
-        "height_px": "20",
-        "location": "all sides"
-      },
-      "semantic_verdict": "fail",
-      "notes": "wrapper element / all sides instead of ::after / bottom only",
-      "usage": {
-        "input_tokens": 8850,
-        "output_tokens": 3722,
-        "cost_usd": 0.00211163,
-        "successful_calls": 5
-      },
-      "source_sha256": "8ae50822e03b069c7d01600724021a54614f0490e09bad1057e9d0f9addf0bcf"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "E3-P2",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "buffer": "absent",
-        "debounce": "absent",
-        "raf": "absent",
-        "title": "static"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 6853,
-        "output_tokens": 880,
-        "cost_usd": 0.00062725,
-        "successful_calls": 5
-      },
-      "source_sha256": "7e84f2a828b8bcf1d6c896f307bed05dd6e3899b91bd74582fe58d5e93664ee4"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "I1-P1",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "diarizer": "NeMo Diarization"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 5021,
-        "output_tokens": 532,
-        "cost_usd": 0.00042749,
-        "successful_calls": 3
-      },
-      "source_sha256": "354fff8e37e7e6e41cb44172b3bf9865760431e3157640c1c47344b1d138a093"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "I1-P2",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "diarizer": "NeMo ClusteringDiarizer",
-        "transcription_model": "whisper-large-v3"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 8827,
-        "output_tokens": 1286,
-        "cost_usd": 0.00086676,
-        "successful_calls": 4
-      },
-      "source_sha256": "575cb4dd0a7ee8f5586bc6668bea00192c711ee60aac8dde6274912c520beddc"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "I2-P1",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "Ver demo / Consultar demo WhatsApp CTA button wrapped in MagneticButton",
-        "whole_card": "Not the whole niche card"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 2614,
-        "output_tokens": 1475,
-        "cost_usd": 0.00085375,
-        "successful_calls": 3
-      },
-      "source_sha256": "f9909fd650a435a5abfded7b5af84337cef096e435ea00f460e0a14e581a54b5"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "I2-P2",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "regular <a> without MagneticButton",
-        "whole_card": "MagneticButton wraps entire niche icon + card in NicheFloat.jsx"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 2555,
-        "output_tokens": 928,
-        "cost_usd": 0.0005755,
-        "successful_calls": 3
-      },
-      "source_sha256": "0a94b502c2cbdc939b89a62fd644f977918f967992bcc3b9c5a3eb9c3129f401"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "I3-P1",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "unknown",
-        "child_state": "unknown",
-        "state_owner": "Niches.jsx"
-      },
-      "semantic_verdict": "fail",
-      "notes": "child and child_state unknown",
-      "usage": {
-        "input_tokens": 5818,
-        "output_tokens": 3314,
-        "cost_usd": 0.00184904,
-        "successful_calls": 4
-      },
-      "source_sha256": "a0ea94b078efcd0810b69286faccdf79c3bf365ea9012941a67e553a27a5df92"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "I3-P2",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "NicheFloat",
-        "child_state": "controlled",
-        "state_owner": "Niches.jsx"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 5942,
-        "output_tokens": 1046,
-        "cost_usd": 0.00067944,
-        "successful_calls": 4
-      },
-      "source_sha256": "792fce40c5f36c6bf70c208d243940f7d8be96b289f4060cf30cfb9b8a6e9767"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "K1-P1",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "transparent",
-        "expanded_background": "var(--color-bg-card)"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 3918,
-        "output_tokens": 523,
-        "cost_usd": 0.000411,
-        "successful_calls": 3
-      },
-      "source_sha256": "fcdd83ab379449de8f9894fe1a75f986121881c035ee313274caccd323ad0bb3"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "K1-P2",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "rgba(255, 255, 255, 0.05)",
-        "leave_delay_ms": "0",
-        "width_px": "340px"
-      },
-      "semantic_verdict": "fail",
-      "notes": "stale rgba background instead of transparent",
-      "usage": {
-        "input_tokens": 5592,
-        "output_tokens": 1994,
-        "cost_usd": 0.00117988,
-        "successful_calls": 4
-      },
-      "source_sha256": "7fdb0ce1817bca1b3bc7677bcbbe148b60ab313d2ee77aedac5d74ae12854f10"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "K2-P1",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "64",
-        "embedding_model": "TitaNet-Large",
-        "scales": "5"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 6284,
-        "output_tokens": 589,
-        "cost_usd": 0.00048514,
-        "successful_calls": 4
-      },
-      "source_sha256": "02995bb194e1fa0e0c31a2f4ddeaa14fdd75ab60f0980a4baa798ffa219d70eb"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "K2-P2",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "256",
-        "embedding_model": "TitaNet-Large",
-        "omp_threads": "16",
-        "scales": "5",
-        "workers": "4"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 12839,
-        "output_tokens": 780,
-        "cost_usd": 0.00068548,
-        "successful_calls": 6
-      },
-      "source_sha256": "ea9f518f5262000b9d80f60b22a591ec3cc4b1aa0bf217fce7eadb8eb6a1291f"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "K3-P1",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "50-100ms",
-        "title": "Niches"
-      },
-      "semantic_verdict": "fail",
-      "notes": "range 50-100ms and no static title",
-      "usage": {
-        "input_tokens": 2948,
-        "output_tokens": 1103,
-        "cost_usd": 0.00067657,
-        "successful_calls": 3
-      },
-      "source_sha256": "2fcff35b12f9672dbbd7972104c5aaa6e1d1c4bbc9530080df462cb3c57227a8"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "K3-P2",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "50-100ms",
-        "raf": "requestAnimationFrame",
-        "title": "niche-expand-trigger"
-      },
-      "semantic_verdict": "fail",
-      "notes": "stale state: 50-100ms, active rAF, class as title",
-      "usage": {
-        "input_tokens": 5652,
-        "output_tokens": 4657,
-        "cost_usd": 0.00250509,
-        "successful_calls": 4
-      },
-      "source_sha256": "744e6191572ecf2752ddf52c90769c963b886db758698f7bfca23255b1cc6da0"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "R1-P1",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "1",
-        "max_children": "3",
-        "timeout_seconds": "0"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 4974,
-        "output_tokens": 624,
-        "cost_usd": 0.00046994,
-        "successful_calls": 4
-      },
-      "source_sha256": "4a9b09a9e7087ecbe883536d0606431c0145b53914182fa92cbf54c92781fde5"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "R1-P2",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "current_max_children": "3",
-        "next_depth": "2",
-        "next_max_children": "5",
-        "next_timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 9335,
-        "output_tokens": 761,
-        "cost_usd": 0.00061934,
-        "successful_calls": 5
-      },
-      "source_sha256": "a08d761ae37bfad16b0fd0badd7e6abc87ec0d48576d998e8896b71aff68dd88"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "R2-P1",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "docker_argument": "--shm-size=2g",
-        "order": "diarization then transcription"
-      },
-      "semantic_verdict": "fail",
-      "notes": "reversed order: diarization before transcription",
-      "usage": {
-        "input_tokens": 10898,
-        "output_tokens": 1090,
-        "cost_usd": 0.00064408,
-        "successful_calls": 4
-      },
-      "source_sha256": "37b43b9e06c17a2ef1066f1e1191c11c4bbe8054ed00fe44bd8cd8dd2db41bf4"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "R2-P2",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "docker_argument": "/data/input.mp3",
-        "embedding_model": "TitaNet",
-        "order": "chunking → Groq → NeMo → alignment → JSON",
-        "scales": "multiscale"
-      },
-      "semantic_verdict": "fail",
-      "notes": "wrong docker argument, TitaNet without -Large, scales without 5",
-      "usage": {
-        "input_tokens": 8009,
-        "output_tokens": 3660,
-        "cost_usd": 0.00205797,
-        "successful_calls": 5
-      },
-      "source_sha256": "6a7bf76072aa819d15ea9bb9c90d699beb9a9f37f6a9d48827958edac6dfc324"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "R3-P1",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "2",
-        "max_children": "5",
-        "timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 5636,
-        "output_tokens": 538,
-        "cost_usd": 0.00044399,
-        "successful_calls": 4
-      },
-      "source_sha256": "a3b32c084ee4a10a41a39c69bbb5eee046277eb630c6f9704ff51c8a653c2ee8"
-    },
-    {
-      "arm": "supermemory_local",
-      "task_id": "R3-P2",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "2",
-        "max_children": "5",
-        "timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 5872,
-        "output_tokens": 482,
-        "cost_usd": 0.00043844,
-        "successful_calls": 4
-      },
-      "source_sha256": "213f4d522bd647271b286852ab23a7cadab6c2be102efe8835cc3a0b8d8edde4"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "E1-P1",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint": "src/index.ts",
-        "production": "NO-GO",
-        "slice": "Wave 7A"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 15907,
-        "output_tokens": 753,
-        "cost_usd": 0.00084131,
-        "successful_calls": 4
-      },
-      "source_sha256": "cc2269714fc5344d6d6c69b522af2647fb1d32e56d0d6aa23255700d7e1318a4"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "E1-P2",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint_owner": "parent",
-        "migration_application": "forbidden",
-        "production": "NO-GO"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 18893,
-        "output_tokens": 872,
-        "cost_usd": 0.00099052,
-        "successful_calls": 4
-      },
-      "source_sha256": "e5abfc64ed7e00df1c3944ba94e1f998cbb505de0bdedd7c9fac2612bda23aae"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "E2-P1",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "error": "AttributeError: 'dict' object has no attribute 'start'",
-        "test_status": "failed"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 13473,
-        "output_tokens": 761,
-        "cost_usd": 0.0008711,
-        "successful_calls": 3
-      },
-      "source_sha256": "fab94ea3656354d787f6f3b43a086a97dcf7bb309186d8416eb722834f823a60"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "E2-P2",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "earlier_failure": "yes",
-        "segments": "4",
-        "speakers": "2",
-        "test_status": "succeeded"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 24959,
-        "output_tokens": 2145,
-        "cost_usd": 0.00168181,
-        "successful_calls": 5
-      },
-      "source_sha256": "2b698ae0121fc6c8005f216f005fde853314a3d2c677dbbd76d1960da53acf55"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "E3-P1",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "bottom_px": "-16",
-        "buffer": "::after pseudo-element",
-        "height_px": "16",
-        "location": "all sides"
-      },
-      "semantic_verdict": "fail",
-      "notes": "early 16px / all-sides version; final ::after 20px bottom-only was not retrieved",
-      "usage": {
-        "input_tokens": 45615,
-        "output_tokens": 6289,
-        "cost_usd": 0.00394165,
-        "successful_calls": 8
-      },
-      "source_sha256": "a505d9c026422186d3bd10fe89bb28695f2fff8880e636b1d7998fc95cb91d9e"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "E3-P2",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "buffer": "absent",
-        "debounce": "absent",
-        "raf": "absent",
-        "title": "static"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 27649,
-        "output_tokens": 624,
-        "cost_usd": 0.00098141,
-        "successful_calls": 5
-      },
-      "source_sha256": "57883439d33916cc5982d01e8b39cab6859f1cdbc799f4da0fd75cbffe657f12"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "I1-P1",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "diarizer": "NeMo Diarization"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 3998,
-        "output_tokens": 731,
-        "cost_usd": 0.000523,
-        "successful_calls": 3
-      },
-      "source_sha256": "f593819f8c10dfacc469eee98d55284508bc448595b50b475042ba848bf69283"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "I1-P2",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "cpu",
-        "diarizer": "NeMo",
-        "transcription_model": "whisper-large-v3"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 20557,
-        "output_tokens": 770,
-        "cost_usd": 0.00099417,
-        "successful_calls": 4
-      },
-      "source_sha256": "5481e21903df228521ceae03f1b0a4e2d6b71367e565568c434375be302add61"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "I2-P1",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "NicheFloat CTA link wrapped in MagneticButton strength={0.4} radius={400}",
-        "whole_card": "not wrapped in MagneticButton"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 15336,
-        "output_tokens": 915,
-        "cost_usd": 0.00102265,
-        "successful_calls": 3
-      },
-      "source_sha256": "bcbf7003ac5bee0539647bb688273e566ee98501601599bb805556d6bde592fb"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "I2-P2",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "without MagneticButton",
-        "whole_card": "MagneticButton strength={0.4} radius={400} wrapping entire niche-expand-trigger"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 15385,
-        "output_tokens": 557,
-        "cost_usd": 0.00038276,
-        "successful_calls": 3
-      },
-      "source_sha256": "019274582607a568e501efaa40d7ac32e35e18ba16b784ffca5e7e5f54eac1ed"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "I3-P1",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "NicheFloat",
-        "child_state": "controlled",
-        "state_owner": "Niches.jsx"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 22481,
-        "output_tokens": 486,
-        "cost_usd": 0.00039446,
-        "successful_calls": 4
-      },
-      "source_sha256": "454c3d87cf4984a7bc5abf7e4f8002371794885245641528755514cf2ff33be4"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "I3-P2",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "NicheFloat",
-        "child_state": "controlled",
-        "state_owner": "Niches.jsx"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 21845,
-        "output_tokens": 791,
-        "cost_usd": 0.00102403,
-        "successful_calls": 4
-      },
-      "source_sha256": "aa24d251af3dca610f1500133476e59d45829005c99f8dc8875acaafc0cc3501"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "K1-P1",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "transparent",
-        "expanded_background": "var(--color-bg-card)"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 14495,
-        "output_tokens": 413,
-        "cost_usd": 0.00074899,
-        "successful_calls": 3
-      },
-      "source_sha256": "86f959a3bf216be65c1d767fd4ec69c33e891d3cbbf62a8e78fc3ae5d8748735"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "K1-P2",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "transparent",
-        "leave_delay_ms": "0ms",
-        "width_px": "340px"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 20332,
-        "output_tokens": 840,
-        "cost_usd": 0.00100782,
-        "successful_calls": 4
-      },
-      "source_sha256": "9da2eafdf5054c0f5ca1905ef72a949dfb616d039f0f57c9344b8f49a9d0128e"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "K2-P1",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "64",
-        "embedding_model": "titanet_large",
-        "scales": "5"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 21638,
-        "output_tokens": 991,
-        "cost_usd": 0.00112676,
-        "successful_calls": 4
-      },
-      "source_sha256": "7ce71ee644e471172c480cb964d1b440e33a3ef2e3059a020483bece91e7d659"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "K2-P2",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "256",
-        "embedding_model": "TitaNet-Large",
-        "omp_threads": "16",
-        "scales": "5",
-        "workers": "4"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 34389,
-        "output_tokens": 1721,
-        "cost_usd": 0.00159066,
-        "successful_calls": 6
-      },
-      "source_sha256": "3810926666840ca3264af5d8cc7960b71de58a014fa5d130f56076b5edccd002"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "K3-P1",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "150",
-        "title": "niche-title-in/niche-title-out"
-      },
-      "semantic_verdict": "fail",
-      "notes": "stale 150ms leave delay and animation classes as title",
-      "usage": {
-        "input_tokens": 14961,
-        "output_tokens": 2451,
-        "cost_usd": 0.00177773,
-        "successful_calls": 3
-      },
-      "source_sha256": "d22baef271bfe5d2d70008e368a27fd11e49b89dc49bbf81ae596a45c0d33f5b"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "K3-P2",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "0",
-        "raf": "removed",
-        "title": "static center title"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 19689,
-        "output_tokens": 1608,
-        "cost_usd": 0.00137668,
-        "successful_calls": 4
-      },
-      "source_sha256": "3f8a3dd8adbc25117c1a81dff551335d45fdebc1556487e5c8646e7a9f4a0b58"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "R1-P1",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "1",
-        "max_children": "3",
-        "timeout_seconds": "0"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 21387,
-        "output_tokens": 522,
-        "cost_usd": 0.00089173,
-        "successful_calls": 4
-      },
-      "source_sha256": "0b2bfe6bc4eb7e6d2856a461ff0c6a01bf9718da3daed0014b377c357a01fc60"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "R1-P2",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "current_max_children": "3",
-        "next_depth": "2",
-        "next_max_children": "5",
-        "next_timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 27375,
-        "output_tokens": 738,
-        "cost_usd": 0.00103559,
-        "successful_calls": 5
-      },
-      "source_sha256": "048c90c2ecbe14e17ff0667a84275b7565f08c8c2601827afe0e64ae0a05454d"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "R2-P1",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "docker_argument": "--shm-size=2g",
-        "order": "Groq transcription, NeMo diarization, alignment/merge"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 17263,
-        "output_tokens": 613,
-        "cost_usd": 0.00081974,
-        "successful_calls": 4
-      },
-      "source_sha256": "8f368c67d7b7eb5489aa1bc701796318d8fd0681d5c69da5f818b48fc507b23c"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "R2-P2",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "docker_argument": "--shm-size=2g",
-        "embedding_model": "TitaNet-Large",
-        "order": "Groq transcription, NeMo diarization, alignment/merge",
-        "scales": "multiscale (5 scales)"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 25500,
-        "output_tokens": 1631,
-        "cost_usd": 0.00144204,
-        "successful_calls": 5
-      },
-      "source_sha256": "8c233fa920169517132b3322dbc927a30aca42f78a8188da00bc52749a297d2b"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "R3-P1",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "2",
-        "max_children": "5",
-        "timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 20513,
-        "output_tokens": 476,
-        "cost_usd": 0.00083164,
-        "successful_calls": 4
-      },
-      "source_sha256": "b3e6a529d8702a74494ac0426b79335a59e4a740e1508ac62c943e3b8b642b18"
-    },
-    {
-      "arm": "claude_mem",
-      "task_id": "R3-P2",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "2",
-        "max_children": "5",
-        "timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 20329,
-        "output_tokens": 416,
-        "cost_usd": 0.00080666,
-        "successful_calls": 4
-      },
-      "source_sha256": "2a17b208a972af210e2a528874e774d1a3ef733ec8e6a2c15c70cbf57f6978fd"
-    },
-    {
-      "arm": "reme",
-      "task_id": "E1-P1",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint": "src/index.ts",
-        "production": "NO-GO",
-        "slice": "7A — dispatcher runtime wiring"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 9191,
-        "output_tokens": 773,
-        "cost_usd": 0.00067123,
-        "successful_calls": 4
-      },
-      "source_sha256": "46e3b0f7de614da5faa71c9ed2f550e64b47669e2f147b4b4f403bdaf0636275"
-    },
-    {
-      "arm": "reme",
-      "task_id": "E1-P2",
-      "family": "E1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "entrypoint_owner": "parent",
-        "migration_application": "forbidden",
-        "production": "NO-GO"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 12200,
-        "output_tokens": 1103,
-        "cost_usd": 0.00091595,
-        "successful_calls": 4
-      },
-      "source_sha256": "2cecaaa48206e571a4682df1bc9621280d7351082114536a22b5468231acb64f"
-    },
-    {
-      "arm": "reme",
-      "task_id": "E2-P1",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "error": "AttributeError: 'dict' object has no attribute 'start' at process.py:173",
-        "test_status": "blocked"
-      },
-      "semantic_verdict": "pass_borderline",
-      "notes": "borderline: test_status=blocked instead of failed, with the correct traceback",
-      "usage": {
-        "input_tokens": 8297,
-        "output_tokens": 698,
-        "cost_usd": 0.00066606,
-        "successful_calls": 3
-      },
-      "source_sha256": "f13eb4afdf210589beb0891b30da76b347ffb2c5b14083c3daf7fc5417a1d0e4"
-    },
-    {
-      "arm": "reme",
-      "task_id": "E2-P2",
-      "family": "E2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "earlier_failure": "yes",
-        "segments": "4",
-        "speakers": "2",
-        "test_status": "succeeded"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 18134,
-        "output_tokens": 702,
-        "cost_usd": 0.0007939,
-        "successful_calls": 5
-      },
-      "source_sha256": "657fbcae9e61b068f815dd894b65081778be37c37d663556808a91f5d01a2272"
-    },
-    {
-      "arm": "reme",
-      "task_id": "E3-P1",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "bottom_px": "-20",
-        "buffer": "::after pseudo-element",
-        "height_px": "20",
-        "location": "bottom only"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 18184,
-        "output_tokens": 2430,
-        "cost_usd": 0.00167404,
-        "successful_calls": 5
-      },
-      "source_sha256": "4c91a3f3ae7962d56bce78cc4513b76cc9ca1af9fd78f4cabf085a5b1c3e720c"
-    },
-    {
-      "arm": "reme",
-      "task_id": "E3-P2",
-      "family": "E3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "buffer": "absent",
-        "debounce": "absent",
-        "raf": "absent",
-        "title": "static"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 17449,
-        "output_tokens": 661,
-        "cost_usd": 0.00075406,
-        "successful_calls": 5
-      },
-      "source_sha256": "5c60418770854884197584654c3c2558fb9e30c725b8676b673b2d8b3890c794"
-    },
-    {
-      "arm": "reme",
-      "task_id": "I1-P1",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "diarizer": "NeMo"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 4487,
-        "output_tokens": 691,
-        "cost_usd": 0.00051503,
-        "successful_calls": 3
-      },
-      "source_sha256": "e140fca5ca35a35ec5422eae3c6088ed93884cfbbad073c8a185e9a2f2589842"
-    },
-    {
-      "arm": "reme",
-      "task_id": "I1-P2",
-      "family": "I1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "diarizer": "NeMo ClusteringDiarizer",
-        "transcription_model": "whisper-large-v3"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 14238,
-        "output_tokens": 687,
-        "cost_usd": 0.00076429,
-        "successful_calls": 4
-      },
-      "source_sha256": "4f5b8e0fa230dd60d385ed88f9d780875371263876158361883c5ee647e97cce"
-    },
-    {
-      "arm": "reme",
-      "task_id": "I2-P1",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "MagneticButton strength={0.4} radius={400}",
-        "whole_card": "none"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 9075,
-        "output_tokens": 960,
-        "cost_usd": 0.00082571,
-        "successful_calls": 3
-      },
-      "source_sha256": "cfe2f2a0184367f46be1380a4c206fc4cc38176b6095fe448f637f69e5965cd7"
-    },
-    {
-      "arm": "reme",
-      "task_id": "I2-P2",
-      "family": "I2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "demo_link": "plain <a> without MagneticButton",
-        "whole_card": "MagneticButton strength={0.4} radius={400} wraps entire niche-expand-trigger"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 13599,
-        "output_tokens": 457,
-        "cost_usd": 0.00032619,
-        "successful_calls": 3
-      },
-      "source_sha256": "ee4b003dc1e03a8fb1ad291b80b946a05cfb57d15d2f128015c57d86c0285781"
-    },
-    {
-      "arm": "reme",
-      "task_id": "I3-P1",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "NicheFloat",
-        "child_state": "controlled",
-        "state_owner": "Niches.jsx"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 19930,
-        "output_tokens": 422,
-        "cost_usd": 0.00080662,
-        "successful_calls": 4
-      },
-      "source_sha256": "a7709625caee53f709f4524b9d11b0e92c97d801e88018ee398f10f7429eaf65"
-    },
-    {
-      "arm": "reme",
-      "task_id": "I3-P2",
-      "family": "I3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "child": "NicheFloat",
-        "child_state": "controlled",
-        "state_owner": "Niches.jsx"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 20549,
-        "output_tokens": 553,
-        "cost_usd": 0.00084916,
-        "successful_calls": 4
-      },
-      "source_sha256": "275e95670cf309f93cf552dd02033964870300649dcd9177e11e2a5b8378a3db"
-    },
-    {
-      "arm": "reme",
-      "task_id": "K1-P1",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "transparent",
-        "expanded_background": "var(--color-bg-card)"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 8046,
-        "output_tokens": 537,
-        "cost_usd": 0.00057275,
-        "successful_calls": 3
-      },
-      "source_sha256": "cf36f32ec475e119cc90547cae93dae42f5a619dcbcc13862e2b1a569c325f05"
-    },
-    {
-      "arm": "reme",
-      "task_id": "K1-P2",
-      "family": "K1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "collapsed_background": "transparent",
-        "leave_delay_ms": "0ms",
-        "width_px": "340px"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 13739,
-        "output_tokens": 846,
-        "cost_usd": 0.00083076,
-        "successful_calls": 4
-      },
-      "source_sha256": "e2db5ef7abe182a3b88f51141a7120e2bf4eb274b12140c0a822d95c2531b566"
-    },
-    {
-      "arm": "reme",
-      "task_id": "K2-P1",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "64",
-        "embedding_model": "titanet_large",
-        "scales": "5"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 15134,
-        "output_tokens": 567,
-        "cost_usd": 0.00073245,
-        "successful_calls": 4
-      },
-      "source_sha256": "1339a189102b2353cd73f0fcee4e475501486a9b4a903c98e4846337f1b1d17f"
-    },
-    {
-      "arm": "reme",
-      "task_id": "K2-P2",
-      "family": "K2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "batch_size": "256",
-        "embedding_model": "titanet_large",
-        "omp_threads": "16",
-        "scales": "5",
-        "workers": "4"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 27775,
-        "output_tokens": 784,
-        "cost_usd": 0.00098915,
-        "successful_calls": 6
-      },
-      "source_sha256": "6fc11fa02c7327679467e803f0be8d8c6e0fe3611152056d00b77ed81e79ac7b"
-    },
-    {
-      "arm": "reme",
-      "task_id": "K3-P1",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "80",
-        "title": "static"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 10012,
-        "output_tokens": 842,
-        "cost_usd": 0.00079782,
-        "successful_calls": 3
-      },
-      "source_sha256": "8fb27e331d1fc4318e5e025bc6c5e33ad0a8256152eb579d8e2c0559cefa06b9"
-    },
-    {
-      "arm": "reme",
-      "task_id": "K3-P2",
-      "family": "K3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "leave_delay_ms": "none",
-        "raf": "no RAF",
-        "title": "static"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 13348,
-        "output_tokens": 1312,
-        "cost_usd": 0.00104923,
-        "successful_calls": 4
-      },
-      "source_sha256": "921126babd9641d6ec2da683ed00dbf1609b58a82d367dc2efd3d7db7da67efc"
-    },
-    {
-      "arm": "reme",
-      "task_id": "R1-P1",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "1",
-        "max_children": "3",
-        "timeout_seconds": "0"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 10436,
-        "output_tokens": 435,
-        "cost_usd": 0.00052843,
-        "successful_calls": 4
-      },
-      "source_sha256": "a4041a473355aad257dfc1bef41387cf1ab8757e18429eda4558beb7f7503928"
-    },
-    {
-      "arm": "reme",
-      "task_id": "R1-P2",
-      "family": "R1",
-      "stage": "historical_continuation",
-      "recorded": {
-        "current_max_children": "3",
-        "next_depth": "2",
-        "next_max_children": "5",
-        "next_timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 25490,
-        "output_tokens": 770,
-        "cost_usd": 0.00101054,
-        "successful_calls": 5
-      },
-      "source_sha256": "e535844ebae1c68d7f9a4e134727b77798e973bacb5bbf446768d241335f78e5"
-    },
-    {
-      "arm": "reme",
-      "task_id": "R2-P1",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "device": "CPU",
-        "docker_argument": "--shm-size=2g",
-        "order": "Groq transcription -> NeMo diarization -> merging/alignment"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 14411,
-        "output_tokens": 539,
-        "cost_usd": 0.0006953,
-        "successful_calls": 4
-      },
-      "source_sha256": "e925bca759031ddd69034005338d0aef63ac20e608da5d3214194f5f9721b36e"
-    },
-    {
-      "arm": "reme",
-      "task_id": "R2-P2",
-      "family": "R2",
-      "stage": "historical_continuation",
-      "recorded": {
-        "docker_argument": "--shm-size=2g",
-        "embedding_model": "titanet_large",
-        "order": "Groq transcription → NeMo diarization → alignment",
-        "scales": "[1.5,1.25,1.0,0.75,0.5]"
-      },
-      "semantic_verdict": "pass_borderline",
-      "notes": "borderline: lists five explicit scale values instead of the number 5",
-      "usage": {
-        "input_tokens": 20688,
-        "output_tokens": 891,
-        "cost_usd": 0.00095948,
-        "successful_calls": 5
-      },
-      "source_sha256": "032ab10f353a3d96398351b512db2bec21025392ed8a45738ea8f317d71a1004"
-    },
-    {
-      "arm": "reme",
-      "task_id": "R3-P1",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "2",
-        "max_children": "5",
-        "timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 13296,
-        "output_tokens": 465,
-        "cost_usd": 0.00062053,
-        "successful_calls": 4
-      },
-      "source_sha256": "ba30a0d775d5c20162fb4c4c5c6a9bb6c3ee68401b26691cefe897ce1d837f1f"
-    },
-    {
-      "arm": "reme",
-      "task_id": "R3-P2",
-      "family": "R3",
-      "stage": "historical_continuation",
-      "recorded": {
-        "depth": "2",
-        "max_children": "5",
-        "timeout_seconds": "1800"
-      },
-      "semantic_verdict": "pass",
-      "notes": "",
-      "usage": {
-        "input_tokens": 19793,
-        "output_tokens": 365,
-        "cost_usd": 0.00032321,
-        "successful_calls": 4
-      },
-      "source_sha256": "5e828c1636eb81997037edc752039e7fcc7b9695bf2b6385730180e304c42dd8"
-    },
     {
       "arm": "ledgermind",
       "task_id": "E1-P1",
@@ -4342,6 +974,2892 @@
         "successful_calls": 4
       },
       "source_sha256": "c2575001a16ed6fdd5c03849caaa509e338c676a137dc97ec6c26c1a9e00207b"
+    },
+    {
+      "arm": "reme",
+      "task_id": "E1-P1",
+      "family": "E1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "entrypoint": "src/index.ts",
+        "production": "NO-GO",
+        "slice": "7A — dispatcher runtime wiring"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 9191,
+        "output_tokens": 773,
+        "cost_usd": 0.00067123,
+        "successful_calls": 4
+      },
+      "source_sha256": "46e3b0f7de614da5faa71c9ed2f550e64b47669e2f147b4b4f403bdaf0636275"
+    },
+    {
+      "arm": "reme",
+      "task_id": "E1-P2",
+      "family": "E1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "entrypoint_owner": "parent",
+        "migration_application": "forbidden",
+        "production": "NO-GO"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 12200,
+        "output_tokens": 1103,
+        "cost_usd": 0.00091595,
+        "successful_calls": 4
+      },
+      "source_sha256": "2cecaaa48206e571a4682df1bc9621280d7351082114536a22b5468231acb64f"
+    },
+    {
+      "arm": "reme",
+      "task_id": "E2-P1",
+      "family": "E2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "error": "AttributeError: 'dict' object has no attribute 'start' at process.py:173",
+        "test_status": "blocked"
+      },
+      "semantic_verdict": "pass_borderline",
+      "notes": "borderline: test_status=blocked instead of failed, with the correct traceback",
+      "usage": {
+        "input_tokens": 8297,
+        "output_tokens": 698,
+        "cost_usd": 0.00066606,
+        "successful_calls": 3
+      },
+      "source_sha256": "f13eb4afdf210589beb0891b30da76b347ffb2c5b14083c3daf7fc5417a1d0e4"
+    },
+    {
+      "arm": "reme",
+      "task_id": "E2-P2",
+      "family": "E2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "earlier_failure": "yes",
+        "segments": "4",
+        "speakers": "2",
+        "test_status": "succeeded"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 18134,
+        "output_tokens": 702,
+        "cost_usd": 0.0007939,
+        "successful_calls": 5
+      },
+      "source_sha256": "657fbcae9e61b068f815dd894b65081778be37c37d663556808a91f5d01a2272"
+    },
+    {
+      "arm": "reme",
+      "task_id": "E3-P1",
+      "family": "E3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "bottom_px": "-20",
+        "buffer": "::after pseudo-element",
+        "height_px": "20",
+        "location": "bottom only"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 18184,
+        "output_tokens": 2430,
+        "cost_usd": 0.00167404,
+        "successful_calls": 5
+      },
+      "source_sha256": "4c91a3f3ae7962d56bce78cc4513b76cc9ca1af9fd78f4cabf085a5b1c3e720c"
+    },
+    {
+      "arm": "reme",
+      "task_id": "E3-P2",
+      "family": "E3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "buffer": "absent",
+        "debounce": "absent",
+        "raf": "absent",
+        "title": "static"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 17449,
+        "output_tokens": 661,
+        "cost_usd": 0.00075406,
+        "successful_calls": 5
+      },
+      "source_sha256": "5c60418770854884197584654c3c2558fb9e30c725b8676b673b2d8b3890c794"
+    },
+    {
+      "arm": "reme",
+      "task_id": "I1-P1",
+      "family": "I1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "diarizer": "NeMo"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 4487,
+        "output_tokens": 691,
+        "cost_usd": 0.00051503,
+        "successful_calls": 3
+      },
+      "source_sha256": "e140fca5ca35a35ec5422eae3c6088ed93884cfbbad073c8a185e9a2f2589842"
+    },
+    {
+      "arm": "reme",
+      "task_id": "I1-P2",
+      "family": "I1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "diarizer": "NeMo ClusteringDiarizer",
+        "transcription_model": "whisper-large-v3"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 14238,
+        "output_tokens": 687,
+        "cost_usd": 0.00076429,
+        "successful_calls": 4
+      },
+      "source_sha256": "4f5b8e0fa230dd60d385ed88f9d780875371263876158361883c5ee647e97cce"
+    },
+    {
+      "arm": "reme",
+      "task_id": "I2-P1",
+      "family": "I2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "demo_link": "MagneticButton strength={0.4} radius={400}",
+        "whole_card": "none"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 9075,
+        "output_tokens": 960,
+        "cost_usd": 0.00082571,
+        "successful_calls": 3
+      },
+      "source_sha256": "cfe2f2a0184367f46be1380a4c206fc4cc38176b6095fe448f637f69e5965cd7"
+    },
+    {
+      "arm": "reme",
+      "task_id": "I2-P2",
+      "family": "I2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "demo_link": "plain <a> without MagneticButton",
+        "whole_card": "MagneticButton strength={0.4} radius={400} wraps entire niche-expand-trigger"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 13599,
+        "output_tokens": 457,
+        "cost_usd": 0.00032619,
+        "successful_calls": 3
+      },
+      "source_sha256": "ee4b003dc1e03a8fb1ad291b80b946a05cfb57d15d2f128015c57d86c0285781"
+    },
+    {
+      "arm": "reme",
+      "task_id": "I3-P1",
+      "family": "I3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "child": "NicheFloat",
+        "child_state": "controlled",
+        "state_owner": "Niches.jsx"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 19930,
+        "output_tokens": 422,
+        "cost_usd": 0.00080662,
+        "successful_calls": 4
+      },
+      "source_sha256": "a7709625caee53f709f4524b9d11b0e92c97d801e88018ee398f10f7429eaf65"
+    },
+    {
+      "arm": "reme",
+      "task_id": "I3-P2",
+      "family": "I3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "child": "NicheFloat",
+        "child_state": "controlled",
+        "state_owner": "Niches.jsx"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 20549,
+        "output_tokens": 553,
+        "cost_usd": 0.00084916,
+        "successful_calls": 4
+      },
+      "source_sha256": "275e95670cf309f93cf552dd02033964870300649dcd9177e11e2a5b8378a3db"
+    },
+    {
+      "arm": "reme",
+      "task_id": "K1-P1",
+      "family": "K1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "collapsed_background": "transparent",
+        "expanded_background": "var(--color-bg-card)"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 8046,
+        "output_tokens": 537,
+        "cost_usd": 0.00057275,
+        "successful_calls": 3
+      },
+      "source_sha256": "cf36f32ec475e119cc90547cae93dae42f5a619dcbcc13862e2b1a569c325f05"
+    },
+    {
+      "arm": "reme",
+      "task_id": "K1-P2",
+      "family": "K1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "collapsed_background": "transparent",
+        "leave_delay_ms": "0ms",
+        "width_px": "340px"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 13739,
+        "output_tokens": 846,
+        "cost_usd": 0.00083076,
+        "successful_calls": 4
+      },
+      "source_sha256": "e2db5ef7abe182a3b88f51141a7120e2bf4eb274b12140c0a822d95c2531b566"
+    },
+    {
+      "arm": "reme",
+      "task_id": "K2-P1",
+      "family": "K2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "batch_size": "64",
+        "embedding_model": "titanet_large",
+        "scales": "5"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 15134,
+        "output_tokens": 567,
+        "cost_usd": 0.00073245,
+        "successful_calls": 4
+      },
+      "source_sha256": "1339a189102b2353cd73f0fcee4e475501486a9b4a903c98e4846337f1b1d17f"
+    },
+    {
+      "arm": "reme",
+      "task_id": "K2-P2",
+      "family": "K2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "batch_size": "256",
+        "embedding_model": "titanet_large",
+        "omp_threads": "16",
+        "scales": "5",
+        "workers": "4"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 27775,
+        "output_tokens": 784,
+        "cost_usd": 0.00098915,
+        "successful_calls": 6
+      },
+      "source_sha256": "6fc11fa02c7327679467e803f0be8d8c6e0fe3611152056d00b77ed81e79ac7b"
+    },
+    {
+      "arm": "reme",
+      "task_id": "K3-P1",
+      "family": "K3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "leave_delay_ms": "80",
+        "title": "static"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 10012,
+        "output_tokens": 842,
+        "cost_usd": 0.00079782,
+        "successful_calls": 3
+      },
+      "source_sha256": "8fb27e331d1fc4318e5e025bc6c5e33ad0a8256152eb579d8e2c0559cefa06b9"
+    },
+    {
+      "arm": "reme",
+      "task_id": "K3-P2",
+      "family": "K3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "leave_delay_ms": "none",
+        "raf": "no RAF",
+        "title": "static"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 13348,
+        "output_tokens": 1312,
+        "cost_usd": 0.00104923,
+        "successful_calls": 4
+      },
+      "source_sha256": "921126babd9641d6ec2da683ed00dbf1609b58a82d367dc2efd3d7db7da67efc"
+    },
+    {
+      "arm": "reme",
+      "task_id": "R1-P1",
+      "family": "R1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "1",
+        "max_children": "3",
+        "timeout_seconds": "0"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 10436,
+        "output_tokens": 435,
+        "cost_usd": 0.00052843,
+        "successful_calls": 4
+      },
+      "source_sha256": "a4041a473355aad257dfc1bef41387cf1ab8757e18429eda4558beb7f7503928"
+    },
+    {
+      "arm": "reme",
+      "task_id": "R1-P2",
+      "family": "R1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "current_max_children": "3",
+        "next_depth": "2",
+        "next_max_children": "5",
+        "next_timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 25490,
+        "output_tokens": 770,
+        "cost_usd": 0.00101054,
+        "successful_calls": 5
+      },
+      "source_sha256": "e535844ebae1c68d7f9a4e134727b77798e973bacb5bbf446768d241335f78e5"
+    },
+    {
+      "arm": "reme",
+      "task_id": "R2-P1",
+      "family": "R2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "docker_argument": "--shm-size=2g",
+        "order": "Groq transcription -> NeMo diarization -> merging/alignment"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 14411,
+        "output_tokens": 539,
+        "cost_usd": 0.0006953,
+        "successful_calls": 4
+      },
+      "source_sha256": "e925bca759031ddd69034005338d0aef63ac20e608da5d3214194f5f9721b36e"
+    },
+    {
+      "arm": "reme",
+      "task_id": "R2-P2",
+      "family": "R2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "docker_argument": "--shm-size=2g",
+        "embedding_model": "titanet_large",
+        "order": "Groq transcription → NeMo diarization → alignment",
+        "scales": "[1.5,1.25,1.0,0.75,0.5]"
+      },
+      "semantic_verdict": "pass_borderline",
+      "notes": "borderline: lists five explicit scale values instead of the number 5",
+      "usage": {
+        "input_tokens": 20688,
+        "output_tokens": 891,
+        "cost_usd": 0.00095948,
+        "successful_calls": 5
+      },
+      "source_sha256": "032ab10f353a3d96398351b512db2bec21025392ed8a45738ea8f317d71a1004"
+    },
+    {
+      "arm": "reme",
+      "task_id": "R3-P1",
+      "family": "R3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "2",
+        "max_children": "5",
+        "timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 13296,
+        "output_tokens": 465,
+        "cost_usd": 0.00062053,
+        "successful_calls": 4
+      },
+      "source_sha256": "ba30a0d775d5c20162fb4c4c5c6a9bb6c3ee68401b26691cefe897ce1d837f1f"
+    },
+    {
+      "arm": "reme",
+      "task_id": "R3-P2",
+      "family": "R3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "2",
+        "max_children": "5",
+        "timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 19793,
+        "output_tokens": 365,
+        "cost_usd": 0.00032321,
+        "successful_calls": 4
+      },
+      "source_sha256": "5e828c1636eb81997037edc752039e7fcc7b9695bf2b6385730180e304c42dd8"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "E1-P1",
+      "family": "E1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "entrypoint": "src/index.ts",
+        "production": "NO-GO",
+        "slice": "Wave 7A"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 15907,
+        "output_tokens": 753,
+        "cost_usd": 0.00084131,
+        "successful_calls": 4
+      },
+      "source_sha256": "cc2269714fc5344d6d6c69b522af2647fb1d32e56d0d6aa23255700d7e1318a4"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "E1-P2",
+      "family": "E1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "entrypoint_owner": "parent",
+        "migration_application": "forbidden",
+        "production": "NO-GO"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 18893,
+        "output_tokens": 872,
+        "cost_usd": 0.00099052,
+        "successful_calls": 4
+      },
+      "source_sha256": "e5abfc64ed7e00df1c3944ba94e1f998cbb505de0bdedd7c9fac2612bda23aae"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "E2-P1",
+      "family": "E2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "error": "AttributeError: 'dict' object has no attribute 'start'",
+        "test_status": "failed"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 13473,
+        "output_tokens": 761,
+        "cost_usd": 0.0008711,
+        "successful_calls": 3
+      },
+      "source_sha256": "fab94ea3656354d787f6f3b43a086a97dcf7bb309186d8416eb722834f823a60"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "E2-P2",
+      "family": "E2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "earlier_failure": "yes",
+        "segments": "4",
+        "speakers": "2",
+        "test_status": "succeeded"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 24959,
+        "output_tokens": 2145,
+        "cost_usd": 0.00168181,
+        "successful_calls": 5
+      },
+      "source_sha256": "2b698ae0121fc6c8005f216f005fde853314a3d2c677dbbd76d1960da53acf55"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "E3-P1",
+      "family": "E3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "bottom_px": "-16",
+        "buffer": "::after pseudo-element",
+        "height_px": "16",
+        "location": "all sides"
+      },
+      "semantic_verdict": "fail",
+      "notes": "early 16px / all-sides version; final ::after 20px bottom-only was not retrieved",
+      "usage": {
+        "input_tokens": 45615,
+        "output_tokens": 6289,
+        "cost_usd": 0.00394165,
+        "successful_calls": 8
+      },
+      "source_sha256": "a505d9c026422186d3bd10fe89bb28695f2fff8880e636b1d7998fc95cb91d9e"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "E3-P2",
+      "family": "E3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "buffer": "absent",
+        "debounce": "absent",
+        "raf": "absent",
+        "title": "static"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 27649,
+        "output_tokens": 624,
+        "cost_usd": 0.00098141,
+        "successful_calls": 5
+      },
+      "source_sha256": "57883439d33916cc5982d01e8b39cab6859f1cdbc799f4da0fd75cbffe657f12"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "I1-P1",
+      "family": "I1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "diarizer": "NeMo Diarization"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 3998,
+        "output_tokens": 731,
+        "cost_usd": 0.000523,
+        "successful_calls": 3
+      },
+      "source_sha256": "f593819f8c10dfacc469eee98d55284508bc448595b50b475042ba848bf69283"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "I1-P2",
+      "family": "I1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "cpu",
+        "diarizer": "NeMo",
+        "transcription_model": "whisper-large-v3"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 20557,
+        "output_tokens": 770,
+        "cost_usd": 0.00099417,
+        "successful_calls": 4
+      },
+      "source_sha256": "5481e21903df228521ceae03f1b0a4e2d6b71367e565568c434375be302add61"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "I2-P1",
+      "family": "I2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "demo_link": "NicheFloat CTA link wrapped in MagneticButton strength={0.4} radius={400}",
+        "whole_card": "not wrapped in MagneticButton"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 15336,
+        "output_tokens": 915,
+        "cost_usd": 0.00102265,
+        "successful_calls": 3
+      },
+      "source_sha256": "bcbf7003ac5bee0539647bb688273e566ee98501601599bb805556d6bde592fb"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "I2-P2",
+      "family": "I2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "demo_link": "without MagneticButton",
+        "whole_card": "MagneticButton strength={0.4} radius={400} wrapping entire niche-expand-trigger"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 15385,
+        "output_tokens": 557,
+        "cost_usd": 0.00038276,
+        "successful_calls": 3
+      },
+      "source_sha256": "019274582607a568e501efaa40d7ac32e35e18ba16b784ffca5e7e5f54eac1ed"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "I3-P1",
+      "family": "I3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "child": "NicheFloat",
+        "child_state": "controlled",
+        "state_owner": "Niches.jsx"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 22481,
+        "output_tokens": 486,
+        "cost_usd": 0.00039446,
+        "successful_calls": 4
+      },
+      "source_sha256": "454c3d87cf4984a7bc5abf7e4f8002371794885245641528755514cf2ff33be4"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "I3-P2",
+      "family": "I3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "child": "NicheFloat",
+        "child_state": "controlled",
+        "state_owner": "Niches.jsx"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 21845,
+        "output_tokens": 791,
+        "cost_usd": 0.00102403,
+        "successful_calls": 4
+      },
+      "source_sha256": "aa24d251af3dca610f1500133476e59d45829005c99f8dc8875acaafc0cc3501"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "K1-P1",
+      "family": "K1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "collapsed_background": "transparent",
+        "expanded_background": "var(--color-bg-card)"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 14495,
+        "output_tokens": 413,
+        "cost_usd": 0.00074899,
+        "successful_calls": 3
+      },
+      "source_sha256": "86f959a3bf216be65c1d767fd4ec69c33e891d3cbbf62a8e78fc3ae5d8748735"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "K1-P2",
+      "family": "K1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "collapsed_background": "transparent",
+        "leave_delay_ms": "0ms",
+        "width_px": "340px"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 20332,
+        "output_tokens": 840,
+        "cost_usd": 0.00100782,
+        "successful_calls": 4
+      },
+      "source_sha256": "9da2eafdf5054c0f5ca1905ef72a949dfb616d039f0f57c9344b8f49a9d0128e"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "K2-P1",
+      "family": "K2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "batch_size": "64",
+        "embedding_model": "titanet_large",
+        "scales": "5"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 21638,
+        "output_tokens": 991,
+        "cost_usd": 0.00112676,
+        "successful_calls": 4
+      },
+      "source_sha256": "7ce71ee644e471172c480cb964d1b440e33a3ef2e3059a020483bece91e7d659"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "K2-P2",
+      "family": "K2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "batch_size": "256",
+        "embedding_model": "TitaNet-Large",
+        "omp_threads": "16",
+        "scales": "5",
+        "workers": "4"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 34389,
+        "output_tokens": 1721,
+        "cost_usd": 0.00159066,
+        "successful_calls": 6
+      },
+      "source_sha256": "3810926666840ca3264af5d8cc7960b71de58a014fa5d130f56076b5edccd002"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "K3-P1",
+      "family": "K3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "leave_delay_ms": "150",
+        "title": "niche-title-in/niche-title-out"
+      },
+      "semantic_verdict": "fail",
+      "notes": "stale 150ms leave delay and animation classes as title",
+      "usage": {
+        "input_tokens": 14961,
+        "output_tokens": 2451,
+        "cost_usd": 0.00177773,
+        "successful_calls": 3
+      },
+      "source_sha256": "d22baef271bfe5d2d70008e368a27fd11e49b89dc49bbf81ae596a45c0d33f5b"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "K3-P2",
+      "family": "K3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "leave_delay_ms": "0",
+        "raf": "removed",
+        "title": "static center title"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 19689,
+        "output_tokens": 1608,
+        "cost_usd": 0.00137668,
+        "successful_calls": 4
+      },
+      "source_sha256": "3f8a3dd8adbc25117c1a81dff551335d45fdebc1556487e5c8646e7a9f4a0b58"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "R1-P1",
+      "family": "R1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "1",
+        "max_children": "3",
+        "timeout_seconds": "0"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 21387,
+        "output_tokens": 522,
+        "cost_usd": 0.00089173,
+        "successful_calls": 4
+      },
+      "source_sha256": "0b2bfe6bc4eb7e6d2856a461ff0c6a01bf9718da3daed0014b377c357a01fc60"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "R1-P2",
+      "family": "R1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "current_max_children": "3",
+        "next_depth": "2",
+        "next_max_children": "5",
+        "next_timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 27375,
+        "output_tokens": 738,
+        "cost_usd": 0.00103559,
+        "successful_calls": 5
+      },
+      "source_sha256": "048c90c2ecbe14e17ff0667a84275b7565f08c8c2601827afe0e64ae0a05454d"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "R2-P1",
+      "family": "R2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "docker_argument": "--shm-size=2g",
+        "order": "Groq transcription, NeMo diarization, alignment/merge"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 17263,
+        "output_tokens": 613,
+        "cost_usd": 0.00081974,
+        "successful_calls": 4
+      },
+      "source_sha256": "8f368c67d7b7eb5489aa1bc701796318d8fd0681d5c69da5f818b48fc507b23c"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "R2-P2",
+      "family": "R2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "docker_argument": "--shm-size=2g",
+        "embedding_model": "TitaNet-Large",
+        "order": "Groq transcription, NeMo diarization, alignment/merge",
+        "scales": "multiscale (5 scales)"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 25500,
+        "output_tokens": 1631,
+        "cost_usd": 0.00144204,
+        "successful_calls": 5
+      },
+      "source_sha256": "8c233fa920169517132b3322dbc927a30aca42f78a8188da00bc52749a297d2b"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "R3-P1",
+      "family": "R3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "2",
+        "max_children": "5",
+        "timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 20513,
+        "output_tokens": 476,
+        "cost_usd": 0.00083164,
+        "successful_calls": 4
+      },
+      "source_sha256": "b3e6a529d8702a74494ac0426b79335a59e4a740e1508ac62c943e3b8b642b18"
+    },
+    {
+      "arm": "claude_mem",
+      "task_id": "R3-P2",
+      "family": "R3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "2",
+        "max_children": "5",
+        "timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 20329,
+        "output_tokens": 416,
+        "cost_usd": 0.00080666,
+        "successful_calls": 4
+      },
+      "source_sha256": "2a17b208a972af210e2a528874e774d1a3ef733ec8e6a2c15c70cbf57f6978fd"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "E1-P1",
+      "family": "E1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "entrypoint": "Connect dispatcher worker to src/index.ts, behind a feature flag disabled by default.",
+        "production": "NO-GO",
+        "slice": "Wave 7A — dispatcher runtime wiring (disposable only)"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 2969,
+        "output_tokens": 1638,
+        "cost_usd": 0.00089932,
+        "successful_calls": 4
+      },
+      "source_sha256": "e215e313acad66396035e38043aba2957d976ae95f691db576abf7a7e091a160"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "E1-P2",
+      "family": "E1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "entrypoint_owner": "parent",
+        "migration_application": "forbidden",
+        "production": "NO-GO"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 3510,
+        "output_tokens": 1023,
+        "cost_usd": 0.00063364,
+        "successful_calls": 4
+      },
+      "source_sha256": "c3ec62ceddec779ca58a4120e6ceb39b8a928ec62e7901d3dc8a96fcdefcecd7"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "E2-P1",
+      "family": "E2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "error": "AttributeError: 'dict' object has no attribute 'start'",
+        "test_status": "failed"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 1725,
+        "output_tokens": 731,
+        "cost_usd": 0.00044315,
+        "successful_calls": 3
+      },
+      "source_sha256": "5ab0394ae61a010e098cae2e1698c19c285f0ba2a839f3083e4fe9125ce85c3f"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "E2-P2",
+      "family": "E2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "earlier_failure": "yes",
+        "segments": "4",
+        "speakers": "2",
+        "test_status": "completed"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 5061,
+        "output_tokens": 1145,
+        "cost_usd": 0.00072801,
+        "successful_calls": 5
+      },
+      "source_sha256": "040167e955c1f5f3710fa683c52208ba4a150c00925311a9dc9e1d40409397c4"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "E3-P1",
+      "family": "E3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "bottom_px": "-20",
+        "buffer": "::after",
+        "height_px": "20",
+        "location": "bottom only"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 5439,
+        "output_tokens": 717,
+        "cost_usd": 0.00050266,
+        "successful_calls": 5
+      },
+      "source_sha256": "7f51f53b05854212bcff05e938287fbc1b4c7371e14ce6cbcb498b6404aa3dac"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "E3-P2",
+      "family": "E3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "buffer": "absent",
+        "debounce": "absent",
+        "raf": "absent",
+        "title": "static"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 5263,
+        "output_tokens": 610,
+        "cost_usd": 0.00045613,
+        "successful_calls": 5
+      },
+      "source_sha256": "2a395211658a191295caa5f38ab0b6c8aaab62aa215ed72bc63dff2a86492673"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "I1-P1",
+      "family": "I1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "diarizer": "NeMo Diarization"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 1614,
+        "output_tokens": 542,
+        "cost_usd": 0.00031298,
+        "successful_calls": 3
+      },
+      "source_sha256": "0f842bc5bb18952e2bd7d01f0e6b291fa6d1b57e9d6980062841861b3c2b1f48"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "I1-P2",
+      "family": "I1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "diarizer": "NeMo (ClusteringDiarizer)",
+        "transcription_model": "Groq whisper-large-v3"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 2752,
+        "output_tokens": 803,
+        "cost_usd": 0.00047241,
+        "successful_calls": 4
+      },
+      "source_sha256": "3e34b17d9a45d816e40407df204c99b7897d30a61b2c614ee1f55e8d5b1c745d"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "I2-P1",
+      "family": "I2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "demo_link": "Yes",
+        "whole_card": "No"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 1751,
+        "output_tokens": 665,
+        "cost_usd": 0.00037589,
+        "successful_calls": 3
+      },
+      "source_sha256": "49dfb7dfe45b55e2bdcbb119a035a74930efda7e55e6a994184d31a720956528"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "I2-P2",
+      "family": "I2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "demo_link": "No",
+        "whole_card": "Yes"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 1730,
+        "output_tokens": 1099,
+        "cost_usd": 0.00060308,
+        "successful_calls": 3
+      },
+      "source_sha256": "f42b3a000aebcfe16b0b764d528fc77f3cfbd729aa38ccc0312506d0d27cb5e6"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "I3-P1",
+      "family": "I3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "child": "NicheFloat",
+        "child_state": "controlled",
+        "state_owner": "Niches.jsx"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 4414,
+        "output_tokens": 627,
+        "cost_usd": 0.00045231,
+        "successful_calls": 4
+      },
+      "source_sha256": "c6b5511398a852b59acd3762a40c0fadda2755a11deec7bb56f6181d1cdaf7a6"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "I3-P2",
+      "family": "I3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "child": "NicheFloat",
+        "child_state": "controlled",
+        "state_owner": "Niches.jsx"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 4378,
+        "output_tokens": 676,
+        "cost_usd": 0.00046092,
+        "successful_calls": 4
+      },
+      "source_sha256": "53623e56b1be80d3b2ac94bf69774b8ffabcd0ebc61d3e7f97cd5d3c44b99ac6"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "K1-P1",
+      "family": "K1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "collapsed_background": "transparent",
+        "expanded_background": "var(--color-bg-card)"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 1752,
+        "output_tokens": 618,
+        "cost_usd": 0.00036478,
+        "successful_calls": 3
+      },
+      "source_sha256": "cdbc8f6597b0bfa8ba31ac3004625ee7ee900dacdb4be420d3f8fe000f90dfeb"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "K1-P2",
+      "family": "K1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "collapsed_background": "transparent",
+        "leave_delay_ms": "150ms",
+        "width_px": "340px"
+      },
+      "semantic_verdict": "fail",
+      "notes": "leave delay 150ms instead of 0ms",
+      "usage": {
+        "input_tokens": 2775,
+        "output_tokens": 677,
+        "cost_usd": 0.00041171,
+        "successful_calls": 4
+      },
+      "source_sha256": "ba50d93eb2ae687553cabea20aacafced1c4f84b8b17d6bc1b4c14d2b4f82a27"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "K2-P1",
+      "family": "K2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "batch_size": "64",
+        "embedding_model": "titanet_large",
+        "scales": "5"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 2679,
+        "output_tokens": 725,
+        "cost_usd": 0.00042611,
+        "successful_calls": 4
+      },
+      "source_sha256": "546e93d3ee923d5c37edea5250cbe6c01f1512cfb965e9e08cbcaeb6acec0534"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "K2-P2",
+      "family": "K2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "batch_size": "256",
+        "embedding_model": "titanet_large",
+        "omp_threads": "16",
+        "scales": "5",
+        "workers": "4"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 5459,
+        "output_tokens": 817,
+        "cost_usd": 0.00051894,
+        "successful_calls": 6
+      },
+      "source_sha256": "523f9b2ccfeabffe678027661caf17b9e51370f662bc657fb606b58cdb2183c5"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "K3-P1",
+      "family": "K3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "leave_delay_ms": "150",
+        "title": "Yes"
+      },
+      "semantic_verdict": "fail",
+      "notes": "stale 150ms leave delay and an animated title",
+      "usage": {
+        "input_tokens": 1845,
+        "output_tokens": 442,
+        "cost_usd": 0.00029836,
+        "successful_calls": 3
+      },
+      "source_sha256": "bed8226c5317680b32d5e43fceb45a28e3f5413efd47f7128a3e28369e193278"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "K3-P2",
+      "family": "K3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "leave_delay_ms": "200",
+        "raf": "requestAnimationFrame",
+        "title": "Static, not animated"
+      },
+      "semantic_verdict": "fail",
+      "notes": "intermediate state: 200ms leave delay and active rAF",
+      "usage": {
+        "input_tokens": 3211,
+        "output_tokens": 1241,
+        "cost_usd": 0.00072502,
+        "successful_calls": 4
+      },
+      "source_sha256": "da0eb2161a9f097985425c1bc90dab6628e4578768bf874353450030e472db48"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "R1-P1",
+      "family": "R1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "1",
+        "max_children": "3",
+        "timeout_seconds": "0"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 2790,
+        "output_tokens": 720,
+        "cost_usd": 0.00045929,
+        "successful_calls": 4
+      },
+      "source_sha256": "d02886a9a02eda7e8c7e5332bcaf2c070b99027c0d74348b94bb11f931af470f"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "R1-P2",
+      "family": "R1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "current_max_children": "3",
+        "next_depth": "2",
+        "next_max_children": "5",
+        "next_timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 4419,
+        "output_tokens": 858,
+        "cost_usd": 0.00055717,
+        "successful_calls": 5
+      },
+      "source_sha256": "c9bbd8e0cf6fdcaa2ed12469de1a61c218d82239fd28e9d780c22ed852a8adb1"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "R2-P1",
+      "family": "R2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "docker_argument": "--shm-size=2g",
+        "order": "1. Groq Transcription (whisper-large-v3) → 2. NeMo Diarization → 3. Alignment"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 2926,
+        "output_tokens": 756,
+        "cost_usd": 0.0004786,
+        "successful_calls": 4
+      },
+      "source_sha256": "da80cddae80525880b53488e42f351d62ebc1c9c445e6f1db2e2e7c5bb20ad12"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "R2-P2",
+      "family": "R2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "docker_argument": "--shm-size=2g",
+        "embedding_model": "titanet_large",
+        "order": "1. Groq Transcription → 2. NeMo Diarization → 3. Alignment",
+        "scales": "5 scales"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 4641,
+        "output_tokens": 1418,
+        "cost_usd": 0.00084708,
+        "successful_calls": 5
+      },
+      "source_sha256": "e9570a8625578e7d785bb288d0b1f41f8920ee803d5af50246243fdb2e230aed"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "R3-P1",
+      "family": "R3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "2",
+        "max_children": "5",
+        "timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 3120,
+        "output_tokens": 580,
+        "cost_usd": 0.00039771,
+        "successful_calls": 4
+      },
+      "source_sha256": "e3e7577fcdb8dd0958605a36ea8eaf47e3f054bcbf89585e7e10f48c95ac9e45"
+    },
+    {
+      "arm": "cognee",
+      "task_id": "R3-P2",
+      "family": "R3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "2",
+        "max_children": "5",
+        "timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 2816,
+        "output_tokens": 590,
+        "cost_usd": 0.00039689,
+        "successful_calls": 4
+      },
+      "source_sha256": "d715cf1351abd6136e09bd3eebb9b69851fc23e710ff8e176ed3a915fbab7c7c"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "E1-P1",
+      "family": "E1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "entrypoint": "src/index.ts",
+        "production": "NO-GO",
+        "slice": "Wave 7A"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 20623,
+        "output_tokens": 704,
+        "cost_usd": 0.00094435,
+        "successful_calls": 4
+      },
+      "source_sha256": "7cc7fa3e8ad5abd44570203cedaeb83e714269a9cf27ed6e0464bcf1e60c4e30"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "E1-P2",
+      "family": "E1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "entrypoint_owner": "parent",
+        "migration_application": "not authorized",
+        "production": "NO-GO"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 21167,
+        "output_tokens": 920,
+        "cost_usd": 0.00106988,
+        "successful_calls": 4
+      },
+      "source_sha256": "1246f130c0ddf3f36b727fcc3e6d9feb4c8af5d7454c2f1a6eed19321a968275"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "E2-P1",
+      "family": "E2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "error": "GROQ_API_KEY environment variable was not set",
+        "test_status": "failed"
+      },
+      "semantic_verdict": "fail",
+      "notes": "reported an earlier container-start error instead of the final traceback",
+      "usage": {
+        "input_tokens": 15194,
+        "output_tokens": 597,
+        "cost_usd": 0.00086289,
+        "successful_calls": 3
+      },
+      "source_sha256": "178e576d1e531082c8950863444be998c06ce9d4b428e7139044c35e297c3fc2"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "E2-P2",
+      "family": "E2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "earlier_failure": "yes",
+        "segments": "4",
+        "speakers": "2",
+        "test_status": "completed"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 26642,
+        "output_tokens": 2909,
+        "cost_usd": 0.00210923,
+        "successful_calls": 5
+      },
+      "source_sha256": "4d5bd494069d0fa78c415e3a6538a17ef181e6ad361e4ae685a052ebb38b3626"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "E3-P1",
+      "family": "E3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "bottom_px": "-20",
+        "buffer": "::after",
+        "height_px": "20",
+        "location": "bottom only"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 27801,
+        "output_tokens": 849,
+        "cost_usd": 0.00109682,
+        "successful_calls": 5
+      },
+      "source_sha256": "156648e25dfcdb203fafb06bb490a52ed31821dff28de1dbb0fd8bfd2f508a98"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "E3-P2",
+      "family": "E3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "buffer": "absent",
+        "debounce": "absent",
+        "raf": "absent",
+        "title": "static"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 26342,
+        "output_tokens": 732,
+        "cost_usd": 0.00100302,
+        "successful_calls": 5
+      },
+      "source_sha256": "5e1acd867e0fb30246e24d0c0ef394ce297f3f93bd1f0f1169e9e06b040dce68"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "I1-P1",
+      "family": "I1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "diarizer": "NeMo Diarization"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 3512,
+        "output_tokens": 561,
+        "cost_usd": 0.00041397,
+        "successful_calls": 3
+      },
+      "source_sha256": "0aea62ff517e0ef87c723be8a35c74cfeccac2d0cfee3b1ef6c19b8596dbaf6a"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "I1-P2",
+      "family": "I1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "diarizer": "nemo_titanet_large",
+        "transcription_model": "whisper-large-v3"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 19984,
+        "output_tokens": 1327,
+        "cost_usd": 0.0012411,
+        "successful_calls": 4
+      },
+      "source_sha256": "3657b2f800d8855c776ec98acef6e670c624bc58b8ccd462b19b8c5f09c387fa"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "I2-P1",
+      "family": "I2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "demo_link": "MagneticButton",
+        "whole_card": "not MagneticButton"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 14781,
+        "output_tokens": 1368,
+        "cost_usd": 0.00123167,
+        "successful_calls": 3
+      },
+      "source_sha256": "90b5caf84d86ff17821e0170fae5476e5fce51db95afa2a4bcb3b097711f274b"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "I2-P2",
+      "family": "I2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "demo_link": "regular <a> without the magnet",
+        "whole_card": "MagneticButton wraps entire icon + card as a whole"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 14977,
+        "output_tokens": 597,
+        "cost_usd": 0.00084119,
+        "successful_calls": 3
+      },
+      "source_sha256": "fac5d1e12c339330da6d5c95902855aa5a689a23439d111c36383542e310dcbe"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "I3-P1",
+      "family": "I3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "child": "NicheFloat",
+        "child_state": "controlled",
+        "state_owner": "Niches.jsx"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 21384,
+        "output_tokens": 1610,
+        "cost_usd": 0.0014243,
+        "successful_calls": 4
+      },
+      "source_sha256": "334b91eeb2530fe27492210d95771f6cea25a468639f8180eaffa67f16941151"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "I3-P2",
+      "family": "I3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "child": "NicheFloat",
+        "child_state": "controlled",
+        "state_owner": "Niches.jsx"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 21732,
+        "output_tokens": 805,
+        "cost_usd": 0.00100744,
+        "successful_calls": 4
+      },
+      "source_sha256": "c2225adb32d8b70d0a0d49a6fa429f51fc160976994067a4d0a827876ea39571"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "K1-P1",
+      "family": "K1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "collapsed_background": "transparent",
+        "expanded_background": "var(--color-bg-card)"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 14575,
+        "output_tokens": 468,
+        "cost_usd": 0.00076107,
+        "successful_calls": 3
+      },
+      "source_sha256": "d809f4d47761a0f1fda62dd028cb2b37f0ebc95476e942f8c9b8bf8dd926645c"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "K1-P2",
+      "family": "K1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "collapsed_background": "transparent",
+        "leave_delay_ms": "350ms",
+        "width_px": "280px"
+      },
+      "semantic_verdict": "fail",
+      "notes": "stale 280px width and 350ms leave delay",
+      "usage": {
+        "input_tokens": 19689,
+        "output_tokens": 758,
+        "cost_usd": 0.00141747,
+        "successful_calls": 4
+      },
+      "source_sha256": "94b0a6f68d9a31bd76d77033de2f258f00e4fb9604d0ed0262812665fe3ee6b1"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "K2-P1",
+      "family": "K2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "batch_size": "64",
+        "embedding_model": "titanet_large",
+        "scales": "5"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 19224,
+        "output_tokens": 779,
+        "cost_usd": 0.00095254,
+        "successful_calls": 4
+      },
+      "source_sha256": "df27b63e14f999b74e8ac4b86497898a834bcea9fdcc9a56ac97410956b71956"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "K2-P2",
+      "family": "K2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "batch_size": "256",
+        "embedding_model": "titanet_large",
+        "omp_threads": "16",
+        "scales": "5",
+        "workers": "4"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 30317,
+        "output_tokens": 1194,
+        "cost_usd": 0.00123945,
+        "successful_calls": 6
+      },
+      "source_sha256": "22491021627fab4c9705043fb38002cb6d3f4c9053d0d9ff34cef12e5021fe30"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "K3-P1",
+      "family": "K3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "leave_delay_ms": "50ms",
+        "title": "always visible"
+      },
+      "semantic_verdict": "fail",
+      "notes": "50ms leave delay instead of the implemented 80ms",
+      "usage": {
+        "input_tokens": 14323,
+        "output_tokens": 1515,
+        "cost_usd": 0.00128394,
+        "successful_calls": 3
+      },
+      "source_sha256": "ecf8afd23d0b9ca4267cc753a307830d2f56e363915034b4aca4d9262e30bbf0"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "K3-P2",
+      "family": "K3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "leave_delay_ms": "350ms",
+        "raf": "200ms hard fallback, cancelled on new trigger",
+        "title": "always visible, niche-title--hidden removed"
+      },
+      "semantic_verdict": "fail",
+      "notes": "stale 350ms leave delay and an old rAF fallback",
+      "usage": {
+        "input_tokens": 19658,
+        "output_tokens": 2137,
+        "cost_usd": 0.001208,
+        "successful_calls": 4
+      },
+      "source_sha256": "26d8fe4584e938eac30976e2fdfaadaeae60bf1f1409ad39020d8a880bf7faef"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "R1-P1",
+      "family": "R1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "1",
+        "max_children": "3",
+        "timeout_seconds": "0"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 20774,
+        "output_tokens": 601,
+        "cost_usd": 0.00090795,
+        "successful_calls": 4
+      },
+      "source_sha256": "c5ac37f676799283028887a9d5f84e3cf6f606d40166b89cacb3937e027f6930"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "R1-P2",
+      "family": "R1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "current_max_children": "3",
+        "next_depth": "2",
+        "next_max_children": "5",
+        "next_timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 26648,
+        "output_tokens": 919,
+        "cost_usd": 0.00110254,
+        "successful_calls": 5
+      },
+      "source_sha256": "86dd98902a9176aca734adf67c411781c488e0e4a990a7f4cf8c08276abaaf3f"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "R2-P1",
+      "family": "R2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "cpu",
+        "docker_argument": "--shm-size=2g",
+        "order": "Groq + NeMo + Alignment"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 19572,
+        "output_tokens": 794,
+        "cost_usd": 0.00095798,
+        "successful_calls": 4
+      },
+      "source_sha256": "307293d506003ae71e4afe7c3c1ce19875665c9ce14cab207d90f1313c8a27b4"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "R2-P2",
+      "family": "R2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "docker_argument": "--shm-size=2g",
+        "embedding_model": "TitaNet-Large",
+        "order": "Stage 1 Groq Transcription, Stage 2 NeMo Diarization",
+        "scales": "multiscale (5 scales)"
+      },
+      "semantic_verdict": "fail",
+      "notes": "ordered stages omitted the final alignment step",
+      "usage": {
+        "input_tokens": 25052,
+        "output_tokens": 1298,
+        "cost_usd": 0.00126761,
+        "successful_calls": 5
+      },
+      "source_sha256": "87b1ab82d0818aab1a7ea05900d5643078c8561b6ba673518aac4042da887394"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "R3-P1",
+      "family": "R3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "2",
+        "max_children": "5",
+        "timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 20976,
+        "output_tokens": 458,
+        "cost_usd": 0.00037742,
+        "successful_calls": 4
+      },
+      "source_sha256": "407d505c0708daff3fac0b90a336be1430e5f2ee956f34ff4e00a73c35ac0cd5"
+    },
+    {
+      "arm": "hindsight",
+      "task_id": "R3-P2",
+      "family": "R3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "2",
+        "max_children": "5",
+        "timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 20676,
+        "output_tokens": 615,
+        "cost_usd": 0.00090515,
+        "successful_calls": 4
+      },
+      "source_sha256": "ecbc60bac14dea39a2f71b0297a4a1eb2d735839c0888f656a5c3c11a594ead1"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "E1-P1",
+      "family": "E1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "entrypoint": "index.ts",
+        "production": "NO-GO",
+        "slice": "Wave 7A dispatcher runtime wiring"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 6654,
+        "output_tokens": 956,
+        "cost_usd": 0.00068106,
+        "successful_calls": 4
+      },
+      "source_sha256": "dbf819053e3d2ba38de719b21bbfc9a19a7dcd2d3af521458a824d6071c7bdb6"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "E1-P2",
+      "family": "E1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "entrypoint_owner": "parent",
+        "migration_application": "forbidden",
+        "production": "NO-GO"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 8195,
+        "output_tokens": 1148,
+        "cost_usd": 0.00082057,
+        "successful_calls": 4
+      },
+      "source_sha256": "91587ff7992741c97c89bea1fc7385f78c9689a1301778f9779c51de5bf43e6e"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "E2-P1",
+      "family": "E2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "error": "AttributeError: 'dict' object has no attribute 'start'",
+        "test_status": "failed"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 4873,
+        "output_tokens": 710,
+        "cost_usd": 0.00053856,
+        "successful_calls": 3
+      },
+      "source_sha256": "7f09a181d064acc2a8ae35d3254d570ebbbd3fb2712c66111819a0cf54b4e28f"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "E2-P2",
+      "family": "E2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "earlier_failure": "yes",
+        "segments": "4",
+        "speakers": "2",
+        "test_status": "completed"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 10958,
+        "output_tokens": 985,
+        "cost_usd": 0.00078305,
+        "successful_calls": 5
+      },
+      "source_sha256": "448400e7f1924d677bb84aa191a89378602ab243051ff7af3da2fb99b2304556"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "E3-P1",
+      "family": "E3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "bottom_px": "-20",
+        "buffer": "::after pseudo-element",
+        "height_px": "20",
+        "location": "bottom only"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 10472,
+        "output_tokens": 2402,
+        "cost_usd": 0.00146753,
+        "successful_calls": 5
+      },
+      "source_sha256": "68279ee5c49d0e5cba97954ff4427b84c56843ff2c4e23d42bcf523167666b83"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "E3-P2",
+      "family": "E3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "buffer": "absent",
+        "debounce": "absent",
+        "raf": "absent",
+        "title": "static"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 9683,
+        "output_tokens": 1123,
+        "cost_usd": 0.00081057,
+        "successful_calls": 5
+      },
+      "source_sha256": "f093cd6dd5d4e37d2c7c1185c68278b236bad0d904c3fbfb89e558511de6ec7f"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "I1-P1",
+      "family": "I1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "diarizer": "NeMo Diarization"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 2673,
+        "output_tokens": 605,
+        "cost_usd": 0.00040122,
+        "successful_calls": 3
+      },
+      "source_sha256": "d33a3ea23dd4d8699da514b642bf59f073cd6d29981b3322dfe08e70c1d7aaff"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "I1-P2",
+      "family": "I1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "diarizer": "NeMo Diarization",
+        "transcription_model": "whisper-large-v3"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 6853,
+        "output_tokens": 816,
+        "cost_usd": 0.00061868,
+        "successful_calls": 4
+      },
+      "source_sha256": "4ce1bbec10be85d714f30a254bea2897dcece228d4d282369bc42c4453974c51"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "I2-P1",
+      "family": "I2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "demo_link": "no",
+        "whole_card": "yes"
+      },
+      "semantic_verdict": "fail",
+      "notes": "inverted facts: retrieved an older user request, not the implementation report",
+      "usage": {
+        "input_tokens": 4589,
+        "output_tokens": 2411,
+        "cost_usd": 0.00137294,
+        "successful_calls": 3
+      },
+      "source_sha256": "a69d5870844571b39af8134e691bca4c16fcd585ae42253644f691f8e7a023ef"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "I2-P2",
+      "family": "I2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "demo_link": "regular <a> without magnet",
+        "whole_card": "MagneticButton wraps entire icon + card"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 4610,
+        "output_tokens": 855,
+        "cost_usd": 0.00059704,
+        "successful_calls": 3
+      },
+      "source_sha256": "f1f9b5ccbd98d83f385a890fc69509a90347e0c93f6d52927021b431efa94733"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "I3-P1",
+      "family": "I3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "child": "NicheFloat",
+        "child_state": "controlled",
+        "state_owner": "Niches.jsx"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 7710,
+        "output_tokens": 727,
+        "cost_usd": 0.00059844,
+        "successful_calls": 4
+      },
+      "source_sha256": "699c7319859b35c918c5713dd304006b2a364839812f2a874153ca1b4a519d87"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "I3-P2",
+      "family": "I3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "child": "NicheFloat",
+        "child_state": "controlled",
+        "state_owner": "Niches.jsx"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 7706,
+        "output_tokens": 782,
+        "cost_usd": 0.00060096,
+        "successful_calls": 4
+      },
+      "source_sha256": "c445d47c89183ee9ad6c49befcfc3ab8ba50393108534b2cf6776f75a8f2ecdf"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "K1-P1",
+      "family": "K1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "collapsed_background": "transparent",
+        "expanded_background": "var(--color-bg-card)"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 4753,
+        "output_tokens": 654,
+        "cost_usd": 0.00051084,
+        "successful_calls": 3
+      },
+      "source_sha256": "adfc7d54885789d79277d6d3890bbc16f1c367f67733807655b00cb3eb70a76e"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "K1-P2",
+      "family": "K1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "collapsed_background": "none",
+        "leave_delay_ms": "0ms",
+        "width_px": "340px"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 6474,
+        "output_tokens": 1839,
+        "cost_usd": 0.00111685,
+        "successful_calls": 4
+      },
+      "source_sha256": "c020009c5262199a28490d4cdb014373623da8028dc985825b2173ca4624b2bb"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "K2-P1",
+      "family": "K2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "batch_size": "64",
+        "embedding_model": "TitaNet-Large",
+        "scales": "multiscale"
+      },
+      "semantic_verdict": "fail",
+      "notes": "answered multiscale without the exact count 5",
+      "usage": {
+        "input_tokens": 7774,
+        "output_tokens": 1032,
+        "cost_usd": 0.00075734,
+        "successful_calls": 4
+      },
+      "source_sha256": "b790c5dfdb954dfe7a41161a35812bc6a73d112f8e3b9ce38c2f21f0b8ec8e72"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "K2-P2",
+      "family": "K2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "batch_size": "256",
+        "embedding_model": "TitaNet-Large",
+        "omp_threads": "16",
+        "scales": "multiscale",
+        "workers": "4"
+      },
+      "semantic_verdict": "fail",
+      "notes": "answered multiscale without the exact count 5",
+      "usage": {
+        "input_tokens": 12888,
+        "output_tokens": 1265,
+        "cost_usd": 0.00093288,
+        "successful_calls": 6
+      },
+      "source_sha256": "80df39437136e9be6666a60492f81b1300961c035ef6c562f9d5c749b533a178"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "K3-P1",
+      "family": "K3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "leave_delay_ms": "50-100ms",
+        "title": "yes"
+      },
+      "semantic_verdict": "fail",
+      "notes": "stale leave delay and an animated title",
+      "usage": {
+        "input_tokens": 4655,
+        "output_tokens": 1690,
+        "cost_usd": 0.00101904,
+        "successful_calls": 3
+      },
+      "source_sha256": "418d26610f654447d286aa37ccb0dc082475f4fb142a7ffe243de14130fb89dc"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "K3-P2",
+      "family": "K3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "leave_delay_ms": "200ms",
+        "raf": "requestAnimationFrame loop checking getBoundingClientRect of all triggers each frame on mouseleave",
+        "title": "Niches.jsx"
+      },
+      "semantic_verdict": "fail",
+      "notes": "stale state: 200ms leave delay, active rAF, class name as title",
+      "usage": {
+        "input_tokens": 6869,
+        "output_tokens": 3111,
+        "cost_usd": 0.00176778,
+        "successful_calls": 4
+      },
+      "source_sha256": "977e0b0ee64f8537f84a25a8d78d2082efb42112fe0af55da8f02a29d5edbf6e"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "R1-P1",
+      "family": "R1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "1",
+        "max_children": "3",
+        "timeout_seconds": "0"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 6093,
+        "output_tokens": 663,
+        "cost_usd": 0.00051533,
+        "successful_calls": 4
+      },
+      "source_sha256": "b103bc5399741254b3815606cab39e7aee4a3be20bfbe8644457842944884aac"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "R1-P2",
+      "family": "R1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "current_max_children": "unknown",
+        "next_depth": "unknown",
+        "next_max_children": "unknown",
+        "next_timeout_seconds": "unknown"
+      },
+      "semantic_verdict": "fail",
+      "notes": "answered unknown for all four limit parameters",
+      "usage": {
+        "input_tokens": 8045,
+        "output_tokens": 2962,
+        "cost_usd": 0.00170144,
+        "successful_calls": 5
+      },
+      "source_sha256": "fb9abd7e370152ceb6dc9c41903aa46d5d75e3272963413deb5d3442a7ea6afc"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "R2-P1",
+      "family": "R2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "docker_argument": "--shm-size=2g",
+        "order": "Groq transcription, NeMo diarization, merging transcription and diarization segments"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 7032,
+        "output_tokens": 687,
+        "cost_usd": 0.00055979,
+        "successful_calls": 4
+      },
+      "source_sha256": "9e0ca983ebb3034c5b1c45b0d427ff12a97c3d8bec534329b7f1ddc0a1dcd325"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "R2-P2",
+      "family": "R2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "docker_argument": "--shm-size=2g",
+        "embedding_model": "TitaNet-Large",
+        "order": "Groq transcription, NeMo Diarization, merging transcription and diarization segments",
+        "scales": "5 scales"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 10039,
+        "output_tokens": 875,
+        "cost_usd": 0.00069759,
+        "successful_calls": 5
+      },
+      "source_sha256": "147a04704c1fb8f285269732ac0d427f489918d6b6a8cc5b8e30022bccc5d3bc"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "R3-P1",
+      "family": "R3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "2",
+        "max_children": "5",
+        "timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 6297,
+        "output_tokens": 641,
+        "cost_usd": 0.00051244,
+        "successful_calls": 4
+      },
+      "source_sha256": "9c4a5b5c9d5492ddde0e569c06a7902596dae57ce84704f8e794363091548c7d"
+    },
+    {
+      "arm": "mem0_oss",
+      "task_id": "R3-P2",
+      "family": "R3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "2",
+        "max_children": "5",
+        "timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 6169,
+        "output_tokens": 747,
+        "cost_usd": 0.00056493,
+        "successful_calls": 4
+      },
+      "source_sha256": "2125effcca0e4e1db0f19d77b47bf9544a9284e21796f124249741ba08f8d939"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "E1-P1",
+      "family": "E1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "entrypoint": "src/index.ts",
+        "production": "NO-GO",
+        "slice": "Wave 7A"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 6424,
+        "output_tokens": 705,
+        "cost_usd": 0.00055714,
+        "successful_calls": 4
+      },
+      "source_sha256": "3a0e56bba67bcacc3b641db51dae1a759a04629b2aae04099b838aa2245610fe"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "E1-P2",
+      "family": "E1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "entrypoint_owner": "parent",
+        "migration_application": "not authorized",
+        "production": "NO-GO"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 8626,
+        "output_tokens": 1917,
+        "cost_usd": 0.0012236,
+        "successful_calls": 4
+      },
+      "source_sha256": "0a76e28fa766fdb430792a5301c92f67b830c21d1af376bc064b152e3550e047"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "E2-P1",
+      "family": "E2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "error": "GROQ_API_KEY environment variable not set",
+        "test_status": "failed"
+      },
+      "semantic_verdict": "fail",
+      "notes": "reported an earlier container-start error",
+      "usage": {
+        "input_tokens": 5940,
+        "output_tokens": 745,
+        "cost_usd": 0.00060132,
+        "successful_calls": 3
+      },
+      "source_sha256": "5fd5389a85d2feb01c892227a638beb4027e66da0e4cfd3a8ad61c8f350f55a8"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "E2-P2",
+      "family": "E2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "earlier_failure": "no",
+        "segments": "4",
+        "speakers": "2",
+        "test_status": "completed"
+      },
+      "semantic_verdict": "fail",
+      "notes": "earlier_failure=no contradicts the observed failure",
+      "usage": {
+        "input_tokens": 10025,
+        "output_tokens": 1859,
+        "cost_usd": 0.00118819,
+        "successful_calls": 5
+      },
+      "source_sha256": "7012f58b069da11ae5c360b4e786d152aaac5afd2f40d3abb48765d349469744"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "E3-P1",
+      "family": "E3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "bottom_px": "-20",
+        "buffer": "wrapper element",
+        "height_px": "20",
+        "location": "all sides"
+      },
+      "semantic_verdict": "fail",
+      "notes": "wrapper element / all sides instead of ::after / bottom only",
+      "usage": {
+        "input_tokens": 8850,
+        "output_tokens": 3722,
+        "cost_usd": 0.00211163,
+        "successful_calls": 5
+      },
+      "source_sha256": "8ae50822e03b069c7d01600724021a54614f0490e09bad1057e9d0f9addf0bcf"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "E3-P2",
+      "family": "E3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "buffer": "absent",
+        "debounce": "absent",
+        "raf": "absent",
+        "title": "static"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 6853,
+        "output_tokens": 880,
+        "cost_usd": 0.00062725,
+        "successful_calls": 5
+      },
+      "source_sha256": "7e84f2a828b8bcf1d6c896f307bed05dd6e3899b91bd74582fe58d5e93664ee4"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "I1-P1",
+      "family": "I1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "diarizer": "NeMo Diarization"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 5021,
+        "output_tokens": 532,
+        "cost_usd": 0.00042749,
+        "successful_calls": 3
+      },
+      "source_sha256": "354fff8e37e7e6e41cb44172b3bf9865760431e3157640c1c47344b1d138a093"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "I1-P2",
+      "family": "I1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "diarizer": "NeMo ClusteringDiarizer",
+        "transcription_model": "whisper-large-v3"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 8827,
+        "output_tokens": 1286,
+        "cost_usd": 0.00086676,
+        "successful_calls": 4
+      },
+      "source_sha256": "575cb4dd0a7ee8f5586bc6668bea00192c711ee60aac8dde6274912c520beddc"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "I2-P1",
+      "family": "I2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "demo_link": "Ver demo / Consultar demo WhatsApp CTA button wrapped in MagneticButton",
+        "whole_card": "Not the whole niche card"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 2614,
+        "output_tokens": 1475,
+        "cost_usd": 0.00085375,
+        "successful_calls": 3
+      },
+      "source_sha256": "f9909fd650a435a5abfded7b5af84337cef096e435ea00f460e0a14e581a54b5"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "I2-P2",
+      "family": "I2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "demo_link": "regular <a> without MagneticButton",
+        "whole_card": "MagneticButton wraps entire niche icon + card in NicheFloat.jsx"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 2555,
+        "output_tokens": 928,
+        "cost_usd": 0.0005755,
+        "successful_calls": 3
+      },
+      "source_sha256": "0a94b502c2cbdc939b89a62fd644f977918f967992bcc3b9c5a3eb9c3129f401"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "I3-P1",
+      "family": "I3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "child": "unknown",
+        "child_state": "unknown",
+        "state_owner": "Niches.jsx"
+      },
+      "semantic_verdict": "fail",
+      "notes": "child and child_state unknown",
+      "usage": {
+        "input_tokens": 5818,
+        "output_tokens": 3314,
+        "cost_usd": 0.00184904,
+        "successful_calls": 4
+      },
+      "source_sha256": "a0ea94b078efcd0810b69286faccdf79c3bf365ea9012941a67e553a27a5df92"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "I3-P2",
+      "family": "I3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "child": "NicheFloat",
+        "child_state": "controlled",
+        "state_owner": "Niches.jsx"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 5942,
+        "output_tokens": 1046,
+        "cost_usd": 0.00067944,
+        "successful_calls": 4
+      },
+      "source_sha256": "792fce40c5f36c6bf70c208d243940f7d8be96b289f4060cf30cfb9b8a6e9767"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "K1-P1",
+      "family": "K1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "collapsed_background": "transparent",
+        "expanded_background": "var(--color-bg-card)"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 3918,
+        "output_tokens": 523,
+        "cost_usd": 0.000411,
+        "successful_calls": 3
+      },
+      "source_sha256": "fcdd83ab379449de8f9894fe1a75f986121881c035ee313274caccd323ad0bb3"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "K1-P2",
+      "family": "K1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "collapsed_background": "rgba(255, 255, 255, 0.05)",
+        "leave_delay_ms": "0",
+        "width_px": "340px"
+      },
+      "semantic_verdict": "fail",
+      "notes": "stale rgba background instead of transparent",
+      "usage": {
+        "input_tokens": 5592,
+        "output_tokens": 1994,
+        "cost_usd": 0.00117988,
+        "successful_calls": 4
+      },
+      "source_sha256": "7fdb0ce1817bca1b3bc7677bcbbe148b60ab313d2ee77aedac5d74ae12854f10"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "K2-P1",
+      "family": "K2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "batch_size": "64",
+        "embedding_model": "TitaNet-Large",
+        "scales": "5"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 6284,
+        "output_tokens": 589,
+        "cost_usd": 0.00048514,
+        "successful_calls": 4
+      },
+      "source_sha256": "02995bb194e1fa0e0c31a2f4ddeaa14fdd75ab60f0980a4baa798ffa219d70eb"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "K2-P2",
+      "family": "K2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "batch_size": "256",
+        "embedding_model": "TitaNet-Large",
+        "omp_threads": "16",
+        "scales": "5",
+        "workers": "4"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 12839,
+        "output_tokens": 780,
+        "cost_usd": 0.00068548,
+        "successful_calls": 6
+      },
+      "source_sha256": "ea9f518f5262000b9d80f60b22a591ec3cc4b1aa0bf217fce7eadb8eb6a1291f"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "K3-P1",
+      "family": "K3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "leave_delay_ms": "50-100ms",
+        "title": "Niches"
+      },
+      "semantic_verdict": "fail",
+      "notes": "range 50-100ms and no static title",
+      "usage": {
+        "input_tokens": 2948,
+        "output_tokens": 1103,
+        "cost_usd": 0.00067657,
+        "successful_calls": 3
+      },
+      "source_sha256": "2fcff35b12f9672dbbd7972104c5aaa6e1d1c4bbc9530080df462cb3c57227a8"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "K3-P2",
+      "family": "K3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "leave_delay_ms": "50-100ms",
+        "raf": "requestAnimationFrame",
+        "title": "niche-expand-trigger"
+      },
+      "semantic_verdict": "fail",
+      "notes": "stale state: 50-100ms, active rAF, class as title",
+      "usage": {
+        "input_tokens": 5652,
+        "output_tokens": 4657,
+        "cost_usd": 0.00250509,
+        "successful_calls": 4
+      },
+      "source_sha256": "744e6191572ecf2752ddf52c90769c963b886db758698f7bfca23255b1cc6da0"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "R1-P1",
+      "family": "R1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "1",
+        "max_children": "3",
+        "timeout_seconds": "0"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 4974,
+        "output_tokens": 624,
+        "cost_usd": 0.00046994,
+        "successful_calls": 4
+      },
+      "source_sha256": "4a9b09a9e7087ecbe883536d0606431c0145b53914182fa92cbf54c92781fde5"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "R1-P2",
+      "family": "R1",
+      "stage": "historical_continuation",
+      "recorded": {
+        "current_max_children": "3",
+        "next_depth": "2",
+        "next_max_children": "5",
+        "next_timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 9335,
+        "output_tokens": 761,
+        "cost_usd": 0.00061934,
+        "successful_calls": 5
+      },
+      "source_sha256": "a08d761ae37bfad16b0fd0badd7e6abc87ec0d48576d998e8896b71aff68dd88"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "R2-P1",
+      "family": "R2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "device": "CPU",
+        "docker_argument": "--shm-size=2g",
+        "order": "diarization then transcription"
+      },
+      "semantic_verdict": "fail",
+      "notes": "reversed order: diarization before transcription",
+      "usage": {
+        "input_tokens": 10898,
+        "output_tokens": 1090,
+        "cost_usd": 0.00064408,
+        "successful_calls": 4
+      },
+      "source_sha256": "37b43b9e06c17a2ef1066f1e1191c11c4bbe8054ed00fe44bd8cd8dd2db41bf4"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "R2-P2",
+      "family": "R2",
+      "stage": "historical_continuation",
+      "recorded": {
+        "docker_argument": "/data/input.mp3",
+        "embedding_model": "TitaNet",
+        "order": "chunking → Groq → NeMo → alignment → JSON",
+        "scales": "multiscale"
+      },
+      "semantic_verdict": "fail",
+      "notes": "wrong docker argument, TitaNet without -Large, scales without 5",
+      "usage": {
+        "input_tokens": 8009,
+        "output_tokens": 3660,
+        "cost_usd": 0.00205797,
+        "successful_calls": 5
+      },
+      "source_sha256": "6a7bf76072aa819d15ea9bb9c90d699beb9a9f37f6a9d48827958edac6dfc324"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "R3-P1",
+      "family": "R3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "2",
+        "max_children": "5",
+        "timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 5636,
+        "output_tokens": 538,
+        "cost_usd": 0.00044399,
+        "successful_calls": 4
+      },
+      "source_sha256": "a3b32c084ee4a10a41a39c69bbb5eee046277eb630c6f9704ff51c8a653c2ee8"
+    },
+    {
+      "arm": "supermemory_local",
+      "task_id": "R3-P2",
+      "family": "R3",
+      "stage": "historical_continuation",
+      "recorded": {
+        "depth": "2",
+        "max_children": "5",
+        "timeout_seconds": "1800"
+      },
+      "semantic_verdict": "pass",
+      "notes": "",
+      "usage": {
+        "input_tokens": 5872,
+        "output_tokens": 482,
+        "cost_usd": 0.00043844,
+        "successful_calls": 4
+      },
+      "source_sha256": "213f4d522bd647271b286852ab23a7cadab6c2be102efe8835cc3a0b8d8edde4"
     }
   ]
 }

@@ -9,9 +9,9 @@
 </p>
 
 <p align="center">
-  <img alt="Stable release: 4.1.0" src="https://img.shields.io/badge/stable-4.1.0-2563eb">
+  <img alt="Stable release: 5.0.0" src="https://img.shields.io/badge/stable-5.0.0-2563eb">
   <img alt="Local first" src="https://img.shields.io/badge/memory-local--first-16a34a">
-  <img alt="Five stable agent adapters" src="https://img.shields.io/badge/adapters-5_stable-2563eb">
+  <img alt="Six supported agent adapters" src="https://img.shields.io/badge/adapters-6_supported-2563eb">
   <img alt="Core network access: none" src="https://img.shields.io/badge/Core_network_access-none-111827">
 </p>
 
@@ -43,54 +43,53 @@ knowledge layer.
 
 [See the benchmark](BENCHMARK.md) · [Follow releases](https://github.com/sl4m3/ledgermind/releases) · [Contact LedgerMind](mailto:s.zotov@ledgermind.org)
 
-> **Current stable release:** `4.1.0` for supported Linux hosts.
+> **Current stable release:** `5.0.0` for supported Linux hosts.
 
 ## Memory lifecycle, measured end to end
 
-The Memory Lifecycle Benchmark measures the whole memory loop on real project
-history: work is captured, the memory system forms and updates its own store,
-and a fresh agent later answers questions using only that arm's retrieval. The
-same **12 scenarios**, **24 probes** and **73 checked fields** were run against
-**nine configurations** on the same frozen corpus.
+The Memory Lifecycle Benchmark evaluates the full memory loop on real project
+history across **12 scenarios** in four families—**E** (execution),
+**I** (identity), **K** (knowledge evolution), and **R** (delivery)—totalling
+**24 probes** and **73 checked fields** across **eight configurations** on the
+same frozen corpus. Answers come from a fresh agent seeing only each arm's
+retrieval and are scored by a **completed manual semantic review**, not an LLM
+judge.
 
-The corpus is frozen at
-`sha256:1fd4d52163294f166fd481569bb6ab3f5654852ad0e3bdace72f74ce6158934f`
-and the run config at
-`sha256:645e9b85c1c175c3a16fe45439d2333b55433bf62b0ff22416e8375b51a8cf42`.
-Every arm used `meta/muse-ember` (agent reasoning `low`, memory reasoning
-`minimal`, route `google-vertex/global`). The run configuration specifies the
-local 2048-dimension `nemotron-3-embed-1b-bf16` embedding; Claude-Mem used its
-built-in 384-dimension ONNX model and Supermemory used a 2000-dimension
-Matryoshka slice, as recorded in their manifests.
+| Configuration | Version | Semantic, 24 probes / 73 fields | Agent input tokens | Agent cost (24 probes) | Total cost |
+|---|---:|---:|---:|---:|---:|
+| **LedgerMind** | 5.0.0 | **24/24, 73/73** | **269,844** | **$0.023185** | **$0.345350** |
+| Raw history | — | 24/24, 73/73 | 14,531,917 | $0.407496 | $0.407496 |
+| ReMe | 0.4.2.3 | 24/24, 73/73 | 366,693 | $0.023676 | $1.085034 |
+| Claude-Mem | 16.0.4 | 22/24, 68/73 | 514,426 | $0.032235 | $0.607301 |
+| Cognee | 1.6.10 | 21/24, 68/73 | 79,039 | $0.012222 | $0.765784 |
+| Hindsight | 1.2.3 | 19/24, 66/73 | 500,616 | $0.033248 | $1.585927 |
+| Mem0 OSS | 2.2.1 | 18/24, 60/73 | 172,064 | $0.019947 | $0.288878 |
+| Supermemory Local | 0.0.9 | 15/24, 57/73 | 162,023 | $0.024472 | $0.893317 |
 
-Accuracy below is from a **completed manual semantic review** of the recorded
-answers, not an LLM judge. The literal column is the separate, stricter
-`evaluate_action_task` score.
+![Semantic accuracy versus total cost](benchmarks/memory-lifecycle-2026-11-22/accuracy-vs-cost.svg)
 
-| Configuration | Version | Semantic, 24 probes / 73 fields | Memory-dependent, 22 / 65 | Literal | Agent input tokens | Total cost |
-|---|---:|---:|---:|---:|---:|---:|
-| **LedgerMind** | — | **24/24, 73/73** | **22/22, 65/65** | 16/24, 61/73 | 269,844 | **$0.345350** |
-| ReMe | 0.4.2.3 | 24/24, 73/73 | 22/22, 65/65 | 15/24, 60/73 | 366,693 | $1.085034 |
-| Raw history | — | 24/24, 73/73 | 22/22, 65/65 | 18/24, 64/73 | 14,531,917 | $0.407496 |
-| Claude-Mem | 16.0.4 | 22/24, 68/73 | 21/22, 63/65 | 17/24, 59/73 | 514,426 | $0.607301 |
-| Cognee | 1.6.10 | 21/24, 68/73 | 19/22, 60/65 | 15/24, 56/73 | 79,039 | $0.765784 |
-| Hindsight | 1.2.3 | 19/24, 66/73 | 17/22, 58/65 | 15/24, 57/73 | 500,616 | $1.585927 |
-| Mem0 OSS | 2.2.1 | 18/24, 60/73 | 16/22, 52/65 | 12/24, 51/73 | 172,064 | $0.288878 |
-| Supermemory Local | 0.0.9 | 15/24, 57/73 | 14/22, 51/65 | 12/24, 51/73 | 162,023 | $0.893317 |
-| No memory | — | 2/24, 8/73 | 0/22, 0/65 | 2/24, 8/73 | 69,592 | $0.019096 |
+LedgerMind reached **24/24 probes and 73/73 fields** for **$0.345350 total**
+(**$0.023185** on the 24 agent probes after one-time memory formation across 323
+rounds):
 
-LedgerMind reached **24/24 probes and 73/73 fields for $0.345350**. ReMe also
-reached 24/24, but at **$1.085034 — 3.14× the cost**. Raw history also reached
-24/24, yet only by feeding the agent **14.5M input tokens** (53.9× LedgerMind's
-269,844) and still costing $0.407496. The no-memory control scored **2/24**:
-it guessed only the two probes (E3-P1, E3-P2) whose field contracts suggest the
-expected defaults.
+- **Versus Raw history:** Raw history also reaches 24/24, but only by feeding
+  the agent **14,531,917 input tokens (53.9× LedgerMind)** and spending
+  **$0.407496 on the 24 probes (17.6× LedgerMind's query cost)** while replaying
+  the full private transcript on every call. LedgerMind keeps a compact store of
+  1,343 active knowledge values across 195 memory objects.
+- **Versus ReMe:** ReMe reaches 24/24 at **$1.085034 (3.14× LedgerMind's total
+  cost)** and depends on two accepted borderlines (`blocked` in
+  `E2-P1.test_status` and listing five scales instead of `5` in `R2-P2`; a
+  stricter reading puts ReMe at **22/24, 71/73**).
 
-ReMe's 24/24 depends on two accepted borderlines. A stricter reading that
-rejects `blocked` as a value for `E2-P1.test_status` and rejects listing five
-explicit scales instead of the number `5` in `R2-P2` puts ReMe at **22/24,
-71/73** overall (**20/22, 63/65** on memory-dependent probes). Both alternatives
-are published alongside the base score.
+> **Reproducibility & pins:** Frozen corpus
+> `sha256:1fd4d52163294f166fd481569bb6ab3f5654852ad0e3bdace72f74ce6158934f`
+> and run config
+> `sha256:645e9b85c1c175c3a16fe45439d2333b55433bf62b0ff22416e8375b51a8cf42`;
+> model `meta/muse-ember` (agent reasoning `low`, memory reasoning `minimal`,
+> route `google-vertex/global`); local 2048d `nemotron-3-embed-1b-bf16`
+> embeddings (Claude-Mem used its built-in 384d ONNX model; Supermemory used a
+> 2000d Matryoshka slice).
 
 [Read the full benchmark report](BENCHMARK.md) or inspect the
 [sanitized per-probe evidence](benchmarks/memory-lifecycle-2026-11-22/README.md).
@@ -107,7 +106,7 @@ how impressive the stored notes sound.
 
 ### Install in one command
 
-LedgerMind 4.1.0 is available for Linux x86_64. The interactive installer
+LedgerMind `5.0.0` is available for **Linux x86_64**. The interactive installer
 detects supported agents, collects the model configuration, verifies the signed
 release, and connects the integrations you select:
 
@@ -122,37 +121,17 @@ non-interactive deployment.
 
 | You are… | Start here |
 |---|---|
-| Using an agent and tired of repeating yourself | [Install LedgerMind 4.1.0](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
-| Building an agent, IDE, or local assistant | Explore [Integrations](https://github.com/sl4m3/ledgermind-integrations) and the [Local runtime](https://github.com/sl4m3/ledgermind-local) |
+| Using an agent and tired of repeating yourself | [Install LedgerMind 5.0.0](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
+| Building an agent, IDE, or local assistant | Explore [`integrations/`](integrations) and [`local/`](local) |
 | Running an AI platform or enterprise deployment | [Contact LedgerMind](mailto:s.zotov@ledgermind.org) for evaluation, deployment, and licensing |
 | Comparing memory systems | Jump to the [benchmark results](#memory-lifecycle-measured-end-to-end) and [full methodology](BENCHMARK.md) |
 
 ## Where LedgerMind is available
 
-LedgerMind is available as two clearly separated products. **LedgerMind
-Local** is the self-hosted runtime: it runs next to your agent, uses models you
-configure, and keeps the memory boundary on your host. **LedgerMind Cloud** is
-the managed API: the **LedgerMind Cloud Connector** connects the agent with a
-workspace API key, while memory processing and storage run in the managed
-service.
-
-| What is available | Where |
-|---|---|
-| Product page, documentation, benchmark, and release announcements | [github.com/sl4m3/ledgermind](https://github.com/sl4m3/ledgermind) |
-| LedgerMind Cloud account and managed workspaces | [ledgermind.org](https://ledgermind.org) |
-| LedgerMind Cloud Connector releases and checksums | [github.com/sl4m3/ledgermind/releases](https://github.com/sl4m3/ledgermind/releases) (tags `cloud-v*`) |
-| Public agent adapters and protocol contracts | [`integrations/`](integrations) and [`protocol/`](protocol) in this repository |
-| Inspectable local runtime and installer source | [`local/`](local) in this repository |
-| Signed self-hosted 4.1.0 package | [GitHub Releases](https://github.com/sl4m3/ledgermind/releases/latest) |
-| Enterprise evaluation, deployment, and licensing | [s.zotov@ledgermind.org](mailto:s.zotov@ledgermind.org) |
-
-The architecture described here belongs to LedgerMind 4.0. Signed stable
-packages are published through GitHub Releases. Existing 3.x release tags are
-legacy releases and should not be used as installation packages for this
-README.
-
-The published `4.1.0` package supports **Linux x86_64**. Linux aarch64 is part
-of the platform design, but no aarch64 package is included in this release.
+LedgerMind ships as two clearly separated products: **LedgerMind Local** (the
+self-hosted runtime next to your agent using models you configure) and
+**LedgerMind Cloud** (managed workspaces on [ledgermind.org](https://ledgermind.org)
+via the lightweight Cloud Connector).
 
 | Agent | Integration | Activation note |
 |---|---:|---|
@@ -163,27 +142,26 @@ of the platform design, but no aarch64 package is included in this release.
 | OpenCode | Available | Restart an already running session |
 | OpenClaw | Available | Restart an already running session |
 
+The published `5.0.0` package supports **Linux x86_64** (Linux aarch64 is part
+of the platform design, not included in this release). Legacy `3.x` and `4.x`
+release tags should not be used as installation packages for this README.
+
 ## Installation
 
 LedgerMind installs without root access into the current user's XDG
-directories. Docker is not required. The installer verifies the signed
-manifest, platform bundle, Core binary, and applicable runtime artifacts before
-switching the active version.
-
-> **Public-install status:** the signed LedgerMind `4.1.0` release is available
-> from GitHub Releases. The `latest` installation URL below resolves to this
-> stable release.
+directories. Docker is not required and is not a supported secure deployment
+path for `5.0.0`. The installer verifies the signed manifest, platform bundle,
+Core binary, and applicable runtime artifacts before switching the active
+version.
 
 ### Requirements
 
 - Linux x86_64 with glibc 2.31 or newer;
-- `bubblewrap` (`bwrap`) available to the current user; secure Core startup is
-  fail-closed when the required isolation probe does not pass;
+- `bubblewrap` (`bwrap`) available to the current user (Core startup fails
+  closed if the isolation probe does not pass);
 - an installed supported agent;
 - a generation provider and model with strict JSON Schema structured outputs;
 - an OpenAI-compatible embedding API or the supported local embedding runtime.
-
-Docker is not a supported secure deployment path for `4.1.0`.
 
 ### Choose your setup
 
@@ -198,67 +176,49 @@ Docker is not a supported secure deployment path for `4.1.0`.
 Before installation, decide:
 
 1. which supported agent or agents should use the memory;
-2. the language in which LedgerMind should form semantic knowledge;
+2. the language in which LedgerMind should form semantic knowledge (English,
+   Russian, Spanish, Portuguese, French, German, or Ukrainian);
 3. the OpenAI-compatible generation endpoint and model;
 4. whether embeddings should use an API or the signed local CPU runtime;
 5. whether retrieval reranking is disabled, provided by an API, or performed
    by the separately installed local CPU runtime;
-6. how provider credentials will be supplied.
-
-Supported semantic languages are English, Russian, Spanish, Portuguese,
-French, German, and Ukrainian. Provider credentials belong to Local and are
-never passed to Core. For automated installs, prefer `token_env`,
-`token_stdin`, or an existing `secret_ref`; do not place a plaintext token in
-the configuration file.
+6. how provider credentials will be supplied (`token_env`, `token_stdin`, or an
+   existing `secret_ref`; never place a plaintext token in the config file).
 
 ### 2. Run the interactive installer
-
-For a normal user installation, this is the whole starting point:
 
 ```bash
 curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh | sh
 ```
 
-Then the installer:
-
-1. detects the Linux platform and installed agents;
-2. asks which agents should receive memory;
-3. asks for generation, embedding, and optional reranker settings;
-4. downloads and verifies the signed platform bundle;
-5. installs LedgerMind without root access;
-6. connects the selected agents;
-7. runs installation checks and reports anything still requiring attention.
+The wizard detects the Linux platform and installed agents, asks for your
+selected agents and model/runtime settings, verifies the signed platform bundle,
+installs without root access, connects the selected agents, and runs
+installation checks.
 
 ### 3. Or let an agent install it non-interactively
 
-An agent or deployment system should first collect the same choices from the
-user. It then generates a private configuration file and performs one
-non-interactive installation.
+Collect the deployment choices above, write a private config file with
+owner-only permissions, and run one command:
 
-#### Choose a generation model
+```bash
+chmod 600 /secure/ledgermind-install.json
+curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh \
+  | sh -s -- install --non-interactive \
+      --config /secure/ledgermind-install.json --json
+```
 
-LedgerMind relies on the generation model for semantic extraction, Object
-Resolution, and Knowledge Resolution. For reliable production behavior, use a
-model with **120B parameters or more** and an endpoint that supports **strict
-JSON Schema structured outputs**. Plain JSON mode, prompt-only JSON, and
-provider-side best-effort formatting are not equivalent and are not sufficient.
+The installer verifies strict JSON Schema support before completing. For
+reliable production behavior, use a generation model with **120B parameters or
+more** and an endpoint supporting **strict JSON Schema structured outputs**
+(the Memory Lifecycle Benchmark used `meta/muse-ember` and release integration
+checks used `deepseek/deepseek-v4-flash-0731`).
 
-The published Memory Lifecycle Benchmark used `meta/muse-ember`, and release
-integration checks used `deepseek/deepseek-v4-flash-0731`, as the semantic
-generation model. These are tested reference models, not a hard-coded
-dependency: another model may be used when it meets the same size and strict
-structured-output requirements. The installer probes strict JSON Schema support
-before completing the installation.
-
-The provider profile also disables reasoning for LedgerMind's semantic model
-calls using the provider's supported wire format. This does not change the
-reasoning settings of the connected agent itself. With OpenRouter, select one
-explicit primary provider route and, optionally, one explicit fallback. The
-runtime restricts requests to that ordered set instead of allowing arbitrary
-provider selection.
+> **For agents:** ask the user for missing deployment choices. Do not invent a
+> provider, model, endpoint, embedding dimension, route, or secret source.
 
 <details>
-<summary><strong>Show a complete API-based configuration example</strong></summary>
+<summary><strong>Show a complete API-based configuration and reranker reference</strong></summary>
 
 <br>
 
@@ -295,61 +255,29 @@ provider selection.
 }
 ```
 
-The route names above reproduce the tested configuration and may change on the
-provider side. Confirm current model and provider availability before
-installation. Remove `fallback_routes` to pin OpenRouter to the primary route
-only.
-
-#### Choose a retrieval reranker
-
-Reranking is optional and never changes stored knowledge. Core forms the
-eligible candidate set; the reranker may only reorder it before context is
-packed. The installer offers three modes:
-
-- **Disabled:** use the deterministic Core ranking only;
-- **API:** use a configured Cohere-compatible or NVIDIA NIM reranking endpoint;
-- **Local:** use the separately downloaded signed Qwen3-Reranker-0.6B CPU runtime.
-
-Local model weights are not embedded in the main platform package. API
-credentials remain in LedgerMind's private secret store. If reranking fails or
-times out, context selection falls back to Core order rather than blocking the
-agent. Injection always keeps the first six complete knowledge items and may
-add further complete items while they fit the soft context target; stored
-knowledge is never cut in the middle.
-
-For local mode, download the CPU runtime archive, its `.json` manifest and
-`.sig` signature, and `install-reranker-runtime.py` from the [4.1.0 release](https://github.com/sl4m3/ledgermind/releases/tag/v4.1.0).
-The script verifies them against the installed `signatures/manifest.pub` before
-installation. Select the installed runtime directory in the setup wizard.
-
-Choose `"memory_mode": "shared"` when all connected agents should read and
-write the same knowledge. Choose `"per_agent"` when every agent should have an
-independent logical memory. Both modes use one local LedgerMind runtime; the
-setting only controls the `memory_space_id` injected into each integration.
+- Remove `fallback_routes` to pin OpenRouter to the primary route only; the
+  provider profile disables reasoning for LedgerMind's internal semantic calls
+  without affecting your agent's own reasoning setting.
+- **Reranker modes:** `disabled` (deterministic Core ranking), `api`
+  (Cohere-compatible or NVIDIA NIM endpoint), or `local` (separately downloaded
+  signed Qwen3-Reranker-0.6B CPU runtime from the
+  [5.0.0 release](https://github.com/sl4m3/ledgermind/releases/tag/v5.0.0),
+  verified with `install-reranker-runtime.py`). Failures fail open to Core
+  order; knowledge items are never cut mid-item.
+- **Memory mode:** `"shared"` shares one knowledge space across connected
+  agents; `"per_agent"` isolates each agent via `memory_space_id`.
+- **Residency modes:** `Session` (recommended, crash-safe TTL), `Idle timeout`,
+  or `Always on`.
 
 </details>
 
-Use the real model's documented embedding dimensions. Store the file with
-owner-only permissions and run:
+<details>
+<summary><strong>Manage integrations, verify, update, or uninstall LedgerMind</strong></summary>
 
-```bash
-chmod 600 /secure/ledgermind-install.json
-curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh \
-  | sh -s -- install --non-interactive \
-      --config /secure/ledgermind-install.json --json
-```
+<br>
 
-The JSON result reports every completed step, warning, error, installed path,
-provider profile, integration, and runtime state. The installer does not
-silently choose a provider, model, route, or fallback.
-
-> **For agents:** ask the user for missing deployment choices. Do not invent a
-> provider, model, endpoint, embedding dimension, route, or secret source.
-
-### 4. Connect additional agents
-
-One LedgerMind installation can serve several local agents. Integrations not
-selected during installation can be added independently:
+**Connect additional agents** (restart an already running session; Codex CLI
+requires trusting new hooks via `/hooks`):
 
 ```bash
 ledgermind integrations discover --json
@@ -360,13 +288,7 @@ ledgermind integrations connect opencode --json
 ledgermind integrations connect openclaw --json
 ```
 
-Only run the `connect` commands for agents installed on the machine. Restart
-an already running agent after connecting it. Codex CLI additionally requires
-the user to open `/hooks` and explicitly trust the newly installed LedgerMind
-hooks; LedgerMind reports the integration as awaiting activation until that
-step is complete.
-
-### 5. Verify the installation
+**Verify installation** (`installed` → `connected` → `enabled` → `active`):
 
 ```bash
 ledgermind doctor --json
@@ -374,78 +296,28 @@ ledgermind integrations status --json
 ledgermind runtime status --json
 ```
 
-The states have different meanings:
-
-- `installed` — the LedgerMind platform exists on the machine;
-- `connected` — the adapter is registered in the agent configuration;
-- `enabled` — the adapter will attach to future agent sessions;
-- `active` — the integration is enabled and has no remaining activation step.
-
-The installer offers three residency modes for local embedding and reranker
-models: `Session` keeps them loaded for the complete agent turn, `Idle timeout`
-keeps them warm for a selected period, and `Always on` keeps them resident for
-the lowest recall latency. Session mode is recommended and uses an emergency
-TTL to recover from a crashed agent. A normal uninstall preserves memory,
-configuration, and secrets; permanent deletion requires explicit purge flags.
-
-### 6. Update LedgerMind
-
-The updater verifies the signed release and preserves configuration, memory,
-secrets, and connected integrations. Rerun the installer and choose **Update
-LedgerMind**, then check the installation:
+**Update LedgerMind** (preserves configuration, memory, secrets, and
+integrations):
 
 ```bash
 curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh | sh
 ledgermind doctor --json
 ```
 
-### 7. Remove LedgerMind
-
-Stop active Hermes, OpenClaw, and other connected agent sessions before
-removing their adapters. To preview the operation without changing anything:
+**Remove or purge LedgerMind** (stop active agent sessions first; normal
+uninstall preserves memory, config, and secrets and writes a backup):
 
 ```bash
 ledgermind uninstall --dry-run --json
-```
-
-The normal uninstall stops the runtime, removes the installed release and
-agent adapters, and removes the `ledgermind` command link. It preserves the
-local memory database, configuration, provider secret references, models, and
-other user data so the platform can be reinstalled later:
-
-```bash
 ledgermind uninstall --json
-```
-
-To disconnect only one agent while keeping LedgerMind installed, use its
-integration command instead:
-
-```bash
 ledgermind integrations disconnect hermes --json
-ledgermind integrations disconnect openclaw --json
-```
-
-Permanent removal is separate and explicit. Create a backup first if the data
-may be needed again. `--purge-data` removes the memory database, model files,
-integration data, and any configured custom memory path. `--purge-config`
-removes the installer configuration, stored provider secret references, and
-Local runtime data. Each purge flag can be used independently; using both
-removes all LedgerMind-managed local data:
-
-```bash
 ledgermind uninstall --purge-data --purge-config --yes --json
 ```
 
-The `--yes` flag is mandatory with either purge flag because this deletion is
-not recoverable through LedgerMind.
-
-<details>
-<summary><strong>What was installed on my machine?</strong></summary>
-
-LedgerMind follows the XDG directory layout. The active release, Local runtime,
-signed Core binary, configuration, logs, and data remain under the current
-user's directories. Run `ledgermind status --json` to see the exact resolved
-paths on a particular machine.
+`--purge-data` removes the memory database, models, and integration data;
+`--purge-config` removes installer config, secret references, and Local runtime
+data. Both require `--yes` and are irreversible. Run `ledgermind status --json`
+to inspect exact XDG installation paths.
 
 </details>
 
@@ -461,24 +333,16 @@ private local knowledge database.
 - Core communicates only with the local LedgerMind runtime through a versioned
   process boundary.
 - All external communication is handled outside Core by publicly inspectable
-  components: [Integrations](https://github.com/sl4m3/ledgermind-integrations)
-  and [Local](https://github.com/sl4m3/ledgermind-local).
+  components: [`integrations/`](integrations) and [`local/`](local).
 - The operator chooses every model and delivery endpoint. With local generation
   and embedding models, the complete memory workflow can remain on the user's
   machine.
 
-This is an architectural boundary, not a promise that proprietary code will
-simply behave. The knowledge engine has no provider secret and no networking
-capability with which to send user memory anywhere.
-
 If an operator configures a remote model provider, the necessary model payload
-can leave the machine through Local. That egress is explicit, auditable, and
-limited to the endpoint selected by the operator; it never originates from
-Core itself.
+leaves the machine only through Local to that explicit endpoint—never from Core
+itself.
 
 ## Memory that compounds
-
-The product loop is deliberately simple:
 
 ```mermaid
 flowchart LR
@@ -489,41 +353,11 @@ flowchart LR
     E --> A
 ```
 
-A useful memory system must do more than find a similar sentence. It must help
-an agent carry experience forward as the environment changes.
-
-LedgerMind is designed to:
-
-- preserve reusable knowledge while leaving exploratory noise behind;
-- recognize when new evidence refers to something already known;
-- revise knowledge when an authoritative rule changes;
-- retain source evidence and change history;
-- return a focused working context instead of an ever-growing transcript.
-
-The result is a memory that can become more useful over time without requiring
-the agent to reread everything it has ever done.
-
-## Tested on changing workflows
-
-The Memory Lifecycle Benchmark does not grade the wording of stored memories.
-It tests whether memory helps an agent reconstruct the current state of work.
-
-The twelve scenarios cover four families: execution (E), identity (I),
-knowledge evolution (K), and delivery (R). Each family tests repetition,
-adaptation to changed state, and a conflicting authoritative rule that must
-supersede older experience.
-
-The agent sees only public tools, observations, and the context supplied by its
-memory mode. Answers are checked against a frozen, source-grounded rubric and a
-completed manual semantic review, not by an LLM judge. Every compared arm
-receives the same source experience and uses the same agent model, action
-limit, and public task inputs.
-
-This isolates the question LedgerMind exists to answer: can an agent reuse
-experience with less context while remaining correct and current? In this
-development run, the answer was yes. A complete comparison rerun on the release
-binary is still required before treating the result as release-grade or
-statistically stable evidence.
+A useful memory system must do more than find a similar sentence. LedgerMind is
+designed to preserve reusable knowledge while leaving exploratory noise behind,
+recognize when new evidence refers to something already known, revise knowledge
+when an authoritative rule changes, retain source evidence and change history,
+and return a focused working context instead of an ever-growing transcript.
 
 ## What the agent receives
 
@@ -544,103 +378,41 @@ Production rollout
 - Do not use the superseded legacy backup step.
 ```
 
-The exact wording is model-produced and can vary. What matters is that the
-agent receives the current reusable procedure instead of the full path of
-experiments and corrections that produced it. In the benchmark, this was
-validated by the agent reaching the same hidden workflow state with much less
-injected context.
-
 ## Data flow and control
 
 | Data | Where it is handled | Can it leave the machine? |
 |---|---|---|
 | Completed messages and tool activity | Captured by Integrations and delivered to the configured runtime | Only through the delivery endpoint selected by the operator |
-| Raw workflow payloads | Stored by Local for durable processing and bounded retention | Only when Local sends the necessary payload to a configured remote model |
+| Raw workflow payloads | Stored by Local for durable processing and bounded retention (30 days default) | Only when Local sends the necessary payload to a configured remote model |
 | Provider credentials | Stored by reference in Local's secret boundary | Used only to authenticate to the operator-selected provider; never passed to Core |
 | Durable knowledge | Owned by Core in its private local database | Core has no network client and cannot transmit it |
 | Recalled working context | Returned locally to the requesting integration or agent | It may subsequently leave through that caller if the operator uses a remote agent |
 
-Raw workflow payload bodies expire after 30 days by default; the retention
-period is configurable. A normal uninstall preserves memory, configuration,
-and secrets and creates a local memory backup when data exists. Such backups
-can contain sensitive workflow data and must be protected like credentials.
-Permanent removal is explicit and requires confirmation through the
-`--purge-data`, `--purge-config`, and `--yes` flags.
-
-## What ships
-
-| Component | Purpose | Source and license |
-|---|---|---|
-| LedgerMind Integrations | Capture completed agent interactions and deliver versioned RawRounds | Public source, Apache-2.0 |
-| LedgerMind Local | Installer, local service, provider profiles, secrets, retries, retention, backup, and egress audit | Source available, Business Source License 1.1 |
-| LedgerMind Protocol | Public contracts, schemas, canonical JSON, and conformance fixtures | Public source, Apache-2.0 |
-| LedgerMind Core | Durable knowledge formation, revision, and retrieval | Proprietary signed local binary |
-
-Local's Business Source License permits internal-tool and non-commercial
-deployments under its Additional Use Grant and changes to GPLv3-or-later on
-the stated Change Date. Production uses outside that grant require a commercial
-license. The license file shipped with each release is authoritative.
-
-## Current compatibility
-
-| Capability | Current support |
-|---|---|
-| Operating systems | Linux x86_64; an aarch64 package is not published in 4.1.0 |
-| Agent integrations | Hermes, Codex CLI and Desktop, Claude Code, OpenCode, and OpenClaw |
-| Generation | Operator-selected OpenAI-compatible API |
-| Embeddings | Operator-selected OpenAI-compatible API or signed local CPU runtime |
-| Retrieval reranker | Disabled, operator-selected API, or separately installed signed local CPU runtime |
-| Installation | Rootless, XDG directory layout, signed release artifacts |
-| Runtime mode | Session, idle-timeout, or always-on residency selected during installation |
-
-This table describes the current implementation, not a promise of unlisted
-platforms or integrations.
-
 ## What LedgerMind is not
 
-LedgerMind is not:
+LedgerMind is not long-term storage for every message an agent has seen, a vector
+database presented as a complete memory system, an autonomous source of truth,
+or a benchmark optimized to match a hand-written answer key. Its value is
+measured downstream: whether the next task finishes correctly with less repeated
+investigation and less context.
 
-- long-term storage for every message an agent has seen;
-- a vector database presented as a complete memory system;
-- an autonomous source of truth;
-- a semantic benchmark optimized to match a hand-written answer key.
+## Repository layout, release channels, and license
 
-It is a knowledge memory whose value is measured downstream: whether the next
-task is completed correctly with less repeated investigation and less context.
+This repository is the public half of LedgerMind (`ledgermind-platform` holds
+the proprietary Core, Cloud backend, inference boundary, and lab).
 
-## Repository layout
-
-This repository is the public half of LedgerMind. Everything a product user may
-read lives here; the proprietary core, Cloud service and connector sources,
-inference boundary, semantic lab, website and production deployment live in the
-private `ledgermind-platform` repository.
-
-| Path | Contents | Licence |
+| Path / Channel | Contents / Entry point | License |
 |---|---|---|
-| `protocol/` | RawRound/ContextView contracts, JSON schemas and conformance fixtures | Apache-2.0 |
-| `integrations/` | agent adapters and the capture runtime | Apache-2.0 |
-| `local/` | LedgerMind Local 4.x source: CLI, service, installer, tests | BUSL-1.1 |
-| `cloud/` | Cloud Connector installation channel: installer script, docs, checksums | Apache-2.0 |
-| `skills/`, `benchmarks/` | agent skill and published benchmark data | Apache-2.0 |
+| [`protocol/`](protocol) | RawRound/ContextView contracts, JSON schemas, conformance fixtures | Apache-2.0 |
+| [`integrations/`](integrations) | Agent adapters (Hermes, Codex, Claude Code, OpenCode, OpenClaw) and capture runtime | Apache-2.0 |
+| [`local/`](local) | LedgerMind Local `5.x` CLI, service, installer, tests ([`local/LICENSE`](local/LICENSE)) | BUSL-1.1 |
+| [`cloud/`](cloud) | Cloud Connector channel (`https://ledgermind.org/install-cloud.sh`, `cloud-v*`) | Apache-2.0 |
+| [`skills/`](skills), [`benchmarks/`](benchmarks) | Agent discovery skill and published `2026-11-22` benchmark artifacts | Apache-2.0 |
+| **Signed releases** | [GitHub Releases](https://github.com/sl4m3/ledgermind/releases) (`install.sh`, `5.x` packages, `cloud-v*`) | Per-package terms |
 
-## Release channels
-
-| Channel | Entry point | Artifacts |
-|---|---|---|
-| LedgerMind Local | `https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh` | signed installer and 4.x packages |
-| Cloud Connector | `https://ledgermind.org/install-cloud.sh` | `cloud-v*` archives and checksums |
-| Lab artifacts | Releases tags `artifact-*` | redacted `final-run` bundles |
-
-## License
-
-The contents of this repository are licensed per directory:
-
-- **Apache-2.0** — documentation, `skills/`, `benchmarks/`, `protocol/`,
-  `integrations/` and the `cloud/` installation channel;
-- **Business Source License 1.1** — `local/`; see [`local/LICENSE`](local/LICENSE);
-- proprietary pieces (Core, Cloud backend, inference, lab) are not part of this
-  repository and are distributed only as signed binaries or official release
-  archives with their own terms.
-
-Release packages and connector archives carry their own licence files. Consult
-the licence included with each component before use or redistribution.
+Local's Business Source License 1.1 permits internal-tool and non-commercial
+deployments under its Additional Use Grant and transitions to GPLv3-or-later on
+the stated Change Date; production use outside that grant requires a commercial
+license. Proprietary pieces (Core, Cloud backend, inference) are distributed
+only as signed binaries or official release archives under their own license
+files.

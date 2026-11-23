@@ -4,24 +4,14 @@
   "policy": "Wheels are published as release assets, never as source. Installers embed the same wheels in the signed payload; a rebuild from this repository needs the matching wheel.",
   "wheels": [
     {
-      "release": "4.1.0",
+      "release": "5.0.0",
       "name": "ledgermind_inference-0.1.0-cp310-abi3-linux_x86_64.whl",
       "package": "ledgermind-inference",
       "version": "0.1.0",
       "python": "cp310",
       "license": "LicenseRef-LedgerMind-Internal",
-      "url": "https://github.com/sl4m3/ledgermind/releases/download/v4.1.0/ledgermind_inference-0.1.0-cp310-abi3-linux_x86_64.whl",
-      "sha256": "e37c31cfb2fdf7a8cf05cc6db889bd6a15278cdad02891afc2ebad5573dd9790"
-    },
-    {
-      "release": "4.1.0",
-      "name": "ledgermind_inference-0.1.0-py3-none-any.whl",
-      "package": "ledgermind-inference",
-      "version": "0.1.0",
-      "python": "py3",
-      "license": "LicenseRef-LedgerMind-Internal",
-      "url": "https://github.com/sl4m3/ledgermind/releases/download/v4.1.0/ledgermind_inference-0.1.0-py3-none-any.whl",
-      "sha256": "4a74fca8113cd5ddfa81b30838b2dd966b28882370c4a5d5a451e7e4c2abbddf"
+      "url": "https://github.com/sl4m3/ledgermind/releases/download/v5.0.0/ledgermind_inference-0.1.0-cp310-abi3-linux_x86_64.whl",
+      "sha256": "b144e1fa05afc18fe8e62ceaf92db1cf5d0fb3656867091d452f3c036115f3c9"
     }
   ]
 }

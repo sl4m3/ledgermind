@@ -4,7 +4,7 @@
   "review_type": "manual_semantic_review",
   "status": "complete",
   "confirmed_at": "2026-11-23",
-  "source_of_truth": "README.md manual audit, confirmed by user as correct",
+  "source_of_truth": "BENCHMARK.md manual semantic audit, confirmed by the project owner",
   "corpus_sha256": "1fd4d52163294f166fd481569bb6ab3f5654852ad0e3bdace72f74ce6158934f",
   "config_sha256": "645e9b85c1c175c3a16fe45439d2333b55433bf62b0ff22416e8375b51a8cf42",
   "model": {
@@ -19,164 +19,113 @@
   "field_count": 73,
   "arms": [
     {
-      "arm": "no_memory",
+      "arm": "ledgermind",
+      "version": "5.0.0",
+      "completed_probes": 24,
+      "technical_failures": 0,
+      "total_probes": 24,
+      "total_fields": 73,
+      "semantic_all": {
+        "passed_probes": 24,
+        "correct_fields": 73
+      },
+      "agent_input_tokens": 269844,
+      "agent_cached_input_tokens": 204032,
+      "agent_uncached_input_tokens": 65812,
+      "agent_output_tokens": 31575,
+      "agent_reasoning_tokens": 18262,
+      "agent_calls": 96,
+      "memory_generation_input_tokens": 3611181,
+      "memory_generation_cached_input_tokens": null,
+      "memory_generation_uncached_input_tokens": null,
+      "memory_generation_output_tokens": 583046,
+      "memory_generation_reasoning_tokens": 0,
+      "memory_calls": 1202,
+      "local_embedding_attempts": 0,
+      "total_input_tokens": 3881025,
+      "total_output_tokens": 614621,
+      "total_tokens": 4495646,
+      "agent_cost_usd": 0.023184828,
+      "memory_cost_usd": 0.321172034,
+      "total_cost_usd": 0.345350162,
+      "notes": [
+        "0 protocol repairs",
+        "1,343 active knowledge values across 195 memory objects"
+      ]
+    },
+    {
+      "arm": "raw_history",
       "version": null,
       "completed_probes": 24,
       "technical_failures": 0,
       "total_probes": 24,
       "total_fields": 73,
       "semantic_all": {
-        "passed_probes": 2,
-        "correct_fields": 8
+        "passed_probes": 24,
+        "correct_fields": 73
       },
-      "semantic_memory_dependent": {
-        "total_probes": 22,
-        "total_fields": 65,
-        "passed_probes": 0,
-        "correct_fields": 0
-      },
-      "literal": {
-        "passed_probes": 2,
-        "correct_fields": 8
-      },
-      "agent_input_tokens": 69592,
-      "total_cost_usd": 0.019096148,
+      "agent_input_tokens": 14531917,
+      "agent_cached_input_tokens": 11024732,
+      "agent_uncached_input_tokens": 3507185,
+      "agent_output_tokens": 25357,
+      "agent_reasoning_tokens": 10898,
+      "agent_calls": 99,
+      "memory_generation_input_tokens": 0,
+      "memory_generation_cached_input_tokens": 0,
+      "memory_generation_uncached_input_tokens": 0,
+      "memory_generation_output_tokens": 0,
+      "memory_generation_reasoning_tokens": 0,
+      "memory_calls": 0,
+      "local_embedding_attempts": 0,
+      "total_input_tokens": 14531917,
+      "total_output_tokens": 25357,
+      "total_tokens": 14557274,
+      "agent_cost_usd": 0.407495928,
+      "memory_cost_usd": 0.0,
+      "total_cost_usd": 0.407495928,
       "notes": [
-        "calibration_valid: false",
-        "only E3-P1 and E3-P2 guessed (contract-suggested defaults); 0/65 fields on the remaining 22 memory-dependent probes"
+        "verbatim transcript; no memory store or memory-generation calls",
+        "2 protocol repairs"
       ]
     },
     {
-      "arm": "mem0_oss",
-      "version": "2.2.1",
+      "arm": "reme",
+      "version": "0.4.2.3",
       "completed_probes": 24,
       "technical_failures": 0,
       "total_probes": 24,
       "total_fields": 73,
       "semantic_all": {
-        "passed_probes": 18,
-        "correct_fields": 60
+        "passed_probes": 24,
+        "correct_fields": 73
       },
-      "semantic_memory_dependent": {
-        "total_probes": 22,
-        "total_fields": 65,
-        "passed_probes": 16,
-        "correct_fields": 52
-      },
-      "literal": {
-        "passed_probes": 12,
-        "correct_fields": 51
-      },
-      "agent_input_tokens": 172064,
-      "total_cost_usd": 0.288877948,
+      "agent_input_tokens": 366693,
+      "agent_cached_input_tokens": 274316,
+      "agent_uncached_input_tokens": 92377,
+      "agent_output_tokens": 26682,
+      "agent_reasoning_tokens": 12258,
+      "agent_calls": 99,
+      "memory_generation_input_tokens": 25072304,
+      "memory_generation_cached_input_tokens": 17752316,
+      "memory_generation_uncached_input_tokens": 7319988,
+      "memory_generation_output_tokens": 516700,
+      "memory_generation_reasoning_tokens": 46165,
+      "memory_calls": 2347,
+      "local_embedding_attempts": 631,
+      "total_input_tokens": 25438997,
+      "total_output_tokens": 543382,
+      "total_tokens": 25982379,
+      "agent_cost_usd": 0.023675964,
+      "memory_cost_usd": 1.061358064,
+      "total_cost_usd": 1.085034028,
       "notes": [
-        "failed probes: I2-P1, K3-P1, K3-P2, R1-P2, K2-P1/K2-P2 (scales)"
-      ],
-      "alternate": {
-        "passed_probes": 20,
-        "correct_fields": null,
-        "note": "up to 20/24 without strictness on K2.scales"
-      }
-    },
-    {
-      "arm": "hindsight",
-      "version": "1.2.3",
-      "completed_probes": 24,
-      "technical_failures": 0,
-      "total_probes": 24,
-      "total_fields": 73,
-      "semantic_all": {
-        "passed_probes": 19,
-        "correct_fields": 66
-      },
-      "semantic_memory_dependent": {
-        "total_probes": 22,
-        "total_fields": 65,
-        "passed_probes": 17,
-        "correct_fields": 58
-      },
-      "literal": {
-        "passed_probes": 15,
-        "correct_fields": 57
-      },
-      "agent_input_tokens": 500616,
-      "total_cost_usd": 1.585927392,
-      "notes": [
-        "highest total cost among the 6 memory arms ($1.585927392)"
-      ],
-      "alternate": {
-        "passed_probes": 20,
-        "correct_fields": 67,
-        "note": "if R2-P2.order is accepted without Alignment"
-      }
-    },
-    {
-      "arm": "cognee",
-      "version": "1.6.10",
-      "completed_probes": 24,
-      "technical_failures": 0,
-      "total_probes": 24,
-      "total_fields": 73,
-      "semantic_all": {
-        "passed_probes": 21,
-        "correct_fields": 68
-      },
-      "semantic_memory_dependent": {
-        "total_probes": 22,
-        "total_fields": 65,
-        "passed_probes": 19,
-        "correct_fields": 60
-      },
-      "literal": {
-        "passed_probes": 15,
-        "correct_fields": 56
-      },
-      "agent_input_tokens": 79039,
-      "total_cost_usd": 0.765783524,
-      "notes": [
-        "failed probes: K1-P2, K3-P1, K3-P2 (temporal overwrite/rollback)"
+        "0 incorrect, 0 forbidden",
+        "hybrid 2048d + BM25; daily notes with [SUPERSEDED]"
       ],
       "alternate_strict": {
-        "passed_probes": 19,
-        "correct_fields": 64,
-        "memory_dependent": {
-          "passed_probes": 17,
-          "correct_fields": 56
-        },
-        "note": "strict requirement of self-contained values in I2"
-      }
-    },
-    {
-      "arm": "supermemory_local",
-      "version": "0.0.9",
-      "completed_probes": 24,
-      "technical_failures": 0,
-      "total_probes": 24,
-      "total_fields": 73,
-      "semantic_all": {
-        "passed_probes": 15,
-        "correct_fields": 57
-      },
-      "semantic_memory_dependent": {
-        "total_probes": 22,
-        "total_fields": 65,
-        "passed_probes": 14,
-        "correct_fields": 51
-      },
-      "literal": {
-        "passed_probes": 12,
-        "correct_fields": 51
-      },
-      "agent_input_tokens": 162023,
-      "total_cost_usd": 0.893316736,
-      "notes": [
-        "15/24 probes and 14/22 memory-dependent probes unchanged under the lenient reading",
-        "forgetMemory called once and linkMemories called once across 2,459 CreateMemory calls"
-      ],
-      "alternate": {
-        "passed_probes": 15,
-        "correct_fields": 59,
-        "note": "lenient reading of TitaNet/multiscale in R2-P2; probe count unchanged"
+        "passed_probes": 22,
+        "correct_fields": 71,
+        "note": "if blocked is not accepted in E2-P1 and [1.5,...] is not accepted instead of 5 in R2-P2"
       }
     },
     {
@@ -190,106 +139,189 @@
         "passed_probes": 22,
         "correct_fields": 68
       },
-      "semantic_memory_dependent": {
-        "total_probes": 22,
-        "total_fields": 65,
-        "passed_probes": 21,
-        "correct_fields": 63
-      },
-      "literal": {
-        "passed_probes": 17,
-        "correct_fields": 59
-      },
       "agent_input_tokens": 514426,
+      "agent_cached_input_tokens": 389168,
+      "agent_uncached_input_tokens": 125258,
+      "agent_output_tokens": 36306,
+      "agent_reasoning_tokens": 21709,
+      "agent_calls": 102,
+      "memory_generation_input_tokens": 15783760,
+      "memory_generation_cached_input_tokens": 12932600,
+      "memory_generation_uncached_input_tokens": 2851160,
+      "memory_generation_output_tokens": 476438,
+      "memory_generation_reasoning_tokens": 37089,
+      "memory_calls": 1796,
+      "local_embedding_attempts": 0,
+      "total_input_tokens": 16298186,
+      "total_output_tokens": 512744,
+      "total_tokens": 16810930,
+      "agent_cost_usd": 0.032235472,
+      "memory_cost_usd": 0.5750654,
       "total_cost_usd": 0.607300872,
       "notes": []
     },
     {
-      "arm": "reme",
-      "version": "0.4.2.3",
+      "arm": "cognee",
+      "version": "1.6.10",
       "completed_probes": 24,
       "technical_failures": 0,
       "total_probes": 24,
       "total_fields": 73,
       "semantic_all": {
-        "passed_probes": 24,
-        "correct_fields": 73
+        "passed_probes": 21,
+        "correct_fields": 68
       },
-      "semantic_memory_dependent": {
-        "total_probes": 22,
-        "total_fields": 65,
-        "passed_probes": 22,
-        "correct_fields": 65
-      },
-      "literal": {
-        "passed_probes": 15,
-        "correct_fields": 60
-      },
-      "agent_input_tokens": 366693,
-      "total_cost_usd": 1.085034028,
+      "agent_input_tokens": 79039,
+      "agent_cached_input_tokens": 57716,
+      "agent_uncached_input_tokens": 21323,
+      "agent_output_tokens": 19718,
+      "agent_reasoning_tokens": 13345,
+      "agent_calls": 97,
+      "memory_generation_input_tokens": 5582573,
+      "memory_generation_cached_input_tokens": 3265140,
+      "memory_generation_uncached_input_tokens": 2317433,
+      "memory_generation_output_tokens": 1017515,
+      "memory_generation_reasoning_tokens": 248202,
+      "memory_calls": 1459,
+      "local_embedding_attempts": 3220,
+      "total_input_tokens": 5661612,
+      "total_output_tokens": 1037233,
+      "total_tokens": 6698845,
+      "agent_cost_usd": 0.012222164,
+      "memory_cost_usd": 0.75356136,
+      "total_cost_usd": 0.765783524,
       "notes": [
-        "0 incorrect, 0 forbidden",
-        "hybrid 2048d + BM25; daily notes with [SUPERSEDED]"
+        "failed probes: K1-P2, K3-P1, K3-P2 (temporal overwrite/rollback)"
       ],
       "alternate_strict": {
-        "passed_probes": 22,
-        "correct_fields": 71,
-        "memory_dependent": {
-          "passed_probes": 20,
-          "correct_fields": 63
-        },
-        "note": "if blocked is not accepted in E2-P1 and [1.5,...] is not accepted instead of 5 in R2-P2"
+        "passed_probes": 19,
+        "correct_fields": 64,
+        "note": "strict requirement of self-contained values in I2"
       }
     },
     {
-      "arm": "ledgermind",
-      "version": null,
+      "arm": "hindsight",
+      "version": "1.2.3",
       "completed_probes": 24,
       "technical_failures": 0,
       "total_probes": 24,
       "total_fields": 73,
       "semantic_all": {
-        "passed_probes": 24,
-        "correct_fields": 73
+        "passed_probes": 19,
+        "correct_fields": 66
       },
-      "semantic_memory_dependent": {
-        "total_probes": 22,
-        "total_fields": 65,
-        "passed_probes": 22,
-        "correct_fields": 65
-      },
-      "literal": {
-        "passed_probes": 16,
-        "correct_fields": 61
-      },
-      "agent_input_tokens": 269844,
-      "total_cost_usd": 0.345350162,
-      "notes": []
+      "agent_input_tokens": 500616,
+      "agent_cached_input_tokens": 366824,
+      "agent_uncached_input_tokens": 133792,
+      "agent_output_tokens": 36803,
+      "agent_reasoning_tokens": 20593,
+      "agent_calls": 100,
+      "memory_generation_input_tokens": 15267328,
+      "memory_generation_cached_input_tokens": 10452624,
+      "memory_generation_uncached_input_tokens": 4814704,
+      "memory_generation_output_tokens": 2058797,
+      "memory_generation_reasoning_tokens": 453411,
+      "memory_calls": 3633,
+      "local_embedding_attempts": 3624,
+      "total_input_tokens": 15767944,
+      "total_output_tokens": 2095600,
+      "total_tokens": 17863544,
+      "agent_cost_usd": 0.033247996,
+      "memory_cost_usd": 1.552679396,
+      "total_cost_usd": 1.585927392,
+      "notes": [
+        "highest total cost among the eight arms ($1.585927392)"
+      ],
+      "alternate": {
+        "passed_probes": 20,
+        "correct_fields": 67,
+        "note": "if R2-P2.order is accepted without Alignment"
+      }
     },
     {
-      "arm": "raw_history",
-      "version": null,
+      "arm": "mem0_oss",
+      "version": "2.2.1",
       "completed_probes": 24,
       "technical_failures": 0,
       "total_probes": 24,
       "total_fields": 73,
       "semantic_all": {
-        "passed_probes": 24,
-        "correct_fields": 73
-      },
-      "semantic_memory_dependent": {
-        "total_probes": 22,
-        "total_fields": 65,
-        "passed_probes": 22,
-        "correct_fields": 65
-      },
-      "literal": {
         "passed_probes": 18,
-        "correct_fields": 64
+        "correct_fields": 60
       },
-      "agent_input_tokens": 14531917,
-      "total_cost_usd": 0.407495928,
-      "notes": []
+      "agent_input_tokens": 172064,
+      "agent_cached_input_tokens": 126068,
+      "agent_uncached_input_tokens": 45996,
+      "agent_output_tokens": 29686,
+      "agent_reasoning_tokens": 22938,
+      "agent_calls": 97,
+      "memory_generation_input_tokens": 4682602,
+      "memory_generation_cached_input_tokens": 2642444,
+      "memory_generation_uncached_input_tokens": 2040158,
+      "memory_generation_output_tokens": 108691,
+      "memory_generation_reasoning_tokens": 26678,
+      "memory_calls": 323,
+      "local_embedding_attempts": 657,
+      "total_input_tokens": 4854666,
+      "total_output_tokens": 138377,
+      "total_tokens": 4993043,
+      "agent_cost_usd": 0.019946872,
+      "memory_cost_usd": 0.268931076,
+      "total_cost_usd": 0.288877948,
+      "notes": [
+        "failed probes: I2-P1, K3-P1, K3-P2, R1-P2, K2-P1/K2-P2 (scales)"
+      ],
+      "alternate": {
+        "passed_probes": 20,
+        "correct_fields": null,
+        "note": "up to 20/24 without strictness on K2.scales"
+      }
+    },
+    {
+      "arm": "supermemory_local",
+      "version": "0.0.9",
+      "completed_probes": 24,
+      "technical_failures": 0,
+      "total_probes": 24,
+      "total_fields": 73,
+      "semantic_all": {
+        "passed_probes": 15,
+        "correct_fields": 57
+      },
+      "agent_input_tokens": 162023,
+      "agent_cached_input_tokens": 118576,
+      "agent_uncached_input_tokens": 43447,
+      "agent_output_tokens": 39306,
+      "agent_reasoning_tokens": 29939,
+      "agent_calls": 98,
+      "memory_generation_input_tokens": 17832361,
+      "memory_generation_cached_input_tokens": 11696108,
+      "memory_generation_uncached_input_tokens": 6136253,
+      "memory_generation_output_tokens": 416870,
+      "memory_generation_reasoning_tokens": 42886,
+      "memory_calls": 1208,
+      "local_embedding_attempts": 4112,
+      "total_input_tokens": 17994384,
+      "total_output_tokens": 456176,
+      "total_tokens": 18450560,
+      "agent_cost_usd": 0.024472004,
+      "memory_cost_usd": 0.868844732,
+      "total_cost_usd": 0.893316736,
+      "notes": [
+        "15/24 probes unchanged under the lenient reading",
+        "forgetMemory called once and linkMemories called once across 2,459 CreateMemory calls"
+      ],
+      "alternate": {
+        "passed_probes": 15,
+        "correct_fields": 59,
+        "note": "lenient reading of TitaNet/multiscale in R2-P2; probe count unchanged"
+      }
     }
-  ]
+  ],
+  "token_accounting": {
+    "third_party_arms": "agent_usage_totals and memory_generation_usage_totals taken directly from each arm's source summary.json",
+    "ledgermind_and_raw_history": "agent input/output, cached input and reasoning are the sums over all recorded agent calls in the call index, including the two failed repair attempts, which consumed tokens and were billed; harness preflight is outside these sums",
+    "ledgermind_memory": "memory work totals combine generation (2287326 in / 429001 out) and decision (1323855 in / 154045 out) calls"
+  },
+  "cost_accounting": "agent_cost_usd and memory_cost_usd are provider-reported call sums; total_cost_usd is the run total. LedgerMind's total includes $0.000993 of harness preflight outside the agent and memory call sums; Raw history's total includes two failed attempts."
 }

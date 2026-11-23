@@ -1,7 +1,7 @@
 # LedgerMind Local — installation channel
 
 `local/` in this repository is the complete Busl-1.1 source of the LedgerMind
-Local 4.x product: CLI, local service, installer, release scripts, tests and
+Local 5.x product: CLI, local service, installer, release scripts, tests and
 product documentation. This page covers the release channel; the product guide
 is [`local/README.md`](README.md), and the end-to-end installation guide is in
 the repository README (`## Installation`).
@@ -15,7 +15,7 @@ curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.
 This URL is stable and does not change with the two-repository reorganization.
 The bootstrap script selects the platform, downloads the signed installer for
 the current architecture from `releases/latest/download`, and hands the
-installation to it. Supported hosts: Linux x86_64 (4.1.0 publishes x86_64 only;
+installation to it. Supported hosts: Linux x86_64 (5.0.0 publishes x86_64 only;
 the aarch64 package is not part of this release).
 
 Requirements are listed in the repository README. In short: Linux x86_64 with
@@ -29,7 +29,7 @@ sync by the release checklist.
 ## Verify a release manually
 
 ```bash
-version=4.1.0
+version=5.0.0
 base=https://github.com/sl4m3/ledgermind/releases/download/v${version}
 curl -fsSLO "$base/install.sh"
 curl -fsSLO "$base/ledgermind-installer-linux-x86_64"

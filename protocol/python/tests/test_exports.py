@@ -39,6 +39,7 @@ def test_public_exports_are_boundary_models() -> None:
         "explanation",
         "semantic_safety",
         "requires_revalidation",
+        "last_observed_at",
     }
 
 

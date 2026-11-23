@@ -11,7 +11,7 @@
     "Single-reviewer development corpus, not held out; source sessions are shared.",
     "Actions are simulator continuations for recording historical state, not live deployment or a full coding benchmark.",
     "An early formation checkpoint is short; long-history results must show checkpoint sizes separately.",
-    "Literal identifiers and a frozen set of source-grounded categorical equivalents are scored, not arbitrary prose.",
+    "Exact identifiers and a frozen set of source-grounded categorical equivalents are scored, not arbitrary prose.",
     "E1 starts at a real recorded host compaction, not at the multi-week session start."
   ],
   "max_actions": 12,

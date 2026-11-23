@@ -36,5 +36,5 @@
     "managed_by": "ledgermind-inference.service"
   },
   "injection_budget_benchmark_tokens": 4096,
-  "evaluation": "Literal scoring retained; source-grounded semantic review required before accuracy publication"
+  "evaluation": "Exact-value scoring retained; source-grounded semantic review required before accuracy publication"
 }

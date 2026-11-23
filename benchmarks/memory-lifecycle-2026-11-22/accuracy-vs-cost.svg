@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="620" viewBox="0 0 960 620" role="img" aria-label="Semantic accuracy versus total run cost for eight memory configurations">
+<title>Semantic accuracy versus total cost</title>
+<desc>Semantic accuracy from the completed manual review plotted against the total 24-probe run cost. LedgerMind is the best trade-off: 100% at $0.345350.</desc>
+<rect width="960" height="620" fill="#ffffff"/>
+<text x="90" y="38" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#111827">Semantic accuracy versus total cost</text>
+<text x="90" y="60" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="13" fill="#4b5563">Memory Lifecycle Benchmark 2026-11-22 · 12 scenarios / 24 probes / 73 fields · up and to the left is better</text>
+<g font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#6b7280">
+<line x1="90" y1="524.0" x2="660" y2="524.0" stroke="#d1d5db" stroke-width="1"/>
+<text x="80" y="528.0" text-anchor="end">60%</text>
+<line x1="90" y1="424.0" x2="660" y2="424.0" stroke="#d1d5db" stroke-width="1"/>
+<text x="80" y="428.0" text-anchor="end">70%</text>
+<line x1="90" y1="324.0" x2="660" y2="324.0" stroke="#d1d5db" stroke-width="1"/>
+<text x="80" y="328.0" text-anchor="end">80%</text>
+<line x1="90" y1="224.0" x2="660" y2="224.0" stroke="#d1d5db" stroke-width="1"/>
+<text x="80" y="228.0" text-anchor="end">90%</text>
+<line x1="90" y1="124.0" x2="660" y2="124.0" stroke="#9ca3af" stroke-width="1" stroke-dasharray="4 4"/>
+<text x="80" y="128.0" text-anchor="end">100%</text>
+<line x1="90.0" y1="84" x2="90.0" y2="544" stroke="#e5e7eb" stroke-width="1"/>
+<text x="90.0" y="566" text-anchor="middle">$0.25</text>
+<line x1="191.8" y1="84" x2="191.8" y2="544" stroke="#e5e7eb" stroke-width="1"/>
+<text x="191.8" y="566" text-anchor="middle">$0.50</text>
+<line x1="293.6" y1="84" x2="293.6" y2="544" stroke="#e5e7eb" stroke-width="1"/>
+<text x="293.6" y="566" text-anchor="middle">$0.75</text>
+<line x1="395.4" y1="84" x2="395.4" y2="544" stroke="#e5e7eb" stroke-width="1"/>
+<text x="395.4" y="566" text-anchor="middle">$1.00</text>
+<line x1="497.1" y1="84" x2="497.1" y2="544" stroke="#e5e7eb" stroke-width="1"/>
+<text x="497.1" y="566" text-anchor="middle">$1.25</text>
+<line x1="598.9" y1="84" x2="598.9" y2="544" stroke="#e5e7eb" stroke-width="1"/>
+<text x="598.9" y="566" text-anchor="middle">$1.50</text>
+</g>
+<line x1="90" y1="544" x2="660" y2="544" stroke="#111827" stroke-width="1.5"/>
+<line x1="90" y1="84" x2="90" y2="544" stroke="#111827" stroke-width="1.5"/>
+<text x="375" y="590" text-anchor="middle" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#111827">Total run cost (USD)</text>
+<text transform="translate(28 314) rotate(-90)" text-anchor="middle" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#111827">Semantic accuracy</text>
+<circle cx="128.8" cy="124.0" r="13" fill="#0b6e4f" opacity="0.16"/>
+<circle cx="128.8" cy="124.0" r="7" fill="#0b6e4f" stroke="#ffffff" stroke-width="2"/>
+<text x="126.8" y="150.0" text-anchor="start" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="16" font-weight="700" fill="#0b6e4f">LedgerMind</text>
+<text x="126.8" y="167.0" text-anchor="start" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#4b5563">best trade-off: 100% at $0.345350</text>
+<circle cx="154.1" cy="124.0" r="5.5" fill="#6b7280" stroke="#ffffff" stroke-width="1.5"/>
+<text x="165.1" y="114.0" text-anchor="start" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#111827">Raw history</text>
+<circle cx="430.0" cy="124.0" r="5.5" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+<text x="430.0" y="110.0" text-anchor="middle" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#111827">ReMe</text>
+<circle cx="235.5" cy="207.0" r="5.5" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5"/>
+<text x="247.5" y="224.0" text-anchor="start" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#111827">Claude-Mem</text>
+<circle cx="300.0" cy="249.0" r="5.5" fill="#b45309" stroke="#ffffff" stroke-width="1.5"/>
+<text x="312.0" y="243.0" text-anchor="start" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#111827">Cognee</text>
+<circle cx="633.9" cy="332.0" r="5.5" fill="#b91c1c" stroke="#ffffff" stroke-width="1.5"/>
+<text x="621.9" y="338.0" text-anchor="end" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#111827">Hindsight</text>
+<circle cx="105.8" cy="374.0" r="5.5" fill="#0891b2" stroke="#ffffff" stroke-width="1.5"/>
+<text x="116.8" y="379.0" text-anchor="start" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#111827">Mem0 OSS</text>
+<circle cx="351.9" cy="499.0" r="5.5" fill="#db2777" stroke="#ffffff" stroke-width="1.5"/>
+<text x="363.9" y="505.0" text-anchor="start" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#111827">Supermemory Local</text>
+<text x="90" y="612" font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#6b7280">Three arms reach 100%; LedgerMind reaches it at the lowest cost.</text>
+</svg>

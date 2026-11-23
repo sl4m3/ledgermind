@@ -1,5 +1,19 @@
 # Changelog
 
+## 5.0.0 - 2026-11-23
+
+- Promoted the current semantic extraction and knowledge-resolution pipeline
+  with a required native decision profile to stable release `5.0.0`.
+- Added Adaptive-k retrieval reranker selection under a 1024-unit safety cap
+  with grouped object/facet rendering and fail-open fallback to Core order.
+- Added durable, idempotent asynchronous retrieval usage delivery via the Local
+  outbox (`record_retrieval_outcome` and `X-LedgerMind-Usage-Status`).
+- Added automatic loopback port failover recovery (`runtime.endpoint_conflict` /
+  `runtime.endpoint_failover`) so agent hooks stay resilient across port changes.
+- Achieved 24/24 probes and 73/73 semantic fields (100%) on the 8-arm Memory
+  Lifecycle Benchmark (`2026-11-22`) at `$0.345350` total cost and 269,844 agent
+  input tokens.
+
 ## 4.1.0 - 2026-09-20
 
 - Made the compact Round Semantic schema version 4 the only production semantic

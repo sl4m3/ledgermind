@@ -26,5 +26,5 @@
   "approved_budget_usd": 0.5,
   "memory_budget_usd": 0.375,
   "agent_budget_usd": 0.125,
-  "evaluation": "Frozen literal assertions retained; semantic review required before publishing accuracy, same policy as Raw History."
+  "evaluation": "Frozen exact-value assertions retained; semantic review required before publishing accuracy, same policy as Raw History."
 }

@@ -48,9 +48,9 @@ jobs:
       - name: fetch ledgermind-inference wheel
         run: |
           mkdir -p wheels
-          curl -fsSL -o wheels/ledgermind_inference-0.1.0-py3-none-any.whl \
-            "https://github.com/${GITHUB_REPOSITORY}/releases/download/v4.1.0/ledgermind_inference-0.1.0-py3-none-any.whl"
+          curl -fsSL -o wheels/ledgermind_inference-0.1.0-cp310-abi3-linux_x86_64.whl \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/v5.0.0/ledgermind_inference-0.1.0-cp310-abi3-linux_x86_64.whl"
       - name: test-all
         env:
-          LEDGERMIND_INFERENCE_WHEEL: ${{ github.workspace }}/wheels/ledgermind_inference-0.1.0-py3-none-any.whl
+          LEDGERMIND_INFERENCE_WHEEL: ${{ github.workspace }}/wheels/ledgermind_inference-0.1.0-cp310-abi3-linux_x86_64.whl
         run: ./tools/test-all.sh

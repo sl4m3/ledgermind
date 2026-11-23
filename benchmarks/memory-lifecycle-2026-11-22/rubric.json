@@ -26,7 +26,7 @@
             "wave 7a"
           ],
           "forbidden": [],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "entrypoint": {
           "accepted": [
@@ -35,7 +35,7 @@
           "forbidden": [
             "src/server.ts"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "production": {
           "accepted": [
@@ -46,7 +46,7 @@
           "forbidden": [
             "go"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -79,7 +79,7 @@
           "forbidden": [
             "go"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "migration_application": {
           "accepted": [
@@ -90,7 +90,7 @@
           "forbidden": [
             "authorized"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "entrypoint_owner": {
           "accepted": [
@@ -101,7 +101,7 @@
           "forbidden": [
             "delegate"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -126,14 +126,14 @@
           "forbidden": [
             "completed"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "error": {
           "accepted": [
             "attributeerror: 'dict' object has no attribute 'start'"
           ],
           "forbidden": [],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -165,7 +165,7 @@
           "forbidden": [
             "failed"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "segments": {
           "accepted": [
@@ -194,7 +194,7 @@
           "forbidden": [
             "did not occur"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -223,7 +223,7 @@
           "forbidden": [
             "absent"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "location": {
           "accepted": [
@@ -233,7 +233,7 @@
           "forbidden": [
             "all sides"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "height_px": {
           "accepted": [
@@ -289,7 +289,7 @@
           "forbidden": [
             "::after"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "raf": {
           "accepted": [
@@ -301,7 +301,7 @@
           "forbidden": [
             "enabled"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "debounce": {
           "accepted": [
@@ -313,7 +313,7 @@
           "forbidden": [
             "80 ms"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "title": {
           "accepted": [
@@ -323,7 +323,7 @@
           "forbidden": [
             "animated"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -351,7 +351,7 @@
           "forbidden": [
             "pyannote"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "device": {
           "accepted": [
@@ -360,7 +360,7 @@
           "forbidden": [
             "gpu"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -389,14 +389,14 @@
           "forbidden": [
             "pyannote"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "device": {
           "accepted": [
             "cpu"
           ],
           "forbidden": [],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "transcription_model": {
           "accepted": [
@@ -405,7 +405,7 @@
           "forbidden": [
             "whisper-large-v3-turbo"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -428,7 +428,7 @@
             "enabled"
           ],
           "forbidden": [],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "whole_card": {
           "accepted": [
@@ -439,7 +439,7 @@
           "forbidden": [
             "magnetic"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -469,7 +469,7 @@
           "forbidden": [
             "magnetic"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "whole_card": {
           "accepted": [
@@ -479,7 +479,7 @@
           "forbidden": [
             "not confirmed"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -507,14 +507,14 @@
           "forbidden": [
             "nichefloat"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "child": {
           "accepted": [
             "nichefloat"
           ],
           "forbidden": [],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "child_state": {
           "accepted": [
@@ -525,7 +525,7 @@
           "forbidden": [
             "internal state"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -553,14 +553,14 @@
           "forbidden": [
             "nichefloat"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "child": {
           "accepted": [
             "nichefloat"
           ],
           "forbidden": [],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "child_state": {
           "accepted": [
@@ -571,7 +571,7 @@
           "forbidden": [
             "internal state"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -595,14 +595,14 @@
           "forbidden": [
             "var(--color-bg-card)"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "expanded_background": {
           "accepted": [
             "var(--color-bg-card)"
           ],
           "forbidden": [],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -639,7 +639,7 @@
             "transparent"
           ],
           "forbidden": [],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "leave_delay_ms": {
           "accepted": [
@@ -683,7 +683,7 @@
             "titanet large"
           ],
           "forbidden": [],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "scales": {
           "accepted": [
@@ -743,7 +743,7 @@
           "forbidden": [
             "ecapa-tdnn"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "scales": {
           "accepted": [
@@ -826,7 +826,7 @@
           "forbidden": [
             "animated"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -878,7 +878,7 @@
           "forbidden": [
             "enabled"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "title": {
           "accepted": [
@@ -888,7 +888,7 @@
           "forbidden": [
             "animated"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -1040,7 +1040,7 @@
             "groq -> nemo -> alignment -> json"
           ],
           "forbidden": [],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "device": {
           "accepted": [
@@ -1049,7 +1049,7 @@
           "forbidden": [
             "gpu"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "docker_argument": {
           "accepted": [
@@ -1058,7 +1058,7 @@
           "forbidden": [
             "none"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         }
       }
     },
@@ -1089,7 +1089,7 @@
             "groq -> nemo -> alignment -> json"
           ],
           "forbidden": [],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "docker_argument": {
           "accepted": [
@@ -1098,7 +1098,7 @@
           "forbidden": [
             "none"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "embedding_model": {
           "accepted": [
@@ -1109,7 +1109,7 @@
           "forbidden": [
             "ecapa-tdnn"
           ],
-          "type": "closed_literal"
+          "type": "closed_value"
         },
         "scales": {
           "accepted": [

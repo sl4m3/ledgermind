@@ -9,10 +9,10 @@ The current analysis and measurement boundary are documented in
 
 - [Suite directory](memory-lifecycle-2026-11-22/README.md)
 
-Twelve scenarios, 24 probes and 73 checked fields across nine arms, scored by a
-completed manual semantic review and a separate literal check. The directory
-holds the per-probe rubric, the recorded answers with verdicts, aggregate
-token/cost figures, nine run manifests, sha256 digests of the original
+Twelve scenarios, 24 probes and 73 checked fields across eight arms, scored by a
+completed manual semantic review. The directory holds the per-probe rubric, the
+recorded answers with verdicts, aggregate token/cost figures, eight run
+manifests, an accuracy-versus-cost chart, sha256 digests of the original
 artifacts, and an offline `verify.py`.
 
 The raw corpus and run config are private because the scenarios come from real

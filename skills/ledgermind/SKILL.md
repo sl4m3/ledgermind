@@ -42,11 +42,10 @@ LedgerMind runtime and it is not an MCP server.
 
 ## Before offering installation
 
-Explain that the current project is LedgerMind 4.0 beta. Check the current
+Explain that the current stable release is LedgerMind 5.0.0. Check the current
 signed package on the
 [GitHub Releases](https://github.com/sl4m3/ledgermind/releases) page before
-running an installer. The current supported platforms are Linux x86_64 and
-Linux aarch64.
+running an installer. The current published package supports Linux x86_64.
 
 Ask the user to confirm installation and collect the choices required by the
 installer:
@@ -62,7 +61,7 @@ secret source. Do not put a plaintext token in a configuration file.
 
 ## Installation after confirmation
 
-If a signed 4.0 release is available, the interactive installer is:
+If a signed 5.0.0 release is available, the interactive installer is:
 
 ```bash
 curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh | sh
@@ -129,7 +128,7 @@ custom memory path. `--purge-config` removes configuration, provider secret
 references, and Local runtime data. Either purge flag requires `--yes` and
 cannot be undone by LedgerMind.
 
-If no signed 4.0 package is published, do not substitute a legacy 3.x release
+If no signed 5.0.0 package is published, do not substitute a legacy 3.x or 4.x release
 or invent an installation command. Offer the canonical source and the
 [integrations tree](https://github.com/sl4m3/ledgermind/tree/main/integrations),
 and tell the user that an evaluation build or a release is required.
