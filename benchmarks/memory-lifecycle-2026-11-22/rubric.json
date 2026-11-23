@@ -1,0 +1,1238 @@
+{
+  "suite": "memory-lifecycle-2026-11-22",
+  "schema_version": 1,
+  "probe_count": 24,
+  "field_count": 73,
+  "probes": [
+    {
+      "id": "E1-P1",
+      "family": "E1",
+      "expected": {
+        "slice": "Wave 7A",
+        "entrypoint": "src/index.ts",
+        "production": "NO-GO"
+      },
+      "forbidden": {
+        "production": [
+          "GO"
+        ],
+        "entrypoint": [
+          "src/server.ts"
+        ]
+      },
+      "fields": {
+        "slice": {
+          "accepted": [
+            "wave 7a"
+          ],
+          "forbidden": [],
+          "type": "closed_literal"
+        },
+        "entrypoint": {
+          "accepted": [
+            "src/index.ts"
+          ],
+          "forbidden": [
+            "src/server.ts"
+          ],
+          "type": "closed_literal"
+        },
+        "production": {
+          "accepted": [
+            "no-go",
+            "no go",
+            "not authorized"
+          ],
+          "forbidden": [
+            "go"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "E1-P2",
+      "family": "E1",
+      "expected": {
+        "production": "NO-GO",
+        "migration_application": "forbidden without separate authorization",
+        "entrypoint_owner": "parent"
+      },
+      "forbidden": {
+        "production": [
+          "GO"
+        ],
+        "migration_application": [
+          "authorized"
+        ],
+        "entrypoint_owner": [
+          "delegate"
+        ]
+      },
+      "fields": {
+        "production": {
+          "accepted": [
+            "no-go",
+            "no go",
+            "not authorized"
+          ],
+          "forbidden": [
+            "go"
+          ],
+          "type": "closed_literal"
+        },
+        "migration_application": {
+          "accepted": [
+            "forbidden without separate authorization",
+            "not authorized",
+            "forbidden"
+          ],
+          "forbidden": [
+            "authorized"
+          ],
+          "type": "closed_literal"
+        },
+        "entrypoint_owner": {
+          "accepted": [
+            "parent",
+            "parent-owned",
+            "parent agent"
+          ],
+          "forbidden": [
+            "delegate"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "E2-P1",
+      "family": "E2",
+      "expected": {
+        "test_status": "failed",
+        "error": "AttributeError: 'dict' object has no attribute 'start'"
+      },
+      "forbidden": {
+        "test_status": [
+          "completed"
+        ]
+      },
+      "fields": {
+        "test_status": {
+          "accepted": [
+            "failed",
+            "failure"
+          ],
+          "forbidden": [
+            "completed"
+          ],
+          "type": "closed_literal"
+        },
+        "error": {
+          "accepted": [
+            "attributeerror: 'dict' object has no attribute 'start'"
+          ],
+          "forbidden": [],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "E2-P2",
+      "family": "E2",
+      "expected": {
+        "test_status": "completed",
+        "segments": "4",
+        "speakers": "2",
+        "earlier_failure": "occurred"
+      },
+      "forbidden": {
+        "test_status": [
+          "failed"
+        ],
+        "earlier_failure": [
+          "did not occur"
+        ]
+      },
+      "fields": {
+        "test_status": {
+          "accepted": [
+            "completed",
+            "succeeded",
+            "successful",
+            "success"
+          ],
+          "forbidden": [
+            "failed"
+          ],
+          "type": "closed_literal"
+        },
+        "segments": {
+          "accepted": [
+            "4"
+          ],
+          "forbidden": [],
+          "type": "quantity",
+          "value": "4",
+          "unit": ""
+        },
+        "speakers": {
+          "accepted": [
+            "2"
+          ],
+          "forbidden": [],
+          "type": "quantity",
+          "value": "2",
+          "unit": ""
+        },
+        "earlier_failure": {
+          "accepted": [
+            "occurred",
+            "yes",
+            "real"
+          ],
+          "forbidden": [
+            "did not occur"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "E3-P1",
+      "family": "E3",
+      "expected": {
+        "buffer": "::after",
+        "location": "bottom only",
+        "height_px": "20",
+        "bottom_px": "-20"
+      },
+      "forbidden": {
+        "buffer": [
+          "absent"
+        ],
+        "location": [
+          "all sides"
+        ]
+      },
+      "fields": {
+        "buffer": {
+          "accepted": [
+            "::after"
+          ],
+          "forbidden": [
+            "absent"
+          ],
+          "type": "closed_literal"
+        },
+        "location": {
+          "accepted": [
+            "bottom only",
+            "bottom"
+          ],
+          "forbidden": [
+            "all sides"
+          ],
+          "type": "closed_literal"
+        },
+        "height_px": {
+          "accepted": [
+            "20"
+          ],
+          "forbidden": [],
+          "type": "quantity",
+          "value": "20",
+          "unit": "px"
+        },
+        "bottom_px": {
+          "accepted": [
+            "-20"
+          ],
+          "forbidden": [],
+          "type": "quantity",
+          "value": "-20",
+          "unit": "px"
+        }
+      }
+    },
+    {
+      "id": "E3-P2",
+      "family": "E3",
+      "expected": {
+        "buffer": "absent",
+        "raf": "absent",
+        "debounce": "absent",
+        "title": "static"
+      },
+      "forbidden": {
+        "buffer": [
+          "::after"
+        ],
+        "raf": [
+          "enabled"
+        ],
+        "debounce": [
+          "80 ms"
+        ],
+        "title": [
+          "animated"
+        ]
+      },
+      "fields": {
+        "buffer": {
+          "accepted": [
+            "absent",
+            "none",
+            "disabled",
+            "removed"
+          ],
+          "forbidden": [
+            "::after"
+          ],
+          "type": "closed_literal"
+        },
+        "raf": {
+          "accepted": [
+            "absent",
+            "none",
+            "disabled",
+            "removed"
+          ],
+          "forbidden": [
+            "enabled"
+          ],
+          "type": "closed_literal"
+        },
+        "debounce": {
+          "accepted": [
+            "absent",
+            "none",
+            "disabled",
+            "removed"
+          ],
+          "forbidden": [
+            "80 ms"
+          ],
+          "type": "closed_literal"
+        },
+        "title": {
+          "accepted": [
+            "static",
+            "not animated"
+          ],
+          "forbidden": [
+            "animated"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "I1-P1",
+      "family": "I1",
+      "expected": {
+        "diarizer": "NeMo",
+        "device": "CPU"
+      },
+      "forbidden": {
+        "diarizer": [
+          "PyAnnote"
+        ],
+        "device": [
+          "GPU"
+        ]
+      },
+      "fields": {
+        "diarizer": {
+          "accepted": [
+            "nemo",
+            "nemo diarization"
+          ],
+          "forbidden": [
+            "pyannote"
+          ],
+          "type": "closed_literal"
+        },
+        "device": {
+          "accepted": [
+            "cpu"
+          ],
+          "forbidden": [
+            "gpu"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "I1-P2",
+      "family": "I1",
+      "expected": {
+        "diarizer": "NeMo",
+        "device": "CPU",
+        "transcription_model": "whisper-large-v3"
+      },
+      "forbidden": {
+        "diarizer": [
+          "PyAnnote"
+        ],
+        "transcription_model": [
+          "whisper-large-v3-turbo"
+        ]
+      },
+      "fields": {
+        "diarizer": {
+          "accepted": [
+            "nemo",
+            "nemo diarization"
+          ],
+          "forbidden": [
+            "pyannote"
+          ],
+          "type": "closed_literal"
+        },
+        "device": {
+          "accepted": [
+            "cpu"
+          ],
+          "forbidden": [],
+          "type": "closed_literal"
+        },
+        "transcription_model": {
+          "accepted": [
+            "whisper-large-v3"
+          ],
+          "forbidden": [
+            "whisper-large-v3-turbo"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "I2-P1",
+      "family": "I2",
+      "expected": {
+        "demo_link": "magnetic",
+        "whole_card": "not confirmed"
+      },
+      "forbidden": {
+        "whole_card": [
+          "magnetic"
+        ]
+      },
+      "fields": {
+        "demo_link": {
+          "accepted": [
+            "magnetic",
+            "enabled"
+          ],
+          "forbidden": [],
+          "type": "closed_literal"
+        },
+        "whole_card": {
+          "accepted": [
+            "not confirmed",
+            "not established",
+            "unconfirmed"
+          ],
+          "forbidden": [
+            "magnetic"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "I2-P2",
+      "family": "I2",
+      "expected": {
+        "demo_link": "ordinary link",
+        "whole_card": "magnetic"
+      },
+      "forbidden": {
+        "demo_link": [
+          "magnetic"
+        ],
+        "whole_card": [
+          "not confirmed"
+        ]
+      },
+      "fields": {
+        "demo_link": {
+          "accepted": [
+            "ordinary link",
+            "ordinary",
+            "non-magnetic",
+            "not magnetic"
+          ],
+          "forbidden": [
+            "magnetic"
+          ],
+          "type": "closed_literal"
+        },
+        "whole_card": {
+          "accepted": [
+            "magnetic",
+            "enabled"
+          ],
+          "forbidden": [
+            "not confirmed"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "I3-P1",
+      "family": "I3",
+      "expected": {
+        "state_owner": "Niches.jsx",
+        "child": "NicheFloat",
+        "child_state": "controlled"
+      },
+      "forbidden": {
+        "state_owner": [
+          "NicheFloat"
+        ],
+        "child_state": [
+          "internal state"
+        ]
+      },
+      "fields": {
+        "state_owner": {
+          "accepted": [
+            "niches.jsx"
+          ],
+          "forbidden": [
+            "nichefloat"
+          ],
+          "type": "closed_literal"
+        },
+        "child": {
+          "accepted": [
+            "nichefloat"
+          ],
+          "forbidden": [],
+          "type": "closed_literal"
+        },
+        "child_state": {
+          "accepted": [
+            "controlled",
+            "controlled props",
+            "no internal state"
+          ],
+          "forbidden": [
+            "internal state"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "I3-P2",
+      "family": "I3",
+      "expected": {
+        "state_owner": "Niches.jsx",
+        "child": "NicheFloat",
+        "child_state": "controlled"
+      },
+      "forbidden": {
+        "state_owner": [
+          "NicheFloat"
+        ],
+        "child_state": [
+          "internal state"
+        ]
+      },
+      "fields": {
+        "state_owner": {
+          "accepted": [
+            "niches.jsx"
+          ],
+          "forbidden": [
+            "nichefloat"
+          ],
+          "type": "closed_literal"
+        },
+        "child": {
+          "accepted": [
+            "nichefloat"
+          ],
+          "forbidden": [],
+          "type": "closed_literal"
+        },
+        "child_state": {
+          "accepted": [
+            "controlled",
+            "controlled props",
+            "no internal state"
+          ],
+          "forbidden": [
+            "internal state"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "K1-P1",
+      "family": "K1",
+      "expected": {
+        "collapsed_background": "transparent",
+        "expanded_background": "var(--color-bg-card)"
+      },
+      "forbidden": {
+        "collapsed_background": [
+          "var(--color-bg-card)"
+        ]
+      },
+      "fields": {
+        "collapsed_background": {
+          "accepted": [
+            "transparent"
+          ],
+          "forbidden": [
+            "var(--color-bg-card)"
+          ],
+          "type": "closed_literal"
+        },
+        "expanded_background": {
+          "accepted": [
+            "var(--color-bg-card)"
+          ],
+          "forbidden": [],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "K1-P2",
+      "family": "K1",
+      "expected": {
+        "width_px": "340",
+        "collapsed_background": "transparent",
+        "leave_delay_ms": "0"
+      },
+      "forbidden": {
+        "width_px": [
+          "280"
+        ],
+        "leave_delay_ms": [
+          "150"
+        ]
+      },
+      "fields": {
+        "width_px": {
+          "accepted": [
+            "340"
+          ],
+          "forbidden": [
+            "280"
+          ],
+          "type": "quantity",
+          "value": "340",
+          "unit": "px"
+        },
+        "collapsed_background": {
+          "accepted": [
+            "transparent"
+          ],
+          "forbidden": [],
+          "type": "closed_literal"
+        },
+        "leave_delay_ms": {
+          "accepted": [
+            "0"
+          ],
+          "forbidden": [
+            "150"
+          ],
+          "type": "quantity",
+          "value": "0",
+          "unit": "ms",
+          "equivalents": [
+            "immediate",
+            "none",
+            "no delay"
+          ]
+        }
+      }
+    },
+    {
+      "id": "K2-P1",
+      "family": "K2",
+      "expected": {
+        "embedding_model": "TitaNet-Large",
+        "scales": "5",
+        "batch_size": "64"
+      },
+      "forbidden": {
+        "batch_size": [
+          "256"
+        ],
+        "scales": [
+          "1"
+        ]
+      },
+      "fields": {
+        "embedding_model": {
+          "accepted": [
+            "titanet-large",
+            "titanet_large",
+            "titanet large"
+          ],
+          "forbidden": [],
+          "type": "closed_literal"
+        },
+        "scales": {
+          "accepted": [
+            "5"
+          ],
+          "forbidden": [
+            "1"
+          ],
+          "type": "quantity",
+          "value": "5",
+          "unit": ""
+        },
+        "batch_size": {
+          "accepted": [
+            "64"
+          ],
+          "forbidden": [
+            "256"
+          ],
+          "type": "quantity",
+          "value": "64",
+          "unit": ""
+        }
+      }
+    },
+    {
+      "id": "K2-P2",
+      "family": "K2",
+      "expected": {
+        "embedding_model": "TitaNet-Large",
+        "scales": "5",
+        "batch_size": "256",
+        "omp_threads": "16",
+        "workers": "4"
+      },
+      "forbidden": {
+        "embedding_model": [
+          "ECAPA-TDNN"
+        ],
+        "scales": [
+          "1"
+        ],
+        "batch_size": [
+          "64"
+        ],
+        "omp_threads": [
+          "8"
+        ]
+      },
+      "fields": {
+        "embedding_model": {
+          "accepted": [
+            "titanet-large",
+            "titanet_large",
+            "titanet large"
+          ],
+          "forbidden": [
+            "ecapa-tdnn"
+          ],
+          "type": "closed_literal"
+        },
+        "scales": {
+          "accepted": [
+            "5"
+          ],
+          "forbidden": [
+            "1"
+          ],
+          "type": "quantity",
+          "value": "5",
+          "unit": ""
+        },
+        "batch_size": {
+          "accepted": [
+            "256"
+          ],
+          "forbidden": [
+            "64"
+          ],
+          "type": "quantity",
+          "value": "256",
+          "unit": ""
+        },
+        "omp_threads": {
+          "accepted": [
+            "16"
+          ],
+          "forbidden": [
+            "8"
+          ],
+          "type": "quantity",
+          "value": "16",
+          "unit": ""
+        },
+        "workers": {
+          "accepted": [
+            "4"
+          ],
+          "forbidden": [],
+          "type": "quantity",
+          "value": "4",
+          "unit": ""
+        }
+      }
+    },
+    {
+      "id": "K3-P1",
+      "family": "K3",
+      "expected": {
+        "leave_delay_ms": "80",
+        "title": "static"
+      },
+      "forbidden": {
+        "leave_delay_ms": [
+          "150",
+          "0"
+        ],
+        "title": [
+          "animated"
+        ]
+      },
+      "fields": {
+        "leave_delay_ms": {
+          "accepted": [
+            "80"
+          ],
+          "forbidden": [
+            "150",
+            "0"
+          ],
+          "type": "quantity",
+          "value": "80",
+          "unit": "ms"
+        },
+        "title": {
+          "accepted": [
+            "static",
+            "not animated"
+          ],
+          "forbidden": [
+            "animated"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "K3-P2",
+      "family": "K3",
+      "expected": {
+        "leave_delay_ms": "0",
+        "raf": "absent",
+        "title": "static"
+      },
+      "forbidden": {
+        "leave_delay_ms": [
+          "150",
+          "80"
+        ],
+        "raf": [
+          "enabled"
+        ],
+        "title": [
+          "animated"
+        ]
+      },
+      "fields": {
+        "leave_delay_ms": {
+          "accepted": [
+            "0"
+          ],
+          "forbidden": [
+            "150",
+            "80"
+          ],
+          "type": "quantity",
+          "value": "0",
+          "unit": "ms",
+          "equivalents": [
+            "immediate",
+            "none",
+            "no delay"
+          ]
+        },
+        "raf": {
+          "accepted": [
+            "absent",
+            "none",
+            "disabled",
+            "removed"
+          ],
+          "forbidden": [
+            "enabled"
+          ],
+          "type": "closed_literal"
+        },
+        "title": {
+          "accepted": [
+            "static",
+            "not animated"
+          ],
+          "forbidden": [
+            "animated"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "R1-P1",
+      "family": "R1",
+      "expected": {
+        "max_children": "3",
+        "timeout_seconds": "0",
+        "depth": "1"
+      },
+      "forbidden": {
+        "max_children": [
+          "5"
+        ],
+        "timeout_seconds": [
+          "1800"
+        ],
+        "depth": [
+          "2"
+        ]
+      },
+      "fields": {
+        "max_children": {
+          "accepted": [
+            "3"
+          ],
+          "forbidden": [
+            "5"
+          ],
+          "type": "quantity",
+          "value": "3",
+          "unit": ""
+        },
+        "timeout_seconds": {
+          "accepted": [
+            "0"
+          ],
+          "forbidden": [
+            "1800"
+          ],
+          "type": "quantity",
+          "value": "0",
+          "unit": "s"
+        },
+        "depth": {
+          "accepted": [
+            "1"
+          ],
+          "forbidden": [
+            "2"
+          ],
+          "type": "quantity",
+          "value": "1",
+          "unit": ""
+        }
+      }
+    },
+    {
+      "id": "R1-P2",
+      "family": "R1",
+      "expected": {
+        "current_max_children": "3",
+        "next_max_children": "5",
+        "next_timeout_seconds": "1800",
+        "next_depth": "2"
+      },
+      "forbidden": {
+        "current_max_children": [
+          "5"
+        ],
+        "next_max_children": [
+          "3"
+        ],
+        "next_timeout_seconds": [
+          "0"
+        ],
+        "next_depth": [
+          "1"
+        ]
+      },
+      "fields": {
+        "current_max_children": {
+          "accepted": [
+            "3"
+          ],
+          "forbidden": [
+            "5"
+          ],
+          "type": "quantity",
+          "value": "3",
+          "unit": ""
+        },
+        "next_max_children": {
+          "accepted": [
+            "5"
+          ],
+          "forbidden": [
+            "3"
+          ],
+          "type": "quantity",
+          "value": "5",
+          "unit": ""
+        },
+        "next_timeout_seconds": {
+          "accepted": [
+            "1800"
+          ],
+          "forbidden": [
+            "0"
+          ],
+          "type": "quantity",
+          "value": "1800",
+          "unit": "s"
+        },
+        "next_depth": {
+          "accepted": [
+            "2"
+          ],
+          "forbidden": [
+            "1"
+          ],
+          "type": "quantity",
+          "value": "2",
+          "unit": ""
+        }
+      }
+    },
+    {
+      "id": "R2-P1",
+      "family": "R2",
+      "expected": {
+        "order": "Groq transcription -> NeMo diarization -> alignment -> JSON",
+        "device": "CPU",
+        "docker_argument": "--shm-size=2g"
+      },
+      "forbidden": {
+        "device": [
+          "GPU"
+        ],
+        "docker_argument": [
+          "none"
+        ]
+      },
+      "fields": {
+        "order": {
+          "accepted": [
+            "groq transcription -> nemo diarization -> alignment -> json",
+            "groq -> nemo -> alignment -> json"
+          ],
+          "forbidden": [],
+          "type": "closed_literal"
+        },
+        "device": {
+          "accepted": [
+            "cpu"
+          ],
+          "forbidden": [
+            "gpu"
+          ],
+          "type": "closed_literal"
+        },
+        "docker_argument": {
+          "accepted": [
+            "--shm-size=2g"
+          ],
+          "forbidden": [
+            "none"
+          ],
+          "type": "closed_literal"
+        }
+      }
+    },
+    {
+      "id": "R2-P2",
+      "family": "R2",
+      "expected": {
+        "order": "Groq transcription -> NeMo diarization -> alignment -> JSON",
+        "docker_argument": "--shm-size=2g",
+        "embedding_model": "TitaNet-Large",
+        "scales": "5"
+      },
+      "forbidden": {
+        "docker_argument": [
+          "none"
+        ],
+        "embedding_model": [
+          "ECAPA-TDNN"
+        ],
+        "scales": [
+          "1"
+        ]
+      },
+      "fields": {
+        "order": {
+          "accepted": [
+            "groq transcription -> nemo diarization -> alignment -> json",
+            "groq -> nemo -> alignment -> json"
+          ],
+          "forbidden": [],
+          "type": "closed_literal"
+        },
+        "docker_argument": {
+          "accepted": [
+            "--shm-size=2g"
+          ],
+          "forbidden": [
+            "none"
+          ],
+          "type": "closed_literal"
+        },
+        "embedding_model": {
+          "accepted": [
+            "titanet-large",
+            "titanet_large",
+            "titanet large"
+          ],
+          "forbidden": [
+            "ecapa-tdnn"
+          ],
+          "type": "closed_literal"
+        },
+        "scales": {
+          "accepted": [
+            "5"
+          ],
+          "forbidden": [
+            "1"
+          ],
+          "type": "quantity",
+          "value": "5",
+          "unit": ""
+        }
+      }
+    },
+    {
+      "id": "R3-P1",
+      "family": "R3",
+      "expected": {
+        "max_children": "5",
+        "timeout_seconds": "1800",
+        "depth": "2"
+      },
+      "forbidden": {
+        "max_children": [
+          "3"
+        ],
+        "timeout_seconds": [
+          "0"
+        ],
+        "depth": [
+          "1"
+        ]
+      },
+      "fields": {
+        "max_children": {
+          "accepted": [
+            "5"
+          ],
+          "forbidden": [
+            "3"
+          ],
+          "type": "quantity",
+          "value": "5",
+          "unit": ""
+        },
+        "timeout_seconds": {
+          "accepted": [
+            "1800"
+          ],
+          "forbidden": [
+            "0"
+          ],
+          "type": "quantity",
+          "value": "1800",
+          "unit": "s"
+        },
+        "depth": {
+          "accepted": [
+            "2"
+          ],
+          "forbidden": [
+            "1"
+          ],
+          "type": "quantity",
+          "value": "2",
+          "unit": ""
+        }
+      }
+    },
+    {
+      "id": "R3-P2",
+      "family": "R3",
+      "expected": {
+        "max_children": "5",
+        "timeout_seconds": "1800",
+        "depth": "2"
+      },
+      "forbidden": {
+        "max_children": [
+          "3"
+        ],
+        "timeout_seconds": [
+          "0"
+        ],
+        "depth": [
+          "1"
+        ]
+      },
+      "fields": {
+        "max_children": {
+          "accepted": [
+            "5"
+          ],
+          "forbidden": [
+            "3"
+          ],
+          "type": "quantity",
+          "value": "5",
+          "unit": ""
+        },
+        "timeout_seconds": {
+          "accepted": [
+            "1800"
+          ],
+          "forbidden": [
+            "0"
+          ],
+          "type": "quantity",
+          "value": "1800",
+          "unit": "s"
+        },
+        "depth": {
+          "accepted": [
+            "2"
+          ],
+          "forbidden": [
+            "1"
+          ],
+          "type": "quantity",
+          "value": "2",
+          "unit": ""
+        }
+      }
+    }
+  ]
+}

@@ -17,7 +17,7 @@
 
 <p align="center">
   <a href="#installation">Get started</a> ·
-  <a href="#workflow-memory-measured-end-to-end">See the results</a> ·
+  <a href="#memory-lifecycle-measured-end-to-end">See the results</a> ·
   <a href="#your-knowledge-stays-local-by-design">Security</a> ·
   <a href="BENCHMARK.md">Benchmark</a> ·
   <a href="mailto:s.zotov@ledgermind.org">Talk to us</a>
@@ -45,47 +45,55 @@ knowledge layer.
 
 > **Current stable release:** `4.1.0` for supported Linux hosts.
 
-## Workflow memory, measured end to end
+## Memory lifecycle, measured end to end
 
-The Workflow Transfer Benchmark measures the complete product loop: completed
-work is captured, a later agent receives memory automatically, and the task is
-scored from hidden workflow state and safety predicates. An LLM does not judge
-whether the answer merely sounds correct.
+The Memory Lifecycle Benchmark measures the whole memory loop on real project
+history: work is captured, the memory system forms and updates its own store,
+and a fresh agent later answers questions using only that arm's retrieval. The
+same **12 scenarios**, **24 probes** and **73 checked fields** were run against
+**nine configurations** on the same frozen corpus.
 
-The current public matrix covers **nine configurations**, the same **20 tasks**
-for each configuration, four workflow families, and **180 task executions**.
-Every value below is an observed result from the 19 September 2026 matrix—not a
-linear projection.
+The corpus is frozen at
+`sha256:1fd4d52163294f166fd481569bb6ab3f5654852ad0e3bdace72f74ce6158934f`
+and the run config at
+`sha256:645e9b85c1c175c3a16fe45439d2333b55433bf62b0ff22416e8375b51a8cf42`.
+Every arm used `meta/muse-ember` (agent reasoning `low`, memory reasoning
+`minimal`, route `google-vertex/global`). The run configuration specifies the
+local 2048-dimension `nemotron-3-embed-1b-bf16` embedding; Claude-Mem used its
+built-in 384-dimension ONNX model and Supermemory used a 2000-dimension
+Matryoshka slice, as recorded in their manifests.
 
-| Configuration | Completed | Safety violations | Agent actions | Rejected actions | Agent tokens | Returned context |
+Accuracy below is from a **completed manual semantic review** of the recorded
+answers, not an LLM judge. The literal column is the separate, stricter
+`evaluate_action_task` score.
+
+| Configuration | Version | Semantic, 24 probes / 73 fields | Memory-dependent, 22 / 65 | Literal | Agent input tokens | Total cost |
 |---|---:|---:|---:|---:|---:|---:|
-| **LedgerMind** | **20 / 20** | **0** | **140** | **8** | 232,429 | 5,916 |
-| Mem0 OSS | 20 / 20 | 0 | 142 | 12 | **188,072** | 4,144 |
-| Budget-limited history | 17 / 20 | 2 | 167 | 32 | 308,131 | 13,244 |
-| Supermemory Local | 19 / 20 | 0 | 150 | 20 | 197,503 | 3,243 |
-| Claude-Mem | 20 / 20 | 0 | 146 | 12 | 293,371 | 16,593 |
-| ReMe | 20 / 20 | 0 | 148 | 12 | 293,445 | 16,072 |
-| Cognee | 19 / 20 | 0 | 147 | 10 | **185,507** | **2,569** |
-| Hindsight | 20 / 20 | 0 | 144 | 13 | 261,406 | 12,502 |
-| Zep CE | 20 / 20 | 0 | 145 | 15 | 222,773 | 7,881 |
+| **LedgerMind** | — | **24/24, 73/73** | **22/22, 65/65** | 16/24, 61/73 | 269,844 | **$0.345350** |
+| ReMe | 0.4.2.3 | 24/24, 73/73 | 22/22, 65/65 | 15/24, 60/73 | 366,693 | $1.085034 |
+| Raw history | — | 24/24, 73/73 | 22/22, 65/65 | 18/24, 64/73 | 14,531,917 | $0.407496 |
+| Claude-Mem | 16.0.4 | 22/24, 68/73 | 21/22, 63/65 | 17/24, 59/73 | 514,426 | $0.607301 |
+| Cognee | 1.6.10 | 21/24, 68/73 | 19/22, 60/65 | 15/24, 56/73 | 79,039 | $0.765784 |
+| Hindsight | 1.2.3 | 19/24, 66/73 | 17/22, 58/65 | 15/24, 57/73 | 500,616 | $1.585927 |
+| Mem0 OSS | 2.2.1 | 18/24, 60/73 | 16/22, 52/65 | 12/24, 51/73 | 172,064 | $0.288878 |
+| Supermemory Local | 0.0.9 | 15/24, 57/73 | 14/22, 51/65 | 12/24, 51/73 | 162,023 | $0.893317 |
+| No memory | — | 2/24, 8/73 | 0/22, 0/65 | 2/24, 8/73 | 69,592 | $0.019096 |
 
-Against budget-limited history, LedgerMind completed **three more tasks**, used
-**24.6% fewer agent tokens**, required **16.2% fewer actions**, and produced
-**75% fewer rejected actions**. It completed all 20 tasks with no observed
-safety violation.
+LedgerMind reached **24/24 probes and 73/73 fields for $0.345350**. ReMe also
+reached 24/24, but at **$1.085034 — 3.14× the cost**. Raw history also reached
+24/24, yet only by feeding the agent **14.5M input tokens** (53.9× LedgerMind's
+269,844) and still costing $0.407496. The no-memory control scored **2/24**:
+it guessed only the two probes (E3-P1, E3-P2) whose field contracts suggest the
+expected defaults.
 
-The comparison does **not** claim that LedgerMind used the fewest tokens in
-every row. Mem0 used fewer agent tokens while also completing 20/20; Cognee
-used the fewest tokens overall but completed 19/20. LedgerMind's measured
-distinction in this matrix is the combination of 20/20 completion with the
-fewest agent actions and rejected actions among the fully completed systems.
+ReMe's 24/24 depends on two accepted borderlines. A stricter reading that
+rejects `blocked` as a value for `E2-P1.test_status` and rejects listing five
+explicit scales instead of the number `5` in `R2-P2` puts ReMe at **22/24,
+71/73** overall (**20/22, 63/65** on memory-dependent probes). Both alternatives
+are published alongside the base score.
 
-The public artifact includes the actual per-task token sequence used by the
-interactive comparison, not prompts, responses, provider endpoints, request
-identifiers, or local paths.
-
-[Read the full benchmark report](BENCHMARK.md) or inspect the sanitized
-[machine-readable result](benchmarks/workflow-transfer-20260919.json).
+[Read the full benchmark report](BENCHMARK.md) or inspect the
+[sanitized per-probe evidence](benchmarks/memory-lifecycle-2026-11-22/README.md).
 
 ### The 30-second version
 
@@ -117,7 +125,7 @@ non-interactive deployment.
 | Using an agent and tired of repeating yourself | [Install LedgerMind 4.1.0](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
 | Building an agent, IDE, or local assistant | Explore [Integrations](https://github.com/sl4m3/ledgermind-integrations) and the [Local runtime](https://github.com/sl4m3/ledgermind-local) |
 | Running an AI platform or enterprise deployment | [Contact LedgerMind](mailto:s.zotov@ledgermind.org) for evaluation, deployment, and licensing |
-| Comparing memory systems | Jump to the [benchmark results](#workflow-memory-measured-end-to-end) and [full methodology](BENCHMARK.md) |
+| Comparing memory systems | Jump to the [benchmark results](#memory-lifecycle-measured-end-to-end) and [full methodology](BENCHMARK.md) |
 
 ## Where LedgerMind is available
 
@@ -235,11 +243,12 @@ model with **120B parameters or more** and an endpoint that supports **strict
 JSON Schema structured outputs**. Plain JSON mode, prompt-only JSON, and
 provider-side best-effort formatting are not equivalent and are not sufficient.
 
-The published Workflow Transfer Benchmark and release integration checks used
-`deepseek/deepseek-v4-flash-0731` as the semantic generation model. This is the
-tested reference model, not a hard-coded dependency: another model may be used
-when it meets the same size and strict structured-output requirements. The
-installer probes strict JSON Schema support before completing the installation.
+The published Memory Lifecycle Benchmark used `meta/muse-ember`, and release
+integration checks used `deepseek/deepseek-v4-flash-0731`, as the semantic
+generation model. These are tested reference models, not a hard-coded
+dependency: another model may be used when it meets the same size and strict
+structured-output requirements. The installer probes strict JSON Schema support
+before completing the installation.
 
 The provider profile also disables reasoning for LedgerMind's semantic model
 calls using the provider's supported wire format. This does not change the
@@ -496,21 +505,22 @@ the agent to reread everything it has ever done.
 
 ## Tested on changing workflows
 
-The Workflow Transfer Benchmark does not grade the wording of stored memories.
-It tests whether memory helps an agent complete the next workflow.
+The Memory Lifecycle Benchmark does not grade the wording of stored memories.
+It tests whether memory helps an agent reconstruct the current state of work.
 
-The pilot covers production rollout, incident recovery, secure offboarding,
-and business-data processing. Each family tests repetition, adaptation to a
-changed environment, and a conflicting authoritative rule that must supersede
-old experience.
+The twelve scenarios cover four families: execution (E), identity (I),
+knowledge evolution (K), and delivery (R). Each family tests repetition,
+adaptation to changed state, and a conflicting authoritative rule that must
+supersede older experience.
 
 The agent sees only public tools, observations, and the context supplied by its
-memory mode. Completion and safety are checked against hidden simulator state,
-not by a semantic judge. Every compared arm receives the same source experience
-and uses the same agent model, prompts, action limit, and public task inputs.
+memory mode. Answers are checked against a frozen, source-grounded rubric and a
+completed manual semantic review, not by an LLM judge. Every compared arm
+receives the same source experience and uses the same agent model, action
+limit, and public task inputs.
 
 This isolates the question LedgerMind exists to answer: can an agent reuse
-experience with less context while remaining correct and safe? In this
+experience with less context while remaining correct and current? In this
 development run, the answer was yes. A complete comparison rerun on the release
 binary is still required before treating the result as release-grade or
 statistically stable evidence.

@@ -1,0 +1,295 @@
+{
+  "suite": "memory-lifecycle-2026-11-22",
+  "schema_version": 1,
+  "review_type": "manual_semantic_review",
+  "status": "complete",
+  "confirmed_at": "2026-11-23",
+  "source_of_truth": "README.md manual audit, confirmed by user as correct",
+  "corpus_sha256": "1fd4d52163294f166fd481569bb6ab3f5654852ad0e3bdace72f74ce6158934f",
+  "config_sha256": "645e9b85c1c175c3a16fe45439d2333b55433bf62b0ff22416e8375b51a8cf42",
+  "model": {
+    "agent": "meta/muse-ember",
+    "memory": "meta/muse-ember",
+    "agent_reasoning": "low",
+    "memory_reasoning": "minimal",
+    "route": "google-vertex/global",
+    "embedding": "nemotron-3-embed-1b-bf16 (2048d)"
+  },
+  "probe_count": 24,
+  "field_count": 73,
+  "arms": [
+    {
+      "arm": "no_memory",
+      "version": null,
+      "completed_probes": 24,
+      "technical_failures": 0,
+      "total_probes": 24,
+      "total_fields": 73,
+      "semantic_all": {
+        "passed_probes": 2,
+        "correct_fields": 8
+      },
+      "semantic_memory_dependent": {
+        "total_probes": 22,
+        "total_fields": 65,
+        "passed_probes": 0,
+        "correct_fields": 0
+      },
+      "literal": {
+        "passed_probes": 2,
+        "correct_fields": 8
+      },
+      "agent_input_tokens": 69592,
+      "total_cost_usd": 0.019096148,
+      "notes": [
+        "calibration_valid: false",
+        "only E3-P1 and E3-P2 guessed (contract-suggested defaults); 0/65 fields on the remaining 22 memory-dependent probes"
+      ]
+    },
+    {
+      "arm": "mem0_oss",
+      "version": "2.2.1",
+      "completed_probes": 24,
+      "technical_failures": 0,
+      "total_probes": 24,
+      "total_fields": 73,
+      "semantic_all": {
+        "passed_probes": 18,
+        "correct_fields": 60
+      },
+      "semantic_memory_dependent": {
+        "total_probes": 22,
+        "total_fields": 65,
+        "passed_probes": 16,
+        "correct_fields": 52
+      },
+      "literal": {
+        "passed_probes": 12,
+        "correct_fields": 51
+      },
+      "agent_input_tokens": 172064,
+      "total_cost_usd": 0.288877948,
+      "notes": [
+        "failed probes: I2-P1, K3-P1, K3-P2, R1-P2, K2-P1/K2-P2 (scales)"
+      ],
+      "alternate": {
+        "passed_probes": 20,
+        "correct_fields": null,
+        "note": "up to 20/24 without strictness on K2.scales"
+      }
+    },
+    {
+      "arm": "hindsight",
+      "version": "1.2.3",
+      "completed_probes": 24,
+      "technical_failures": 0,
+      "total_probes": 24,
+      "total_fields": 73,
+      "semantic_all": {
+        "passed_probes": 19,
+        "correct_fields": 66
+      },
+      "semantic_memory_dependent": {
+        "total_probes": 22,
+        "total_fields": 65,
+        "passed_probes": 17,
+        "correct_fields": 58
+      },
+      "literal": {
+        "passed_probes": 15,
+        "correct_fields": 57
+      },
+      "agent_input_tokens": 500616,
+      "total_cost_usd": 1.585927392,
+      "notes": [
+        "highest total cost among the 6 memory arms ($1.585927392)"
+      ],
+      "alternate": {
+        "passed_probes": 20,
+        "correct_fields": 67,
+        "note": "if R2-P2.order is accepted without Alignment"
+      }
+    },
+    {
+      "arm": "cognee",
+      "version": "1.6.10",
+      "completed_probes": 24,
+      "technical_failures": 0,
+      "total_probes": 24,
+      "total_fields": 73,
+      "semantic_all": {
+        "passed_probes": 21,
+        "correct_fields": 68
+      },
+      "semantic_memory_dependent": {
+        "total_probes": 22,
+        "total_fields": 65,
+        "passed_probes": 19,
+        "correct_fields": 60
+      },
+      "literal": {
+        "passed_probes": 15,
+        "correct_fields": 56
+      },
+      "agent_input_tokens": 79039,
+      "total_cost_usd": 0.765783524,
+      "notes": [
+        "failed probes: K1-P2, K3-P1, K3-P2 (temporal overwrite/rollback)"
+      ],
+      "alternate_strict": {
+        "passed_probes": 19,
+        "correct_fields": 64,
+        "memory_dependent": {
+          "passed_probes": 17,
+          "correct_fields": 56
+        },
+        "note": "strict requirement of self-contained values in I2"
+      }
+    },
+    {
+      "arm": "supermemory_local",
+      "version": "0.0.9",
+      "completed_probes": 24,
+      "technical_failures": 0,
+      "total_probes": 24,
+      "total_fields": 73,
+      "semantic_all": {
+        "passed_probes": 15,
+        "correct_fields": 57
+      },
+      "semantic_memory_dependent": {
+        "total_probes": 22,
+        "total_fields": 65,
+        "passed_probes": 14,
+        "correct_fields": 51
+      },
+      "literal": {
+        "passed_probes": 12,
+        "correct_fields": 51
+      },
+      "agent_input_tokens": 162023,
+      "total_cost_usd": 0.893316736,
+      "notes": [
+        "15/24 probes and 14/22 memory-dependent probes unchanged under the lenient reading",
+        "forgetMemory called once and linkMemories called once across 2,459 CreateMemory calls"
+      ],
+      "alternate": {
+        "passed_probes": 15,
+        "correct_fields": 59,
+        "note": "lenient reading of TitaNet/multiscale in R2-P2; probe count unchanged"
+      }
+    },
+    {
+      "arm": "claude_mem",
+      "version": "16.0.4",
+      "completed_probes": 24,
+      "technical_failures": 0,
+      "total_probes": 24,
+      "total_fields": 73,
+      "semantic_all": {
+        "passed_probes": 22,
+        "correct_fields": 68
+      },
+      "semantic_memory_dependent": {
+        "total_probes": 22,
+        "total_fields": 65,
+        "passed_probes": 21,
+        "correct_fields": 63
+      },
+      "literal": {
+        "passed_probes": 17,
+        "correct_fields": 59
+      },
+      "agent_input_tokens": 514426,
+      "total_cost_usd": 0.607300872,
+      "notes": []
+    },
+    {
+      "arm": "reme",
+      "version": "0.4.2.3",
+      "completed_probes": 24,
+      "technical_failures": 0,
+      "total_probes": 24,
+      "total_fields": 73,
+      "semantic_all": {
+        "passed_probes": 24,
+        "correct_fields": 73
+      },
+      "semantic_memory_dependent": {
+        "total_probes": 22,
+        "total_fields": 65,
+        "passed_probes": 22,
+        "correct_fields": 65
+      },
+      "literal": {
+        "passed_probes": 15,
+        "correct_fields": 60
+      },
+      "agent_input_tokens": 366693,
+      "total_cost_usd": 1.085034028,
+      "notes": [
+        "0 incorrect, 0 forbidden",
+        "hybrid 2048d + BM25; daily notes with [SUPERSEDED]"
+      ],
+      "alternate_strict": {
+        "passed_probes": 22,
+        "correct_fields": 71,
+        "memory_dependent": {
+          "passed_probes": 20,
+          "correct_fields": 63
+        },
+        "note": "if blocked is not accepted in E2-P1 and [1.5,...] is not accepted instead of 5 in R2-P2"
+      }
+    },
+    {
+      "arm": "ledgermind",
+      "version": null,
+      "completed_probes": 24,
+      "technical_failures": 0,
+      "total_probes": 24,
+      "total_fields": 73,
+      "semantic_all": {
+        "passed_probes": 24,
+        "correct_fields": 73
+      },
+      "semantic_memory_dependent": {
+        "total_probes": 22,
+        "total_fields": 65,
+        "passed_probes": 22,
+        "correct_fields": 65
+      },
+      "literal": {
+        "passed_probes": 16,
+        "correct_fields": 61
+      },
+      "agent_input_tokens": 269844,
+      "total_cost_usd": 0.345350162,
+      "notes": []
+    },
+    {
+      "arm": "raw_history",
+      "version": null,
+      "completed_probes": 24,
+      "technical_failures": 0,
+      "total_probes": 24,
+      "total_fields": 73,
+      "semantic_all": {
+        "passed_probes": 24,
+        "correct_fields": 73
+      },
+      "semantic_memory_dependent": {
+        "total_probes": 22,
+        "total_fields": 65,
+        "passed_probes": 22,
+        "correct_fields": 65
+      },
+      "literal": {
+        "passed_probes": 18,
+        "correct_fields": 64
+      },
+      "agent_input_tokens": 14531917,
+      "total_cost_usd": 0.407495928,
+      "notes": []
+    }
+  ]
+}

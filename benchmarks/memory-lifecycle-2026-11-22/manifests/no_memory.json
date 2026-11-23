@@ -1,0 +1,28 @@
+{
+  "approved_budget_usd": 0.2,
+  "arm": "no_memory",
+  "concurrency": 4,
+  "corpus_sha256": "1fd4d52163294f166fd481569bb6ab3f5654852ad0e3bdace72f74ce6158934f",
+  "corpus_sha256_recorded_at_run": "168684b88edfa286eedc8858316bbd749e96d834b259ef4307f875e56a77897e",
+  "corpus_sha256_correction": "authoritative byte-level sha256sum of corpus.json; recorded value was legacy",
+  "fallback": false,
+  "knowledge_supplied_to_agent": false,
+  "limitations": [
+    "Single-reviewer development corpus, not held out; source sessions are shared.",
+    "Actions are simulator continuations for recording historical state, not live deployment or a full coding benchmark.",
+    "An early formation checkpoint is short; long-history results must show checkpoint sizes separately.",
+    "Literal identifiers and a frozen set of source-grounded categorical equivalents are scored, not arbitrary prose.",
+    "E1 starts at a real recorded host compaction, not at the multi-week session start."
+  ],
+  "max_actions": 12,
+  "max_protocol_repairs": 1,
+  "model": "meta/muse-ember",
+  "private_gold_supplied_to_agent": false,
+  "raw_history_allowance": "unabridged; no silent truncation",
+  "reasoning": "low",
+  "route": "google-vertex/global",
+  "source_history_supplied_to_agent": false,
+  "task_answers_ingested": false,
+  "task_mode": "multi_action",
+  "temperature": 0
+}
