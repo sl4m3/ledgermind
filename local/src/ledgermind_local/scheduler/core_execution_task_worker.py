@@ -148,6 +148,15 @@ _SAFE_ERROR_CODES = frozenset(
 )
 
 
+# Core invariant failures are not about the generated content: the same answer
+# (and any fresh generation) fails identically. Only local input-shape
+# rejections stay retryable here. Core codes arrive in upper case
+# (`CORE_IPC_ERROR_CODES`), while `invalid_execution_result` is built locally.
+_NON_RETRYABLE_DELIVERY_CODES = frozenset(
+    {"invalid_execution_result", "INTEGRITY_VIOLATION"}
+)
+
+
 _INVALID_REQUEST_REASON_MARKERS: tuple[tuple[str, str], ...] = (
     (
         "round_semantic_semantic_incomplete:",
@@ -1032,7 +1041,7 @@ class CoreExecutionTaskWorker:
                 not allow_structured_retry
                 or task.task_kind
                 not in {"generate_json", "object_resolution", "decide"}
-                or exc.code == "invalid_execution_result"
+                or exc.code in _NON_RETRYABLE_DELIVERY_CODES
             ):
                 raise
             logger.warning(

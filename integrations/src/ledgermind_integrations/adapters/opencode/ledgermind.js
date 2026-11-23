@@ -78,7 +78,7 @@ export const LedgerMindPlugin = async ({ directory }) => {
       const response = bridge("UserPromptSubmit", {
         session_id: input.sessionID, cwd: directory, prompt,
       })
-      const context = response?.hookSpecificOutput?.additionalContext
+      const context = response?.hookSpecificOutput?.additionalContext ?? response?.additional_context
       // The existing text part has a host-issued part ID and is durably kept
       // in message history. Capture above used the original user text.
       const firstTextPart = output.parts.find((part) => part?.type === "text")
@@ -134,7 +134,10 @@ export default {
       const response = bridge("UserPromptSubmit", {
         session_id: event.sessionID, cwd: directory, prompt: event.prompt.text ?? "",
       })
-      round.setContext(event.sessionID, response?.hookSpecificOutput?.additionalContext)
+      round.setContext(
+        event.sessionID,
+        response?.hookSpecificOutput?.additionalContext ?? response?.additional_context,
+      )
     })
 
     await ctx.session.hook("context", (event) => {

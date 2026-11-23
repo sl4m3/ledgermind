@@ -70,6 +70,10 @@ class HermesConfig:
 _REQUIRED = ("endpoint", "memory_space_id", "source_instance_id", "profile_id")
 
 
+def _is_cloud_runtime(payload: Mapping[str, object]) -> bool:
+    return Path(str(payload.get("runtime_command", "")).strip()).name == "ledgermind-cloud"
+
+
 def _positive_seconds(raw: object, default: tuple[float, ...]) -> tuple[float, ...]:
     if raw is None:
         return default
@@ -138,18 +142,38 @@ def load_config(path: str | Path) -> HermesConfig:
         request_timeout_seconds=max(float(payload.get("request_timeout_seconds", 5.0)), 0.1),
         worker_poll_seconds=max(float(payload.get("worker_poll_seconds", 0.5)), 0.05),
         max_pending_attempts=max(int(payload.get("max_pending_attempts", DEFAULT_PENDING_CAPTURE_MAX_ATTEMPTS)), 1),
-        max_raw_round_bytes=max(int(payload.get("max_raw_round_bytes", 5_000_000)), 1),
+        max_raw_round_bytes=max(
+            int(
+                payload.get(
+                    "max_raw_round_bytes",
+                    payload.get("max_round_payload_bytes", 5_000_000),
+                )
+            ),
+            1,
+        ),
         max_spool_bytes=max(
-            int(payload.get(
-                "max_spool_bytes",
-                10_000_000_000 if payload.get("runtime_command") == "ledgermind-cloud" else 50_000_000,
-            )), 1
+            int(
+                payload.get(
+                    "max_spool_bytes",
+                    payload.get(
+                        "spool_max_bytes",
+                        10_000_000_000 if _is_cloud_runtime(payload) else 50_000_000,
+                    ),
+                )
+            ),
+            1,
         ),
         max_spool_files=max(
-            int(payload.get(
-                "max_spool_files",
-                100_000 if payload.get("runtime_command") == "ledgermind-cloud" else 1_000,
-            )), 1
+            int(
+                payload.get(
+                    "max_spool_files",
+                    payload.get(
+                        "spool_max_files",
+                        100_000 if _is_cloud_runtime(payload) else 1_000,
+                    ),
+                )
+            ),
+            1,
         ),
         inflight_ttl_seconds=max(float(payload.get("inflight_ttl_seconds", 300.0)), 0.1),
         retryable_failed_max_attempts=max(

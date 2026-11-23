@@ -42,6 +42,19 @@ def main(argv: list[str] | None = None) -> int:
             result = handle_hook(load_lifecycle_config(args.config), args.event, payload)
         except Exception:  # noqa: BLE001 -- agent hooks must fail open
             result = {}
+        normalized = args.event.lower().replace("_", "").replace("-", "")
+        context = result.get("additional_context")
+        if (
+            normalized in {"userpromptsubmit", "beforesubmitprompt", "prompt"}
+            and isinstance(context, str)
+            and context
+        ):
+            result = {
+                "hookSpecificOutput": {
+                    "hookEventName": "UserPromptSubmit",
+                    "additionalContext": context,
+                }
+            }
         print(json.dumps(result, ensure_ascii=False, separators=(",", ":")))
         return 0
     if args.command == "drain":

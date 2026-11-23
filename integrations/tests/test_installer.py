@@ -51,3 +51,43 @@ def test_cli_can_install_and_uninstall_hermes(tmp_path: Path) -> None:
     assert (tmp_path / "ledgermind-hermes" / "plugin.yaml").exists()
     assert main(["uninstall", "hermes", "--destination", str(tmp_path)]) == 0
     assert not (tmp_path / "ledgermind-hermes" / "plugin.yaml").exists()
+
+
+def test_installer_supports_custom_config_python_paths_and_clean_uninstall(
+    tmp_path: Path,
+) -> None:
+    extra_one = tmp_path / "env_a" / "site-packages"
+    extra_two = tmp_path / "env_b" / "site-packages"
+    custom_cfg = {
+        "endpoint": "https://memory.example.test",
+        "token_file": str(tmp_path / "credentials"),
+        "memory_space_id": "cloud-space",
+        "source_instance_id": "hermes-cloud-1",
+        "profile_id": "generation-operational",
+        "state_db_path": str(tmp_path / "state.db"),
+        "spool_dir": str(tmp_path / "spool"),
+    }
+
+    target = install_hermes(
+        tmp_path,
+        config=custom_cfg,
+        extra_python_paths=[extra_one, extra_two, extra_one],
+    )
+    plugin_dir = tmp_path / "ledgermind-hermes"
+    assert target == plugin_dir / "plugin.yaml"
+    assert json.loads((plugin_dir / "config.json").read_text(encoding="utf-8")) == custom_cfg
+    init_text = (plugin_dir / "__init__.py").read_text(encoding="utf-8")
+    assert f"sys.path.append({str(extra_one)!r})" in init_text
+    assert f"sys.path.append({str(extra_two)!r})" in init_text
+    assert init_text.count(f"sys.path.append({str(extra_one)!r})") == 1
+    assert "sys.path.insert" not in init_text
+
+    # Simulate __pycache__ creation from importing __init__.py before uninstall.
+    pycache = plugin_dir / "__pycache__"
+    pycache.mkdir()
+    (pycache / "__init__.cpython-313.pyc").write_bytes(b"pyc")
+
+    assert uninstall_hermes(tmp_path) is True
+    assert not (plugin_dir / "config.json").exists()
+    assert not (plugin_dir / "__init__.py").exists()
+    assert not plugin_dir.exists()

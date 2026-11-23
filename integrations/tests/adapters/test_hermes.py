@@ -355,3 +355,28 @@ def test_load_config_reads_pending_capture_backoff(tmp_path: Path) -> None:
         path.write_text(json.dumps(payload), encoding="utf-8")
         with pytest.raises(ValueError, match="pending_capture_backoff_seconds"):
             load_config(path)
+
+
+def test_load_config_accepts_cloud_spool_aliases(tmp_path: Path) -> None:
+    from ledgermind_integrations.adapters.hermes.config import load_config
+
+    path = tmp_path / "hermes-cloud-aliases.json"
+    path.write_text(
+        json.dumps(
+            {
+                "endpoint": "https://api.ledgermind.org",
+                "memory_space_id": "default",
+                "source_instance_id": "hermes-cloud-1",
+                "profile_id": "generation-operational",
+                "runtime_command": "/opt/venv/bin/ledgermind-cloud",
+                "spool_max_bytes": 123_456,
+                "spool_max_files": 42,
+                "max_round_payload_bytes": 65_432,
+            }
+        ),
+        encoding="utf-8",
+    )
+    config = load_config(path)
+    assert config.max_spool_bytes == 123_456
+    assert config.max_spool_files == 42
+    assert config.max_raw_round_bytes == 65_432

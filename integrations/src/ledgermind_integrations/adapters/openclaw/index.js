@@ -22,7 +22,7 @@ export default definePluginEntry({
         session_id: ctx.sessionKey ?? ctx.sessionId ?? ctx.runId,
         prompt: event.prompt,
       })
-      const context = response?.hookSpecificOutput?.additionalContext
+      const context = response?.hookSpecificOutput?.additionalContext ?? response?.additional_context
       return context ? { prependContext: context } : undefined
     }, { timeoutMs: 10000 })
     api.on("after_compaction", async (event, ctx) => {

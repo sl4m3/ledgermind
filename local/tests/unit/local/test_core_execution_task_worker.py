@@ -3,6 +3,8 @@ from __future__ import annotations
 import sqlite3
 from types import SimpleNamespace
 
+import pytest
+
 from ledgermind_local.core_gateway.contracts import DomainRejectedError
 from ledgermind_local.scheduler import core_execution_task_worker as worker_module
 from ledgermind_local.scheduler.core_execution_task_worker import (
@@ -329,6 +331,47 @@ def test_core_structural_rejection_gets_one_retry_on_configured_provider_fallbac
 
     assert calls == [{"force_provider_fallback": True}]
     assert deliveries == 2
+
+
+def test_core_integrity_rejection_is_not_retried(monkeypatch) -> None:
+    calls: list[dict[str, object]] = []
+    retry_result = SimpleNamespace(status="completed")
+
+    class Gateway:
+        def require_capabilities(self, _capability: str) -> None:
+            return None
+
+    class Executor:
+        def execute(self, _task: object, **kwargs: object) -> object:
+            calls.append(kwargs)
+            return retry_result
+
+    worker = CoreExecutionTaskWorker(
+        database_path="unused.db",
+        gateway=Gateway(),
+        executor=Executor(),  # type: ignore[arg-type]
+        worker_id="test-worker",
+    )
+    deliveries = 0
+
+    def deliver(_task: object, _result: object, _memory_space_id: str) -> None:
+        nonlocal deliveries
+        deliveries += 1
+        raise DomainRejectedError(
+            "INTEGRITY_VIOLATION", "packaging retry was not queued"
+        )
+
+    monkeypatch.setattr(worker, "_deliver_result", deliver)
+
+    with pytest.raises(DomainRejectedError):
+        worker._deliver_result_with_structured_retry(
+            SimpleNamespace(task_kind="generate_json", task_id="task-1"),
+            SimpleNamespace(status="completed", error_code=None),
+            "space",
+        )
+
+    assert calls == [], "a Core invariant failure is not a generation problem"
+    assert deliveries == 1
 
 
 def test_worker_persists_content_free_audit_for_each_executor_result(tmp_path) -> None:

@@ -230,3 +230,58 @@ def test_disabled_plugin_registers_no_hooks(
     assert context.callbacks == {}
     assert plugin_entry._runtime is not None
     assert plugin_entry._runtime.runtime_started is False
+
+
+def test_hermes_process_exits_cleanly_without_explicit_on_unload(
+    tmp_path: Path, local_server: ThreadingHTTPServer
+) -> None:
+    import os
+    import subprocess
+    import sys
+
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "endpoint": f"http://127.0.0.1:{local_server.server_port}",
+                "memory_space_id": "project-main",
+                "source_instance_id": "hermes-exit-test",
+                "profile_id": "default",
+                "state_db_path": str(tmp_path / "state.db"),
+                "spool_dir": str(tmp_path / "spool"),
+                "context_timeout_seconds": 1.0,
+                "request_timeout_seconds": 1.0,
+                "worker_poll_seconds": 0.25,
+            }
+        ),
+        encoding="utf-8",
+    )
+    script = """
+import os
+from ledgermind_integrations.adapters.hermes import plugin_entry
+
+hooks = {}
+class Ctx:
+    def register_hook(self, name, fn):
+        hooks[name] = fn
+
+plugin_entry.register(Ctx())
+hooks["pre_llm_call"](session_id="exit-s1", turn_id="t1", user_message="Hello")
+hooks["post_llm_call"](
+    session_id="exit-s1",
+    turn_id="t1",
+    user_message="Hello",
+    assistant_response="Delivered on atexit.",
+)
+"""
+    env = dict(os.environ, LEDGERMIND_HERMES_CONFIG=str(config_path))
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=5.0,
+        check=True,
+    )
+    assert completed.returncode == 0
+    _wait_until(lambda: any(path == "/rounds" for path, _ in _LocalHandler.requests))

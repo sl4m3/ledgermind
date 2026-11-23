@@ -5,11 +5,45 @@ from __future__ import annotations
 import base64
 import json
 import os
+from collections.abc import Mapping, Sequence
 from importlib.resources import files
 from pathlib import Path
 from uuid import uuid4
 
 _PLUGIN_INIT = 'from ledgermind_integrations.adapters.hermes.plugin_entry import register\n\n__all__ = ["register"]\n'
+
+
+def _plugin_init(extra_python_paths: Sequence[str | Path] | None = None) -> str:
+    paths: list[str] = []
+    for raw in extra_python_paths or ():
+        text = str(raw).strip()
+        if text and text not in paths:
+            paths.append(text)
+    if not paths:
+        return _PLUGIN_INIT
+    lines = ["import sys", ""]
+    for path in paths:
+        rendered = repr(path)
+        lines.extend(
+            (
+                f"if {rendered} not in sys.path:",
+                f"    sys.path.append({rendered})",
+            )
+        )
+    lines.extend(["", _PLUGIN_INIT.rstrip()])
+    return "\n".join(lines) + "\n"
+
+
+def _cleanup_pycache(root: Path) -> None:
+    pycache = root / "__pycache__"
+    if not pycache.is_dir():
+        return
+    for compiled in pycache.glob("__init__.*.pyc"):
+        compiled.unlink(missing_ok=True)
+    try:
+        pycache.rmdir()
+    except OSError:
+        pass
 
 
 def _write_private(path: Path, content: bytes) -> None:
@@ -48,7 +82,12 @@ def _plugin_root(destination: str | Path | None) -> Path:
     return plugin_root / "ledgermind-hermes"
 
 
-def install_hermes(destination: str | Path | None = None) -> Path:
+def install_hermes(
+    destination: str | Path | None = None,
+    *,
+    config: Mapping[str, object] | None = None,
+    extra_python_paths: Sequence[str | Path] | None = None,
+) -> Path:
     root = _plugin_root(destination)
     try:
         root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -81,14 +120,15 @@ def install_hermes(destination: str | Path | None = None) -> Path:
         plugin_yaml = root / "plugin.yaml"
         with source.open("rb") as source_handle:
             remember(plugin_yaml, source_handle.read())
-        remember(root / "__init__.py", _PLUGIN_INIT.encode("utf-8"))
-        config = (
-            json.dumps(_default_config(), ensure_ascii=False, indent=2, sort_keys=True).encode(
+        remember(root / "__init__.py", _plugin_init(extra_python_paths).encode("utf-8"))
+        effective_config = dict(config) if config is not None else _default_config()
+        config_bytes = (
+            json.dumps(effective_config, ensure_ascii=False, indent=2, sort_keys=True).encode(
                 "utf-8"
             )
             + b"\n"
         )
-        remember(root / "config.json", config)
+        remember(root / "config.json", config_bytes)
         record_path = root / "installation-record.json"
         record_path.write_text(
             json.dumps(record, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -113,6 +153,7 @@ def uninstall_hermes(destination: str | Path | None = None) -> bool:
         except (OSError, ValueError) as exc:
             raise RuntimeError("Hermes installation record is invalid") from exc
         removed = False
+        init_removed = False
         for name, details in dict(record.get("files", {})).items():
             path = root / name
             after = details.get("after", {}) if isinstance(details, dict) else {}
@@ -129,8 +170,12 @@ def uninstall_hermes(destination: str | Path | None = None) -> bool:
                 path.chmod(int(before.get("mode", 0o600)))
             else:
                 path.unlink(missing_ok=True)
+                if name == "__init__.py":
+                    init_removed = True
             removed = True
         record_path.unlink(missing_ok=True)
+        if init_removed and not (root / "__init__.py").exists():
+            _cleanup_pycache(root)
         try:
             root.rmdir()
         except OSError:
@@ -147,6 +192,8 @@ def uninstall_hermes(destination: str | Path | None = None) -> bool:
         except OSError as exc:
             raise RuntimeError("cannot uninstall private Hermes plugin files") from exc
         removed = True
+    if not (root / "__init__.py").exists():
+        _cleanup_pycache(root)
     try:
         root.rmdir()
     except OSError:

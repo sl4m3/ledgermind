@@ -41,7 +41,7 @@ class HermesWorkerLoop:
         self._thread = threading.Thread(
             target=self._run,
             name="ledgermind-hermes-worker",
-            daemon=False,
+            daemon=True,
         )
         self._thread.start()
 
