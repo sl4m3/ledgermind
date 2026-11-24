@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble a test-signed LedgerMind release inside Docker from workspace sources + v5.0.0 Core."""
+"""Assemble a test-signed LedgerMind release inside Docker from workspace sources + released Core."""
 
 from __future__ import annotations
 
@@ -69,7 +69,7 @@ def main() -> int:
     (bundle / "bundle-manifest.json").unlink(missing_ok=True)
     (bundle / "signatures" / "manifest.sig").unlink(missing_ok=True)
 
-    # Overlay workspace Python sources while keeping v5.0.0 ledgermind-core + signatures intact
+    # Overlay workspace Python sources while keeping released ledgermind-core + signatures intact
     _overlay(
         args.workspace / "local" / "src" / "ledgermind_local",
         bundle / "python" / "local" / "ledgermind_local",

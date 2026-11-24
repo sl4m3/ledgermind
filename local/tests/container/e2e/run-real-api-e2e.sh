@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../../.." && pwd)"
-ARTIFACTS_DIR="${LEDGERMIND_V5_ARTIFACTS:-/tmp/ledgermind-v5-artifacts}"
+ARTIFACTS_DIR="${LEDGERMIND_RELEASE_ARTIFACTS:-/tmp/ledgermind-release-artifacts}"
 
 if [[ -z "${LEDGERMIND_GENERATION_TOKEN:-}" ]]; then
     printf 'Set LEDGERMIND_GENERATION_TOKEN before running real-API Docker E2E.\n' >&2
@@ -11,6 +11,8 @@ if [[ -z "${LEDGERMIND_GENERATION_TOKEN:-}" ]]; then
 fi
 
 docker build -t ledgermind-e2e -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
+
+DEFAULT_GENERATION_MODEL="deepseek/deepseek-v4-flash-0731"
 
 docker run --rm \
     --security-opt seccomp=unconfined \
@@ -20,7 +22,7 @@ docker run --rm \
     -e "LEDGERMIND_DECISION_TOKEN=${LEDGERMIND_DECISION_TOKEN:-$LEDGERMIND_GENERATION_TOKEN}" \
     -e "LEDGERMIND_GENERATION_PROVIDER=${LEDGERMIND_GENERATION_PROVIDER:-openrouter}" \
     -e "LEDGERMIND_GENERATION_ENDPOINT=${LEDGERMIND_GENERATION_ENDPOINT:-https://openrouter.ai/api/v1}" \
-    -e "LEDGERMIND_GENERATION_MODEL=${LEDGERMIND_GENERATION_MODEL:-deepseek/deepseek-v4-flash-0731}" \
+    -e "LEDGERMIND_GENERATION_MODEL=${LEDGERMIND_GENERATION_MODEL:-$DEFAULT_GENERATION_MODEL}" \
     -e "LEDGERMIND_GENERATION_ROUTE=${LEDGERMIND_GENERATION_ROUTE:-deepinfra/fp8}" \
     -e "LEDGERMIND_EMBEDDING_ENDPOINT=${LEDGERMIND_EMBEDDING_ENDPOINT:-https://openrouter.ai/api/v1}" \
     -e "LEDGERMIND_EMBEDDING_MODEL=${LEDGERMIND_EMBEDDING_MODEL:-nvidia/nemotron-3.5-embed-1b:free}" \

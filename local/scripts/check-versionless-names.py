@@ -53,6 +53,7 @@ _CONTRACT_VALUES = {
     "src/ledgermind_local/installer/embeddings/service.py": {"/v1/health/ready", "/v1/health/live"},
     "tests/unit/installer/test_embedding_identity.py": {"/v1"},
     "tests/unit/local/test_query_embedding_batch.py": {"/v1", "http://127.0.0.1:1/v1"},
+    "tests/container/e2e/run-autonomous-e2e.sh": {"http://127.0.0.1:18080/v1"},
 }
 
 # Provider-owned model identifiers ("owner/name") are data, not product
@@ -61,6 +62,7 @@ _CONTRACT_VALUES = {
 _EXTERNAL_MODEL_LITERALS = {
     "src/ledgermind_local/model-defaults.json": {"deepseek/deepseek-v4-flash-0731"},
     "tests/unit/installer/test_model_defaults.py": {"deepseek/deepseek-v4-flash-0731"},
+    "tests/container/e2e/run-real-api-e2e.sh": {"deepseek/deepseek-v4-flash-0731"},
 }
 
 _TOKEN_RE = re.compile(

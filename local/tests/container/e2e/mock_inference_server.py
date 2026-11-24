@@ -3,8 +3,7 @@
 
 Serves:
   - HTTP on 127.0.0.1:<http_port>:
-      POST /v1/chat/completions
-      POST /v1/embeddings
+      OpenAI-compatible chat completions and embeddings endpoints
   - Optional HTTPS on 127.0.0.1:<https_port> (for Jev decisions endpoint):
       POST /api/alpha/decisions
 """
@@ -408,7 +407,7 @@ def _make_handler(log_path: Path, default_dimensions: int) -> type[BaseHTTPReque
 
         def do_GET(self) -> None:
             if self.path.rstrip("/").endswith(("/health", "/health/ready")) or self.path == "/":
-                fp = f"mock-embed-v1-{default_dimensions}d"
+                fp = f"mock-embed-{default_dimensions}d"
                 self._write_json(
                     200,
                     {

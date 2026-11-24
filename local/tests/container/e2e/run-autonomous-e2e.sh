@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../../../.." && pwd)"
-ARTIFACTS_DIR="${LEDGERMIND_V5_ARTIFACTS:-/tmp/ledgermind-v5-artifacts}"
+ARTIFACTS_DIR="${LEDGERMIND_RELEASE_ARTIFACTS:-/tmp/ledgermind-release-artifacts}"
 
 for required in \
     "$ARTIFACTS_DIR/install-manifest.json" \
@@ -11,7 +11,7 @@ for required in \
     "$ARTIFACTS_DIR/ledgermind_inference-0.1.0-cp310-abi3-linux_x86_64.whl"
 do
     if [[ ! -f "$required" ]]; then
-        printf 'Missing required v5.0.0 artifact: %s\n' "$required" >&2
+        printf 'Missing required release artifact: %s\n' "$required" >&2
         exit 2
     fi
 done
@@ -35,7 +35,7 @@ pip install -q --no-deps /tmp/proto /artifacts/ledgermind_inference-0.1.0-cp310-
 (cd /tmp/local_pkg && ruff check src/ledgermind_local/bootstrap.py src/ledgermind_local/installer/web_wizard.py src/ledgermind_local/installer/cli.py src/ledgermind_local/installer/config_writer.py src/ledgermind_local/installer/models.py src/ledgermind_local/installer/openrouter.py src/ledgermind_local/installer/provider_profiles.py src/ledgermind_local/installer/profiles/generation.py src/ledgermind_local/installer/profiles/probes.py src/ledgermind_local/installer/operations/common.py src/ledgermind_local/installer/operations/configure.py src/ledgermind_local/installer/operations/doctor.py src/ledgermind_local/installer/operations/import_config.py src/ledgermind_local/installer/operations/install.py src/ledgermind_local/installer/operations/repair.py tests/unit/installer/test_web_wizard.py tests/unit/installer/test_install_experience.py tests/unit/installer/test_provider_probes.py tests/unit/installer/test_openrouter_discovery.py tests/unit/installer/test_embedding_identity.py tests/unit/installer/test_model_defaults.py)
 cmp -s /workspace/local/scripts/install.sh /workspace/local/install.sh
 
-echo "=== 2. Prepare TLS trust & build test-signed release (v5.0.0 Core + workspace Local/WebUI) ==="
+echo "=== 2. Prepare TLS trust & build test-signed release (released Core + workspace Local/WebUI) ==="
 mkdir -p /tmp/certs
 openssl req -x509 -newkey rsa:2048 -nodes \
     -keyout /tmp/certs/openrouter.key \
@@ -100,8 +100,9 @@ BASE=\"http://127.0.0.1:18765\"
 curl -fsS \"\$URL\" | grep -q \"LedgerMind Setup\"
 curl -fsS -H \"X-LedgerMind-Setup-Token: \$TOKEN\" \"\$BASE/api/preflight\" | jq -e \".preflight.bubblewrap == true and ([.agents[] | select(.detected == true)] | length) >= 2\" >/dev/null
 
+MOCK_ENDPOINT=\"http://127.0.0.1:18080/v1\"
 DIMS=\$(curl -fsS -X POST -H \"X-LedgerMind-Setup-Token: \$TOKEN\" -H \"Content-Type: application/json\" \
-    -d '\''{\"endpoint\":\"http://127.0.0.1:18080/v1\",\"model\":\"mock-embed\",\"token\":\"mock-emb-key\"}'\'' \
+    -d \"{\\\"endpoint\\\":\\\"\$MOCK_ENDPOINT\\\",\\\"model\\\":\\\"mock-embed\\\",\\\"token\\\":\\\"mock-emb-key\\\"}\" \
     \"\$BASE/api/embedding/dimensions\" | jq -r .dimensions)
 test \"\$DIMS\" -eq 64
 
@@ -162,7 +163,7 @@ curl -fsS -X POST -H \"X-LedgerMind-Setup-Token: \$TOKEN\" -H \"Content-Type: ap
 wait \$INST_PID
 
 echo \"=== 5. Verify Terminal CLI fallback (--cli) in separate --home ===\"
-cat <<\"EOF\" | ~/.local/bin/ledgermind install --cli --home /tmp/cli-home \
+cat <<EOF | ~/.local/bin/ledgermind install --cli --home /tmp/cli-home \
     --manifest /tmp/test-release/install-manifest.json \
     --manifest-signature /tmp/test-release/install-manifest.sig \
     --bundle /tmp/test-release/ledgermind-linux-x86_64.tar.zst >/tmp/cli-install.log
@@ -170,11 +171,11 @@ cat <<\"EOF\" | ~/.local/bin/ledgermind install --cli --home /tmp/cli-home \
 none
 1
 3
-http://127.0.0.1:18080/v1
+\$MOCK_ENDPOINT
 mock-gen-key
 mock-gen-120b
 1
-http://127.0.0.1:18080/v1
+\$MOCK_ENDPOINT
 yes
 mock-embed
 1
