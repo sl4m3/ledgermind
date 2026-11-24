@@ -40,7 +40,7 @@ from .operations.integrations import (
 from .operations.repair import repair
 from .operations.status import status
 from .operations.uninstall import uninstall
-from .operations.update import update
+from .operations.update import check_update, rollback, update
 from .paths import InstallerPaths
 from .result import InstallResult, ResultStep
 from .schema import schema
@@ -123,6 +123,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "  ledgermind install              Install and configure LedgerMind (Web UI or --cli)\n"
             "  ledgermind status               Show installation, runtime, agent, and memory status\n"
             "  ledgermind doctor               Verify signatures, config, providers, sandbox, and agents\n"
+            "  ledgermind update               Check and apply signed updates (uses fast layered patches)\n"
+            "  ledgermind rollback             Restore the previous verified LedgerMind release\n"
             "  ledgermind integrations status  Inspect all supported agent integrations\n"
             "  ledgermind runtime status       Check or stop the local LedgerMind background service\n\n"
             "Run 'ledgermind <command> --help' for detailed options."
@@ -289,28 +291,66 @@ def _build_parser() -> argparse.ArgumentParser:
 
     update_parser = subparsers.add_parser(
         "update",
-        help="upgrade the installed release from a signed manifest and bundle",
+        help="check for or apply signed updates cleanly",
         description=(
-            "Verify and switch the active LedgerMind release bundle while preserving existing configuration and memory data."
+            "Download and verify the latest signed LedgerMind release (using fast layered patches\n"
+            "when the local runtime layer matches), or update offline from --manifest and --bundle.\n"
+            "Preserves configuration, credentials, memory data, and keeps a rollback backup."
         ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     _common(update_parser)
     update_parser.add_argument(
+        "--check",
+        action="store_true",
+        help="check whether a newer signed release is available without installing",
+    )
+    update_parser.add_argument(
+        "--version",
+        dest="target_version",
+        help="install or switch to a specific release version from GitHub Releases",
+    )
+    update_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="reinstall even when the target release version is already active",
+    )
+    update_parser.add_argument(
+        "--keep-releases",
+        type=int,
+        default=2,
+        help="number of installed releases to keep after updating (default: 2)",
+    )
+    update_parser.add_argument(
         "--manifest",
         type=Path,
-        required=True,
-        help="path to the signed install-manifest.json for the target release",
+        help="optional path to a local signed install-manifest.json for offline updates",
     )
     update_parser.add_argument(
         "--bundle",
         type=Path,
-        required=True,
-        help="path to the release bundle archive (.tar.zst)",
+        help="optional path to a local release bundle (.tar.zst) for offline updates",
     )
     update_parser.add_argument(
         "--skip-provider-probe",
         action="store_true",
         help="skip live provider capability probes after upgrading",
+    )
+
+    rollback_parser = subparsers.add_parser(
+        "rollback",
+        help="restore a previous verified LedgerMind release",
+        description=(
+            "Atomically switch the active installation back to a previously kept release\n"
+            "after verifying its signed bundle manifest and running local smoke checks."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    _common(rollback_parser)
+    rollback_parser.add_argument(
+        "--version",
+        dest="target_version",
+        help="specific retained release version to restore (default: most recent previous release)",
     )
 
     uninstall_parser = subparsers.add_parser(
@@ -847,19 +887,19 @@ def _existing_install(
             },
         }
     if mode == "update":
-        from .operations.common import fetch_release
-        from .verify import public_key_from_environment
-
-        manifest_path, _signature_path, bundle_path = fetch_release(
-            paths, public_key=public_key_from_environment()
+        interactive_progress = (
+            _terminal_progress
+            if not bool(args.non_interactive) and not bool(args.json_output)
+            else None
         )
+        if interactive_progress is not None:
+            _terminal_progress.phase = None  # type: ignore[attr-defined]
         return update(
             config=existing,
             paths=paths,
-            manifest_path=manifest_path,
-            bundle=bundle_path,
             skip_provider_probe=bool(args.skip_provider_probe),
             dry_run=bool(args.dry_run),
+            progress=interactive_progress,
         )
     if mode == "repair":
         return repair(paths=paths, dry_run=bool(args.dry_run))
@@ -1070,6 +1110,7 @@ def _emit(result: InstallResult, *, json_output: bool) -> int:
         _emit_doctor_details(result)
         _emit_runtime_details(result)
         _emit_config_transfer_details(result)
+        _emit_update_details(result)
         _emit_install_details(result)
         _emit_uninstall_details(result)
         for warning in result.warnings:
@@ -1200,6 +1241,18 @@ def _emit_status_details(result: InstallResult) -> None:
             )
         else:
             print(f"  Latest error: {latest['error_code']}{when}")
+    update_check = data.get("update_check")
+    if (
+        isinstance(update_check, dict)
+        and update_check.get("update_available")
+        and update_check.get("latest_version")
+    ):
+        installed_ver = update_check.get("installed_version") or "unknown"
+        print("\nUpdate:")
+        print(
+            f"  Available:    {installed_ver} -> {update_check['latest_version']} "
+            "(run 'ledgermind update')"
+        )
 
 
 def _format_provider_probe(name: str, payload: Any) -> str:
@@ -1441,6 +1494,63 @@ def _emit_config_transfer_details(result: InstallResult) -> None:
     if result.operation == "install schema":
         print()
         print(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+def _emit_update_details(result: InstallResult) -> None:
+    if result.operation not in {"update", "update check", "rollback"} or not result.steps:
+        return
+    data = result.steps[-1].data
+    if result.operation == "update check":
+        print("\nUpdate check:")
+        print(f"  Installed:    {data.get('installed_version') or 'not installed'}")
+        print(f"  Latest:       {data.get('latest_version') or 'unknown'}")
+        print(
+            "  Status:       "
+            + ("update available" if data.get("update_available") else "up to date")
+        )
+        dl_bytes = data.get("download_bytes")
+        full_bytes = data.get("full_bundle_bytes")
+        if isinstance(dl_bytes, int):
+            dl_mib = dl_bytes / (1024 * 1024)
+            if data.get("layered_patch_available") and isinstance(full_bytes, int):
+                full_mib = full_bytes / (1024 * 1024)
+                print(
+                    f"  Download:     layered patch (~{dl_mib:.1f} MiB vs {full_mib:.1f} MiB full)"
+                )
+            else:
+                print(f"  Download:     full bundle (~{dl_mib:.1f} MiB)")
+        if data.get("update_available"):
+            print("  Apply:        run 'ledgermind update'")
+        return
+
+    if result.operation == "update":
+        if data.get("up_to_date"):
+            print("\nUpdate:")
+            print(f"  Status:       already up to date ({data.get('release_version')})")
+            return
+        print("\nUpdate summary:")
+        previous = data.get("previous_version") or "unknown"
+        target = data.get("release_version") or "unknown"
+        print(f"  Version:      {previous} -> {target}")
+        if data.get("delivery_mode"):
+            print(f"  Delivery:     {data['delivery_mode']}")
+        pruned = data.get("pruned_releases")
+        if isinstance(pruned, list) and pruned:
+            print(f"  Pruned:       {', '.join(str(item) for item in pruned)}")
+        if data.get("rollback_available"):
+            print("  Rollback:     available ('ledgermind rollback')")
+        return
+
+    print("\nRollback:")
+    print(
+        f"  Version:      {data.get('previous_version') or 'unknown'} "
+        f"-> {data.get('release_version') or 'unknown'}"
+    )
+    if data.get("release_dir"):
+        print(f"  Release dir:  {data['release_dir']}")
+    doc = data.get("doctor")
+    if isinstance(doc, dict) and doc.get("status"):
+        print(f"  Doctor:       {doc['status']}")
 
 
 def _emit_integration_details(result: InstallResult) -> None:
@@ -1791,6 +1901,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 result.fail(ExitCode.DOCTOR_FAILED, "repair verification failed")
             return _emit(result, json_output=bool(args.json_output))
         if operation == "update":
+            if bool(args.manifest) != bool(args.bundle):
+                raise ConfigurationError(
+                    "--manifest and --bundle must be provided together"
+                )
+            if args.check:
+                payload = check_update(
+                    paths=paths,
+                    version=args.target_version,
+                )
+                return _emit(
+                    _result("update check", payload=payload, paths=paths),
+                    json_output=bool(args.json_output),
+                )
             if args.config is not None:
                 raise ConfigurationError(
                     "update preserves provider configuration; use configure to change it"
@@ -1800,18 +1923,44 @@ def main(argv: Sequence[str] | None = None) -> int:
             from .config_writer import load_installer_config
 
             config = load_installer_config(paths.config_file)
-            payload = update(
-                config=config,
-                paths=paths,
-                manifest_path=args.manifest,
-                bundle=args.bundle,
-                dry_run=bool(args.dry_run),
-                skip_provider_probe=bool(args.skip_provider_probe),
-                generation_stdin=None,
-                embedding_stdin=None,
+            interactive_progress = (
+                _terminal_progress
+                if not bool(args.non_interactive) and not bool(args.json_output)
+                else None
             )
+            if interactive_progress is not None:
+                _terminal_progress.phase = None  # type: ignore[attr-defined]
+            update_kwargs: dict[str, Any] = {
+                "config": config,
+                "paths": paths,
+                "manifest_path": args.manifest,
+                "bundle": args.bundle,
+                "dry_run": bool(args.dry_run),
+                "skip_provider_probe": bool(args.skip_provider_probe),
+                "generation_stdin": None,
+                "embedding_stdin": None,
+            }
+            if args.target_version is not None:
+                update_kwargs["version"] = args.target_version
+            if args.force:
+                update_kwargs["force"] = True
+            if args.keep_releases != 2:
+                update_kwargs["keep_releases"] = args.keep_releases
+            if interactive_progress is not None:
+                update_kwargs["progress"] = interactive_progress
+            payload = update(**update_kwargs)
             return _emit(
                 _result("update", payload=payload, paths=paths),
+                json_output=bool(args.json_output),
+            )
+        if operation == "rollback":
+            payload = rollback(
+                paths=paths,
+                target_version=args.target_version,
+                dry_run=bool(args.dry_run),
+            )
+            return _emit(
+                _result("rollback", payload=payload, paths=paths),
                 json_output=bool(args.json_output),
             )
         if operation == "uninstall":

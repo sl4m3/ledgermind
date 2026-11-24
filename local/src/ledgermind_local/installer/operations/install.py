@@ -48,6 +48,7 @@ from ..verify import (
 from .common import (
     fetch_bundle,
     fetch_manifest,
+    format_transfer_progress,
     install_bin_link,
     platform_manifest,
     resolve_manifest,
@@ -157,16 +158,7 @@ def _platform_name() -> str:
     return platform_id()
 
 
-def _download_progress(label: str, transferred: int, total: int | None) -> str:
-    transferred_mib = transferred / (1024 * 1024)
-    if total is None or total <= 0:
-        return f"{label} · {transferred_mib:.1f} MiB"
-    total_mib = total / (1024 * 1024)
-    percent = min(100, transferred * 100 // total)
-    width = 20
-    filled = percent * width // 100
-    bar = "━" * filled + "─" * (width - filled)
-    return f"{label}  {bar}  {percent:3d}%  {transferred_mib:.1f}/{total_mib:.1f} MiB"
+_download_progress = format_transfer_progress
 
 
 def install(
@@ -183,6 +175,7 @@ def install(
     generation_stdin: str | None = None,
     embedding_stdin: str | None = None,
     preserve_provider_credentials: bool = False,
+    replace_existing: bool = False,
     progress: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any]:
     """Install one release and return safe operation metadata."""
@@ -376,7 +369,11 @@ def install(
                 "platform": preflight["platform"],
             }
         )
-        transaction.commit(staged_bundle=staged, switch_current=False)
+        transaction.commit(
+            staged_bundle=staged,
+            switch_current=False,
+            replace_existing=replace_existing,
+        )
         try:
             for path in (
                 paths.config_file,

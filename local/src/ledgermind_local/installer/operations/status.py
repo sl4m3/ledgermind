@@ -11,6 +11,7 @@ from typing import Any
 from ledgermind_local.runtime.supervisor import RuntimeSupervisor
 
 from ..paths import InstallerPaths
+from .common import read_update_check_cache
 from .integrations import integration_status
 
 _SUCCESS_STAGES = ("knowledge_resolution_completed", "no_semantic_candidates")
@@ -158,6 +159,7 @@ def status(*, paths: InstallerPaths) -> dict[str, Any]:
         "runtime": runtime,
         "memory_health": memory_health(paths=paths),
         "memory_summary": _memory_summary(paths=paths),
+        "update_check": read_update_check_cache(paths),
         "integrations": integrations["integrations"],
     }
 

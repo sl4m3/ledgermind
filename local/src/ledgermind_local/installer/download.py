@@ -32,6 +32,18 @@ def download_artifact(
 ) -> DownloadedArtifact:
     target = Path(destination).expanduser()
     target.parent.mkdir(parents=True, exist_ok=True)
+    if (
+        target.is_file()
+        and expected_size is not None
+        and expected_sha256 is not None
+        and target.stat().st_size == expected_size
+        and sha256_file(target).lower() == expected_sha256.lower()
+    ):
+        if progress is not None:
+            progress(expected_size, expected_size)
+        return DownloadedArtifact(
+            path=target, size=expected_size, sha256=expected_sha256.lower()
+        )
     temporary: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(

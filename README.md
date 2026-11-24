@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Stable release: 5.0.2" src="https://img.shields.io/badge/stable-5.0.2-2563eb">
+  <img alt="Stable release: 5.0.3" src="https://img.shields.io/badge/stable-5.0.3-2563eb">
   <img alt="Local first" src="https://img.shields.io/badge/memory-local--first-16a34a">
   <img alt="Six supported agent adapters" src="https://img.shields.io/badge/adapters-6_supported-2563eb">
   <img alt="Core network access: none" src="https://img.shields.io/badge/Core_network_access-none-111827">
@@ -43,7 +43,7 @@ knowledge layer.
 
 [See the benchmark](BENCHMARK.md) · [Follow releases](https://github.com/sl4m3/ledgermind/releases) · [Contact LedgerMind](mailto:s.zotov@ledgermind.org)
 
-> **Current stable release:** `5.0.2` for supported Linux hosts.
+> **Current stable release:** `5.0.3` for supported Linux hosts.
 
 ## Memory lifecycle, measured end to end
 
@@ -106,7 +106,7 @@ how impressive the stored notes sound.
 
 ### Install in one command
 
-LedgerMind `5.0.2` is available for **Linux x86_64**. On a desktop session the
+LedgerMind `5.0.3` is available for **Linux x86_64**. On a desktop session the
 one-command installer launches a local setup page in your browser (`127.0.0.1`
 with a one-time token), detects supported agents, verifies provider schemas and
 the signed release, and connects the integrations you select. Over SSH or on a
@@ -130,7 +130,7 @@ non-interactive deployment.
 
 | You are… | Start here |
 |---|---|
-| Using an agent and tired of repeating yourself | [Install LedgerMind 5.0.2](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
+| Using an agent and tired of repeating yourself | [Install LedgerMind 5.0.3](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
 | Building an agent, IDE, or local assistant | Explore [`integrations/`](integrations) and [`local/`](local) |
 | Running an AI platform or enterprise deployment | [Contact LedgerMind](mailto:s.zotov@ledgermind.org) for evaluation, deployment, and licensing |
 | Comparing memory systems | Jump to the [benchmark results](#memory-lifecycle-measured-end-to-end) and [full methodology](BENCHMARK.md) |
@@ -151,7 +151,7 @@ via the lightweight Cloud Connector).
 | OpenCode | Available | Restart an already running session |
 | OpenClaw | Available | Restart an already running session |
 
-The published `5.0.2` package supports **Linux x86_64** (Linux aarch64 is part
+The published `5.0.3` package supports **Linux x86_64** (Linux aarch64 is part
 of the platform design, not included in this release). Legacy `3.x` and `4.x`
 release tags should not be used as installation packages for this README.
 
@@ -159,7 +159,7 @@ release tags should not be used as installation packages for this README.
 
 LedgerMind installs without root access into the current user's XDG
 directories. Docker is not required and is not a supported secure deployment
-path for `5.0.2`. The installer verifies the signed manifest, platform bundle,
+path for `5.0.3`. The installer verifies the signed manifest, platform bundle,
 Core binary, and applicable runtime artifacts before switching the active
 version.
 
@@ -230,6 +230,34 @@ checks used `deepseek/deepseek-v4-flash-0731`).
 
 > **For agents:** ask the user for missing deployment choices. Do not invent a
 > provider, model, endpoint, embedding dimension, route, or secret source.
+
+### 4. Updating and rolling back
+
+Once LedgerMind is installed, check for and apply signed releases directly from
+the CLI (configuration, credentials, agent integrations, and memory databases
+are preserved automatically):
+
+```bash
+ledgermind update --check       # Check latest signed release & patch size
+ledgermind update               # Update to latest release (layered patch when compatible)
+ledgermind update --version 5.0.3
+ledgermind rollback             # Restore the previous retained release cleanly
+```
+
+When a release shares the same verified Python and embedding runtime layers as
+the active installation, `ledgermind update` downloads only the compact **layered
+patch archive** (`ledgermind-patch-linux-x86_64.tar.zst`, tens of MiB instead of
+the full ~670 MiB bundle), reuses the immutable runtime layers via hardlinks,
+re-verifies every file hash and Ed25519 signature in `bundle-manifest.json`,
+prunes older releases (keeping `--keep-releases 2` by default for rollback), and
+automatically rolls back if post-update `doctor` checks fail.
+
+- Override the release channel mirror via `LEDGERMIND_RELEASE_BASE_URL`.
+- `ledgermind status` displays cached update availability when known (disable
+  via `LEDGERMIND_NO_UPDATE_CHECK=1`).
+- Run `ledgermind --help` for the full CLI command reference (`status`, `doctor`,
+  `configure`, `repair`, `integrations`, `runtime`, `export-config`,
+  `import-config`).
 
 <details>
 <summary><strong>Show a complete API-based configuration and reranker reference</strong></summary>
@@ -308,17 +336,27 @@ ledgermind integrations connect openclaw --json
 **Verify installation** (`installed` → `connected` → `enabled` → `active`):
 
 ```bash
-ledgermind doctor --json
-ledgermind integrations status --json
-ledgermind runtime status --json
+ledgermind status
+ledgermind doctor
+ledgermind integrations status
+ledgermind runtime status
 ```
 
-**Update LedgerMind** (preserves configuration, memory, secrets, and
-integrations):
+**Update or roll back LedgerMind** (preserves configuration, memory, secrets,
+and integrations):
 
 ```bash
-curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh | sh
-ledgermind doctor --json
+ledgermind update --check
+ledgermind update
+ledgermind rollback
+ledgermind doctor
+```
+
+*Or update via bootstrap script from an older pre-`5.0.3` installation:*
+
+```bash
+LEDGERMIND_RELEASE_BASE_URL=https://github.com/sl4m3/ledgermind/releases/latest/download \
+  ledgermind install --existing-mode update
 ```
 
 **Remove or purge LedgerMind** (stop active agent sessions first; normal

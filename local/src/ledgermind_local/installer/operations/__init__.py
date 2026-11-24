@@ -8,9 +8,10 @@ from .install import install, install_plan
 from .repair import repair
 from .status import status
 from .uninstall import uninstall
-from .update import update
+from .update import check_update, rollback, update
 
 __all__ = [
+    "check_update",
     "configure",
     "doctor",
     "export_config",
@@ -18,6 +19,7 @@ __all__ = [
     "install",
     "install_plan",
     "repair",
+    "rollback",
     "status",
     "uninstall",
     "update",

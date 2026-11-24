@@ -15,8 +15,23 @@ curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.
 This URL is stable and does not change with the two-repository reorganization.
 The bootstrap script selects the platform, downloads the signed installer for
 the current architecture from `releases/latest/download`, and hands the
-installation to it. Supported hosts: Linux x86_64 (5.0.2 publishes x86_64 only;
+installation to it. Supported hosts: Linux x86_64 (5.0.3 publishes x86_64 only;
 the aarch64 package is not part of this release).
+
+## Updating & Rollback
+
+```bash
+ledgermind update --check
+ledgermind update
+ledgermind rollback
+```
+
+`ledgermind update` downloads from `https://github.com/sl4m3/ledgermind/releases/latest/download`
+by default (override with `LEDGERMIND_RELEASE_BASE_URL`), uses compact layered
+patches (`ledgermind-patch-<platform>.tar.zst`) when the local runtime layers
+match, keeps 2 recent releases by default (`--keep-releases`), and falls back
+to full bundles automatically whenever needed. Use `--manifest` and `--bundle`
+for offline air-gapped updates.
 
 Requirements are listed in the repository README. In short: Linux x86_64 with
 glibc 2.31+, `bubblewrap` for fail-closed Core isolation, a supported agent, and
@@ -29,7 +44,7 @@ sync by the release checklist.
 ## Verify a release manually
 
 ```bash
-version=5.0.2
+version=5.0.3
 base=https://github.com/sl4m3/ledgermind/releases/download/v${version}
 curl -fsSLO "$base/install.sh"
 curl -fsSLO "$base/ledgermind-installer-linux-x86_64"

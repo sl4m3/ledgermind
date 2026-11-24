@@ -11,6 +11,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from .errors import TransactionError
+from .operations.common import hardlink_or_copy
 from .paths import InstallerPaths
 from .permissions import ensure_private_dir
 
@@ -47,6 +48,7 @@ class InstallTransaction:
         self.stage_dir = paths.staging_dir / f"release-{uuid4().hex}"
         self.snapshot: TransactionSnapshot | None = None
         self.backups: list[FileBackup] = []
+        self.replaced_backup: Path | None = None
         self._committed = False
 
     def __enter__(self) -> InstallTransaction:  # noqa: PYI034
@@ -61,7 +63,12 @@ class InstallTransaction:
             )
         destination = self.stage_dir / "bundle"
         try:
-            shutil.copytree(source, destination, symlinks=True)
+            shutil.copytree(
+                source,
+                destination,
+                symlinks=True,
+                copy_function=hardlink_or_copy,
+            )
         except OSError as exc:
             raise TransactionError("cannot stage platform bundle") from exc
         return destination
@@ -97,18 +104,35 @@ class InstallTransaction:
                 backup.path.unlink(missing_ok=True)
 
     def commit(
-        self, *, staged_bundle: str | Path, switch_current: bool = True
+        self,
+        *,
+        staged_bundle: str | Path,
+        switch_current: bool = True,
+        replace_existing: bool = False,
     ) -> TransactionSnapshot:
         source = Path(staged_bundle).expanduser()
         release_dir = self.paths.release_dir(self.release_version)
-        if release_dir.exists():
+        if release_dir.exists() and not replace_existing:
             raise TransactionError(f"release already exists: {release_dir}")
         previous_target: str | None = None
         if self.paths.current_link.is_symlink():
             previous_target = os.readlink(self.paths.current_link)
+        moved_aside: Path | None = None
         try:
             release_dir.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-            os.replace(source, release_dir)
+            if release_dir.exists() and replace_existing:
+                moved_aside = release_dir.with_name(
+                    f".{release_dir.name}.backup-{uuid4().hex}"
+                )
+                os.rename(release_dir, moved_aside)
+                self.replaced_backup = moved_aside
+            try:
+                os.replace(source, release_dir)
+            except OSError:
+                if moved_aside is not None and moved_aside.exists() and not release_dir.exists():
+                    os.rename(moved_aside, release_dir)
+                    self.replaced_backup = None
+                raise
             self.snapshot = TransactionSnapshot(
                 self.release_version,
                 release_dir,
@@ -146,12 +170,18 @@ class InstallTransaction:
                 snapshot.current_switched = False
             if snapshot is not None:
                 shutil.rmtree(snapshot.release_dir, ignore_errors=True)
+                if self.replaced_backup is not None and self.replaced_backup.exists():
+                    os.rename(self.replaced_backup, snapshot.release_dir)
+                    self.replaced_backup = None
         except OSError as exc:
             raise TransactionError("release rollback failed") from exc
         finally:
             self._committed = False
 
     def cleanup(self) -> None:
+        if self.replaced_backup is not None and self.replaced_backup.exists():
+            shutil.rmtree(self.replaced_backup, ignore_errors=True)
+            self.replaced_backup = None
         shutil.rmtree(self.stage_dir, ignore_errors=True)
 
     def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> None:

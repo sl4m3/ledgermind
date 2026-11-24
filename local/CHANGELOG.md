@@ -1,5 +1,20 @@
 # Changelog
 
+## 5.0.3 - 2026-11-24
+
+- Added standalone online `ledgermind update` (no `--manifest`/`--bundle`
+  required; `--manifest`/`--bundle` remain supported for offline updates)
+  defaulting to `https://github.com/sl4m3/ledgermind/releases/latest/download`,
+  plus `--check`, `--version`, `--force`, and `--keep-releases` (default `2`).
+- Added fast signed layered patch updates (`ledgermind-patch-<platform>.tar.zst`):
+  reuses unchanged `embedding-runtimes/` and `python/runtime/` layers via
+  hardlinks while cryptographically verifying the complete `bundle-manifest.json`
+  and falling back transparently to full bundles if runtime digests differ.
+- Added `ledgermind rollback` (with `--version`) to switch cleanly back to a
+  verified previous release, verified SHA-256 download cache reuse in
+  `download_artifact`, automatic pruning of older releases, and cached update
+  notifications in `ledgermind status` (disable via `LEDGERMIND_NO_UPDATE_CHECK=1`).
+
 ## 5.0.2 - 2026-11-24
 
 - Fixed Core `operational_round_memory_preparation` compilation failing with
