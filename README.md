@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Stable release: 5.0.1" src="https://img.shields.io/badge/stable-5.0.1-2563eb">
+  <img alt="Stable release: 5.0.2" src="https://img.shields.io/badge/stable-5.0.2-2563eb">
   <img alt="Local first" src="https://img.shields.io/badge/memory-local--first-16a34a">
   <img alt="Six supported agent adapters" src="https://img.shields.io/badge/adapters-6_supported-2563eb">
   <img alt="Core network access: none" src="https://img.shields.io/badge/Core_network_access-none-111827">
@@ -43,7 +43,7 @@ knowledge layer.
 
 [See the benchmark](BENCHMARK.md) · [Follow releases](https://github.com/sl4m3/ledgermind/releases) · [Contact LedgerMind](mailto:s.zotov@ledgermind.org)
 
-> **Current stable release:** `5.0.1` for supported Linux hosts.
+> **Current stable release:** `5.0.2` for supported Linux hosts.
 
 ## Memory lifecycle, measured end to end
 
@@ -106,7 +106,7 @@ how impressive the stored notes sound.
 
 ### Install in one command
 
-LedgerMind `5.0.1` is available for **Linux x86_64**. On a desktop session the
+LedgerMind `5.0.2` is available for **Linux x86_64**. On a desktop session the
 one-command installer launches a local setup page in your browser (`127.0.0.1`
 with a one-time token), detects supported agents, verifies provider schemas and
 the signed release, and connects the integrations you select. Over SSH or on a
@@ -130,7 +130,7 @@ non-interactive deployment.
 
 | You are… | Start here |
 |---|---|
-| Using an agent and tired of repeating yourself | [Install LedgerMind 5.0.1](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
+| Using an agent and tired of repeating yourself | [Install LedgerMind 5.0.2](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
 | Building an agent, IDE, or local assistant | Explore [`integrations/`](integrations) and [`local/`](local) |
 | Running an AI platform or enterprise deployment | [Contact LedgerMind](mailto:s.zotov@ledgermind.org) for evaluation, deployment, and licensing |
 | Comparing memory systems | Jump to the [benchmark results](#memory-lifecycle-measured-end-to-end) and [full methodology](BENCHMARK.md) |
@@ -151,7 +151,7 @@ via the lightweight Cloud Connector).
 | OpenCode | Available | Restart an already running session |
 | OpenClaw | Available | Restart an already running session |
 
-The published `5.0.1` package supports **Linux x86_64** (Linux aarch64 is part
+The published `5.0.2` package supports **Linux x86_64** (Linux aarch64 is part
 of the platform design, not included in this release). Legacy `3.x` and `4.x`
 release tags should not be used as installation packages for this README.
 
@@ -159,7 +159,7 @@ release tags should not be used as installation packages for this README.
 
 LedgerMind installs without root access into the current user's XDG
 directories. Docker is not required and is not a supported secure deployment
-path for `5.0.1`. The installer verifies the signed manifest, platform bundle,
+path for `5.0.2`. The installer verifies the signed manifest, platform bundle,
 Core binary, and applicable runtime artifacts before switching the active
 version.
 

@@ -107,6 +107,34 @@ def memory_health(*, paths: InstallerPaths) -> dict[str, Any]:
     }
 
 
+def _memory_summary(*, paths: InstallerPaths) -> dict[str, int] | None:
+    """Return read-only memory store counts without waking or mutating the runtime."""
+
+    database_paths = _read_local_paths(paths)
+    if database_paths is None:
+        return None
+    knowledge_path, _ = database_paths
+    if not knowledge_path.is_file():
+        return None
+    try:
+        with closing(_readonly(knowledge_path)) as core:
+            active_knowledge_values = int(
+                core.execute("SELECT COUNT(*) FROM knowledge_values").fetchone()[0]
+            )
+            processed_batches = int(
+                core.execute(
+                    "SELECT COUNT(*) FROM semantic_round_batches WHERE stage IN (?, ?)",
+                    _SUCCESS_STAGES,
+                ).fetchone()[0]
+            )
+    except sqlite3.Error:
+        return None
+    return {
+        "active_knowledge_values": active_knowledge_values,
+        "processed_batches": processed_batches,
+    }
+
+
 def status(*, paths: InstallerPaths) -> dict[str, Any]:
     current = str(paths.current_link.resolve()) if paths.current_link.exists() else None
     config_exists = paths.config_file.is_file()
@@ -129,6 +157,7 @@ def status(*, paths: InstallerPaths) -> dict[str, Any]:
         "config_exists": config_exists,
         "runtime": runtime,
         "memory_health": memory_health(paths=paths),
+        "memory_summary": _memory_summary(paths=paths),
         "integrations": integrations["integrations"],
     }
 

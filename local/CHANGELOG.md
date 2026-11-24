@@ -1,5 +1,19 @@
 # Changelog
 
+## 5.0.2 - 2026-11-24
+
+- Fixed Core `operational_round_memory_preparation` compilation failing with
+  `round_memory_preparation_ref_limit` when a single verbose user prompt
+  contains more than 32 extracted `user.conditions`: condition references are
+  now bounded deterministically to the contract maximum (`32`) while
+  prioritizing conditions overlapping the compiled statement.
+- Added detailed `--help` command summaries, usage workflows, and flag hints
+  across all public `ledgermind` commands while keeping internal hooks hidden.
+- Improved human-readable output for `ledgermind status`, `ledgermind doctor`,
+  `ledgermind runtime`, `export-config`, `import-config`, `install plan`, and
+  `install schema` (including UTC timestamp formatting, knowledge/batch counts,
+  and distinguishing resolved historical errors from active failures).
+
 ## 5.0.1 - 2026-11-24
 
 - Added a one-command localhost Web UI setup wizard (`127.0.0.1` with a

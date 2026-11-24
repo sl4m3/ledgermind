@@ -6,6 +6,7 @@ import argparse
 import importlib
 import json
 import os
+import re
 import sys
 from collections.abc import Sequence
 from datetime import datetime, timezone
@@ -79,38 +80,120 @@ def _record_integration_hook_failure(
 
 
 def _common(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--json", action="store_true", dest="json_output")
-    parser.add_argument("--non-interactive", action="store_true")
-    parser.add_argument("--config", type=Path)
-    parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--home", type=Path, help="test/rootless home override")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="output structured machine-readable JSON",
+    )
+    parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="fail instead of prompting for interactive input",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        help="path to a private installer JSON configuration file",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="validate inputs and simulate changes without modifying files",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="enable detailed diagnostic logging during the operation",
+    )
+    parser.add_argument(
+        "--home",
+        type=Path,
+        help="override home directory for rootless or isolated installs",
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="ledgermind", description="LedgerMind universal installer"
+        prog="ledgermind",
+        description="LedgerMind local memory installer, diagnostics, and runtime manager.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Common workflows:\n"
+            "  ledgermind install              Install and configure LedgerMind (Web UI or --cli)\n"
+            "  ledgermind status               Show installation, runtime, agent, and memory status\n"
+            "  ledgermind doctor               Verify signatures, config, providers, sandbox, and agents\n"
+            "  ledgermind integrations status  Inspect all supported agent integrations\n"
+            "  ledgermind runtime status       Check or stop the local LedgerMind background service\n\n"
+            "Run 'ledgermind <command> --help' for detailed options."
+        ),
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(
+        dest="command", required=True, metavar="COMMAND"
+    )
 
-    install_parser = subparsers.add_parser("install")
-    install_subparsers = install_parser.add_subparsers(dest="install_command")
-    schema_parser = install_subparsers.add_parser("schema")
+    install_parser = subparsers.add_parser(
+        "install",
+        help="install LedgerMind, configure providers, and connect agents",
+        description=(
+            "Install or manage the local LedgerMind runtime, verify signed release artifacts,\n"
+            "configure generation/embedding providers, and register supported agent hooks."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    install_subparsers = install_parser.add_subparsers(
+        dest="install_command", metavar="SUBCOMMAND"
+    )
+    schema_parser = install_subparsers.add_parser(
+        "schema",
+        help="print JSON schema for installer config, manifest, or result",
+        description="Print the JSON Schema definition for an installer contract object.",
+    )
     schema_parser.add_argument(
         "--name",
         choices=("install-config", "install-manifest", "install-result"),
         default="install-config",
+        help="schema document to emit (default: install-config)",
     )
-    schema_parser.add_argument("--json", action="store_true", dest="json_output")
-    plan_parser = install_subparsers.add_parser("plan")
+    schema_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="wrap the schema in the standard installer JSON result envelope",
+    )
+    plan_parser = install_subparsers.add_parser(
+        "plan",
+        help="preview runtime profiles and installation paths without installing",
+        description="Compute and display the planned LedgerMind installation layout and profiles without writing files.",
+    )
     _common(plan_parser)
-    plan_parser.add_argument("--manifest", type=Path)
+    plan_parser.add_argument(
+        "--manifest",
+        type=Path,
+        help="path to a signed install-manifest.json file",
+    )
     for option in (install_parser,):
         _common(option)
-        option.add_argument("--manifest", type=Path)
-        option.add_argument("--bundle", type=Path)
-        option.add_argument("--manifest-signature", type=Path)
-        option.add_argument("--skip-provider-probe", action="store_true")
+        option.add_argument(
+            "--manifest",
+            type=Path,
+            help="path to a local signed install-manifest.json file",
+        )
+        option.add_argument(
+            "--bundle",
+            type=Path,
+            help="path to a local release archive (.tar.zst)",
+        )
+        option.add_argument(
+            "--manifest-signature",
+            type=Path,
+            help="path to the detached Ed25519 manifest signature file",
+        )
+        option.add_argument(
+            "--skip-provider-probe",
+            action="store_true",
+            help="skip live provider capability checks during installation",
+        )
         option.add_argument(
             "--ui",
             choices=("auto", "web", "cli"),
@@ -153,103 +236,323 @@ def _build_parser() -> argparse.ArgumentParser:
             help="agent to connect with --existing-mode add-agent",
         )
 
-    configure_parser = subparsers.add_parser("configure")
+    configure_parser = subparsers.add_parser(
+        "configure",
+        help="reconfigure providers, models, and memory settings",
+        description=(
+            "Update provider endpoints, models, secret bindings, or agent selection on an existing installation."
+        ),
+    )
     _common(configure_parser)
-    configure_parser.add_argument("--validate-providers", action="store_true")
+    configure_parser.add_argument(
+        "--validate-providers",
+        action="store_true",
+        help="probe configured generation, embedding, and decision endpoints before saving",
+    )
 
-    doctor_parser = subparsers.add_parser("doctor")
-    _common(doctor_parser)
-    doctor_parser.add_argument("--no-smoke", action="store_true")
-
-    repair_parser = subparsers.add_parser("repair")
-    _common(repair_parser)
-
-    update_parser = subparsers.add_parser("update")
-    _common(update_parser)
-    update_parser.add_argument("--manifest", type=Path, required=True)
-    update_parser.add_argument("--bundle", type=Path, required=True)
-    update_parser.add_argument("--skip-provider-probe", action="store_true")
-
-    uninstall_parser = subparsers.add_parser("uninstall")
-    _common(uninstall_parser)
-    uninstall_parser.add_argument("--purge-data", action="store_true")
-    uninstall_parser.add_argument("--purge-config", action="store_true")
-    uninstall_parser.add_argument("--yes", action="store_true")
-
-    status_parser = subparsers.add_parser("status")
+    status_parser = subparsers.add_parser(
+        "status",
+        help="show installation, runtime, agents, and memory pipeline status",
+        description=(
+            "Display read-only status of the active installation, local runtime service,\n"
+            "connected agent integrations, and durable memory pipeline health without waking the runtime."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     _common(status_parser)
 
-    integrations_parser = subparsers.add_parser("integrations")
-    integration_commands = integrations_parser.add_subparsers(
-        dest="integration_command", required=True
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="run full diagnostic checks on release, config, providers, and sandbox",
+        description=(
+            "Verify release bundle signatures, private file permissions, config/profile sync,\n"
+            "connected agent adapters, live provider probes, runtime status, and bubblewrap isolation."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    integrations_discover = integration_commands.add_parser("discover")
+    _common(doctor_parser)
+    doctor_parser.add_argument(
+        "--no-smoke",
+        action="store_true",
+        help="skip the temporary disposable sandbox smoke test",
+    )
+
+    repair_parser = subparsers.add_parser(
+        "repair",
+        help="repair symlinks, private tokens, local configs, and agent hooks",
+        description=(
+            "Re-synchronize local config/profiles from config.json, restore permissions and binary links,\n"
+            "and repair registered agent integrations without probing remote providers."
+        ),
+    )
+    _common(repair_parser)
+
+    update_parser = subparsers.add_parser(
+        "update",
+        help="upgrade the installed release from a signed manifest and bundle",
+        description=(
+            "Verify and switch the active LedgerMind release bundle while preserving existing configuration and memory data."
+        ),
+    )
+    _common(update_parser)
+    update_parser.add_argument(
+        "--manifest",
+        type=Path,
+        required=True,
+        help="path to the signed install-manifest.json for the target release",
+    )
+    update_parser.add_argument(
+        "--bundle",
+        type=Path,
+        required=True,
+        help="path to the release bundle archive (.tar.zst)",
+    )
+    update_parser.add_argument(
+        "--skip-provider-probe",
+        action="store_true",
+        help="skip live provider capability probes after upgrading",
+    )
+
+    uninstall_parser = subparsers.add_parser(
+        "uninstall",
+        help="remove LedgerMind binaries and disconnect agents cleanly",
+        description=(
+            "Stop the local runtime, disconnect all agent hooks, and remove LedgerMind binaries.\n"
+            "By default, memory databases and configuration are preserved unless purge flags are passed."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    _common(uninstall_parser)
+    uninstall_parser.add_argument(
+        "--purge-data",
+        action="store_true",
+        help="also delete stored memory databases and local state data",
+    )
+    uninstall_parser.add_argument(
+        "--purge-config",
+        action="store_true",
+        help="also delete config directory and stored local secrets",
+    )
+    uninstall_parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="confirm destructive purge actions without interactive prompt",
+    )
+
+    integrations_parser = subparsers.add_parser(
+        "integrations",
+        help="discover, inspect, and manage agent integrations",
+        description="Discover supported coding agents and connect, enable, disable, or disconnect LedgerMind hooks.",
+    )
+    integration_commands = integrations_parser.add_subparsers(
+        dest="integration_command", required=True, metavar="ACTION"
+    )
+    integrations_discover = integration_commands.add_parser(
+        "discover",
+        help="scan the host for supported agent installations",
+        description="Detect which supported agents are present on this machine without modifying configs.",
+    )
     _common(integrations_discover)
-    integrations_status = integration_commands.add_parser("status")
+    integrations_status = integration_commands.add_parser(
+        "status",
+        help="show detailed connection and delivery status for all agents",
+        description="Inspect runtime state and connection/verification/queue status for each supported agent.",
+    )
     _common(integrations_status)
-    integrations_connect = integration_commands.add_parser("connect")
+    integrations_connect = integration_commands.add_parser(
+        "connect",
+        help="connect LedgerMind hooks to a supported agent",
+        description="Register hooks and profile bindings for an agent.",
+    )
     _common(integrations_connect)
-    integrations_connect.add_argument("integration", choices=target_ids())
-    integrations_connect.add_argument("--disabled", action="store_true")
+    integrations_connect.add_argument(
+        "integration",
+        choices=target_ids(),
+        help="agent identifier to connect",
+    )
+    integrations_connect.add_argument(
+        "--disabled",
+        action="store_true",
+        help="connect the integration in disabled state initially",
+    )
+    integration_action_help = {
+        "enable": ("enable hooks for a connected agent", "Enable LedgerMind memory hooks for a connected agent."),
+        "disable": ("temporarily disable hooks for a connected agent", "Pause LedgerMind memory hooks without removing configuration."),
+        "disconnect": ("remove LedgerMind hooks from an agent", "Unregister LedgerMind hooks and integration state for an agent."),
+    }
     for action in ("enable", "disable", "disconnect"):
-        action_parser = integration_commands.add_parser(action)
+        short_help, long_desc = integration_action_help[action]
+        action_parser = integration_commands.add_parser(
+            action,
+            help=short_help,
+            description=long_desc,
+        )
         _common(action_parser)
-        action_parser.add_argument("integration", choices=target_ids())
+        action_parser.add_argument(
+            "integration",
+            choices=target_ids(),
+            help=f"agent identifier to {action}",
+        )
 
-    export_parser = subparsers.add_parser("export-config")
+    export_parser = subparsers.add_parser(
+        "export-config",
+        help="export installer configuration to a private JSON file",
+        description="Write installer configuration to a 0600 JSON file (excluding secrets unless --include-secrets is set).",
+    )
     _common(export_parser)
-    export_parser.add_argument("--out", type=Path, required=True)
-    export_parser.add_argument("--include-secrets", action="store_true")
+    export_parser.add_argument(
+        "--out",
+        type=Path,
+        required=True,
+        help="destination file path for exported configuration",
+    )
+    export_parser.add_argument(
+        "--include-secrets",
+        action="store_true",
+        help="include resolved provider API tokens in the exported file",
+    )
 
-    import_parser = subparsers.add_parser("import-config")
+    import_parser = subparsers.add_parser(
+        "import-config",
+        help="validate and import configuration from a private JSON file",
+        description="Load an exported configuration file, save secrets if present, and optionally probe providers.",
+    )
     _common(import_parser)
-    import_parser.add_argument("--file", type=Path, required=True)
-    import_parser.add_argument("--validate-providers", action="store_true")
-    import_parser.add_argument("--register-target", action="store_true")
-    import_parser.add_argument("--delete-config-after-import", action="store_true")
+    import_parser.add_argument(
+        "--file",
+        type=Path,
+        required=True,
+        help="path to a private 0600 configuration JSON file to import",
+    )
+    import_parser.add_argument(
+        "--validate-providers",
+        action="store_true",
+        help="probe generation and API embedding providers during import",
+    )
+    import_parser.add_argument(
+        "--register-target",
+        action="store_true",
+        help="mark target integrations for registration metadata",
+    )
+    import_parser.add_argument(
+        "--delete-config-after-import",
+        action="store_true",
+        help="securely remove the source file after successful import",
+    )
 
-    runtime_parser = subparsers.add_parser("runtime")
+    runtime_parser = subparsers.add_parser(
+        "runtime",
+        help="inspect or control the local background memory service",
+        description="Manage the local LedgerMind runtime daemon and session leases.",
+    )
     _common(runtime_parser)
     runtime_subparsers = runtime_parser.add_subparsers(
-        dest="runtime_command", required=True
+        dest="runtime_command", required=True, metavar="ACTION"
     )
 
     def _runtime_flags(command_parser: argparse.ArgumentParser) -> None:
         command_parser.add_argument(
-            "--json", action="store_true", dest="json_output", default=argparse.SUPPRESS
+            "--json",
+            action="store_true",
+            dest="json_output",
+            default=argparse.SUPPRESS,
+            help="output structured machine-readable JSON",
         )
         command_parser.add_argument(
-            "--non-interactive", action="store_true", default=argparse.SUPPRESS
+            "--non-interactive",
+            action="store_true",
+            default=argparse.SUPPRESS,
+            help="fail instead of prompting for interactive input",
         )
-        command_parser.add_argument("--config", type=Path, default=argparse.SUPPRESS)
         command_parser.add_argument(
-            "--dry-run", action="store_true", default=argparse.SUPPRESS
+            "--config",
+            type=Path,
+            default=argparse.SUPPRESS,
+            help="path to a private installer JSON configuration file",
         )
         command_parser.add_argument(
-            "--verbose", action="store_true", default=argparse.SUPPRESS
+            "--dry-run",
+            action="store_true",
+            default=argparse.SUPPRESS,
+            help="simulate action without changing runtime state",
         )
-        command_parser.add_argument("--home", type=Path, default=argparse.SUPPRESS)
+        command_parser.add_argument(
+            "--verbose",
+            action="store_true",
+            default=argparse.SUPPRESS,
+            help="enable verbose diagnostic output",
+        )
+        command_parser.add_argument(
+            "--home",
+            type=Path,
+            default=argparse.SUPPRESS,
+            help="override home directory for isolated runtime state",
+        )
 
-    acquire = runtime_subparsers.add_parser("acquire")
+    acquire = runtime_subparsers.add_parser(
+        "acquire",
+        help="acquire a runtime session lease (starts service if sleeping)",
+        description="Acquire a timed lease for a client session and ensure the local runtime is running.",
+    )
     _runtime_flags(acquire)
-    acquire.add_argument("--client", required=True)
-    acquire.add_argument("--session-id", required=True)
-    acquire.add_argument("--ttl-seconds", type=float)
-    heartbeat = runtime_subparsers.add_parser("heartbeat")
+    acquire.add_argument(
+        "--client",
+        required=True,
+        help="client identifier (for example codex or opencode)",
+    )
+    acquire.add_argument(
+        "--session-id",
+        required=True,
+        help="unique client session identifier",
+    )
+    acquire.add_argument(
+        "--ttl-seconds",
+        type=float,
+        help="requested lease lifetime in seconds",
+    )
+    heartbeat = runtime_subparsers.add_parser(
+        "heartbeat",
+        help="renew an active runtime session lease",
+        description="Extend an existing runtime lease TTL while an agent session remains active.",
+    )
     _runtime_flags(heartbeat)
-    heartbeat.add_argument("--lease-id", required=True)
-    release = runtime_subparsers.add_parser("release")
+    heartbeat.add_argument(
+        "--lease-id",
+        required=True,
+        help="lease identifier returned by runtime acquire",
+    )
+    release = runtime_subparsers.add_parser(
+        "release",
+        help="release an active runtime session lease",
+        description="Release a session lease and allow idle shutdown when no leases remain.",
+    )
     _runtime_flags(release)
-    release.add_argument("--lease-id", required=True)
-    runtime_status = runtime_subparsers.add_parser("status")
+    release.add_argument(
+        "--lease-id",
+        required=True,
+        help="lease identifier to release",
+    )
+    runtime_status = runtime_subparsers.add_parser(
+        "status",
+        help="show local runtime process, endpoint, and lease state",
+        description="Inspect whether the local runtime is running, its HTTP endpoint, processes, and active leases.",
+    )
     _runtime_flags(runtime_status)
-    stop = runtime_subparsers.add_parser("stop")
+    stop = runtime_subparsers.add_parser(
+        "stop",
+        help="stop the local LedgerMind background runtime",
+        description="Stop the managed local runtime processes.",
+    )
     _runtime_flags(stop)
-    stop.add_argument("--force", action="store_true")
-    idle_reap = runtime_subparsers.add_parser("_idle-reap", help=argparse.SUPPRESS)
+    stop.add_argument(
+        "--force",
+        action="store_true",
+        help="stop even if active session leases still exist",
+    )
+    idle_reap = runtime_subparsers.add_parser("_idle-reap")
     _runtime_flags(idle_reap)
 
-    hook = subparsers.add_parser("integration-hook", help=argparse.SUPPRESS)
+    hook = subparsers.add_parser("integration-hook")
     hook.add_argument("--config", type=Path, required=True)
     hook.add_argument("--event", required=True)
     return parser
@@ -702,6 +1005,57 @@ def _result(
     return result
 
 
+def _format_timestamp(raw: Any) -> str:
+    """Format ISO-8601 or epoch timestamps into compact readable UTC strings."""
+
+    if raw is None:
+        return "none"
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        try:
+            return datetime.fromtimestamp(float(raw), tz=timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S UTC"
+            )
+        except (OverflowError, OSError, ValueError):
+            return str(raw)
+    text = str(raw).strip()
+    if not text:
+        return "none"
+    normalized = re.sub(r"\.(\d{6})\d*", r".\1", text)
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return text
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc)
+    return parsed.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def _status_summary(value: Any, *, default: str = "unknown") -> str:
+    if isinstance(value, dict):
+        state = value.get("status")
+        if not state and (
+            value.get("strict_structured_outputs") or value.get("structured_json")
+        ):
+            state = "passed"
+        state_text = str(state or default)
+        error = value.get("error")
+        return f"{state_text} ({error})" if error else state_text
+    if value is None:
+        return default
+    return str(value)
+
+
+def _format_runtime_endpoint(runtime: dict[str, Any]) -> str:
+    endpoint = str(
+        runtime.get("endpoint") or runtime.get("preferred_endpoint") or "unavailable"
+    )
+    if runtime.get("endpoint_failover"):
+        endpoint += " (fallback port)"
+    return endpoint
+
+
 def _emit(result: InstallResult, *, json_output: bool) -> int:
     if json_output:
         print(result.to_json())
@@ -713,6 +1067,9 @@ def _emit(result: InstallResult, *, json_output: bool) -> int:
             print(f"- {step.name}: {step.status}")
         _emit_integration_details(result)
         _emit_status_details(result)
+        _emit_doctor_details(result)
+        _emit_runtime_details(result)
+        _emit_config_transfer_details(result)
         _emit_install_details(result)
         _emit_uninstall_details(result)
         for warning in result.warnings:
@@ -725,15 +1082,104 @@ def _emit(result: InstallResult, *, json_output: bool) -> int:
 def _emit_status_details(result: InstallResult) -> None:
     if result.operation != "status" or not result.steps:
         return
-    health = result.steps[-1].data.get("memory_health")
+    data = result.steps[-1].data
+    installed = bool(data.get("installed"))
+    current = data.get("current")
+    release_label = (
+        f"{Path(str(current)).name} ({current})" if current else "not installed"
+    )
+    print("\nInstallation:")
+    print(f"  Installed:    {'yes' if installed else 'no'}")
+    print(f"  Release:      {release_label}")
+    if data.get("config"):
+        cfg_state = "present" if data.get("config_exists") else "missing"
+        print(f"  Config:       {data['config']} ({cfg_state})")
+
+    runtime = data.get("runtime")
+    if isinstance(runtime, dict):
+        running = bool(runtime.get("running"))
+        residency = str(runtime.get("residency_mode") or "unknown")
+        if running:
+            state_label = "running"
+        elif residency == "always_on":
+            state_label = "stopped"
+        else:
+            state_label = "sleeping (starts on agent activity)"
+        leases = runtime.get("active_leases")
+        lease_list = leases if isinstance(leases, list) else []
+        clients = sorted(
+            {
+                str(item.get("client"))
+                for item in lease_list
+                if isinstance(item, dict) and item.get("client")
+            }
+        )
+        lease_summary = f"{len(lease_list)} active"
+        if clients:
+            lease_summary += f" ({', '.join(clients)})"
+        print("\nRuntime:")
+        print(f"  State:        {state_label}")
+        print(f"  Residency:    {residency}")
+        print(f"  Endpoint:     {_format_runtime_endpoint(runtime)}")
+        if runtime.get("endpoint_conflict"):
+            print("  Warning:      configured port is occupied by another process")
+        print(f"  Leases:       {lease_summary}")
+
+    integrations = data.get("integrations")
+    if isinstance(integrations, dict):
+        connected_items = [
+            (target_id, item)
+            for target_id, item in integrations.items()
+            if isinstance(item, dict) and item.get("connected")
+        ]
+        print("\nAgents:")
+        if connected_items:
+            for target_id, item in connected_items:
+                discovery = item.get("discovery")
+                label = (
+                    str(discovery.get("label") or target_id)
+                    if isinstance(discovery, dict)
+                    else target_id
+                )
+                parts = ["enabled" if item.get("enabled") else "disabled"]
+                verify = item.get("verify")
+                if isinstance(verify, dict) and verify.get("status"):
+                    parts.append(f"verify={verify['status']}")
+                if item.get("active"):
+                    parts.append("active session")
+                delivery = item.get("delivery")
+                if isinstance(delivery, dict) and delivery.get("queued_rounds"):
+                    parts.append(f"queued={delivery['queued_rounds']}")
+                print(f"  {label} ({target_id}): {', '.join(parts)}")
+            print("  Details:      run 'ledgermind integrations status'")
+        elif installed:
+            print(
+                "  none connected (run 'ledgermind integrations discover' to inspect agents)"
+            )
+        else:
+            print("  not configured")
+
+    health = data.get("memory_health")
     if not isinstance(health, dict):
         return
     print("\nMemory pipeline:")
-    print(f"  Health:       {health.get('status', 'unknown')}")
+    health_status = str(health.get("status", "unknown"))
+    if health.get("reason"):
+        health_status = f"{health_status} ({health['reason']})"
+    print(f"  Health:       {health_status}")
+    summary = data.get("memory_summary")
+    if isinstance(summary, dict):
+        print(
+            "  Knowledge:    "
+            f"{summary.get('active_knowledge_values', 0)} stored value(s), "
+            f"{summary.get('processed_batches', 0)} processed batch(es)"
+        )
     if health.get("last_successful_pipeline_at"):
-        print(f"  Last success: {health['last_successful_pipeline_at']}")
+        print(f"  Last success: {_format_timestamp(health['last_successful_pipeline_at'])}")
+    elif health.get("status") in {"healthy", "degraded"}:
+        print("  Last success: none yet")
     if health.get("last_materialized_at"):
-        print(f"  Last write:   {health['last_materialized_at']}")
+        print(f"  Last write:   {_format_timestamp(health['last_materialized_at'])}")
     if health.get("failed_batches_since_last_success") is not None:
         print(
             "  Failed since: "
@@ -746,7 +1192,255 @@ def _emit_status_details(result: InstallResult) -> None:
         )
     latest = health.get("latest_failure")
     if isinstance(latest, dict) and latest.get("error_code"):
-        print(f"  Latest error: {latest['error_code']}")
+        when = f" at {_format_timestamp(latest['at'])}" if latest.get("at") else ""
+        if health.get("status") == "healthy":
+            print(
+                f"  Prior error:  {latest['error_code']}{when} "
+                "(resolved by later success)"
+            )
+        else:
+            print(f"  Latest error: {latest['error_code']}{when}")
+
+
+def _format_provider_probe(name: str, payload: Any) -> str:
+    if not isinstance(payload, dict):
+        return str(payload)
+    if payload.get("status") == "local-runtime-configured":
+        return "local runtime configured"
+    state = _status_summary(payload)
+    details: list[str] = []
+    if name == "resolution_decision" and payload.get("backend"):
+        details.append(f"backend={payload['backend']}")
+    if payload.get("model"):
+        details.append(f"model={payload['model']}")
+    if payload.get("route"):
+        details.append(f"route={payload['route']}")
+    if payload.get("reasoning_effort"):
+        details.append(f"reasoning={payload['reasoning_effort']}")
+    if payload.get("dimensions") is not None:
+        details.append(f"dims={payload['dimensions']}")
+    if payload.get("latency_ms") is not None:
+        details.append(f"latency={payload['latency_ms']}ms")
+    if payload.get("endpoint"):
+        details.append(f"endpoint={payload['endpoint']}")
+    return f"{state} ({', '.join(details)})" if details else state
+
+
+def _emit_doctor_details(result: InstallResult) -> None:
+    if result.operation != "doctor" or not result.steps:
+        return
+    data = result.steps[-1].data
+    delivery = data.get("delivery") if isinstance(data.get("delivery"), dict) else {}
+    config_info = (
+        data.get("configuration") if isinstance(data.get("configuration"), dict) else {}
+    )
+    providers = (
+        data.get("providers") if isinstance(data.get("providers"), dict) else {}
+    )
+    runtime = data.get("runtime") if isinstance(data.get("runtime"), dict) else {}
+    smoke = data.get("smoke_test") if isinstance(data.get("smoke_test"), dict) else {}
+    integrations = (
+        data.get("integrations") if isinstance(data.get("integrations"), dict) else {}
+    )
+
+    print("\nDelivery:")
+    print(f"  Platform:      {data.get('platform') or 'unknown'}")
+    print(f"  Release:       {delivery.get('current', 'missing')}")
+    print(f"  Signature:     {_status_summary(delivery.get('signature'))}")
+    binaries = [
+        f"{name}={'ok' if delivery.get(key) else 'missing'}"
+        for name, key in (
+            ("core", "core"),
+            ("local", "local"),
+            ("installer", "installer"),
+            ("manifest", "bundle_manifest"),
+        )
+    ]
+    print(f"  Artifacts:     {', '.join(binaries)}")
+
+    print("\nConfiguration:")
+    print(f"  Schema:        {_status_summary(config_info.get('schema'))}")
+    print(f"  Permissions:   {_status_summary(config_info.get('permissions'))}")
+    if config_info.get("secret_store"):
+        print(f"  Secret store:  {config_info['secret_store']}")
+    if config_info.get("local_config") is not None:
+        print(f"  Local sync:    {_status_summary(config_info.get('local_config'))}")
+    if config_info.get("profile_slots") is not None:
+        print(f"  Profile slots: {_status_summary(config_info.get('profile_slots'))}")
+    core_cfg = config_info.get("core_config")
+    if isinstance(core_cfg, dict):
+        print(
+            "  Core settings: "
+            f"security={core_cfg.get('security_profile')}, "
+            f"language={core_cfg.get('semantic_language')}, "
+            f"gen_concurrency={core_cfg.get('generation_concurrency')}, "
+            f"emb_concurrency={core_cfg.get('embedding_max_concurrency')}"
+        )
+
+    print("\nProviders:")
+    if "status" in providers and not any(
+        key in providers for key in ("generation", "embedding", "resolution_decision")
+    ):
+        print(f"  Status:        {_status_summary(providers)}")
+    else:
+        for label, key in (
+            ("Generation", "generation"),
+            ("Embeddings", "embedding"),
+            ("Decision", "resolution_decision"),
+        ):
+            if key in providers:
+                print(f"  {label + ':':14} {_format_provider_probe(key, providers[key])}")
+
+    print("\nRuntime & sandbox:")
+    if runtime:
+        leases = runtime.get("active_leases")
+        lease_count = len(leases) if isinstance(leases, list) else 0
+        state_text = "running" if runtime.get("running") else "sleeping"
+        residency = runtime.get("residency_mode") or "unknown"
+        print(
+            f"  Runtime:       {state_text} at {_format_runtime_endpoint(runtime)} "
+            f"(residency={residency}, leases={lease_count})"
+        )
+    smoke_line = _status_summary(smoke)
+    if smoke.get("writes_user_memory") is False and smoke.get("status") == "passed":
+        smoke_line += " (isolated, no user memory modified)"
+    print(f"  Smoke test:    {smoke_line}")
+
+    if integrations:
+        print("\nConnected agents:")
+        for target_id, item in integrations.items():
+            if not isinstance(item, dict):
+                continue
+            discovery = (
+                item.get("discovery") if isinstance(item.get("discovery"), dict) else {}
+            )
+            label = str(discovery.get("label") or target_id)
+            detected = "yes" if discovery.get("detected") else "no"
+            enabled = "enabled" if item.get("enabled") else "disabled"
+            adapter_text = _status_summary(item.get("adapter"))
+            print(
+                f"  {label} ({target_id}): {enabled}, detected={detected}, verify={adapter_text}"
+            )
+
+
+def _emit_runtime_details(result: InstallResult) -> None:
+    if not result.operation.startswith("runtime ") or not result.steps:
+        return
+    data = result.steps[-1].data
+    action = result.operation.split(" ", 1)[1]
+    if action == "status":
+        running = bool(data.get("running"))
+        leases = data.get("active_leases")
+        lease_list = leases if isinstance(leases, list) else []
+        processes = data.get("processes") if isinstance(data.get("processes"), dict) else {}
+        print("\nRuntime state:")
+        print(f"  State:         {'running' if running else 'sleeping'}")
+        if data.get("residency_mode"):
+            print(f"  Residency:     {data['residency_mode']}")
+        print(f"  Endpoint:      {_format_runtime_endpoint(data)}")
+        if data.get("endpoint_conflict"):
+            print("  Warning:       configured port is occupied by another process")
+        print(f"  Active leases: {len(lease_list)}")
+        for lease in lease_list:
+            if not isinstance(lease, dict):
+                continue
+            print(
+                "    - "
+                f"client={lease.get('client', 'unknown')}, "
+                f"session={lease.get('session_id', 'unknown')}, "
+                f"lease={lease.get('lease_id', 'unknown')}, "
+                f"expires={_format_timestamp(lease.get('expires_at'))}"
+            )
+        if processes:
+            proc_parts = [
+                f"{name} (pid={info.get('pid', '?')})"
+                if isinstance(info, dict)
+                else f"{name}={info}"
+                for name, info in processes.items()
+            ]
+            print(f"  Processes:     {', '.join(proc_parts)}")
+        else:
+            print("  Processes:     none running")
+        return
+
+    if action == "stop":
+        stopped = bool(data.get("stopped"))
+        processes = data.get("processes") if isinstance(data.get("processes"), dict) else {}
+        print("\nRuntime stop:")
+        print(f"  Stopped:       {'yes' if stopped else 'no'}")
+        if processes:
+            print(f"  Processes:     {', '.join(f'{k}={v}' for k, v in processes.items())}")
+        if data.get("reason"):
+            print(f"  Reason:        {data['reason']}")
+        return
+
+    print(f"\nRuntime {action}:")
+    for label, key in (
+        ("Lease ID", "lease_id"),
+        ("Client", "client"),
+        ("Session ID", "session_id"),
+        ("Endpoint", "endpoint"),
+        ("Started", "started"),
+        ("Released", "released"),
+        ("Active leases", "active_leases"),
+        ("Stopped", "stopped"),
+    ):
+        if key in data and data[key] is not None:
+            print(f"  {label + ':':14} {data[key]}")
+    if data.get("expires_at") is not None:
+        print(f"  Expires at:    {_format_timestamp(data['expires_at'])}")
+
+
+def _emit_config_transfer_details(result: InstallResult) -> None:
+    if not result.steps:
+        return
+    data = result.steps[-1].data
+    if result.operation == "export-config":
+        print("\nExport result:")
+        print(f"  File:          {data.get('out', 'unknown')}")
+        print(
+            "  Secrets:       "
+            + ("included" if data.get("include_secrets") else "excluded (refs only)")
+        )
+        return
+    if result.operation == "import-config":
+        cfg = data.get("config") if isinstance(data.get("config"), dict) else {}
+        probes = data.get("probes") if isinstance(data.get("probes"), dict) else {}
+        print("\nImport result:")
+        if cfg.get("config"):
+            print(f"  Config file:   {cfg['config']}")
+        print(f"  Probes run:    {', '.join(probes.keys()) if probes else 'none'}")
+        print(
+            "  Target agents: "
+            + ("marked for registration" if data.get("target_registered") else "preserved")
+        )
+        return
+    if result.operation == "install plan":
+        print("\nInstall plan:")
+        print(f"  Platform:      {data.get('platform', 'unknown')}")
+        if data.get("release_version"):
+            print(f"  Release:       {data['release_version']}")
+        print(f"  Memory mode:   {data.get('memory_mode', 'unknown')}")
+        if data.get("memory_data_path"):
+            print(f"  Memory path:   {data['memory_data_path']}")
+        integrations = data.get("integrations")
+        if isinstance(integrations, list):
+            agent_labels = [
+                f"{item.get('id')}({'on' if item.get('enabled') else 'off'})"
+                for item in integrations
+                if isinstance(item, dict) and item.get("id")
+            ]
+            print(f"  Agents:        {', '.join(agent_labels) if agent_labels else 'none'}")
+        profiles = data.get("profiles")
+        if isinstance(profiles, list):
+            print(f"  Profiles:      {len(profiles)} planned")
+        runtime = data.get("runtime")
+        if isinstance(runtime, dict) and runtime.get("residency_mode"):
+            print(f"  Residency:     {runtime['residency_mode']}")
+        return
+    if result.operation == "install schema":
+        print()
+        print(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True))
 
 
 def _emit_integration_details(result: InstallResult) -> None:
