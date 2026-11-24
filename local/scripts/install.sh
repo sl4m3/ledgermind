@@ -102,7 +102,7 @@ force_cli=0
 prev_arg=
 for arg in "$@"; do
   case "$arg" in
-    --non-interactive|--web|--ui=web)
+    --non-interactive|--web|--ui=web|--help|-h|--json)
       needs_tty=0
       break
       ;;
@@ -125,7 +125,7 @@ for arg in "$@"; do
 done
 
 if [ "$needs_tty" -eq 1 ] && [ ! -t 0 ]; then
-  if [ -r /dev/tty ]; then
+  if (exec </dev/tty) 2>/dev/null; then
     exec "$destination" "$@" </dev/tty
   fi
   if [ "$force_cli" -eq 0 ] && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && [ -z "${SSH_CONNECTION:-}${SSH_CLIENT:-}${SSH_TTY:-}" ]; then
