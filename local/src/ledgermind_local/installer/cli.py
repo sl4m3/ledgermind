@@ -112,6 +112,35 @@ def _build_parser() -> argparse.ArgumentParser:
         option.add_argument("--manifest-signature", type=Path)
         option.add_argument("--skip-provider-probe", action="store_true")
         option.add_argument(
+            "--ui",
+            choices=("auto", "web", "cli"),
+            default="auto",
+            help="setup interface: auto (browser on desktop, CLI on headless/SSH), web, or cli",
+        )
+        option.add_argument(
+            "--web",
+            action="store_true",
+            help="launch the local Web UI setup wizard",
+        )
+        option.add_argument(
+            "--cli",
+            "--terminal",
+            action="store_true",
+            dest="cli_ui",
+            help="use the interactive terminal setup wizard",
+        )
+        option.add_argument(
+            "--web-port",
+            type=int,
+            default=0,
+            help="port for the local Web UI setup server (default: free port)",
+        )
+        option.add_argument(
+            "--no-browser",
+            action="store_true",
+            help="print the Web UI setup URL without launching a browser",
+        )
+        option.add_argument(
             "--existing-mode",
             choices=("add-agent", "update", "repair", "reconfigure", "exit"),
             help="safe action when LedgerMind is already installed",
@@ -391,7 +420,15 @@ def _runtime(paths: InstallerPaths) -> RuntimeSupervisor:
 def _normalize_argv(argv: Sequence[str]) -> list[str]:
     """Accept global options before the command as the legacy CLI did."""
 
-    values = {"--home", "--config", "--manifest", "--bundle", "--manifest-signature"}
+    values = {
+        "--home",
+        "--config",
+        "--manifest",
+        "--bundle",
+        "--manifest-signature",
+        "--ui",
+        "--web-port",
+    }
     raw = list(argv)
     if not raw or not raw[0].startswith("-"):
         return raw
@@ -413,6 +450,39 @@ def _normalize_argv(argv: Sequence[str]) -> list[str]:
     return [raw[index], *prefix, *raw[index + 1 :]]
 
 
+def _resolve_embedding_catalog(
+    args: argparse.Namespace, paths: InstallerPaths
+) -> Sequence[dict[str, object]]:
+    if getattr(args, "manifest", None) is not None:
+        from .manifest import load_manifest
+
+        return load_manifest(args.manifest).embedding_catalog
+    try:
+        from .operations.common import fetch_manifest
+        from .verify import public_key_from_environment
+
+        manifest_path, signature_path, manifest = fetch_manifest(
+            paths, public_key=public_key_from_environment()
+        )
+        args.manifest = manifest_path
+        args.manifest_signature = signature_path
+        return manifest.embedding_catalog
+    except InstallerError:
+        # API embeddings remain available. A local option is never shown
+        # without a verified signed catalog from this release.
+        return ()
+
+
+def _resolve_ui_mode(args: argparse.Namespace) -> str:
+    if bool(getattr(args, "web", False)) and bool(getattr(args, "cli_ui", False)):
+        raise ConfigurationError("--web and --cli cannot be combined")
+    if bool(getattr(args, "web", False)):
+        return "web"
+    if bool(getattr(args, "cli_ui", False)):
+        return "cli"
+    return str(getattr(args, "ui", "auto") or "auto")
+
+
 def _config(args: argparse.Namespace) -> tuple[InstallerConfig, str | None, str | None]:
     if args.config is not None and args.non_interactive:
         return load_non_interactive_config(args.config)
@@ -427,26 +497,7 @@ def _config(args: argparse.Namespace) -> tuple[InstallerConfig, str | None, str 
         raise InstallerError("--config is required in non-interactive mode")
     from .wizard import build_interactive_config
 
-    embedding_catalog: Sequence[dict[str, object]] = ()
-    if getattr(args, "manifest", None) is not None:
-        from .manifest import load_manifest
-
-        embedding_catalog = load_manifest(args.manifest).embedding_catalog
-    else:
-        try:
-            from .operations.common import fetch_manifest
-            from .verify import public_key_from_environment
-
-            manifest_path, signature_path, manifest = fetch_manifest(
-                _paths(args), public_key=public_key_from_environment()
-            )
-            args.manifest = manifest_path
-            args.manifest_signature = signature_path
-            embedding_catalog = manifest.embedding_catalog
-        except InstallerError:
-            # API embeddings remain available. A local option is never shown
-            # without a verified signed catalog from this release.
-            embedding_catalog = ()
+    embedding_catalog = _resolve_embedding_catalog(args, _paths(args))
 
     return (
         build_interactive_config(
@@ -943,6 +994,34 @@ def main(argv: Sequence[str] | None = None) -> int:
                 payload = _existing_install(args, paths)
                 result = _result("install", payload=payload, paths=paths)
                 return _emit(result, json_output=bool(args.json_output))
+            ui_mode = _resolve_ui_mode(args)
+            if args.config is None:
+                from .web_wizard import run_web_install, should_use_web_ui
+
+                if should_use_web_ui(
+                    ui_mode,
+                    json_output=bool(args.json_output),
+                    non_interactive=bool(args.non_interactive),
+                ):
+                    embedding_catalog = _resolve_embedding_catalog(args, paths)
+                    payload = run_web_install(
+                        install_callback=lambda cfg, progress: install(
+                            config=cfg,
+                            paths=paths,
+                            manifest_path=args.manifest,
+                            bundle=args.bundle,
+                            manifest_signature=args.manifest_signature,
+                            dry_run=bool(args.dry_run),
+                            skip_provider_probe=bool(args.skip_provider_probe),
+                            progress=progress,
+                        ),
+                        port=int(getattr(args, "web_port", 0) or 0),
+                        open_browser=not bool(getattr(args, "no_browser", False)),
+                        preflight_home=getattr(args, "home", None),
+                        embedding_catalog=embedding_catalog,
+                    )
+                    result = _result("install", payload=payload, paths=paths)
+                    return _emit(result, json_output=bool(args.json_output))
             config, generation_stdin, embedding_stdin = _config(args)
             interactive_progress = (
                 _terminal_progress

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..config_writer import load_installer_config
+from ..config_writer import (
+    ensure_runtime_tokens,
+    load_installer_config,
+    write_local_config,
+    write_local_profiles,
+)
 from ..paths import InstallerPaths
 from ..targets.base import AdapterContext
 from ..targets.registry import get_target_adapter
@@ -21,6 +26,14 @@ def repair(*, paths: InstallerPaths, dry_run: bool = False) -> dict[str, Any]:
     if dry_run:
         return {"status": "dry_run", "current": str(paths.current_link)}
     install_bin_link(paths)
+    ensure_runtime_tokens(
+        paths,
+        include_local_embedding=(
+            config.embedding.mode == "local" or config.reranker.mode == "local"
+        ),
+    )
+    local_config_path = write_local_config(config, paths)
+    local_profiles = write_local_profiles(config, paths)
     integrations: dict[str, Any] = {}
     for selected in config.integrations:
         adapter = get_target_adapter(selected.id)
@@ -55,6 +68,8 @@ def repair(*, paths: InstallerPaths, dry_run: bool = False) -> dict[str, Any]:
             else "failed"
         ),
         "doctor": doctor_report,
+        "local_config": str(local_config_path),
+        "local_profiles": local_profiles,
         "integrations": integrations,
         "current": str(paths.current_link),
         "readiness": {

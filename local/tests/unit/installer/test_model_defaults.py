@@ -31,7 +31,7 @@ def test_packaged_defaults_are_valid_and_exposed_by_wizard() -> None:
 
     assert defaults.generation_openrouter == "deepseek/deepseek-v4-flash-0731"
     assert defaults.generation_nvidia_nim == "nvidia/nemotron-3-super-120b-a12b"
-    assert defaults.embedding_api == "nvidia/nemotron-3-embed-1b:free"
+    assert defaults.embedding_api == "nvidia/nemotron-3.5-embed-1b:free"
     assert defaults.embedding_dimensions == 2048
     assert defaults.embedding_local_catalog_id == "nemotron-3-embed-1b-bf16"
     assert defaults.embedding_local_alias == "nvidia/nemotron-3-embed-1b-local-bf16"

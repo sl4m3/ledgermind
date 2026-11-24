@@ -2,20 +2,29 @@
 
 from __future__ import annotations
 
+import os
+import sqlite3
+from contextlib import closing
+from pathlib import Path
 from typing import Any
 
+from ledgermind_local.config import LocalConfig
 from ledgermind_local.runtime.supervisor import RuntimeSupervisor
 
 from ..config_writer import (
     load_installer_config,
-    resolve_provider_tokens,
     resolve_decision_token,
+    resolve_provider_tokens,
     select_secret_backend,
 )
 from ..paths import InstallerPaths
 from ..permissions import assert_private
 from ..preflight import platform_id
-from ..profiles.probes import probe_embedding_api, probe_generation, probe_resolution_decision
+from ..profiles.probes import (
+    probe_embedding_api,
+    probe_generation,
+    probe_resolution_decision,
+)
 from ..smoke import run_sandbox_smoke
 from ..targets.base import AdapterContext
 from ..targets.registry import get_target_adapter
@@ -99,6 +108,153 @@ def doctor(
                     encoding="utf-8"
                 ).strip():
                     raise ValueError(f"required token is empty: {path}")
+            local_config: LocalConfig | None = None
+            try:
+                local_config_paths = (
+                    paths.config_dir / "local-config.json",
+                    paths.data_dir / "local" / "config.json",
+                )
+                parsed_locals: list[LocalConfig] = []
+                for path in local_config_paths:
+                    if not path.is_file():
+                        raise FileNotFoundError(
+                            f"required local config is missing: {path}"
+                        )
+                    assert_private(path, directory=False)
+                    parsed_locals.append(
+                        LocalConfig.model_validate_json(
+                            path.read_text(encoding="utf-8")
+                        )
+                    )
+                if parsed_locals[0].model_dump(mode="json") != parsed_locals[
+                    1
+                ].model_dump(mode="json"):
+                    raise ValueError(
+                        "local-config.json and data/local/config.json differ"
+                    )
+                local_config = parsed_locals[0]
+                if local_config.core_security.profile != "secure":
+                    raise ValueError("core_security.profile must be 'secure'")
+                if local_config.semantic_language != config.semantic_language:
+                    raise ValueError(
+                        "local semantic_language does not match installer config"
+                    )
+                if (
+                    local_config.generation_concurrency
+                    != config.generation.max_concurrency
+                ):
+                    raise ValueError(
+                        "local generation_concurrency does not match installer config"
+                    )
+                if current.is_symlink() and current.exists():
+                    core_bin = Path(local_config.core_binary_path).expanduser()
+                    core_sig = Path(local_config.core_signature_path).expanduser()
+                    core_pub = Path(local_config.core_public_key_path).expanduser()
+                    for artifact in (core_bin, core_sig, core_pub):
+                        if not artifact.is_file():
+                            raise FileNotFoundError(
+                                f"configured Core artifact is missing: {artifact}"
+                            )
+                    if not os.access(core_bin, os.X_OK):
+                        raise PermissionError(
+                            f"configured Core binary is not executable: {core_bin}"
+                        )
+                report["configuration"]["local_config"] = "passed"
+                report["configuration"]["core_config"] = {
+                    "security_profile": local_config.core_security.profile,
+                    "semantic_language": local_config.semantic_language,
+                    "generation_concurrency": local_config.generation_concurrency,
+                    "embedding_max_concurrency": local_config.embedding.max_concurrency,
+                    "resolution_decision_slot": (
+                        local_config.profile_slots.resolution_decision
+                    ),
+                }
+            except Exception as exc:  # noqa: BLE001
+                report["status"] = "failed"
+                report["configuration"]["local_config"] = {
+                    "status": "failed",
+                    "error": str(exc),
+                }
+
+            if local_config is not None:
+                try:
+                    rounds_db = Path(
+                        local_config.rounds_database_path
+                    ).expanduser()
+                    if not rounds_db.is_file():
+                        raise FileNotFoundError(
+                            f"rounds database is missing: {rounds_db}"
+                        )
+                    required_slots = {
+                        "operational": local_config.profile_slots.operational,
+                        "object_resolution": (
+                            local_config.profile_slots.object_resolution
+                        ),
+                        "background": local_config.profile_slots.background,
+                        "embedding": local_config.profile_slots.embedding,
+                    }
+                    if local_config.profile_slots.resolution_decision is not None:
+                        required_slots["resolution_decision"] = (
+                            local_config.profile_slots.resolution_decision
+                        )
+                    spaces = (
+                        [config.memory_space_id_for("hermes")]
+                        if config.memory_mode == "shared"
+                        else sorted(
+                            {
+                                config.memory_space_id_for(target)
+                                for target in (
+                                    "hermes",
+                                    *(item.id for item in config.integrations),
+                                )
+                            }
+                        )
+                    )
+                    with closing(
+                        sqlite3.connect(f"file:{rounds_db}?mode=ro", uri=True)
+                    ) as conn:
+                        profiles = {
+                            str(row[0])
+                            for row in conn.execute(
+                                "SELECT profile_id FROM inference_profiles"
+                            ).fetchall()
+                        }
+                        bindings = {
+                            (str(row[0]), str(row[1])): str(row[2])
+                            for row in conn.execute(
+                                "SELECT memory_space_id, profile_slot, profile_id "
+                                "FROM memory_space_model_profiles"
+                            ).fetchall()
+                        }
+                    missing_slots: list[str] = []
+                    for space in spaces:
+                        for slot, expected_profile in required_slots.items():
+                            bound = bindings.get((space, slot))
+                            if bound is None:
+                                missing_slots.append(f"{space}:{slot}:unbound")
+                            elif (
+                                expected_profile is not None
+                                and bound != expected_profile
+                            ):
+                                missing_slots.append(
+                                    f"{space}:{slot}:mismatch({bound}!={expected_profile})"
+                                )
+                            elif bound not in profiles:
+                                missing_slots.append(
+                                    f"{space}:{slot}:missing_profile({bound})"
+                                )
+                    if missing_slots:
+                        raise ValueError(
+                            "missing materialized profile slots: "
+                            + ", ".join(missing_slots)
+                        )
+                    report["configuration"]["profile_slots"] = "passed"
+                except Exception as exc:  # noqa: BLE001
+                    report["status"] = "failed"
+                    report["configuration"]["profile_slots"] = {
+                        "status": "failed",
+                        "error": str(exc),
+                    }
             for selected in config.integrations:
                 adapter = get_target_adapter(selected.id)
                 discovery = adapter.discover()

@@ -53,6 +53,7 @@ from .common import (
     resolve_manifest,
     unpack_bundle,
     verify_manifest_signature,
+    with_probed_generation_settings,
     write_install_history,
 )
 from .doctor import doctor
@@ -238,6 +239,9 @@ def install(
         )
         provider_probes["generation_probe"] = probe_generation(
             config.generation, token=generation_token
+        )
+        config = with_probed_generation_settings(
+            config, provider_probes["generation_probe"]
         )
         if config.resolution_decision is not None:
             provider_probes["resolution_decision_probe"] = probe_resolution_decision(

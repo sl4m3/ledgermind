@@ -60,3 +60,34 @@ def test_openrouter_discovery_reports_no_strict_endpoints() -> None:
         pytest.raises(ProviderProbeError, match="no endpoints advertising"),
     ):
         list_openrouter_model_endpoints("author/model", token="secret", client=client)
+
+
+def test_openrouter_discovery_prefers_explicit_endpoint_tag() -> None:
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": {
+                    "endpoints": [
+                        {
+                            "provider_name": "Google",
+                            "tag": "google-vertex/global",
+                            "quantization": "unknown",
+                            "context_length": 1048576,
+                            "supported_parameters": [
+                                "response_format",
+                                "structured_outputs",
+                                "reasoning",
+                            ],
+                        }
+                    ]
+                }
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        endpoints = list_openrouter_model_endpoints(
+            "meta/muse-ember", token="secret", client=client
+        )
+
+    assert [endpoint.route for endpoint in endpoints] == ["google-vertex/global"]

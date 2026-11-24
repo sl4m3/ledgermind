@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..models import GenerationConfig
-from ..provider_profiles import generation_provider_profile
+from ..provider_profiles import generation_provider_profile, reasoning_extra_body_for
 from ..secret_refs import GENERATION_SECRET_REF
 
 
@@ -13,10 +13,12 @@ def build_generation_profiles(
     config: GenerationConfig,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     provider = generation_provider_profile(config.provider_profile)
-    # Reasoning is disabled for every semantic generation role. The selected
-    # provider profile owns the wire dialect; URL guessing never changes a
-    # production request after installation.
-    extra_body: dict[str, Any] = dict(provider.reasoning_extra_body)
+    # Reasoning stays off by default for semantic roles; endpoints that require
+    # mandatory reasoning (e.g. "minimal" detected during probe) preserve it.
+    extra_body: dict[str, Any] = reasoning_extra_body_for(
+        config.provider_profile,
+        reasoning_effort=config.reasoning_effort,
+    )
     if config.route:
         routes = [config.route, *config.fallback_routes]
         extra_body["provider"] = {

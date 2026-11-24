@@ -1,5 +1,25 @@
 # Changelog
 
+## 5.0.1 - 2026-11-24
+
+- Added a one-command localhost Web UI setup wizard (`127.0.0.1` with a
+  one-time session token) while preserving the interactive terminal wizard
+  (`--cli` / `--terminal` and automatic headless/SSH fallback).
+- Added automatic support for mandatory-reasoning generation endpoints (such as
+  `meta/muse-ember` on OpenRouter `google-vertex/global`) by retrying strict
+  probes with `minimal` reasoning effort and persisting the setting to
+  `config.json` and `rounds.db` profiles.
+- Fixed OpenRouter endpoint discovery to prefer explicit endpoint `tag` routes
+  (e.g. `google-vertex/global`).
+- Updated default API embedding model from retired
+  `nvidia/nemotron-3-embed-1b:free` to `nvidia/nemotron-3.5-embed-1b:free`
+  (2048d) and added stable remote API embedding fingerprinting in `bootstrap.py`
+  while keeping strict `/health/ready` verification for managed local servers.
+- Wired `generation_concurrency` and `embedding.max_concurrency` into
+  `local-config.json` and `data/local/config.json`, added `ensure_runtime_tokens`,
+  and extended `doctor`, `configure`, and `repair` to validate and restore all
+  Core/Local configs and materialized `rounds.db` profile slots.
+
 ## 5.0.0 - 2026-11-23
 
 - Promoted the current semantic extraction and knowledge-resolution pipeline

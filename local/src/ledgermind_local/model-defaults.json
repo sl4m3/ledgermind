@@ -5,7 +5,7 @@
     "nvidia_nim": "nvidia/nemotron-3-super-120b-a12b"
   },
   "embedding": {
-    "api": "nvidia/nemotron-3-embed-1b:free",
+    "api": "nvidia/nemotron-3.5-embed-1b:free",
     "dimensions": 2048,
     "local_catalog_id": "nemotron-3-embed-1b-bf16",
     "local_alias": "nvidia/nemotron-3-embed-1b-local-bf16"

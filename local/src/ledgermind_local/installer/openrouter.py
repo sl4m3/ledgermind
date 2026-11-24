@@ -77,6 +77,9 @@ def _endpoint_route(payload: dict[str, Any]) -> tuple[str, str] | None:
     if provider is None:
         return None
     provider = provider.split("|")[0].strip()
+    raw_tag = payload.get("tag")
+    if isinstance(raw_tag, str) and raw_tag.strip():
+        return raw_tag.strip().lower(), provider
     provider_slug = _route_slug(provider)
     if not provider_slug:
         return None

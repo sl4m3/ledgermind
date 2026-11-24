@@ -95,21 +95,45 @@ export LEDGERMIND_RELEASE_BASE_URL="$base_url"
 
 # When this bootstrap is streamed through `curl | sh`, stdin belongs to the
 # shell reading the downloaded script rather than to the interactive wizard.
-# Route interactive input to the user's terminal while leaving stdin untouched
-# for explicitly non-interactive installs (for example token_stdin).
-interactive=1
+# Route interactive terminal input to /dev/tty while leaving stdin untouched
+# for non-interactive or explicit Web UI installs.
+needs_tty=1
+force_cli=0
+prev_arg=
 for arg in "$@"; do
-  if [ "$arg" = "--non-interactive" ]; then
-    interactive=0
-    break
-  fi
+  case "$arg" in
+    --non-interactive|--web|--ui=web)
+      needs_tty=0
+      break
+      ;;
+    --cli|--terminal|--ui=cli)
+      force_cli=1
+      ;;
+    web)
+      if [ "$prev_arg" = "--ui" ]; then
+        needs_tty=0
+        break
+      fi
+      ;;
+    cli)
+      if [ "$prev_arg" = "--ui" ]; then
+        force_cli=1
+      fi
+      ;;
+  esac
+  prev_arg="$arg"
 done
 
-if [ "$interactive" -eq 1 ] && [ ! -t 0 ]; then
+if [ "$needs_tty" -eq 1 ] && [ ! -t 0 ]; then
   if [ -r /dev/tty ]; then
     exec "$destination" "$@" </dev/tty
   fi
-  printf '%s\n' "an interactive terminal is required; use --non-interactive with --config for piped installs" >&2
+  if [ "$force_cli" -eq 0 ] && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && [ -z "${SSH_CONNECTION:-}${SSH_CLIENT:-}${SSH_TTY:-}" ]; then
+    : "${LEDGERMIND_INSTALLER_UI:=web}"
+    export LEDGERMIND_INSTALLER_UI
+    exec "$destination" "$@"
+  fi
+  printf '%s\n' "an interactive terminal is required; use --web, or --non-interactive with --config for piped installs" >&2
   exit 4
 fi
 

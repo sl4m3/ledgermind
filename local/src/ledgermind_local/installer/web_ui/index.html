@@ -1,0 +1,1421 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LedgerMind Setup</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b101b;
+      --surface: #121a2b;
+      --surface-2: #182338;
+      --border: #263552;
+      --border-focus: #3b82f6;
+      --text: #e5ecf6;
+      --muted: #93a4c3;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-soft: rgba(59, 130, 246, 0.14);
+      --ok: #22c55e;
+      --ok-soft: rgba(34, 197, 94, 0.14);
+      --warn: #f59e0b;
+      --warn-soft: rgba(245, 158, 11, 0.14);
+      --err: #ef4444;
+      --err-soft: rgba(239, 68, 68, 0.14);
+      --radius: 12px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background: radial-gradient(circle at top, #131e36 0%, var(--bg) 55%);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    .shell {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 28px 20px 56px;
+    }
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #2563eb, #06b6d4);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 16px;
+      color: #fff;
+      letter-spacing: 0.03em;
+    }
+    h1 {
+      margin: 0;
+      font-size: 21px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .stepper {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .step-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 550;
+    }
+    .step-pill.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+    .step-pill.done {
+      border-color: rgba(34, 197, 94, 0.45);
+      color: var(--text);
+    }
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .step-pill.active .step-num {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .step-pill.done .step-num {
+      background: var(--ok);
+      border-color: var(--ok);
+      color: #052e16;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      margin: 0 0 4px;
+      font-size: 16px;
+      font-weight: 650;
+    }
+    .card-desc {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .preflight-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+    }
+    .stat {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .stat-val {
+      margin-top: 3px;
+      font-size: 14px;
+      font-weight: 600;
+      word-break: break-word;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-ok { background: var(--ok-soft); color: #86efac; }
+    .badge-warn { background: var(--warn-soft); color: #fcd34d; }
+    .badge-err { background: var(--err-soft); color: #fca5a5; }
+    .badge-muted { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+    .field {
+      margin-bottom: 14px;
+    }
+    .field:last-child { margin-bottom: 0; }
+    label.lbl {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    input[type="text"],
+    input[type="password"],
+    input[type="number"],
+    input[type="url"],
+    select {
+      width: 100%;
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 11px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+    }
+    input:focus, select:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+    }
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .input-row > input,
+    .input-row > select { flex: 1; min-width: 0; }
+    .choice-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 10px;
+    }
+    .choice-card {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .choice-card:hover { border-color: #3b527e; }
+    .choice-card.selected {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .choice-card.disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .choice-card input {
+      margin-top: 3px;
+      accent-color: var(--accent);
+      flex-shrink: 0;
+    }
+    .choice-title { font-size: 14px; font-weight: 600; }
+    .choice-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      margin: 8px 0;
+      cursor: pointer;
+    }
+    .check-row input { accent-color: var(--accent); }
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--surface-2);
+      color: var(--text);
+      padding: 9px 15px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    button:hover:not(:disabled) { border-color: #466091; background: #1e2c46; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+    button.ghost { background: transparent; }
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .actions-right {
+      display: flex;
+      gap: 10px;
+      margin-left: auto;
+    }
+    .banner {
+      padding: 12px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      margin-bottom: 14px;
+      border: 1px solid transparent;
+    }
+    .banner-err { background: var(--err-soft); border-color: rgba(239, 68, 68, 0.45); color: #fecaca; }
+    .banner-warn { background: var(--warn-soft); border-color: rgba(245, 158, 11, 0.45); color: #fde68a; }
+    .banner-ok { background: var(--ok-soft); border-color: rgba(34, 197, 94, 0.45); color: #bbf7d0; }
+    details.advanced {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      margin-bottom: 16px;
+    }
+    details.advanced summary {
+      padding: 13px 18px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    details.advanced[open] summary {
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+    }
+    .adv-body { padding: 16px 18px; }
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .summary-table th, .summary-table td {
+      text-align: left;
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .summary-table th {
+      width: 170px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .mono { font-family: var(--mono); font-size: 12.5px; }
+    .progress-bar-wrap {
+      height: 8px;
+      background: var(--surface-2);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin: 12px 0;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 10%;
+      background: linear-gradient(90deg, #2563eb, #22c55e);
+      transition: width 0.25s ease;
+    }
+    .log-box {
+      background: #070b13;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 12px;
+      max-height: 180px;
+      overflow-y: auto;
+      color: #cbd5e1;
+      white-space: pre-wrap;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="header">
+      <div class="brand">
+        <div class="logo">LM</div>
+        <div>
+          <h1>LedgerMind Setup</h1>
+          <p class="subtitle">Local-first memory for your coding agents · runs on 127.0.0.1</p>
+        </div>
+      </div>
+      <button type="button" class="ghost" id="btn-cancel-top">Cancel Setup</button>
+    </div>
+
+    <div class="stepper">
+      <div class="step-pill active" id="pill-1"><span class="step-num">1</span>System &amp; Agents</div>
+      <div class="step-pill" id="pill-2"><span class="step-num">2</span>Models &amp; Providers</div>
+      <div class="step-pill" id="pill-3"><span class="step-num">3</span>Review &amp; Install</div>
+    </div>
+
+    <div id="global-error" class="banner banner-err hidden"></div>
+
+    <!-- STEP 1 -->
+    <section id="step-1">
+      <div class="card">
+        <h2 class="card-title">Host preflight</h2>
+        <p class="card-desc">Checking platform, sandbox isolation, and available compute.</p>
+        <div class="preflight-grid" id="preflight-stats"></div>
+        <div id="bwrap-warning" class="banner banner-warn hidden" style="margin-top:12px;margin-bottom:0;">
+          <strong>bubblewrap (bwrap) is missing.</strong> Core starts with fail-closed isolation and requires <code>bwrap</code>. Install it before starting installation.
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Semantic language &amp; memory layout</h2>
+        <p class="card-desc">Choose the language used to write durable knowledge and whether agents share one memory space.</p>
+        <div class="grid-2">
+          <div class="field">
+            <label class="lbl" for="semantic-lang">Semantic language</label>
+            <select id="semantic-lang">
+              <option value="en">English (en)</option>
+              <option value="ru">Russian (ru)</option>
+              <option value="es">Spanish (es)</option>
+              <option value="de">German (de)</option>
+              <option value="fr">French (fr)</option>
+              <option value="custom">Custom BCP-47 tag…</option>
+            </select>
+          </div>
+          <div class="field hidden" id="custom-lang-wrap">
+            <label class="lbl" for="custom-lang">Custom BCP-47 language tag</label>
+            <input type="text" id="custom-lang" placeholder="e.g. pt, uk, ja, zh-Hans">
+          </div>
+        </div>
+        <div class="field" style="margin-top:14px;">
+          <label class="lbl">Memory layout</label>
+          <div class="choice-grid" id="memory-mode-grid">
+            <label class="choice-card selected" data-radio="memory_mode" data-val="shared">
+              <input type="radio" name="memory_mode" value="shared" checked>
+              <div>
+                <div class="choice-title">Shared across agents</div>
+                <div class="choice-detail">One shared knowledge space across all connected agents.</div>
+              </div>
+            </label>
+            <label class="choice-card" data-radio="memory_mode" data-val="per_agent">
+              <input type="radio" name="memory_mode" value="per_agent">
+              <div>
+                <div class="choice-title">Separate per agent</div>
+                <div class="choice-detail">Strong isolation: each agent keeps its own knowledge space.</div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Agent integrations</h2>
+        <p class="card-desc">Select detected agents to connect automatically after runtime verification.</p>
+        <div class="choice-grid" id="agents-grid"></div>
+      </div>
+
+      <div class="actions">
+        <span></span>
+        <div class="actions-right">
+          <button type="button" class="primary" id="btn-to-2">Continue to Models →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section id="step-2" class="hidden">
+      <div class="card">
+        <h2 class="card-title">Generation model</h2>
+        <p class="card-desc">One model with strict JSON Schema structured outputs powers semantic extraction and resolution.</p>
+        <div class="field">
+          <label class="lbl">Provider</label>
+          <div class="choice-grid" id="provider-grid">
+            <label class="choice-card selected" data-radio="gen_provider" data-val="openrouter">
+              <input type="radio" name="gen_provider" value="openrouter" checked>
+              <div>
+                <div class="choice-title">OpenRouter</div>
+                <div class="choice-detail">Pinned provider routing with strict JSON Schema check.</div>
+              </div>
+            </label>
+            <label class="choice-card" data-radio="gen_provider" data-val="nvidia_nim">
+              <input type="radio" name="gen_provider" value="nvidia_nim">
+              <div>
+                <div class="choice-title">NVIDIA NIM</div>
+                <div class="choice-detail">Native guided JSON endpoint.</div>
+              </div>
+            </label>
+            <label class="choice-card" data-radio="gen_provider" data-val="custom">
+              <input type="radio" name="gen_provider" value="custom">
+              <div>
+                <div class="choice-title">Custom OpenAI-compatible</div>
+                <div class="choice-detail">Local gateway, vLLM, or custom API endpoint.</div>
+              </div>
+            </label>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label class="lbl" for="gen-endpoint">API base URL</label>
+            <input type="url" id="gen-endpoint" placeholder="https://openrouter.ai/api/v1">
+          </div>
+          <div class="field">
+            <label class="lbl" for="gen-model">Generation model</label>
+            <input type="text" id="gen-model" placeholder="deepseek/deepseek-v4-flash-0731">
+          </div>
+        </div>
+        <div class="field">
+          <label class="lbl" for="gen-token">Generation API token</label>
+          <div class="input-row">
+            <input type="password" id="gen-token" placeholder="Paste API token (stored in 0600 secrets file, never config.json)" autocomplete="off">
+            <button type="button" data-toggle-vis="gen-token">Show</button>
+          </div>
+        </div>
+
+        <div id="openrouter-routes-box" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+          <div class="actions" style="margin-top:0;margin-bottom:10px;">
+            <div>
+              <strong style="font-size:13px;">OpenRouter pinned routes</strong>
+              <div class="hint" style="margin-top:2px;">Explicit primary route required (automatic routing is disabled).</div>
+            </div>
+            <button type="button" id="btn-discover-routes">Discover strict routes</button>
+          </div>
+          <div id="routes-msg" class="hint" style="margin-bottom:10px;"></div>
+          <div class="grid-2">
+            <div class="field">
+              <label class="lbl" for="or-route-select">Discovered primary route</label>
+              <select id="or-route-select" class="hidden"></select>
+              <input type="text" id="or-route-manual" placeholder="e.g. provider-a/fp8">
+            </div>
+            <div class="field">
+              <label class="lbl" for="or-fallback-manual">Optional fallback route (max 1)</label>
+              <select id="or-fallback-select" class="hidden"></select>
+              <input type="text" id="or-fallback-manual" placeholder="Leave empty for primary only">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Embeddings</h2>
+        <p class="card-desc">Choose an OpenAI-compatible embedding API or the signed local Nemotron CPU/GPU model.</p>
+        <div class="choice-grid" id="emb-mode-grid" style="margin-bottom:14px;">
+          <label class="choice-card selected" data-radio="emb_mode" data-val="api">
+            <input type="radio" name="emb_mode" value="api" checked>
+            <div>
+              <div class="choice-title">API endpoint</div>
+              <div class="choice-detail">Quickest setup using a remote or local API.</div>
+            </div>
+          </label>
+          <label class="choice-card" id="emb-local-card" data-radio="emb_mode" data-val="local">
+            <input type="radio" name="emb_mode" value="local" id="emb-local-radio">
+            <div>
+              <div class="choice-title">Local signed model</div>
+              <div class="choice-detail" id="emb-local-detail">Nemotron 3 Embed 1B · private &amp; offline.</div>
+            </div>
+          </label>
+        </div>
+
+        <div id="emb-api-fields">
+          <div class="grid-2">
+            <div class="field">
+              <label class="lbl" for="emb-endpoint">Embedding API base URL</label>
+              <input type="url" id="emb-endpoint" placeholder="https://openrouter.ai/api/v1">
+            </div>
+            <div class="field">
+              <label class="lbl" for="emb-model">Embedding model</label>
+              <input type="text" id="emb-model" placeholder="nvidia/nemotron-3.5-embed-1b:free">
+            </div>
+          </div>
+          <label class="check-row">
+            <input type="checkbox" id="emb-reuse-token" checked>
+            <span>Reuse generation API token for embeddings</span>
+          </label>
+          <div class="field hidden" id="emb-token-wrap">
+            <label class="lbl" for="emb-token">Embedding API token</label>
+            <div class="input-row">
+              <input type="password" id="emb-token" placeholder="Paste embedding API token" autocomplete="off">
+              <button type="button" data-toggle-vis="emb-token">Show</button>
+            </div>
+          </div>
+          <div class="field" style="margin-top:10px;">
+            <label class="lbl" for="emb-dims">Vector dimensions</label>
+            <div class="input-row">
+              <input type="number" id="emb-dims" min="1" value="2048">
+              <button type="button" id="btn-detect-dims">Detect dimensions</button>
+            </div>
+            <div id="dims-msg" class="hint">Click "Detect dimensions" to verify the embedding endpoint before installing.</div>
+          </div>
+        </div>
+
+        <div id="emb-local-fields" class="hidden">
+          <div class="field">
+            <label class="lbl" for="emb-local-device">Compute device</label>
+            <select id="emb-local-device">
+              <option value="auto">Automatic (prefer GPU, then CPU)</option>
+              <option value="cpu">CPU</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">Resolution decision (Jev)</h2>
+        <p class="card-desc">Core's <code>memory_write</code> pipeline uses <span class="mono" id="jev-model-label">typesafe/jev-1.14</span> via OpenRouter decisions API.</p>
+        <label class="check-row">
+          <input type="checkbox" id="jev-reuse-token" checked>
+          <span>Reuse generation token for resolution decisions</span>
+        </label>
+        <div class="field hidden" id="jev-token-wrap">
+          <label class="lbl" for="jev-token">OpenRouter decision API token</label>
+          <div class="input-row">
+            <input type="password" id="jev-token" placeholder="Paste OpenRouter API key for Jev decisions" autocomplete="off">
+            <button type="button" data-toggle-vis="jev-token">Show</button>
+          </div>
+        </div>
+      </div>
+
+      <details class="advanced">
+        <summary>Advanced settings (reranker, residency, concurrency)</summary>
+        <div class="adv-body">
+          <div class="grid-2">
+            <div class="field">
+              <label class="lbl" for="reranker-mode">Retrieval reranker</label>
+              <select id="reranker-mode">
+                <option value="disabled">Disabled (deterministic Core ranking)</option>
+                <option value="api">API (Cohere-compatible endpoint)</option>
+                <option value="local">Local (separately installed Qwen3 0.6B runtime)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="lbl" for="residency-mode">Runtime residency</label>
+              <select id="residency-mode">
+                <option value="session">Session (recommended · unload after turn)</option>
+                <option value="idle">Idle timeout</option>
+                <option value="always_on">Always on</option>
+              </select>
+            </div>
+          </div>
+          <div id="idle-minutes-wrap" class="field hidden" style="margin-top:10px;">
+            <label class="lbl" for="idle-minutes">Idle unload timeout (minutes)</label>
+            <select id="idle-minutes">
+              <option value="5">5 minutes</option>
+              <option value="10">10 minutes</option>
+              <option value="15" selected>15 minutes</option>
+              <option value="30">30 minutes</option>
+            </select>
+          </div>
+          <div id="reranker-api-wrap" class="hidden" style="margin-top:12px;">
+            <div class="grid-2">
+              <div class="field">
+                <label class="lbl" for="reranker-endpoint">Reranker operation URL</label>
+                <input type="url" id="reranker-endpoint" placeholder="https://api.example/v1/rerank">
+              </div>
+              <div class="field">
+                <label class="lbl" for="reranker-model">Reranker model</label>
+                <input type="text" id="reranker-model" placeholder="rerank-v3.5">
+              </div>
+            </div>
+            <div class="field">
+              <label class="lbl" for="reranker-token">Reranker API token</label>
+              <input type="password" id="reranker-token" autocomplete="off">
+            </div>
+          </div>
+          <div id="reranker-local-wrap" class="hidden" style="margin-top:12px;">
+            <div class="grid-2">
+              <div class="field">
+                <label class="lbl" for="reranker-runtime-path">Installed reranker runtime directory</label>
+                <input type="text" id="reranker-runtime-path" placeholder="~/.local/share/ledgermind/reranker">
+              </div>
+              <div class="field">
+                <label class="lbl" for="reranker-device">Reranker device</label>
+                <select id="reranker-device">
+                  <option value="cpu">CPU</option>
+                  <option value="cuda">NVIDIA CUDA</option>
+                  <option value="rocm">AMD ROCm</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="grid-2" style="margin-top:12px;">
+            <div class="field">
+              <label class="lbl" for="gen-concurrency">Generation max concurrency</label>
+              <input type="number" id="gen-concurrency" min="1" max="64" value="2">
+            </div>
+            <div class="field">
+              <label class="lbl" for="emb-concurrency">Embedding concurrency</label>
+              <input type="number" id="emb-concurrency" min="1" max="64" value="1">
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button type="button" id="btn-back-1">← Back</button>
+        <div class="actions-right">
+          <button type="button" class="primary" id="btn-to-3">Review &amp; Install →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section id="step-3" class="hidden">
+      <div class="card" id="review-card">
+        <h2 class="card-title">Review installation plan</h2>
+        <p class="card-desc">Nothing is written to your home directory until you start installation.</p>
+        <table class="summary-table" id="review-table"></table>
+      </div>
+
+      <div class="card hidden" id="progress-card">
+        <h2 class="card-title" id="progress-title">Installing LedgerMind…</h2>
+        <p class="card-desc" id="progress-detail">Validating providers and verifying signed artifacts.</p>
+        <div class="progress-bar-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+        <div class="log-box" id="progress-log"></div>
+      </div>
+
+      <div class="card hidden" id="done-card">
+        <div class="banner banner-ok">
+          <strong>LedgerMind installation completed!</strong> All Core security checks, configs, and selected agent integrations are ready.
+        </div>
+        <table class="summary-table" id="readiness-table"></table>
+        <div id="activation-notes" class="banner banner-warn hidden" style="margin-top:14px;margin-bottom:0;"></div>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="btn-back-2">← Edit Settings</button>
+        <div class="actions-right">
+          <button type="button" class="primary" id="btn-start-install">Start Installation</button>
+          <button type="button" class="primary hidden" id="btn-finish">Finish &amp; Close</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const SETUP_TOKEN = __LEDGERMIND_SETUP_TOKEN__;
+    let preflightData = null;
+    let pollTimer = null;
+    let currentStep = 1;
+
+    function apiFetch(path, options = {}) {
+      const headers = Object.assign(
+        { "X-LedgerMind-Setup-Token": SETUP_TOKEN },
+        options.headers || {}
+      );
+      if (options.body && !headers["Content-Type"]) {
+        headers["Content-Type"] = "application/json";
+      }
+      return fetch(path, Object.assign({}, options, { headers })).then(async (res) => {
+        const text = await res.text();
+        let data = {};
+        try { data = text ? JSON.parse(text) : {}; } catch (_) { data = { error: text }; }
+        if (!res.ok) {
+          throw new Error(data.error || ("HTTP " + res.status));
+        }
+        return data;
+      });
+    }
+
+    function showError(msg) {
+      const el = document.getElementById("global-error");
+      if (!msg) {
+        el.textContent = "";
+        el.classList.add("hidden");
+        return;
+      }
+      el.textContent = msg;
+      el.classList.remove("hidden");
+    }
+
+    function maskToken(tok) {
+      if (!tok) return "(none)";
+      if (tok.length <= 8) return "*".repeat(tok.length);
+      return tok.slice(0, 4) + "••••" + tok.slice(-4);
+    }
+
+    function setStep(step) {
+      currentStep = step;
+      showError("");
+      [1, 2, 3].forEach((n) => {
+        document.getElementById("step-" + n).classList.toggle("hidden", n !== step);
+        const pill = document.getElementById("pill-" + n);
+        pill.classList.toggle("active", n === step);
+        pill.classList.toggle("done", n < step);
+      });
+      if (step === 3) renderReview();
+    }
+
+    function bindRadioCards() {
+      document.querySelectorAll(".choice-card[data-radio]").forEach((card) => {
+        card.addEventListener("click", (ev) => {
+          if (card.classList.contains("disabled")) {
+            ev.preventDefault();
+            return;
+          }
+          const name = card.getAttribute("data-radio");
+          const input = card.querySelector("input[type='radio']");
+          if (input && !input.disabled) {
+            input.checked = true;
+            document.querySelectorAll(`.choice-card[data-radio="${name}"]`).forEach((c) => {
+              c.classList.toggle("selected", c === card);
+            });
+            if (name === "gen_provider") syncProviderFields(true);
+            if (name === "emb_mode") syncEmbeddingFields();
+          }
+        });
+      });
+    }
+
+    function radioValue(name) {
+      const el = document.querySelector(`input[name="${name}"]:checked`);
+      return el ? el.value : "";
+    }
+
+    function selectRadio(name, val) {
+      document.querySelectorAll(`.choice-card[data-radio="${name}"]`).forEach((card) => {
+        const input = card.querySelector("input[type='radio']");
+        const match = card.getAttribute("data-val") === val;
+        if (input) input.checked = match;
+        card.classList.toggle("selected", match);
+      });
+    }
+
+    function syncProviderFields(updateDefaults) {
+      const provider = radioValue("gen_provider");
+      const defaults = (preflightData && preflightData.defaults) || {};
+      const endpointEl = document.getElementById("gen-endpoint");
+      const modelEl = document.getElementById("gen-model");
+      const orBox = document.getElementById("openrouter-routes-box");
+      const jevReuse = document.getElementById("jev-reuse-token");
+      if (provider === "openrouter") {
+        if (updateDefaults || !endpointEl.value) endpointEl.value = defaults.openrouter_base_url || "https://openrouter.ai/api/v1";
+        endpointEl.readOnly = true;
+        if (updateDefaults || !modelEl.value) modelEl.value = defaults.generation_openrouter || "";
+        orBox.classList.remove("hidden");
+        if (updateDefaults) jevReuse.checked = true;
+      } else if (provider === "nvidia_nim") {
+        if (updateDefaults || !endpointEl.value) endpointEl.value = defaults.nvidia_nim_base_url || "https://integrate.api.nvidia.com/v1";
+        endpointEl.readOnly = true;
+        if (updateDefaults || !modelEl.value) modelEl.value = defaults.generation_nvidia_nim || "";
+        orBox.classList.add("hidden");
+        if (updateDefaults) jevReuse.checked = false;
+      } else {
+        if (updateDefaults) {
+          endpointEl.value = "";
+          modelEl.value = "";
+        }
+        endpointEl.readOnly = false;
+        orBox.classList.add("hidden");
+      }
+      if (updateDefaults) {
+        const embEp = document.getElementById("emb-endpoint");
+        embEp.value = endpointEl.value;
+        const embModel = document.getElementById("emb-model");
+        if (provider === "openrouter" && defaults.embedding_api) {
+          embModel.value = defaults.embedding_api;
+          document.getElementById("emb-dims").value = defaults.embedding_dimensions || 2048;
+        }
+      }
+      syncJevTokenField();
+      syncEmbeddingFields();
+    }
+
+    function syncEmbeddingFields() {
+      const mode = radioValue("emb_mode");
+      document.getElementById("emb-api-fields").classList.toggle("hidden", mode !== "api");
+      document.getElementById("emb-local-fields").classList.toggle("hidden", mode !== "local");
+      const reuse = document.getElementById("emb-reuse-token").checked;
+      document.getElementById("emb-token-wrap").classList.toggle("hidden", reuse);
+    }
+
+    function syncJevTokenField() {
+      const reuse = document.getElementById("jev-reuse-token").checked;
+      document.getElementById("jev-token-wrap").classList.toggle("hidden", reuse);
+    }
+
+    function syncAdvancedFields() {
+      const reranker = document.getElementById("reranker-mode").value;
+      document.getElementById("reranker-api-wrap").classList.toggle("hidden", reranker !== "api");
+      document.getElementById("reranker-local-wrap").classList.toggle("hidden", reranker !== "local");
+      const residency = document.getElementById("residency-mode").value;
+      document.getElementById("idle-minutes-wrap").classList.toggle("hidden", residency !== "idle");
+    }
+
+    function selectedAgents() {
+      const out = [];
+      document.querySelectorAll("input[name='agent_id']:checked").forEach((el) => {
+        out.push({ id: el.value, enabled: true });
+      });
+      return out;
+    }
+
+    function buildPayload() {
+      const langChoice = document.getElementById("semantic-lang").value;
+      const semanticLanguage = langChoice === "custom"
+        ? document.getElementById("custom-lang").value.trim()
+        : langChoice;
+      const provider = radioValue("gen_provider");
+      const genEndpoint = document.getElementById("gen-endpoint").value.trim();
+      const genModel = document.getElementById("gen-model").value.trim();
+      const genToken = document.getElementById("gen-token").value.trim();
+      const genConc = parseInt(document.getElementById("gen-concurrency").value || "2", 10);
+
+      let route = null;
+      let fallbackRoutes = [];
+      if (provider === "openrouter") {
+        const sel = document.getElementById("or-route-select");
+        const man = document.getElementById("or-route-manual");
+        route = (!sel.classList.contains("hidden") && sel.value && sel.value !== "__manual__")
+          ? sel.value.trim()
+          : man.value.trim();
+        const fsel = document.getElementById("or-fallback-select");
+        const fman = document.getElementById("or-fallback-manual");
+        const fb = (!fsel.classList.contains("hidden") && fsel.value && fsel.value !== "__manual__")
+          ? fsel.value.trim()
+          : fman.value.trim();
+        if (fb) fallbackRoutes = [fb];
+      }
+
+      const embMode = radioValue("emb_mode");
+      const embConc = parseInt(document.getElementById("emb-concurrency").value || "1", 10);
+      let embedding;
+      if (embMode === "api") {
+        const reuseEmb = document.getElementById("emb-reuse-token").checked;
+        embedding = {
+          mode: "api",
+          api: {
+            endpoint: document.getElementById("emb-endpoint").value.trim(),
+            model: document.getElementById("emb-model").value.trim(),
+            dimensions: parseInt(document.getElementById("emb-dims").value || "0", 10),
+            token: reuseEmb ? genToken : document.getElementById("emb-token").value.trim(),
+            concurrency: embConc,
+          }
+        };
+      } else {
+        const localEntry = (preflightData && preflightData.local_embedding_entry) || {};
+        embedding = {
+          mode: "local",
+          local: {
+            catalog_id: localEntry.id || "nemotron-3-embed-1b-bf16",
+            device: document.getElementById("emb-local-device").value,
+            dimensions: localEntry.dimensions || 2048,
+            concurrency: embConc,
+          }
+        };
+      }
+
+      const reuseJev = document.getElementById("jev-reuse-token").checked;
+      const jevToken = reuseJev ? genToken : document.getElementById("jev-token").value.trim();
+
+      const rerankerMode = document.getElementById("reranker-mode").value;
+      let reranker = { mode: "disabled" };
+      if (rerankerMode === "api") {
+        reranker = {
+          mode: "api",
+          api: {
+            endpoint: document.getElementById("reranker-endpoint").value.trim(),
+            model: document.getElementById("reranker-model").value.trim(),
+            token: document.getElementById("reranker-token").value.trim(),
+          }
+        };
+      } else if (rerankerMode === "local") {
+        const rt = document.getElementById("reranker-runtime-path").value.trim();
+        const rev = (preflightData && preflightData.reranker_model_revision) || "e61197ed45024b0ed8a2d74b80b4d909f1255473";
+        reranker = {
+          mode: "local",
+          local: {
+            runtime_path: rt,
+            model_path: rt.replace(/\/+$/, "") + "/model/snapshots/" + rev,
+            device: document.getElementById("reranker-device").value,
+          }
+        };
+      }
+
+      const residency = document.getElementById("residency-mode").value;
+      const idleMin = parseInt(document.getElementById("idle-minutes").value || "15", 10);
+
+      const generation = {
+        provider_profile: provider === "custom" ? "openai_compatible" : provider,
+        endpoint: genEndpoint,
+        model: genModel,
+        token: genToken,
+        max_concurrency: genConc,
+      };
+      if (route) generation.route = route;
+      if (fallbackRoutes.length) generation.fallback_routes = fallbackRoutes;
+
+      return {
+        schema_version: 2,
+        semantic_language: semanticLanguage,
+        memory_mode: radioValue("memory_mode"),
+        integrations: selectedAgents(),
+        generation,
+        resolution_decision: {
+          backend: "jev",
+          token: jevToken,
+        },
+        embedding,
+        reranker,
+        runtime: {
+          residency_mode: residency,
+          idle_timeout_seconds: residency === "idle" ? idleMin * 60 : 900,
+        },
+      };
+    }
+
+    function validateStep2() {
+      const p = buildPayload();
+      if (!p.semantic_language) return "Semantic language is required.";
+      if (!p.generation.endpoint) return "Generation API base URL is required.";
+      if (!p.generation.model) return "Generation model is required.";
+      if (!p.generation.token) return "Generation API token is required.";
+      if (p.generation.provider_profile === "openrouter" && !p.generation.route) {
+        return "OpenRouter requires an explicit primary provider route.";
+      }
+      if (p.embedding.mode === "api") {
+        if (!p.embedding.api.endpoint) return "Embedding API base URL is required.";
+        if (!p.embedding.api.model) return "Embedding model is required.";
+        if (!p.embedding.api.token) return "Embedding API token is required.";
+        if (!p.embedding.api.dimensions || p.embedding.api.dimensions < 1) {
+          return "Embedding dimensions must be a positive integer.";
+        }
+      }
+      if (!p.resolution_decision.token) return "OpenRouter decision API token is required.";
+      return "";
+    }
+
+    function renderReview() {
+      const p = buildPayload();
+      const rows = [
+        ["Language", p.semantic_language],
+        ["Memory layout", p.memory_mode],
+        ["Agents", p.integrations.map((a) => a.id).join(", ") || "none selected"],
+        ["Generation", `${p.generation.provider_profile} · ${p.generation.model} (${maskToken(p.generation.token)})`],
+        ["Endpoint", p.generation.endpoint],
+      ];
+      if (p.generation.route) {
+        const chain = [p.generation.route, ...(p.generation.fallback_routes || [])].join(" → ");
+        rows.push(["OpenRouter routes", chain]);
+      }
+      if (p.embedding.mode === "api") {
+        rows.push(["Embeddings", `API · ${p.embedding.api.model} (${p.embedding.api.dimensions}d)`]);
+      } else {
+        rows.push(["Embeddings", `Local · ${p.embedding.local.catalog_id} (${p.embedding.local.device})`]);
+      }
+      rows.push(["Decision (Jev)", maskToken(p.resolution_decision.token)]);
+      rows.push(["Reranker", p.reranker.mode]);
+      rows.push(["Residency", p.runtime.residency_mode]);
+      const table = document.getElementById("review-table");
+      table.innerHTML = "";
+      for (const [k, v] of rows) {
+        const tr = document.createElement("tr");
+        const th = document.createElement("th");
+        th.textContent = k;
+        const td = document.createElement("td");
+        td.textContent = v;
+        tr.appendChild(th);
+        tr.appendChild(td);
+        table.appendChild(tr);
+      }
+    }
+
+    function renderPreflight(data) {
+      preflightData = data;
+      const stats = document.getElementById("preflight-stats");
+      stats.innerHTML = "";
+      const pf = data.preflight || {};
+      const freeGib = Math.floor((pf.free_bytes || 0) / (1024 ** 3));
+      const devs = (data.devices || []).map((d) => d.kind).join(", ") || "cpu";
+      const items = [
+        ["Platform", `${pf.platform || "linux"} (glibc ${pf.libc || "?"})`],
+        ["Sandbox (bwrap)", pf.bubblewrap ? "Available" : "Missing", pf.bubblewrap ? "ok" : "err"],
+        ["Free disk", `${freeGib} GiB`],
+        ["Compute", devs],
+      ];
+      for (const [label, val, badge] of items) {
+        const box = document.createElement("div");
+        box.className = "stat";
+        const l = document.createElement("div");
+        l.className = "stat-label";
+        l.textContent = label;
+        const v = document.createElement("div");
+        v.className = "stat-val";
+        if (badge) {
+          const sp = document.createElement("span");
+          sp.className = "badge badge-" + badge;
+          sp.textContent = val;
+          v.appendChild(sp);
+        } else {
+          v.textContent = val;
+        }
+        box.appendChild(l);
+        box.appendChild(v);
+        stats.appendChild(box);
+      }
+      document.getElementById("bwrap-warning").classList.toggle("hidden", Boolean(pf.bubblewrap));
+
+      const agentsGrid = document.getElementById("agents-grid");
+      agentsGrid.innerHTML = "";
+      for (const agent of (data.agents || [])) {
+        const card = document.createElement("label");
+        card.className = "choice-card" + (agent.detected ? " selected" : " disabled");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.name = "agent_id";
+        cb.value = agent.id;
+        cb.checked = Boolean(agent.detected);
+        cb.disabled = !agent.detected;
+        cb.addEventListener("change", () => card.classList.toggle("selected", cb.checked));
+        const body = document.createElement("div");
+        const title = document.createElement("div");
+        title.className = "choice-title";
+        title.textContent = agent.label + " ";
+        const b = document.createElement("span");
+        b.className = "badge " + (agent.detected ? "badge-ok" : "badge-muted");
+        b.textContent = agent.detected ? "Detected" : "Not found";
+        title.appendChild(b);
+        const detail = document.createElement("div");
+        detail.className = "choice-detail";
+        detail.textContent = agent.detected ? (agent.location || agent.detail || "Ready") : (agent.detail || "Not installed");
+        body.appendChild(title);
+        body.appendChild(detail);
+        card.appendChild(cb);
+        card.appendChild(body);
+        agentsGrid.appendChild(card);
+      }
+
+      const hasLocal = Boolean(data.local_embedding_entry);
+      const localCard = document.getElementById("emb-local-card");
+      const localRadio = document.getElementById("emb-local-radio");
+      localCard.classList.toggle("disabled", !hasLocal);
+      localRadio.disabled = !hasLocal;
+      if (!hasLocal) {
+        document.getElementById("emb-local-detail").textContent = "Unavailable without signed release catalog.";
+      } else {
+        const devSelect = document.getElementById("emb-local-device");
+        devSelect.innerHTML = '<option value="auto">Automatic (prefer GPU, then CPU)</option>';
+        const supported = new Set(data.local_embedding_entry.devices || ["cpu"]);
+        for (const dev of (data.devices || [])) {
+          if (dev.available && supported.has(dev.kind)) {
+            const opt = document.createElement("option");
+            opt.value = dev.kind;
+            opt.textContent = `${dev.kind.toUpperCase()} — ${dev.name}`;
+            devSelect.appendChild(opt);
+          }
+        }
+      }
+      if (data.defaults && data.defaults.resolution_decision) {
+        document.getElementById("jev-model-label").textContent = data.defaults.resolution_decision;
+      }
+
+      if (data.existing_config) {
+        const cfg = data.existing_config;
+        if (cfg.semantic_language) {
+          const sel = document.getElementById("semantic-lang");
+          const hasOpt = Array.from(sel.options).some((o) => o.value === cfg.semantic_language);
+          if (hasOpt) sel.value = cfg.semantic_language;
+          else {
+            sel.value = "custom";
+            document.getElementById("custom-lang").value = cfg.semantic_language;
+            document.getElementById("custom-lang-wrap").classList.remove("hidden");
+          }
+        }
+        if (cfg.memory_mode) selectRadio("memory_mode", cfg.memory_mode);
+        if (cfg.generation) {
+          const gp = cfg.generation.provider_profile === "openai_compatible" ? "custom" : (cfg.generation.provider_profile || "openrouter");
+          selectRadio("gen_provider", gp);
+          syncProviderFields(false);
+          if (cfg.generation.endpoint) document.getElementById("gen-endpoint").value = cfg.generation.endpoint;
+          if (cfg.generation.model) document.getElementById("gen-model").value = cfg.generation.model;
+          if (cfg.generation.route) document.getElementById("or-route-manual").value = cfg.generation.route;
+          if (cfg.generation.fallback_routes && cfg.generation.fallback_routes.length) {
+            document.getElementById("or-fallback-manual").value = cfg.generation.fallback_routes[0];
+          }
+        }
+        if (cfg.embedding && cfg.embedding.mode === "api" && cfg.embedding.api) {
+          selectRadio("emb_mode", "api");
+          document.getElementById("emb-endpoint").value = cfg.embedding.api.endpoint || "";
+          document.getElementById("emb-model").value = cfg.embedding.api.model || "";
+          document.getElementById("emb-dims").value = cfg.embedding.api.dimensions || 2048;
+        }
+      } else {
+        syncProviderFields(true);
+      }
+    }
+
+    const PHASE_PCT = {
+      starting: 10,
+      providers: 24,
+      reranker: 30,
+      download: 48,
+      verify: 62,
+      embeddings: 72,
+      install: 84,
+      agents: 93,
+      complete: 100,
+    };
+
+    function pollStatus() {
+      apiFetch("/api/status").then((st) => {
+        const logBox = document.getElementById("progress-log");
+        logBox.textContent = (st.events || []).map((e) => `[${e.phase}] ${e.message}`).join("\n");
+        logBox.scrollTop = logBox.scrollHeight;
+        document.getElementById("progress-detail").textContent = st.message || "Working…";
+        const pct = PHASE_PCT[st.phase] || 15;
+        document.getElementById("progress-bar").style.width = pct + "%";
+
+        if (st.status === "success") {
+          clearInterval(pollTimer);
+          pollTimer = null;
+          document.getElementById("progress-bar").style.width = "100%";
+          document.getElementById("progress-title").textContent = "Installation complete";
+          document.getElementById("review-card").classList.add("hidden");
+          document.getElementById("done-card").classList.remove("hidden");
+          document.getElementById("btn-back-2").classList.add("hidden");
+          document.getElementById("btn-start-install").classList.add("hidden");
+          document.getElementById("btn-finish").classList.remove("hidden");
+          document.getElementById("btn-cancel-top").classList.add("hidden");
+
+          const r = (st.result && st.result.readiness) || {};
+          const rt = document.getElementById("readiness-table");
+          rt.innerHTML = "";
+          for (const [k, label] of [
+            ["platform", "Platform"],
+            ["core", "Core & Doctor"],
+            ["generation", "Generation"],
+            ["embeddings", "Embeddings"],
+            ["reranker", "Reranker"],
+            ["smoke_test", "Smoke test"],
+            ["agents", "Agents"],
+            ["memory_mode", "Memory layout"],
+          ]) {
+            if (r[k] !== undefined) {
+              const tr = document.createElement("tr");
+              const th = document.createElement("th");
+              th.textContent = label;
+              const td = document.createElement("td");
+              td.textContent = String(r[k]);
+              tr.appendChild(th);
+              tr.appendChild(td);
+              rt.appendChild(tr);
+            }
+          }
+          const notes = [];
+          const ints = (st.result && st.result.integrations) || {};
+          for (const [id, info] of Object.entries(ints)) {
+            if (info && info.summary && info.summary.activation_required) {
+              notes.push(`${id}: ${info.summary.activation_required}`);
+            }
+          }
+          const notesEl = document.getElementById("activation-notes");
+          if (notes.length) {
+            notesEl.textContent = "Next step — " + notes.join(" · ");
+            notesEl.classList.remove("hidden");
+          }
+        } else if (st.status === "failed") {
+          clearInterval(pollTimer);
+          pollTimer = null;
+          showError(st.error || "Installation failed.");
+          document.getElementById("progress-title").textContent = "Installation failed";
+          document.getElementById("btn-back-2").disabled = false;
+          document.getElementById("btn-start-install").disabled = false;
+          document.getElementById("btn-start-install").textContent = "Retry Installation";
+        }
+      }).catch((err) => {
+        showError("Status check failed: " + err.message);
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      bindRadioCards();
+
+      document.getElementById("semantic-lang").addEventListener("change", (e) => {
+        document.getElementById("custom-lang-wrap").classList.toggle("hidden", e.target.value !== "custom");
+      });
+      document.getElementById("emb-reuse-token").addEventListener("change", syncEmbeddingFields);
+      document.getElementById("jev-reuse-token").addEventListener("change", syncJevTokenField);
+      document.getElementById("reranker-mode").addEventListener("change", syncAdvancedFields);
+      document.getElementById("residency-mode").addEventListener("change", syncAdvancedFields);
+
+      document.querySelectorAll("button[data-toggle-vis]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const target = document.getElementById(btn.getAttribute("data-toggle-vis"));
+          const show = target.type === "password";
+          target.type = show ? "text" : "password";
+          btn.textContent = show ? "Hide" : "Show";
+        });
+      });
+
+      document.getElementById("btn-to-2").addEventListener("click", () => setStep(2));
+      document.getElementById("btn-back-1").addEventListener("click", () => setStep(1));
+      document.getElementById("btn-to-3").addEventListener("click", () => {
+        const err = validateStep2();
+        if (err) { showError(err); return; }
+        setStep(3);
+      });
+      document.getElementById("btn-back-2").addEventListener("click", () => {
+        document.getElementById("progress-card").classList.add("hidden");
+        setStep(2);
+      });
+
+      document.getElementById("btn-discover-routes").addEventListener("click", () => {
+        showError("");
+        const model = document.getElementById("gen-model").value.trim();
+        const token = document.getElementById("gen-token").value.trim();
+        const msg = document.getElementById("routes-msg");
+        if (!model || !token) {
+          showError("Enter both a generation model and OpenRouter API token first.");
+          return;
+        }
+        msg.textContent = "Querying OpenRouter strict JSON Schema endpoints…";
+        apiFetch("/api/openrouter/endpoints", {
+          method: "POST",
+          body: JSON.stringify({ model, token }),
+        }).then((res) => {
+          const list = res.endpoints || [];
+          const sel = document.getElementById("or-route-select");
+          const man = document.getElementById("or-route-manual");
+          const fsel = document.getElementById("or-fallback-select");
+          const fman = document.getElementById("or-fallback-manual");
+          sel.innerHTML = "";
+          fsel.innerHTML = '<option value="">None (primary only)</option>';
+          for (const ep of list) {
+            const label = ep.detail ? `${ep.label} (${ep.route}) — ${ep.detail}` : `${ep.label} (${ep.route})`;
+            const o1 = document.createElement("option");
+            o1.value = ep.route;
+            o1.textContent = label;
+            sel.appendChild(o1);
+            const o2 = document.createElement("option");
+            o2.value = ep.route;
+            o2.textContent = label;
+            fsel.appendChild(o2);
+          }
+          const om1 = document.createElement("option");
+          om1.value = "__manual__";
+          om1.textContent = "Enter route manually…";
+          sel.appendChild(om1);
+          sel.classList.remove("hidden");
+          man.classList.add("hidden");
+          fsel.classList.remove("hidden");
+          fman.classList.add("hidden");
+          sel.onchange = () => man.classList.toggle("hidden", sel.value !== "__manual__");
+          msg.textContent = `Found ${list.length} strict JSON Schema route(s).`;
+        }).catch((err) => {
+          msg.textContent = "";
+          showError("OpenRouter route discovery failed: " + err.message);
+        });
+      });
+
+      document.getElementById("btn-detect-dims").addEventListener("click", () => {
+        showError("");
+        const endpoint = document.getElementById("emb-endpoint").value.trim();
+        const model = document.getElementById("emb-model").value.trim();
+        const reuse = document.getElementById("emb-reuse-token").checked;
+        const token = reuse ? document.getElementById("gen-token").value.trim() : document.getElementById("emb-token").value.trim();
+        const msg = document.getElementById("dims-msg");
+        if (!endpoint || !model || !token) {
+          showError("Enter embedding endpoint, model, and token first.");
+          return;
+        }
+        msg.textContent = "Probing embedding dimensions…";
+        apiFetch("/api/embedding/dimensions", {
+          method: "POST",
+          body: JSON.stringify({ endpoint, model, token }),
+        }).then((res) => {
+          document.getElementById("emb-dims").value = res.dimensions;
+          msg.textContent = `Detected ${res.dimensions} dimensions.`;
+        }).catch((err) => {
+          msg.textContent = "Dimension probe failed.";
+          showError("Embedding check failed: " + err.message);
+        });
+      });
+
+      document.getElementById("btn-start-install").addEventListener("click", () => {
+        showError("");
+        const payload = buildPayload();
+        document.getElementById("progress-card").classList.remove("hidden");
+        document.getElementById("progress-title").textContent = "Installing LedgerMind…";
+        document.getElementById("progress-detail").textContent = "Starting installation…";
+        document.getElementById("progress-bar").style.width = "10%";
+        document.getElementById("btn-back-2").disabled = true;
+        document.getElementById("btn-start-install").disabled = true;
+        apiFetch("/api/install", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }).then(() => {
+          if (pollTimer) clearInterval(pollTimer);
+          pollTimer = setInterval(pollStatus, 350);
+          pollStatus();
+        }).catch((err) => {
+          showError(err.message);
+          document.getElementById("btn-back-2").disabled = false;
+          document.getElementById("btn-start-install").disabled = false;
+        });
+      });
+
+      document.getElementById("btn-finish").addEventListener("click", () => {
+        apiFetch("/api/shutdown", {
+          method: "POST",
+          body: JSON.stringify({ action: "finish" }),
+        }).finally(() => {
+          window.close();
+          document.getElementById("btn-finish").textContent = "Done — you can close this tab";
+          document.getElementById("btn-finish").disabled = true;
+        });
+      });
+
+      document.getElementById("btn-cancel-top").addEventListener("click", () => {
+        apiFetch("/api/shutdown", {
+          method: "POST",
+          body: JSON.stringify({ action: "cancel" }),
+        }).finally(() => {
+          document.body.innerHTML = '<div class="shell"><div class="card"><h2>Setup cancelled</h2><p class="subtitle">No changes were applied. You can close this tab.</p></div></div>';
+        });
+      });
+
+      apiFetch("/api/preflight").then(renderPreflight).catch((err) => {
+        showError("Failed to load host preflight: " + err.message);
+      });
+    });
+  </script>
+</body>
+</html>

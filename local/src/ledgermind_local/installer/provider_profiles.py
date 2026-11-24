@@ -10,6 +10,8 @@ GenerationProviderProfileId = Literal[
     "nvidia_nim",
     "openai_compatible",
 ]
+ReasoningEffort = Literal["none", "minimal", "low", "medium", "high"]
+_EFFORT_VALUES = ("none", "minimal", "low", "medium", "high")
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,10 +71,37 @@ def generation_provider_profiles() -> tuple[GenerationProviderProfile, ...]:
     return tuple(_PROFILES.values())
 
 
+def normalize_reasoning_effort(value: object) -> ReasoningEffort | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower()
+    if normalized in _EFFORT_VALUES:
+        return normalized  # type: ignore[return-value]
+    return None
+
+
+def reasoning_extra_body_for(
+    profile_id: GenerationProviderProfileId,
+    *,
+    reasoning_effort: str | None = None,
+) -> dict[str, object]:
+    """Build provider-specific reasoning controls for one generation slot."""
+
+    effort = normalize_reasoning_effort(reasoning_effort) or "none"
+    if profile_id == "openrouter":
+        return {"reasoning": {"effort": effort, "exclude": True}}
+    if profile_id == "nvidia_nim":
+        return {"chat_template_kwargs": {"enable_thinking": effort != "none"}}
+    return {"reasoning_effort": effort}
+
+
 __all__ = [
     "GenerationProviderProfile",
     "GenerationProviderProfileId",
+    "ReasoningEffort",
     "generation_provider_profile",
     "generation_provider_profiles",
     "infer_generation_provider_profile",
+    "normalize_reasoning_effort",
+    "reasoning_extra_body_for",
 ]

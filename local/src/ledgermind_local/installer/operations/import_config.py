@@ -18,6 +18,7 @@ from ..secret_refs import (
     LEGACY_GENERATION_SECRET_REF,
 )
 from ..secrets.base import SecretBackend
+from .common import with_probed_generation_settings
 
 
 def _get_secret(backend: SecretBackend, *refs: str) -> str | None:
@@ -55,6 +56,7 @@ def import_config(
             probes["generation"] = probe_generation(
                 config.generation, token=generation_token
             )
+            config = with_probed_generation_settings(config, probes["generation"])
         if config.embedding.mode == "api" and config.embedding.api is not None:
             token = config.embedding.api.token or _get_secret(
                 backend, EMBEDDING_SECRET_REF, LEGACY_EMBEDDING_SECRET_REF

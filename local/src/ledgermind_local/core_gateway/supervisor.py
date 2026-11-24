@@ -66,7 +66,7 @@ class CoreSupervisor:
         startup_timeout_seconds: float = 5.0,
         operation_timeout_seconds: float = 5.0,
         client_name: str = "ledgermind-local",
-        client_version: str = "5.0.0",
+        client_version: str = "5.0.1",
         core_data_dir: str | Path | None = None,
         blocked_data_dirs: Sequence[str | Path] = (),
         require_network_isolation: bool = False,

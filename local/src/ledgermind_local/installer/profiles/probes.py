@@ -16,7 +16,10 @@ from ...inference.strict import (
 )
 from ..errors import ProviderProbeError
 from ..models import EmbeddingApiConfig, GenerationConfig
-from ..provider_profiles import generation_provider_profile
+from ..provider_profiles import (
+    generation_provider_profile,
+    reasoning_extra_body_for,
+)
 from .embedding_api import EmbeddingProviderError, OpenAICompatibleEmbeddingProvider
 
 
@@ -165,6 +168,75 @@ def _empty_generation_detail(payload: object) -> str:
     return f" ({rendered})" if rendered else ""
 
 
+def _requires_mandatory_reasoning(response: httpx.Response) -> bool:
+    if response.status_code != 400:
+        return False
+    detail = (_response_error_detail(response) or "").lower()
+    if "reasoning" not in detail:
+        return False
+    return any(
+        phrase in detail
+        for phrase in (
+            "mandatory",
+            "cannot be disabled",
+            "must be enabled",
+            "required for this",
+        )
+    )
+
+
+def _generation_probe_payload(
+    config: GenerationConfig,
+    *,
+    reasoning_effort: str | None,
+    max_tokens: int,
+) -> dict[str, Any]:
+    request_payload: dict[str, Any] = {
+        "model": config.model,
+        "messages": [
+            {
+                "role": "system",
+                "content": "Return exactly one JSON object matching the strict capability probe schema.",
+            },
+            {
+                "role": "user",
+                "content": 'Return {"schema_version":1,"state":"ok","items":[1]}.',
+            },
+        ],
+        # A tiny budget can be consumed entirely by hidden reasoning before
+        # the model emits JSON. This probe tests schema transport, not IQ.
+        "max_tokens": max_tokens,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "ledgermind_strict_probe",
+                "strict": True,
+                "schema": _STRICT_PROBE_SCHEMA,
+            },
+        },
+    }
+    provider = generation_provider_profile(config.provider_profile)
+    request_payload.update(
+        reasoning_extra_body_for(
+            config.provider_profile,
+            reasoning_effort=reasoning_effort,
+        )
+    )
+    if provider.profile_id == "openrouter":
+        if config.route:
+            routes = [config.route, *config.fallback_routes]
+            request_payload["provider"] = {
+                "order": routes,
+                "only": routes,
+                "allow_fallbacks": bool(config.fallback_routes),
+                "require_parameters": True,
+            }
+    elif provider.profile_id == "nvidia_nim":
+        request_payload.pop("response_format")
+        request_payload["guided_json"] = _STRICT_PROBE_SCHEMA
+    return request_payload
+
+
 def _probe_generation_single(
     config: GenerationConfig, *, token: str, client: httpx.Client | None = None
 ) -> dict[str, Any]:
@@ -176,50 +248,34 @@ def _probe_generation_single(
         endpoint = config.endpoint.rstrip("/")
         if not endpoint.endswith("/chat/completions"):
             endpoint += "/chat/completions"
-        request_payload: dict[str, Any] = {
-            "model": config.model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "Return exactly one JSON object matching the strict capability probe schema.",
-                },
-                {
-                    "role": "user",
-                    "content": 'Return {"schema_version":1,"state":"ok","items":[1]}.',
-                },
-            ],
-            # A tiny budget can be consumed entirely by hidden reasoning before
-            # the model emits JSON. This probe tests schema transport, not IQ.
-            "max_tokens": _GENERATION_PROBE_MAX_TOKENS,
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "ledgermind_strict_probe",
-                    "strict": True,
-                    "schema": _STRICT_PROBE_SCHEMA,
-                },
-            },
-        }
-        provider = generation_provider_profile(config.provider_profile)
-        request_payload.update(provider.reasoning_extra_body)
-        if provider.profile_id == "openrouter":
-            if config.route:
-                routes = [config.route, *config.fallback_routes]
-                request_payload["provider"] = {
-                    "order": routes,
-                    "only": routes,
-                    "allow_fallbacks": bool(config.fallback_routes),
-                    "require_parameters": True,
-                }
-        elif provider.profile_id == "nvidia_nim":
-            request_payload.pop("response_format")
-            request_payload["guided_json"] = _STRICT_PROBE_SCHEMA
+        active_effort = config.reasoning_effort or "none"
+        max_tokens = (
+            _GENERATION_PROBE_MAX_TOKENS if active_effort == "none" else 1024
+        )
+        headers = provider_request_headers(endpoint, token)
         response = active.post(
             endpoint,
-            headers=provider_request_headers(endpoint, token),
-            json=request_payload,
+            headers=headers,
+            json=_generation_probe_payload(
+                config,
+                reasoning_effort=active_effort,
+                max_tokens=max_tokens,
+            ),
             timeout=config.timeout_seconds,
         )
+        if config.reasoning_effort is None and _requires_mandatory_reasoning(response):
+            active_effort = "minimal"
+            max_tokens = 1024
+            response = active.post(
+                endpoint,
+                headers=headers,
+                json=_generation_probe_payload(
+                    config,
+                    reasoning_effort=active_effort,
+                    max_tokens=max_tokens,
+                ),
+                timeout=config.timeout_seconds,
+            )
         _safe_status(response)
         try:
             payload = response.json()
@@ -258,6 +314,7 @@ def _probe_generation_single(
             "structured_json": True,
             "strict_structured_outputs": True,
             "route": config.route,
+            "reasoning_effort": active_effort,
             "schema_profile_version": STRICT_SCHEMA_PROFILE_VERSION,
             "probe_contract_digest": canonical_digest(
                 validate_strict_schema_profile(_STRICT_PROBE_SCHEMA)

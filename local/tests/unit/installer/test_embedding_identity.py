@@ -7,9 +7,12 @@ from urllib.error import HTTPError
 from urllib.request import urlopen
 
 import pytest
-
 from ledgermind_inference.model_fingerprint import model_tree_fingerprint
 from ledgermind_inference.openai_vectorizer import OpenAIEmbeddingVectorizer
+
+from ledgermind_local.bootstrap import _build_runtime_vectorizer_factory
+from ledgermind_local.config import EmbeddingConfig, LocalConfig
+from ledgermind_local.inference.secrets import SecretStore
 from ledgermind_local.installer.embeddings.service import EmbeddingService
 
 
@@ -72,3 +75,51 @@ def test_ready_fails_closed_without_model_identity(fingerprint):
             assert json.load(response)=={"status":"ok"}
     finally:
         service.stop()
+
+
+def test_runtime_vectorizer_uses_remote_fingerprint_for_saas_and_health_for_loopback(
+    tmp_path: Path,
+) -> None:
+    secrets_path = tmp_path / "secrets.json"
+    store = SecretStore(secrets_path)
+    store.put("embedding-api", "secret-token")
+
+    remote_cfg = LocalConfig(
+        config_version=2,
+        semantic_language="en",
+        inference_secrets_path=str(secrets_path),
+        embedding=EmbeddingConfig(
+            enabled=True,
+            provider_mode="api",
+            endpoint="https://openrouter.ai/api/v1",
+            model="nvidia/nemotron-3.5-embed-1b:free",
+            dimensions=2048,
+            secret_ref="embedding-api",
+        ),
+    )
+    remote_vec = _build_runtime_vectorizer_factory(remote_cfg)()
+    try:
+        assert type(remote_vec) is not OpenAIEmbeddingVectorizer
+        assert remote_vec.fingerprint.startswith("sha256:")
+        assert remote_vec.dimension == 2048
+    finally:
+        remote_vec.close()
+
+    local_cfg = LocalConfig(
+        config_version=2,
+        semantic_language="en",
+        inference_secrets_path=str(secrets_path),
+        embedding=EmbeddingConfig(
+            enabled=True,
+            provider_mode="api",
+            endpoint="http://127.0.0.1:8767",
+            model="nemotron-3-embed-1b-bf16",
+            dimensions=2048,
+            secret_ref="embedding-api",
+        ),
+    )
+    local_vec = _build_runtime_vectorizer_factory(local_cfg)()
+    try:
+        assert type(local_vec) is OpenAIEmbeddingVectorizer
+    finally:
+        local_vec.close()

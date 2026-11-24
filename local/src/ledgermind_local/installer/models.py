@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from .provider_profiles import (
     GenerationProviderProfileId,
+    ReasoningEffort,
     infer_generation_provider_profile,
 )
 
@@ -92,6 +93,7 @@ class GenerationConfig(BaseModel):
     timeout_seconds: float = Field(default=180.0, gt=0, le=600)
     max_concurrency: int = Field(default=2, ge=1, le=64)
     structured_json_support: bool = True
+    reasoning_effort: ReasoningEffort | None = None
 
     @model_validator(mode="before")
     @classmethod

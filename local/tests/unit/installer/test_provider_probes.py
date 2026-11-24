@@ -7,6 +7,7 @@ import pytest
 
 from ledgermind_local.installer.errors import ProviderProbeError
 from ledgermind_local.installer.models import EmbeddingApiConfig, GenerationConfig
+from ledgermind_local.installer.profiles.generation import build_generation_profiles
 from ledgermind_local.installer.profiles.probes import (
     discover_embedding_dimensions,
     probe_embedding_api,
@@ -249,3 +250,57 @@ def test_embedding_dimensions_are_inferred_from_real_vector() -> None:
         )
 
     assert dimensions == 4
+
+
+def test_openrouter_mandatory_reasoning_retries_with_minimal_effort() -> None:
+    seen_payloads: list[dict[str, object]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        seen_payloads.append(body)
+        if body.get("reasoning", {}).get("effort") == "none":
+            return httpx.Response(
+                400,
+                json={
+                    "error": {
+                        "message": "Reasoning is mandatory for this endpoint and cannot be disabled."
+                    }
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "model": "meta/muse-ember",
+                "choices": [
+                    {
+                        "message": {
+                            "content": '{"schema_version":1,"state":"ok","items":[1]}'
+                        }
+                    }
+                ],
+            },
+        )
+
+    config = _config().model_copy(
+        update={
+            "provider_profile": "openrouter",
+            "endpoint": "https://openrouter.ai/api/v1",
+            "model": "meta/muse-ember",
+            "route": "google-vertex/global",
+        }
+    )
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        result = probe_generation(config, token="secret", client=client)
+
+    assert len(seen_payloads) == 2
+    assert seen_payloads[0]["reasoning"] == {"effort": "none", "exclude": True}
+    assert seen_payloads[1]["reasoning"] == {"effort": "minimal", "exclude": True}
+    assert seen_payloads[1]["max_tokens"] == 1024
+    assert result["reasoning_effort"] == "minimal"
+
+    updated = config.model_copy(update={"reasoning_effort": result["reasoning_effort"]})
+    profiles = build_generation_profiles(updated)
+    assert profiles[0]["extra_body"]["reasoning"] == {
+        "effort": "minimal",
+        "exclude": True,
+    }

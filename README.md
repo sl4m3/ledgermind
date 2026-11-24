@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Stable release: 5.0.0" src="https://img.shields.io/badge/stable-5.0.0-2563eb">
+  <img alt="Stable release: 5.0.1" src="https://img.shields.io/badge/stable-5.0.1-2563eb">
   <img alt="Local first" src="https://img.shields.io/badge/memory-local--first-16a34a">
   <img alt="Six supported agent adapters" src="https://img.shields.io/badge/adapters-6_supported-2563eb">
   <img alt="Core network access: none" src="https://img.shields.io/badge/Core_network_access-none-111827">
@@ -43,7 +43,7 @@ knowledge layer.
 
 [See the benchmark](BENCHMARK.md) · [Follow releases](https://github.com/sl4m3/ledgermind/releases) · [Contact LedgerMind](mailto:s.zotov@ledgermind.org)
 
-> **Current stable release:** `5.0.0` for supported Linux hosts.
+> **Current stable release:** `5.0.1` for supported Linux hosts.
 
 ## Memory lifecycle, measured end to end
 
@@ -106,12 +106,21 @@ how impressive the stored notes sound.
 
 ### Install in one command
 
-LedgerMind `5.0.0` is available for **Linux x86_64**. The interactive installer
-detects supported agents, collects the model configuration, verifies the signed
-release, and connects the integrations you select:
+LedgerMind `5.0.1` is available for **Linux x86_64**. On a desktop session the
+one-command installer launches a local setup page in your browser (`127.0.0.1`
+with a one-time token), detects supported agents, verifies provider schemas and
+the signed release, and connects the integrations you select. Over SSH or on a
+headless machine—or when `--cli` is passed—it automatically falls back to the
+interactive terminal wizard:
 
 ```bash
 curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh | sh
+```
+
+To force the terminal wizard directly:
+
+```bash
+curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh | sh -s -- --cli
 ```
 
 [Read the complete installation guide](#installation) before managed or
@@ -121,7 +130,7 @@ non-interactive deployment.
 
 | You are… | Start here |
 |---|---|
-| Using an agent and tired of repeating yourself | [Install LedgerMind 5.0.0](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
+| Using an agent and tired of repeating yourself | [Install LedgerMind 5.0.1](https://github.com/sl4m3/ledgermind/releases/latest), then connect your agent |
 | Building an agent, IDE, or local assistant | Explore [`integrations/`](integrations) and [`local/`](local) |
 | Running an AI platform or enterprise deployment | [Contact LedgerMind](mailto:s.zotov@ledgermind.org) for evaluation, deployment, and licensing |
 | Comparing memory systems | Jump to the [benchmark results](#memory-lifecycle-measured-end-to-end) and [full methodology](BENCHMARK.md) |
@@ -142,7 +151,7 @@ via the lightweight Cloud Connector).
 | OpenCode | Available | Restart an already running session |
 | OpenClaw | Available | Restart an already running session |
 
-The published `5.0.0` package supports **Linux x86_64** (Linux aarch64 is part
+The published `5.0.1` package supports **Linux x86_64** (Linux aarch64 is part
 of the platform design, not included in this release). Legacy `3.x` and `4.x`
 release tags should not be used as installation packages for this README.
 
@@ -150,7 +159,7 @@ release tags should not be used as installation packages for this README.
 
 LedgerMind installs without root access into the current user's XDG
 directories. Docker is not required and is not a supported secure deployment
-path for `5.0.0`. The installer verifies the signed manifest, platform bundle,
+path for `5.0.1`. The installer verifies the signed manifest, platform bundle,
 Core binary, and applicable runtime artifacts before switching the active
 version.
 
@@ -190,6 +199,11 @@ Before installation, decide:
 ```bash
 curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.sh | sh
 ```
+
+By default on desktop Linux (`DISPLAY` or `WAYLAND_DISPLAY` set), this opens
+the local setup wizard on `http://127.0.0.1:<port>/?token=...` in your browser
+(pass `--no-browser` to print the URL without opening a tab, `--web` to force
+the browser UI, or `--cli` to run the guided terminal wizard instead).
 
 The wizard detects the Linux platform and installed agents, asks for your
 selected agents and model/runtime settings, verifies the signed platform bundle,
@@ -240,11 +254,14 @@ checks used `deepseek/deepseek-v4-flash-0731`).
     "object_resolution_model": "deepseek/deepseek-v4-flash-0731",
     "token_env": "LEDGERMIND_GENERATION_TOKEN"
   },
+  "resolution_decision": {
+    "backend": "jev"
+  },
   "embedding": {
     "mode": "api",
     "api": {
       "endpoint": "https://openrouter.ai/api/v1",
-      "model": "nvidia/nemotron-3-embed-1b:free",
+      "model": "nvidia/nemotron-3.5-embed-1b:free",
       "dimensions": 2048,
       "token_env": "LEDGERMIND_EMBEDDING_TOKEN"
     }

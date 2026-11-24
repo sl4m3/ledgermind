@@ -12,6 +12,7 @@ from ledgermind_local.runtime.supervisor import RuntimeSupervisor
 
 from ..config_writer import (
     persist_generation_probe,
+    resolve_decision_token,
     resolve_provider_tokens,
     resolve_reranker_token,
     write_installer_config,
@@ -20,7 +21,12 @@ from ..config_writer import (
 )
 from ..models import InstallerConfig
 from ..paths import InstallerPaths
-from ..profiles.probes import probe_embedding_api, probe_generation
+from ..profiles.probes import (
+    probe_embedding_api,
+    probe_generation,
+    probe_resolution_decision,
+)
+from .common import with_probed_generation_settings
 
 
 def configure(
@@ -43,6 +49,11 @@ def configure(
         probes["generation"] = probe_generation(
             config.generation, token=generation_token
         )
+        config = with_probed_generation_settings(config, probes["generation"])
+        if config.resolution_decision is not None:
+            probes["resolution_decision"] = probe_resolution_decision(
+                config, token=resolve_decision_token(config, paths)
+            )
         if config.embedding.mode == "api" and config.embedding.api is not None:
             assert embedding_token is not None
             probes["embedding"] = probe_embedding_api(

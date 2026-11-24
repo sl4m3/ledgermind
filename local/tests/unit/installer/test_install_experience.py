@@ -292,7 +292,7 @@ def test_terminal_wizard_uses_reference_openrouter_configuration(
     assert config.resolution_decision.backend == "jev"
     assert config.embedding.api is not None
     assert config.embedding.api.endpoint == "https://openrouter.ai/api/v1"
-    assert config.embedding.api.model == "nvidia/nemotron-3-embed-1b:free"
+    assert config.embedding.api.model == "nvidia/nemotron-3.5-embed-1b:free"
     assert config.embedding.api.dimensions == 2048
     assert config.memory_mode == "shared"
     assert [item.id for item in config.integrations] == ["codex"]
@@ -982,3 +982,174 @@ def test_failed_integration_is_rolled_back_and_not_marked_connected(
 
     assert adapter.rolled_back is True
     assert load_installer_config(paths.config_file).integrations == ()
+
+
+def test_build_local_config_propagates_concurrency_settings(tmp_path: Path) -> None:
+    from ledgermind_local.installer.config_writer import build_local_config
+
+    paths = InstallerPaths(home_override=tmp_path)
+    configured = _config().model_copy(
+        update={
+            "generation": _config().generation.model_copy(update={"max_concurrency": 4}),
+            "embedding": EmbeddingConfig(
+                mode="api",
+                api=EmbeddingApiConfig(
+                    endpoint="https://provider.example/v1",
+                    token="embedding-secret",
+                    model="embedding",
+                    dimensions=64,
+                    concurrency=3,
+                ),
+            ),
+        }
+    )
+
+    local = build_local_config(configured, paths)
+
+    assert local.generation_concurrency == 4
+    assert local.embedding.max_concurrency == 3
+
+
+def test_doctor_validates_local_config_and_profile_slots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ledgermind_local.installer.config_writer import (
+        write_local_config,
+        write_local_profiles,
+    )
+    from ledgermind_local.installer.models import ResolutionDecisionConfig
+
+    doctor_module = importlib.import_module(
+        "ledgermind_local.installer.operations.doctor"
+    )
+
+    monkeypatch.setenv("LEDGERMIND_SECRET_BACKEND", "file")
+    paths = InstallerPaths(home_override=tmp_path / "install-home")
+    paths.ensure()
+    configured = _config().model_copy(
+        update={
+            "memory_mode": "shared",
+            "resolution_decision": ResolutionDecisionConfig(backend="jev", token="jev-secret"),
+        }
+    )
+    write_installer_config(configured, paths)
+    write_local_config(configured, paths)
+    write_local_profiles(configured, paths)
+
+    release = paths.release_dir("candidate")
+    (release / "bin").mkdir(parents=True)
+    (release / "signatures").mkdir(parents=True)
+    for exe in ("ledgermind", "ledgermind-local", "ledgermind-core"):
+        target = release / "bin" / exe
+        target.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        os.chmod(target, 0o700)
+    (release / "signatures" / "ledgermind-core.sig").write_bytes(b"sig")
+    (release / "signatures" / "ledgermind-core.pub").write_bytes(b"pub")
+    (release / "bundle-manifest.json").write_text("{}", encoding="utf-8")
+    paths.current_link.symlink_to(release)
+
+    monkeypatch.setattr(
+        doctor_module, "verify_bundle_tree", lambda _current: {"status": "passed"}
+    )
+
+    ok_report = doctor_module.doctor(
+        paths=paths, full_smoke=False, probe_providers=False, verify_integrations=False
+    )
+    assert ok_report["status"] == "passed"
+    assert ok_report["configuration"]["local_config"] == "passed"
+    assert ok_report["configuration"]["profile_slots"] == "passed"
+    assert (
+        ok_report["configuration"]["core_config"]["resolution_decision_slot"]
+        == "resolution-decision"
+    )
+
+    (paths.data_dir / "local" / "config.json").unlink()
+    missing_report = doctor_module.doctor(
+        paths=paths, full_smoke=False, probe_providers=False, verify_integrations=False
+    )
+    assert missing_report["status"] == "failed"
+    assert missing_report["configuration"]["local_config"]["status"] == "failed"
+
+
+def test_repair_restores_missing_local_configs_and_profile_slots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repair_module = importlib.import_module(
+        "ledgermind_local.installer.operations.repair"
+    )
+    monkeypatch.setenv("LEDGERMIND_SECRET_BACKEND", "file")
+    paths = InstallerPaths(home_override=tmp_path / "install-home")
+    paths.ensure()
+    release = paths.release_dir("candidate")
+    (release / "bin").mkdir(parents=True)
+    paths.current_link.symlink_to(release)
+    write_installer_config(_config(), paths)
+    monkeypatch.setattr(repair_module, "install_bin_link", lambda _paths: None)
+    monkeypatch.setattr(
+        repair_module,
+        "doctor",
+        lambda **_kwargs: {
+            "status": "passed",
+            "platform": "linux-x86_64",
+            "smoke_test": {"status": "passed"},
+        },
+    )
+
+    assert not (paths.config_dir / "local-config.json").exists()
+    assert not (paths.data_dir / "local" / "config.json").exists()
+
+    result = repair_module.repair(paths=paths)
+
+    assert result["status"] == "passed"
+    assert (paths.config_dir / "local-config.json").is_file()
+    assert (paths.data_dir / "local" / "config.json").is_file()
+    assert (paths.memory_data_dir / "rounds.db").is_file()
+
+
+def test_configure_validates_resolution_decision_when_enabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    configure_module = importlib.import_module(
+        "ledgermind_local.installer.operations.configure"
+    )
+    from ledgermind_local.installer.models import ResolutionDecisionConfig
+
+    monkeypatch.setenv("LEDGERMIND_SECRET_BACKEND", "file")
+    paths = InstallerPaths(home_override=tmp_path / "install-home")
+    paths.ensure()
+    configured = _config().model_copy(
+        update={
+            "resolution_decision": ResolutionDecisionConfig(
+                backend="jev", token="jev-secret"
+            )
+        }
+    )
+    seen: list[str] = []
+    monkeypatch.setattr(
+        configure_module,
+        "probe_generation",
+        lambda _cfg, **_kw: {"status": "passed", "strict_structured_outputs": True},
+    )
+    monkeypatch.setattr(
+        configure_module,
+        "probe_embedding_api",
+        lambda _cfg, **_kw: {"status": "passed"},
+    )
+    monkeypatch.setattr(
+        configure_module,
+        "probe_resolution_decision",
+        lambda _cfg, *, token="": seen.append(token) or {"status": "passed"},
+    )
+    monkeypatch.setattr(
+        configure_module,
+        "persist_generation_probe",
+        lambda _cfg, _paths, _probe: {"status": "passed"},
+    )
+
+    result = configure_module.configure(
+        config=configured, paths=paths, validate_providers=True
+    )
+
+    assert result["status"] == "success"
+    assert seen == ["jev-secret"]
+    assert result["probes"]["resolution_decision"]["status"] == "passed"

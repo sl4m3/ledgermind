@@ -92,6 +92,23 @@ def _ensure_local_server_token(paths: InstallerPaths) -> Path:
     return target
 
 
+def ensure_runtime_tokens(
+    paths: InstallerPaths, *, include_local_embedding: bool = False
+) -> tuple[Path, Path]:
+    """Ensure internal runtime and local server tokens exist with 0600 mode."""
+
+    runtime_token = _ensure_runtime_token(paths)
+    server_token = _ensure_local_server_token(paths)
+    if include_local_embedding:
+        backend = select_secret_backend(paths)
+        local_embedding_token = backend.get(LOCAL_EMBEDDING_SECRET_REF)
+        if not local_embedding_token:
+            local_embedding_token = secrets.token_urlsafe(32)
+            backend.put(LOCAL_EMBEDDING_SECRET_REF, local_embedding_token)
+        _write_local_embedding_token(paths, local_embedding_token)
+    return runtime_token, server_token
+
+
 def _write_local_embedding_token(paths: InstallerPaths, token: str) -> Path:
     target = paths.data_dir / "embedding" / "server.token"
     ensure_private_dir(target.parent)
@@ -451,6 +468,7 @@ def build_local_config(
             model=config.embedding.local.catalog_id,
             dimensions=config.embedding.local.dimensions,
             batch_size=config.embedding.local.batch_size,
+            max_concurrency=config.embedding.local.concurrency,
             secret_ref=LOCAL_EMBEDDING_SECRET_REF,
         )
     elif config.embedding.mode == "api" and config.embedding.api is not None:
@@ -461,6 +479,7 @@ def build_local_config(
             model=config.embedding.api.model,
             dimensions=config.embedding.api.dimensions,
             batch_size=config.embedding.api.batch_size,
+            max_concurrency=config.embedding.api.concurrency,
             timeout_seconds=config.embedding.api.timeout_seconds,
             secret_ref=EMBEDDING_SECRET_REF,
         )
@@ -478,6 +497,7 @@ def build_local_config(
         core_signature_path=str(release / "signatures" / "ledgermind-core.sig"),
         core_public_key_path=str(release / "signatures" / "ledgermind-core.pub"),
         inference_secrets_path=str(paths.secrets_file),
+        generation_concurrency=config.generation.max_concurrency,
         profile_slots=ProfileSlotsConfig(
             operational="generation-operational",
             object_resolution="generation-object-resolution",
@@ -824,6 +844,7 @@ def persist_generation_probe(
 
 __all__ = [
     "build_local_config",
+    "ensure_runtime_tokens",
     "load_installer_config",
     "persist_generation_probe",
     "resolve_provider_tokens",

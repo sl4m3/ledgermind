@@ -7,7 +7,7 @@ import os
 import shutil
 import tarfile
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
@@ -20,6 +20,7 @@ from ..models import InstallerConfig
 from ..paths import InstallerPaths
 from ..permissions import ensure_private_dir
 from ..preflight import platform_id
+from ..provider_profiles import normalize_reasoning_effort
 from ..verify import verify_artifact_signature, verify_file, verify_manifest_bytes
 
 
@@ -216,6 +217,27 @@ def platform_manifest(manifest: InstallManifest) -> Any:
     return manifest.platform(platform_id())
 
 
+def with_probed_generation_settings(
+    config: InstallerConfig, probe_result: Mapping[str, Any]
+) -> InstallerConfig:
+    """Persist probe-detected mandatory reasoning settings onto InstallerConfig."""
+
+    detected = normalize_reasoning_effort(probe_result.get("reasoning_effort"))
+    if (
+        detected is None
+        or config.generation.reasoning_effort is not None
+        or detected == "none"
+    ):
+        return config
+    return config.model_copy(
+        update={
+            "generation": config.generation.model_copy(
+                update={"reasoning_effort": detected}
+            )
+        }
+    )
+
+
 __all__ = [
     "config_from_path",
     "fetch_bundle",
@@ -227,5 +249,6 @@ __all__ = [
     "resolve_manifest",
     "unpack_bundle",
     "verify_manifest_signature",
+    "with_probed_generation_settings",
     "write_install_history",
 ]

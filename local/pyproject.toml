@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ledgermind-local"
-version = "5.0.0"
+version = "5.0.1"
 description = "LedgerMind local service bootstrap"
 license = "BUSL-1.1"
 license-files = ["LICENSE", "NOTICE", "COPYING"]
@@ -50,6 +50,7 @@ include = ["ledgermind_local*"]
 
 [tool.setuptools.package-data]
 "ledgermind_local" = ["model-defaults.json"]
+"ledgermind_local.installer" = ["web_ui/*"]
 "ledgermind_local.persistence" = ["rounds_migrations/*.sql"]
 
 [tool.pytest.ini_options]

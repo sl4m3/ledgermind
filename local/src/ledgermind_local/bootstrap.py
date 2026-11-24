@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import secrets
@@ -14,6 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 import httpx
 from ledgermind_inference.embedding_purpose import (
@@ -102,6 +104,19 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _is_managed_local_embedding_endpoint(endpoint: str) -> bool:
+    host = (urlparse(endpoint.strip()).hostname or "").lower()
+    return host in {"127.0.0.1", "localhost", "::1", "model-inference"}
+
+
+class _RemoteApiEmbeddingVectorizer(OpenAIEmbeddingVectorizer):
+    """Vectorizer for remote SaaS embedding APIs without /health/ready."""
+
+    def _fetch_fingerprint(self) -> str:
+        identity = f"{self._endpoint.rstrip('/')}|{self._model}|{self._dimension}"
+        return "sha256:" + hashlib.sha256(identity.encode("utf-8")).hexdigest()
+
+
 def _build_runtime_vectorizer_factory(
     config: LocalConfig,
     *,
@@ -126,8 +141,14 @@ def _build_runtime_vectorizer_factory(
             raise RuntimeError("API embedding configuration is incomplete")
         token_store = SecretStore(config.inference_secrets_path)
         token = token_store.get(config.embedding.secret_ref)
-        return lambda: OpenAIEmbeddingVectorizer(
-            endpoint=config.embedding.endpoint or "",
+        endpoint = config.embedding.endpoint or ""
+        vectorizer_cls = (
+            OpenAIEmbeddingVectorizer
+            if _is_managed_local_embedding_endpoint(endpoint)
+            else _RemoteApiEmbeddingVectorizer
+        )
+        return lambda: vectorizer_cls(
+            endpoint=endpoint,
             token=token,
             model=config.embedding.model or "",
             dimensions=config.embedding.dimensions,
