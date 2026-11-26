@@ -229,11 +229,12 @@ Provider credentials and persisted configuration are private (`0600`).
 
 Use a generation model with at least 120B parameters. Its provider endpoint
 must implement strict JSON Schema structured outputs; plain JSON mode is not a
-substitute. All full provider-backed benchmark and integration runs reported
-for the current implementation used the tested reference model
-`deepseek/deepseek-v4-flash-0731`. Alternative models are supported only when
-they satisfy the same capability requirements. The installer verifies strict
-structured-output support with a real provider probe. For OpenRouter it queries
+substitute. The installer defaults to `meta/muse-ember` with the primary
+OpenRouter route `google-vertex/global`. Alternative models are supported only
+when they satisfy the same capability requirements. Historical provider-backed
+benchmark and integration runs used `deepseek/deepseek-v4-flash-0731` (see the
+root README). The installer verifies strict structured-output support with a
+real provider probe. For OpenRouter it queries
 the selected model's current endpoints, lists only providers advertising
 strict structured outputs, and lets the user choose one primary route and at
 most one fallback. The same restricted route chain and

@@ -38,6 +38,7 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 NVIDIA_NIM_BASE_URL = "https://integrate.api.nvidia.com/v1"
 _MODEL_DEFAULTS = load_model_defaults()
 REFERENCE_GENERATION_MODEL = _MODEL_DEFAULTS.generation_openrouter
+REFERENCE_GENERATION_OPENROUTER_ROUTE = _MODEL_DEFAULTS.generation_openrouter_route
 REFERENCE_NVIDIA_GENERATION_MODEL = _MODEL_DEFAULTS.generation_nvidia_nim
 REFERENCE_EMBEDDING_MODEL = _MODEL_DEFAULTS.embedding_api
 REFERENCE_EMBEDDING_DIMENSIONS = _MODEL_DEFAULTS.embedding_dimensions
@@ -466,13 +467,27 @@ def build_interactive_config(
                 for target_id in selected
             )
 
-            ui.section(3, "MEMORY", "Choose whether connected agents share knowledge")
+            ui.section(
+                3,
+                "MEMORY",
+                "Choose one memory model for this workspace, not per agent",
+            )
             memory_mode = ui.choose(
-                "Memory layout",
+                "Workspace memory",
                 (
-                    _Choice("per_agent", "Separate per agent", "strong isolation"),
-                    _Choice("shared", "Shared by all agents", "one knowledge space"),
+                    _Choice(
+                        "per_agent",
+                        "Isolated per agent",
+                        "each agent in the workspace keeps its own logical space",
+                    ),
+                    _Choice(
+                        "shared",
+                        "Shared across the workspace",
+                        "one knowledge space for all agents in the workspace",
+                    ),
                 ),
+                # Same default as the Web wizard; both are workspace-level.
+                default=2,
             )
             runtime = RuntimeConfig()
         else:
@@ -496,7 +511,7 @@ def build_interactive_config(
         if generation_provider == "openrouter":
             endpoint = OPENROUTER_BASE_URL
             ui.line(f"  API base: {endpoint}")
-            route = None
+            route = REFERENCE_GENERATION_OPENROUTER_ROUTE
             fallback_routes: tuple[str, ...] = ()
             default_generation_model = REFERENCE_GENERATION_MODEL
         elif generation_provider == "nvidia_nim":
@@ -510,6 +525,10 @@ def build_interactive_config(
             route = None
             fallback_routes = ()
             default_generation_model = None
+        ui.line(
+            "  Note: the LedgerMind Cloud API key is not a provider token; "
+            "enter it later with ledgermind-cloud connect, not in this installer."
+        )
         token = ui.secret("Generation token")
         ui.line(f"  Token accepted: {ui.token_preview(token)}")
         model = ui.required("Generation model", default=default_generation_model)
@@ -561,7 +580,8 @@ def build_interactive_config(
                         fallback_routes = (ui.choose("Fallback provider", fallbacks),)
             else:
                 route = ui.required(
-                    "Primary OpenRouter provider (for example provider/variant)"
+                    "Primary OpenRouter provider (for example provider/variant)",
+                    default=route,
                 )
                 if route_count == "two":
                     while True:
@@ -900,7 +920,7 @@ def build_interactive_config(
             "always_on": "always on · keep local models resident",
         }
         ui.line(f"  Residency:   {residency_labels[runtime.residency_mode]}")
-        ui.line(f"  Memory:      {memory_mode}")
+        ui.line(f"  Memory:      {memory_mode} (workspace-level choice)")
         ui.line(
             "  Agents:      " + (", ".join(item.id for item in integrations) or "none")
         )

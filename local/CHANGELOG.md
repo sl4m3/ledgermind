@@ -1,5 +1,19 @@
 # Changelog
 
+## 5.0.4 - 2026-11-26
+
+- Redesigned the local installer web UI with the monochrome light/dark design
+  system (`light-dark()`, sharp geometry, and updated typography).
+- Aligned the `memory_mode` default to `"shared"` across the CLI wizard, Web
+  wizard, Pydantic model, and JSON Schema, clarifying workspace-level logical
+  separation via `memory_space_id` inside one database.
+- Updated the default OpenRouter generation model to `meta/muse-ember` with
+  primary route `google-vertex/global`, and added a CLI wizard note
+  distinguishing provider tokens from the LedgerMind Cloud API key.
+- Added adaptive light/dark SVG logos (`assets/logo-black.svg`,
+  `assets/logo-white.svg`) and unified format reference
+  `local/docs/installer-formats.md`.
+
 ## 5.0.3 - 2026-11-24
 
 - Added standalone online `ledgermind update` (no `--manifest`/`--bundle`

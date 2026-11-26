@@ -37,12 +37,16 @@ class LocalVersionlessNamesTests(unittest.TestCase):
     def test_external_model_literal_allowance_is_exact(self) -> None:
         gate = _load_gate()
         path = "tests/unit/installer/test_model_defaults.py"
-        allowed = (
-            'assert defaults.generation_openrouter == "deepseek/deepseek-v4-flash-0731"'
-        )
+        self.assertEqual(gate._EXTERNAL_MODEL_LITERALS[path], {"meta/muse-ember"})
+        # The retained e2e fixture literal is allowed only at its own consumer,
+        # and it still contains a version token that the gate must recognise.
+        e2e_path = "tests/container/e2e/run-real-api-e2e.sh"
+        allowed = 'value = "deepseek/deepseek-v4-flash-0731"'
         match = next(gate._TOKEN_RE.finditer(allowed))
         self.assertTrue(
-            gate._allowed(path, allowed, match.start(), match.group(), "content", "")
+            gate._allowed(
+                e2e_path, allowed, match.start(), match.group(), "content", ""
+            )
         )
         for forbidden in (
             'assert defaults.generation_openrouter == "deepseek/deepseek-v4-flash-9999"',

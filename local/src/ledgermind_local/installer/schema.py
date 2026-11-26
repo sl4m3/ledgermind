@@ -16,7 +16,15 @@ INSTALL_CONFIG_SCHEMA: dict[str, Any] = {
             "pattern": "^[A-Za-z]{2,8}(?:[-_][A-Za-z0-9]{1,8})*$",
             "examples": ["en", "pt", "uk", "zh-Hans"],
         },
-        "memory_mode": {"enum": ["shared", "per_agent"]},
+        "memory_mode": {
+            "enum": ["shared", "per_agent"],
+            "default": "shared",
+            "description": (
+                "Workspace-level memory model, not a per-agent toggle: shared "
+                "gives all agents one knowledge space, per_agent gives each "
+                "agent a logical memory_space_id inside the same database."
+            ),
+        },
         "integrations": {
             "type": "array",
             "uniqueItems": True,

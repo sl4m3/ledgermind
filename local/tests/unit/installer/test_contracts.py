@@ -272,7 +272,9 @@ def test_installer_materializes_profiles_for_local_resolver(tmp_path: Path) -> N
     from ledgermind_local.persistence import open_sqlite_connection
 
     paths = InstallerPaths(home_override=tmp_path)
-    result = write_local_profiles(_config(), paths)
+    result = write_local_profiles(
+        _config().model_copy(update={"memory_mode": "per_agent"}), paths
+    )
     connection = open_sqlite_connection(result["database"])
     try:
         store = InferenceProfileStore(connection)
@@ -319,7 +321,7 @@ def test_connecting_agent_binds_only_missing_slots_without_rewriting_profiles(
     from ledgermind_local.persistence import open_sqlite_connection
 
     paths = InstallerPaths(home_override=tmp_path)
-    config = _config()
+    config = _config().model_copy(update={"memory_mode": "per_agent"})
     result = write_local_profiles(config, paths)
     connection = open_sqlite_connection(result["database"])
     try:
@@ -390,7 +392,7 @@ def test_encoder_switch_rebinds_previously_connected_managed_spaces_only(tmp_pat
     from ledgermind_local.persistence import open_sqlite_connection
 
     paths = InstallerPaths(home_override=tmp_path)
-    api_config = _config()
+    api_config = _config().model_copy(update={"memory_mode": "per_agent"})
     result = write_local_profiles(api_config, paths)
     assert bind_existing_profiles_for_agent(api_config, paths, "opencode")
     connection = open_sqlite_connection(result["database"])

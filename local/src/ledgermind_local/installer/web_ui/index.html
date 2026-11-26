@@ -6,387 +6,248 @@
   <title>LedgerMind Setup</title>
   <style>
     :root {
-      color-scheme: dark;
-      --bg: #0b101b;
-      --surface: #121a2b;
-      --surface-2: #182338;
-      --border: #263552;
-      --border-focus: #3b82f6;
-      --text: #e5ecf6;
-      --muted: #93a4c3;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --accent-soft: rgba(59, 130, 246, 0.14);
-      --ok: #22c55e;
-      --ok-soft: rgba(34, 197, 94, 0.14);
-      --warn: #f59e0b;
-      --warn-soft: rgba(245, 158, 11, 0.14);
-      --err: #ef4444;
-      --err-soft: rgba(239, 68, 68, 0.14);
-      --radius: 12px;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color-scheme: light dark;
+      color: var(--lm-ink);
+      /* фолбэки для браузеров без light-dark() */
+      --lm-paper: #ffffff;
+      --lm-ink: #111111;
+      --lm-muted: #626262;
+      --lm-line: #e2e2e2;
+      --lm-soft: #f6f6f6;
+      --lm-danger: #a42828;
+      --lm-paper: light-dark(#ffffff, #101010);
+      --lm-ink: light-dark(#111111, #f5f5f5);
+      --lm-muted: light-dark(#626262, #b5b5b5);
+      --lm-line: light-dark(#e2e2e2, #353535);
+      --lm-soft: light-dark(#f6f6f6, #1b1b1b);
+      --lm-danger: light-dark(#a42828, #e46a6a);
+      --lm-sans: "Inter", Arial, Helvetica, sans-serif;
+      --lm-display: "Space Grotesk", "Inter", Arial, sans-serif;
+      --lm-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --lm-surface: color-mix(in srgb, var(--lm-paper) 92%, transparent);
+      --lm-surface-2: color-mix(in srgb, var(--lm-paper) 86%, transparent);
+      --lm-hover: color-mix(in srgb, var(--lm-ink) 6%, transparent);
+      --lm-speed: 150ms;
     }
-    * { box-sizing: border-box; }
+    @supports not (color: color-mix(in srgb, red, transparent)) {
+      :root { --lm-surface: #ffffff; --lm-surface-2: #f6f6f6; --lm-hover: #f0f0f0; }
+      @media (prefers-color-scheme: dark) {
+        :root { --lm-surface: #101010; --lm-surface-2: #1b1b1b; --lm-hover: #202020; }
+      }
+    }
+    *, *::before, *::after { box-sizing: border-box; border-radius: 0; }
     body {
       margin: 0;
-      font-family: var(--sans);
-      background: radial-gradient(circle at top, #131e36 0%, var(--bg) 55%);
-      color: var(--text);
-      line-height: 1.5;
-      min-height: 100vh;
+      min-height: 100svh;
+      background: var(--lm-paper);
+      color: var(--lm-ink);
+      font-family: var(--lm-sans);
+      font-size: clamp(15px, 1.35vw, 17px);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
     }
-    .shell {
-      max-width: 880px;
-      margin: 0 auto;
-      padding: 28px 20px 56px;
+    :where(button) { font: inherit; color: inherit; background: none; margin: 0; border-radius: 0; cursor: pointer; }
+    :is(a, button, input, select, summary):focus-visible { outline: 2px solid var(--lm-ink); outline-offset: 4px; }
+    .choice-card:focus-within { outline: 2px solid var(--lm-ink); outline-offset: 4px; }
+
+    /* Атмосферный слой: ASCII-поле, скан-луч, grain, виньетка */
+    .atmosphere { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: var(--lm-paper); }
+    .atmosphere > * { pointer-events: none; }
+    .atmosphere canvas { display: block; width: 100%; height: 100%; font-family: var(--lm-mono); }
+    .atmosphere-scan {
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(to bottom, transparent 0 3px, color-mix(in srgb, var(--lm-ink) 4%, transparent) 3px 4px);
     }
+    .atmosphere-scan::after {
+      content: ""; position: absolute; left: 0; right: 0; height: 140px;
+      background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--lm-ink) 6%, transparent), transparent);
+      animation: lm-scan 14s linear infinite;
+    }
+    @keyframes lm-scan { from { transform: translateY(-160px); } to { transform: translateY(100vh); } }
+    .atmosphere-grain {
+      position: absolute; inset: 0; opacity: .05; background-size: 140px 140px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    }
+    .atmosphere-vignette {
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 45%, transparent 35%, color-mix(in srgb, var(--lm-paper) 72%, transparent) 100%);
+    }
+    .shell { position: relative; z-index: 1; width: min(1060px, calc(100% - max(40px, 12vw))); margin: 0 auto; padding: 118px 0 84px; }
+
+    /* Мачта и hero */
     .header {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 22px;
+      position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+      height: 56px; padding: 0 max(18px, 3vw);
+      display: flex; align-items: center; justify-content: space-between; gap: 24px;
+      background: color-mix(in srgb, var(--lm-paper) 95%, transparent);
+      border-bottom: 1px solid var(--lm-line);
     }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .logo {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #2563eb, #06b6d4);
-      display: grid;
-      place-items: center;
-      font-weight: 700;
-      font-size: 16px;
-      color: #fff;
-      letter-spacing: 0.03em;
-    }
-    h1 {
+    .brand { display: inline-flex; align-items: center; gap: 9px; font-size: 17px; font-weight: 500; letter-spacing: -0.7px; white-space: nowrap; }
+    .logo { width: 21px; height: 21px; display: block; color: var(--lm-ink); }
+    .eyebrow { font: 10px/1.6 var(--lm-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--lm-muted); }
+    .hero { padding-bottom: 40px; }
+    .hero h1 {
       margin: 0;
-      font-size: 21px;
-      font-weight: 650;
-      letter-spacing: -0.01em;
+      font: 500 clamp(34px, 4.4vw, 58px)/1.06 var(--lm-display);
+      letter-spacing: -0.04em;
+      text-shadow: 0 0 18px var(--lm-paper), 0 0 46px var(--lm-paper);
     }
     .subtitle {
-      margin: 0;
-      color: var(--muted);
-      font-size: 13px;
+      max-width: 560px; margin: 18px 0 0;
+      color: var(--lm-muted); font-size: clamp(15px, 1.35vw, 17px); line-height: 1.6;
+      text-shadow: 0 0 14px var(--lm-paper);
     }
-    .stepper {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-bottom: 20px;
-    }
+
+    /* Степпер: сегментированные табы */
+    .stepper { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--lm-line); background: var(--lm-surface); margin-bottom: 28px; }
     .step-pill {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 550;
+      display: inline-flex; align-items: center; gap: 9px;
+      min-height: 44px; padding: 0 16px; border-right: 1px solid var(--lm-line);
+      font: 400 11px/1.4 var(--lm-mono); letter-spacing: .06em; text-transform: uppercase;
+      color: var(--lm-muted);
+      transition: background var(--lm-speed) ease, color var(--lm-speed) ease;
     }
-    .step-pill.active {
-      border-color: var(--accent);
-      background: var(--accent-soft);
-      color: var(--text);
-    }
-    .step-pill.done {
-      border-color: rgba(34, 197, 94, 0.45);
-      color: var(--text);
-    }
+    .step-pill:last-child { border-right: 0; }
+    .step-pill.active { background: var(--lm-ink); color: var(--lm-paper); }
+    .step-pill.done { color: var(--lm-ink); }
+    .step-pill.done::after { content: " ✓"; }
     .step-num {
-      width: 22px;
-      height: 22px;
-      border-radius: 999px;
-      display: grid;
-      place-items: center;
-      font-size: 12px;
-      font-weight: 700;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      flex-shrink: 0;
+      width: 18px; height: 18px; display: inline-grid; place-items: center; flex-shrink: 0;
+      border: 1px solid var(--lm-line); font: 10px/1 var(--lm-mono); color: var(--lm-muted);
     }
-    .step-pill.active .step-num {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
-    }
-    .step-pill.done .step-num {
-      background: var(--ok);
-      border-color: var(--ok);
-      color: #052e16;
-    }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px;
-      margin-bottom: 16px;
-    }
-    .card-title {
-      margin: 0 0 4px;
-      font-size: 16px;
-      font-weight: 650;
-    }
-    .card-desc {
-      margin: 0 0 16px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-    .grid-2 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 12px;
-    }
-    .preflight-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 10px;
-    }
-    .stat {
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 12px;
-    }
-    .stat-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--muted);
-    }
-    .stat-val {
-      margin-top: 3px;
-      font-size: 14px;
-      font-weight: 600;
-      word-break: break-word;
-    }
+    .step-pill.active .step-num { background: var(--lm-paper); border-color: var(--lm-paper); color: var(--lm-ink); }
+
+    /* Карточки, сетки, статистика */
+    .card { background: var(--lm-surface); border: 1px solid var(--lm-line); padding: 24px; margin-bottom: 16px; }
+    .card-title { margin: 0 0 4px; font: 500 20px/1.3 var(--lm-display); letter-spacing: -0.02em; }
+    .card-desc { margin: 0 0 20px; color: var(--lm-muted); font-size: 13px; }
+    .grid-2, .preflight-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+    .stat { border: 1px solid var(--lm-line); background: var(--lm-surface-2); padding: 12px; }
+    .stat-label { font: 10px/1.6 var(--lm-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--lm-muted); }
+    .stat-val { margin-top: 6px; font-size: 14px; }
+
+    /* Бейджи */
     .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
+      display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px;
+      border: 1px solid var(--lm-line); background: var(--lm-paper); color: var(--lm-ink);
+      font: 10px/1.6 var(--lm-mono); letter-spacing: .08em; text-transform: uppercase; border-radius: 0;
     }
-    .badge-ok { background: var(--ok-soft); color: #86efac; }
-    .badge-warn { background: var(--warn-soft); color: #fcd34d; }
-    .badge-err { background: var(--err-soft); color: #fca5a5; }
-    .badge-muted { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
-    .field {
-      margin-bottom: 14px;
-    }
+    .badge-ok { background: var(--lm-ink); border-color: var(--lm-ink); color: var(--lm-paper); }
+    .badge-warn { border-style: dashed; color: var(--lm-muted); }
+    .badge-err { color: var(--lm-danger); border-color: var(--lm-danger); }
+    .badge-muted { color: var(--lm-muted); }
+
+    /* Поля и контролы */
+    .field { margin-bottom: 14px; }
     .field:last-child { margin-bottom: 0; }
-    label.lbl {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      margin-bottom: 6px;
+    label.lbl { display: block; font: 11px/1.4 var(--lm-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--lm-muted); margin-bottom: 8px; }
+    .hint { font: 11px/1.6 var(--lm-mono); color: var(--lm-muted); margin-top: 6px; }
+    input[type="text"], input[type="password"], input[type="number"], input[type="url"], select {
+      width: 100%; padding: 10px 12px; background: var(--lm-surface-2); color: var(--lm-ink);
+      border: 1px solid var(--lm-line); border-radius: 0; font: inherit; font-size: 14px;
     }
-    .hint {
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 4px;
-    }
-    input[type="text"],
-    input[type="password"],
-    input[type="number"],
-    input[type="url"],
-    select {
-      width: 100%;
-      background: var(--surface-2);
-      color: var(--text);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 9px 11px;
-      font-size: 14px;
-      font-family: inherit;
-      outline: none;
-    }
-    input:focus, select:focus {
-      border-color: var(--border-focus);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
-    }
-    .input-row {
-      display: flex;
-      gap: 8px;
-      align-items: stretch;
-    }
-    .input-row > input,
-    .input-row > select { flex: 1; min-width: 0; }
-    .choice-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 10px;
-    }
+    input[type="text"]:hover, input[type="password"]:hover, input[type="number"]:hover,
+    input[type="url"]:hover, select:hover { border-color: var(--lm-ink); }
+    .input-row { display: flex; gap: 8px; align-items: stretch; }
+    .input-row > input, .input-row > select { flex: 1; min-width: 0; }
+    .choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
     .choice-card {
-      position: relative;
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      padding: 12px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--surface-2);
-      cursor: pointer;
-      transition: border-color 0.15s ease, background 0.15s ease;
+      position: relative; display: flex; align-items: flex-start; gap: 10px; padding: 14px;
+      border: 1px solid var(--lm-line); background: var(--lm-surface-2); cursor: pointer;
+      transition: border-color var(--lm-speed) ease, opacity var(--lm-speed) ease;
     }
-    .choice-card:hover { border-color: #3b527e; }
-    .choice-card.selected {
-      border-color: var(--accent);
-      background: var(--accent-soft);
-    }
-    .choice-card.disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-    .choice-card input {
-      margin-top: 3px;
-      accent-color: var(--accent);
-      flex-shrink: 0;
-    }
-    .choice-title { font-size: 14px; font-weight: 600; }
-    .choice-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .check-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      margin: 8px 0;
-      cursor: pointer;
-    }
-    .check-row input { accent-color: var(--accent); }
+    .choice-card:hover { border-color: var(--lm-ink); }
+    .choice-card.selected { border-color: var(--lm-ink); box-shadow: inset 3px 0 0 var(--lm-ink); }
+    .choice-card.disabled { opacity: .55; cursor: not-allowed; }
+    .choice-card input { margin-top: 3px; accent-color: var(--lm-ink); flex-shrink: 0; }
+    .choice-title { font-size: 14px; font-weight: 500; }
+    .choice-detail { font-size: 12px; color: var(--lm-muted); margin-top: 2px; }
+    .check-row { display: flex; align-items: center; gap: 10px; font-size: 13px; margin: 10px 0; cursor: pointer; }
+    .check-row input { accent-color: var(--lm-ink); }
+
+    /* Кнопки */
     button {
-      appearance: none;
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      background: var(--surface-2);
-      color: var(--text);
-      padding: 9px 15px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
-      white-space: nowrap;
+      appearance: none; border: 1px solid var(--lm-line); background: var(--lm-surface-2); color: var(--lm-ink);
+      padding: 10px 16px; font-size: 13px; font-weight: 500; white-space: nowrap;
+      transition: opacity var(--lm-speed) ease, border-color var(--lm-speed) ease;
     }
-    button:hover:not(:disabled) { border-color: #466091; background: #1e2c46; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    button.primary {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
-    }
-    button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+    button:hover:not(:disabled) { border-color: var(--lm-ink); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button.primary { background: var(--lm-ink); border-color: var(--lm-ink); color: var(--lm-paper); }
+    button.primary:hover:not(:disabled) { opacity: .85; }
     button.ghost { background: transparent; }
-    .actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-top: 18px;
-    }
-    .actions-right {
-      display: flex;
-      gap: 10px;
-      margin-left: auto;
-    }
-    .banner {
-      padding: 12px 14px;
-      border-radius: 10px;
-      font-size: 13px;
-      margin-bottom: 14px;
-      border: 1px solid transparent;
-    }
-    .banner-err { background: var(--err-soft); border-color: rgba(239, 68, 68, 0.45); color: #fecaca; }
-    .banner-warn { background: var(--warn-soft); border-color: rgba(245, 158, 11, 0.45); color: #fde68a; }
-    .banner-ok { background: var(--ok-soft); border-color: rgba(34, 197, 94, 0.45); color: #bbf7d0; }
-    details.advanced {
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      background: var(--surface);
-      margin-bottom: 16px;
-    }
+    .actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 24px; }
+    .actions-right { display: flex; gap: 12px; margin-left: auto; }
+
+    /* Баннеры, details, таблицы, прогресс, лог */
+    .banner { border: 1px solid var(--lm-line); background: var(--lm-surface); padding: 12px 14px; margin-bottom: 14px; font-size: 13px; }
+    .banner-err { border-color: var(--lm-danger); color: var(--lm-danger); }
+    .banner-warn { border-style: dashed; color: var(--lm-ink); }
+    .banner-ok { background: var(--lm-ink); color: var(--lm-paper); border-color: var(--lm-ink); }
+    details.advanced { border: 1px solid var(--lm-line); background: var(--lm-surface); margin-bottom: 16px; }
     details.advanced summary {
-      padding: 13px 18px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--muted);
+      padding: 14px 18px; font: 11px/1.4 var(--lm-mono);
+      text-transform: uppercase; letter-spacing: .08em; color: var(--lm-muted); cursor: pointer;
     }
-    details.advanced[open] summary {
-      color: var(--text);
-      border-bottom: 1px solid var(--border);
-    }
-    .adv-body { padding: 16px 18px; }
-    .summary-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    .summary-table th, .summary-table td {
-      text-align: left;
-      padding: 8px 6px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
+    details.advanced[open] summary { color: var(--lm-ink); border-bottom: 1px solid var(--lm-line); }
+    .adv-body { padding: 20px 18px; }
+    .summary-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .summary-table th, .summary-table td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--lm-line); vertical-align: top; }
     .summary-table th {
-      width: 170px;
-      color: var(--muted);
-      font-weight: 600;
+      width: 170px; color: var(--lm-muted); font: 10px/1.6 var(--lm-mono);
+      letter-spacing: .1em; text-transform: uppercase; font-weight: 400;
     }
-    .mono { font-family: var(--mono); font-size: 12.5px; }
-    .progress-bar-wrap {
-      height: 8px;
-      background: var(--surface-2);
-      border-radius: 999px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      margin: 12px 0;
-    }
-    .progress-bar {
-      height: 100%;
-      width: 10%;
-      background: linear-gradient(90deg, #2563eb, #22c55e);
-      transition: width 0.25s ease;
-    }
-    .log-box {
-      background: #070b13;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-family: var(--mono);
-      font-size: 12px;
-      max-height: 180px;
-      overflow-y: auto;
-      color: #cbd5e1;
-      white-space: pre-wrap;
-    }
+    .mono { font-family: var(--lm-mono); font-size: 12px; }
+    .progress-bar-wrap { height: 2px; background: var(--lm-line); margin: 14px 0; }
+    .progress-bar { height: 100%; width: 10%; background: var(--lm-ink); transition: width 250ms ease; }
+    .log-box { background: var(--lm-surface-2); border: 1px solid var(--lm-line); padding: 12px; font: 12px/1.6 var(--lm-mono); max-height: 180px; overflow-y: auto; white-space: pre-wrap; }
     .hidden { display: none !important; }
+
+    /* Классы вместо статических inline-стилей */
+    .banner-inset { margin: 14px 0 0; }
+    .field-spaced { margin-top: 14px; }
+    .routes-box { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--lm-line); }
+    .actions-tight { margin-top: 0; margin-bottom: 10px; }
+    .routes-title { font: 500 13px/1.4 var(--lm-display); }
+    .hint-tight { margin-top: 2px; }
+    .hint-spaced { margin-bottom: 10px; }
+    .choice-grid-spaced { margin-bottom: 14px; }
+    .advanced-block { margin-top: 12px; }
+    .grid-2-spaced { margin-top: 12px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important; scroll-behavior: auto !important;
+      }
+      .atmosphere-scan { display: none; }
+    }
   </style>
 </head>
-<body>
+  <body>
+  <div class="atmosphere" aria-hidden="true">
+    <canvas id="atmosphere-field"></canvas>
+    <div class="atmosphere-scan"></div>
+    <div class="atmosphere-grain"></div>
+    <div class="atmosphere-vignette"></div>
+  </div>
   <div class="shell">
-    <div class="header">
+    <header class="header">
       <div class="brand">
-        <div class="logo">LM</div>
-        <div>
-          <h1>LedgerMind Setup</h1>
-          <p class="subtitle">Local-first memory for your coding agents · runs on 127.0.0.1</p>
-        </div>
+        <svg class="logo" viewBox="124 124 282 282" aria-hidden="true">
+          <path fill="currentColor" d="M132.29165 132.29165v264.58333l185.20832-.00001v-39.6875l-132.29165.00001v-182.56249Zm79.37499 63.5v66.14583l52.91667 42.33333 79.375-63.49999v156.10416h52.91667v-264.58333l-52.91667 42.33333-79.375 63.5Z" />
+        </svg>
+        <span>LedgerMind</span>
+        <span class="eyebrow">SETUP · LOCAL</span>
       </div>
       <button type="button" class="ghost" id="btn-cancel-top">Cancel Setup</button>
-    </div>
+    </header>
+
+    <header class="hero">
+      <p class="eyebrow">INSTALLER / LOCAL-FIRST MEMORY</p>
+      <h1>LedgerMind Setup</h1>
+      <p class="subtitle">Local-first memory for your coding agents · runs on 127.0.0.1</p>
+    </header>
 
     <div class="stepper">
       <div class="step-pill active" id="pill-1"><span class="step-num">1</span>System &amp; Agents</div>
@@ -402,14 +263,14 @@
         <h2 class="card-title">Host preflight</h2>
         <p class="card-desc">Checking platform, sandbox isolation, and available compute.</p>
         <div class="preflight-grid" id="preflight-stats"></div>
-        <div id="bwrap-warning" class="banner banner-warn hidden" style="margin-top:12px;margin-bottom:0;">
+        <div id="bwrap-warning" class="banner banner-warn hidden banner-inset">
           <strong>bubblewrap (bwrap) is missing.</strong> Core starts with fail-closed isolation and requires <code>bwrap</code>. Install it before starting installation.
         </div>
       </div>
 
       <div class="card">
         <h2 class="card-title">Semantic language &amp; memory layout</h2>
-        <p class="card-desc">Choose the language used to write durable knowledge and whether agents share one memory space.</p>
+        <p class="card-desc">Choose the language used to write durable knowledge and the memory model for this workspace.</p>
         <div class="grid-2">
           <div class="field">
             <label class="lbl" for="semantic-lang">Semantic language</label>
@@ -427,21 +288,21 @@
             <input type="text" id="custom-lang" placeholder="e.g. pt, uk, ja, zh-Hans">
           </div>
         </div>
-        <div class="field" style="margin-top:14px;">
-          <label class="lbl">Memory layout</label>
+        <div class="field field-spaced">
+          <label class="lbl">Workspace memory</label>
           <div class="choice-grid" id="memory-mode-grid">
             <label class="choice-card selected" data-radio="memory_mode" data-val="shared">
               <input type="radio" name="memory_mode" value="shared" checked>
               <div>
-                <div class="choice-title">Shared across agents</div>
-                <div class="choice-detail">One shared knowledge space across all connected agents.</div>
+                <div class="choice-title">Shared across the workspace</div>
+                <div class="choice-detail">One knowledge space for all agents in this workspace.</div>
               </div>
             </label>
             <label class="choice-card" data-radio="memory_mode" data-val="per_agent">
               <input type="radio" name="memory_mode" value="per_agent">
               <div>
-                <div class="choice-title">Separate per agent</div>
-                <div class="choice-detail">Strong isolation: each agent keeps its own knowledge space.</div>
+                <div class="choice-title">Isolated per agent</div>
+                <div class="choice-detail">Each agent in this workspace gets its own logical memory space in the same database.</div>
               </div>
             </label>
           </div>
@@ -509,17 +370,18 @@
             <input type="password" id="gen-token" placeholder="Paste API token (stored in 0600 secrets file, never config.json)" autocomplete="off">
             <button type="button" data-toggle-vis="gen-token">Show</button>
           </div>
+          <p class="hint">The LedgerMind Cloud API key is not a provider token; it is entered later with ledgermind-cloud connect, not in this installer.</p>
         </div>
 
-        <div id="openrouter-routes-box" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
-          <div class="actions" style="margin-top:0;margin-bottom:10px;">
+        <div id="openrouter-routes-box" class="routes-box">
+          <div class="actions actions-tight">
             <div>
-              <strong style="font-size:13px;">OpenRouter pinned routes</strong>
-              <div class="hint" style="margin-top:2px;">Explicit primary route required (automatic routing is disabled).</div>
+              <strong class="routes-title">OpenRouter pinned routes</strong>
+              <div class="hint hint-tight">Explicit primary route required (automatic routing is disabled).</div>
             </div>
             <button type="button" id="btn-discover-routes">Discover strict routes</button>
           </div>
-          <div id="routes-msg" class="hint" style="margin-bottom:10px;"></div>
+          <div id="routes-msg" class="hint hint-spaced"></div>
           <div class="grid-2">
             <div class="field">
               <label class="lbl" for="or-route-select">Discovered primary route</label>
@@ -538,7 +400,7 @@
       <div class="card">
         <h2 class="card-title">Embeddings</h2>
         <p class="card-desc">Choose an OpenAI-compatible embedding API or the signed local Nemotron CPU/GPU model.</p>
-        <div class="choice-grid" id="emb-mode-grid" style="margin-bottom:14px;">
+        <div class="choice-grid choice-grid-spaced" id="emb-mode-grid">
           <label class="choice-card selected" data-radio="emb_mode" data-val="api">
             <input type="radio" name="emb_mode" value="api" checked>
             <div>
@@ -577,7 +439,7 @@
               <button type="button" data-toggle-vis="emb-token">Show</button>
             </div>
           </div>
-          <div class="field" style="margin-top:10px;">
+          <div class="field field-spaced">
             <label class="lbl" for="emb-dims">Vector dimensions</label>
             <div class="input-row">
               <input type="number" id="emb-dims" min="1" value="2048">
@@ -635,7 +497,7 @@
               </select>
             </div>
           </div>
-          <div id="idle-minutes-wrap" class="field hidden" style="margin-top:10px;">
+          <div id="idle-minutes-wrap" class="field field-spaced hidden">
             <label class="lbl" for="idle-minutes">Idle unload timeout (minutes)</label>
             <select id="idle-minutes">
               <option value="5">5 minutes</option>
@@ -644,7 +506,7 @@
               <option value="30">30 minutes</option>
             </select>
           </div>
-          <div id="reranker-api-wrap" class="hidden" style="margin-top:12px;">
+          <div id="reranker-api-wrap" class="advanced-block hidden">
             <div class="grid-2">
               <div class="field">
                 <label class="lbl" for="reranker-endpoint">Reranker operation URL</label>
@@ -660,7 +522,7 @@
               <input type="password" id="reranker-token" autocomplete="off">
             </div>
           </div>
-          <div id="reranker-local-wrap" class="hidden" style="margin-top:12px;">
+          <div id="reranker-local-wrap" class="advanced-block hidden">
             <div class="grid-2">
               <div class="field">
                 <label class="lbl" for="reranker-runtime-path">Installed reranker runtime directory</label>
@@ -676,7 +538,7 @@
               </div>
             </div>
           </div>
-          <div class="grid-2" style="margin-top:12px;">
+          <div class="grid-2 grid-2-spaced">
             <div class="field">
               <label class="lbl" for="gen-concurrency">Generation max concurrency</label>
               <input type="number" id="gen-concurrency" min="1" max="64" value="2">
@@ -717,7 +579,7 @@
           <strong>LedgerMind installation completed!</strong> All Core security checks, configs, and selected agent integrations are ready.
         </div>
         <table class="summary-table" id="readiness-table"></table>
-        <div id="activation-notes" class="banner banner-warn hidden" style="margin-top:14px;margin-bottom:0;"></div>
+        <div id="activation-notes" class="banner banner-warn hidden banner-inset"></div>
       </div>
 
       <div class="actions">
@@ -730,6 +592,80 @@
     </section>
   </div>
 
+<script>
+(() => {
+  const canvas = document.getElementById("atmosphere-field");
+  const ctx = canvas && canvas.getContext("2d");
+  if (!ctx) return;
+  const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const ramp = " .,:;+=*#%@";
+  const frameChars = ["┌", "┐", "└", "┘", "─", "│", "├", "┤"];
+  const masks = [".header", ".hero", ".stepper", ".card", ".banner:not(.hidden)", "details.advanced"];
+  let w = 0, h = 0, cols = 0, rows = 0, cw = 0, ch = 0, fontSize = 10, ink = "#111", last = 0;
+
+  function setup() {
+    w = canvas.clientWidth; h = canvas.clientHeight;
+    if (!w || !h) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fontSize = w < 480 ? 8 : w < 900 ? 9 : 10;
+    cw = fontSize * 0.64; ch = fontSize * 1.08;
+    cols = Math.min(240, Math.ceil(w / cw));
+    rows = Math.min(140, Math.ceil(h / ch));
+    ink = getComputedStyle(document.documentElement).color;
+    draw();
+  }
+  function maskRects() {
+    const rects = [];
+    masks.forEach((sel) => {
+      document.querySelectorAll(sel).forEach((el) => {
+        const r = el.getBoundingClientRect();
+        rects.push([r.left - 12, r.right + 12, r.top - 12, r.bottom + 12]);
+      });
+    });
+    return rects;
+  }
+  function covered(x, y, rects) {
+    for (let i = 0; i < rects.length; i++) {
+      const r = rects[i];
+      if (x >= r[0] && x <= r[1] && y >= r[2] && y <= r[3]) return true;
+    }
+    return false;
+  }
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = ink;
+    ctx.font = fontSize + "px " + (getComputedStyle(canvas).fontFamily || "monospace");
+    ctx.textBaseline = "middle"; ctx.textAlign = "center";
+    const rects = maskRects();
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const x = (col + .5) * cw, y = (row + .5) * ch;
+        if (covered(x, y, rects)) continue;
+        const seed = Math.sin(col * 127.1 + row * 311.7) * 43758.5453;
+        const n = seed - Math.floor(seed);
+        if (n < 0.72) continue;
+        const glyph = n > 0.985 ? frameChars[(col + row) % frameChars.length]
+                                : ramp[Math.min(ramp.length - 1, Math.floor(n * ramp.length))];
+        ctx.globalAlpha = 0.08 + (n - 0.72) * 0.32;
+        ctx.fillText(glyph, x, y);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  function tick(t) {
+    if (t - last > 120 && !document.hidden && !motion.matches) { last = t; draw(); }
+    window.requestAnimationFrame(tick);
+  }
+  window.addEventListener("resize", setup, { passive: true });
+  window.addEventListener("scroll", () => { if (!motion.matches) draw(); }, { passive: true });
+  document.addEventListener("visibilitychange", () => { last = 0; });
+  if (motion.addEventListener) motion.addEventListener("change", () => { last = 0; draw(); });
+  setup();
+  window.requestAnimationFrame(tick);
+})();
+</script>
   <script>
     const SETUP_TOKEN = __LEDGERMIND_SETUP_TOKEN__;
     let preflightData = null;
@@ -830,6 +766,10 @@
         if (updateDefaults || !endpointEl.value) endpointEl.value = defaults.openrouter_base_url || "https://openrouter.ai/api/v1";
         endpointEl.readOnly = true;
         if (updateDefaults || !modelEl.value) modelEl.value = defaults.generation_openrouter || "";
+        const orRouteManual = document.getElementById("or-route-manual");
+        if (updateDefaults && !orRouteManual.value && defaults.generation_openrouter_route) {
+          orRouteManual.value = defaults.generation_openrouter_route;
+        }
         orBox.classList.remove("hidden");
         if (updateDefaults) jevReuse.checked = true;
       } else if (provider === "nvidia_nim") {
@@ -1027,7 +967,7 @@
       const p = buildPayload();
       const rows = [
         ["Language", p.semantic_language],
-        ["Memory layout", p.memory_mode],
+        ["Workspace memory", p.memory_mode],
         ["Agents", p.integrations.map((a) => a.id).join(", ") || "none selected"],
         ["Generation", `${p.generation.provider_profile} · ${p.generation.model} (${maskToken(p.generation.token)})`],
         ["Endpoint", p.generation.endpoint],
@@ -1226,7 +1166,7 @@
             ["reranker", "Reranker"],
             ["smoke_test", "Smoke test"],
             ["agents", "Agents"],
-            ["memory_mode", "Memory layout"],
+            ["memory_mode", "Workspace memory"],
           ]) {
             if (r[k] !== undefined) {
               const tr = document.createElement("tr");

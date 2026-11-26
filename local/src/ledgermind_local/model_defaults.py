@@ -26,6 +26,7 @@ class ModelDefaults:
     """Model identities shared by the installer and its probes."""
 
     generation_openrouter: str
+    generation_openrouter_route: str
     generation_nvidia_nim: str
     embedding_api: str
     embedding_dimensions: int
@@ -100,6 +101,9 @@ def load_model_defaults() -> ModelDefaults:
     decision = _section(payload, "resolution_decision")
     return ModelDefaults(
         generation_openrouter=_text(generation, "openrouter", "generation.openrouter"),
+        generation_openrouter_route=_text(
+            generation, "openrouter_route", "generation.openrouter_route"
+        ),
         generation_nvidia_nim=_text(generation, "nvidia_nim", "generation.nvidia_nim"),
         embedding_api=_text(embedding, "api", "embedding.api"),
         embedding_dimensions=_dimensions(embedding),

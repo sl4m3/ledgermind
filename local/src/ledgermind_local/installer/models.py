@@ -454,9 +454,12 @@ class InstallerConfig(BaseModel):
     # Installation must make the semantic language an explicit deployment
     # choice; it is never inferred from user text or the host locale.
     semantic_language: str
-    # Agents may either share one logical knowledge space or keep independent
-    # spaces while still using the same Local/Core runtime.
-    memory_mode: Literal["shared", "per_agent"] = "per_agent"
+    # Workspace-level choice (part of the workspace configuration, not a
+    # per-agent toggle): agents in this workspace either share one logical
+    # memory space or keep logically separated ones. Both modes use the same
+    # rounds.db / Core knowledge.db; the separation is only a memory_space_id.
+    # Keep the default aligned with the Web wizard ("shared").
+    memory_mode: Literal["shared", "per_agent"] = "shared"
     memory_data_path: str | None = None
     generation: GenerationConfig
     resolution_decision: ResolutionDecisionConfig | None = None
@@ -490,7 +493,11 @@ class InstallerConfig(BaseModel):
         return self
 
     def memory_space_id_for(self, target_id: str) -> str:
-        """Return the logical memory space injected into an agent adapter."""
+        """Return the logical memory_space_id injected into an agent adapter.
+
+        This is logical separation inside one rounds.db / Core knowledge.db,
+        not a separate physical database per agent.
+        """
 
         if self.memory_mode == "shared":
             return "shared-default"

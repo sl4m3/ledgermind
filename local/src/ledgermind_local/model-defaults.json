@@ -1,7 +1,8 @@
 {
   "schema_version": 1,
   "generation": {
-    "openrouter": "deepseek/deepseek-v4-flash-0731",
+    "openrouter": "meta/muse-ember",
+    "openrouter_route": "google-vertex/global",
     "nvidia_nim": "nvidia/nemotron-3-super-120b-a12b"
   },
   "embedding": {

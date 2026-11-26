@@ -60,8 +60,8 @@ _CONTRACT_VALUES = {
 # versions. Allow only these exact literals at their known consumers so a new
 # versioned product name in the same file is still reported.
 _EXTERNAL_MODEL_LITERALS = {
-    "src/ledgermind_local/model-defaults.json": {"deepseek/deepseek-v4-flash-0731"},
-    "tests/unit/installer/test_model_defaults.py": {"deepseek/deepseek-v4-flash-0731"},
+    "src/ledgermind_local/model-defaults.json": {"meta/muse-ember"},
+    "tests/unit/installer/test_model_defaults.py": {"meta/muse-ember"},
     "tests/container/e2e/run-real-api-e2e.sh": {"deepseek/deepseek-v4-flash-0731"},
 }
 

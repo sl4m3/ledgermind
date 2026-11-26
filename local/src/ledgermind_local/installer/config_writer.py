@@ -583,6 +583,8 @@ def write_local_profiles(
     try:
         migrations.apply_migrations(connection)
         store = InferenceProfileStore(connection)
+        # Workspace-level memory model, not a per-agent toggle: both modes bind
+        # profiles inside the same rounds.db, separated only by memory_space_id.
         if config.memory_mode == "shared":
             memory_spaces = {"shared": config.memory_space_id_for("hermes")}
         else:

@@ -29,7 +29,8 @@ def _config() -> SimpleNamespace:
 def test_packaged_defaults_are_valid_and_exposed_by_wizard() -> None:
     defaults = load_model_defaults()
 
-    assert defaults.generation_openrouter == "deepseek/deepseek-v4-flash-0731"
+    assert defaults.generation_openrouter == "meta/muse-ember"
+    assert defaults.generation_openrouter_route == "google-vertex/global"
     assert defaults.generation_nvidia_nim == "nvidia/nemotron-3-super-120b-a12b"
     assert defaults.embedding_api == "nvidia/nemotron-3.5-embed-1b:free"
     assert defaults.embedding_dimensions == 2048
@@ -39,6 +40,10 @@ def test_packaged_defaults_are_valid_and_exposed_by_wizard() -> None:
     assert defaults.resolution_decision == "typesafe/jev-1.14"
 
     assert wizard.REFERENCE_GENERATION_MODEL == defaults.generation_openrouter
+    assert (
+        wizard.REFERENCE_GENERATION_OPENROUTER_ROUTE
+        == defaults.generation_openrouter_route
+    )
     assert wizard.REFERENCE_NVIDIA_GENERATION_MODEL == defaults.generation_nvidia_nim
     assert wizard.REFERENCE_EMBEDDING_MODEL == defaults.embedding_api
     assert wizard.REFERENCE_EMBEDDING_DIMENSIONS == defaults.embedding_dimensions
@@ -62,8 +67,25 @@ def test_override_file_merges_only_requested_values(tmp_path, monkeypatch) -> No
     try:
         defaults = load_model_defaults()
         assert defaults.generation_openrouter == "private/generation-model"
+        assert defaults.generation_openrouter_route == "google-vertex/global"
         assert defaults.generation_nvidia_nim == "nvidia/nemotron-3-super-120b-a12b"
         assert defaults.resolution_decision == "typesafe/jev-1.14"
+    finally:
+        load_model_defaults.cache_clear()
+
+
+def test_override_file_can_set_openrouter_route(tmp_path, monkeypatch) -> None:
+    override = tmp_path / "model-defaults.json"
+    override.write_text(
+        json.dumps({"generation": {"openrouter_route": "private/primary-route"}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("LEDGERMIND_MODEL_DEFAULTS_FILE", str(override))
+    load_model_defaults.cache_clear()
+    try:
+        defaults = load_model_defaults()
+        assert defaults.generation_openrouter == "meta/muse-ember"
+        assert defaults.generation_openrouter_route == "private/primary-route"
     finally:
         load_model_defaults.cache_clear()
 

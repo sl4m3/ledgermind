@@ -166,11 +166,12 @@ def test_legacy_target_migrates_to_current_integration() -> None:
 def test_new_config_does_not_connect_an_agent_implicitly() -> None:
     assert _config().schema_version == 2
     assert _config().integrations == ()
-    assert _config().memory_mode == "per_agent"
+    assert _config().memory_mode == "shared"
 
 
 def test_memory_mode_resolves_shared_or_per_agent_spaces() -> None:
-    config = _config()
+    # Both modes are workspace-level choices inside the same database.
+    config = _config().model_copy(update={"memory_mode": "per_agent"})
     assert config.memory_space_id_for("hermes") == "hermes-default"
     assert config.memory_space_id_for("codex") == "codex-default"
 
@@ -397,7 +398,7 @@ def test_terminal_wizard_offers_local_embedding_only_from_signed_catalog(
     answers = iter(
         (
             "",  # English
-            "",  # per-agent memory
+            "",  # shared workspace memory (default)
             "3",  # custom generation endpoint
             "https://provider.example/v1",
             "generation-model",
@@ -931,7 +932,9 @@ def test_integration_lifecycle_is_independent_from_platform_config(
 ) -> None:
     monkeypatch.setenv("LEDGERMIND_SECRET_BACKEND", "file")
     paths = InstallerPaths(home_override=tmp_path / "install")
-    write_installer_config(_config(), paths)
+    write_installer_config(
+        _config().model_copy(update={"memory_mode": "per_agent"}), paths
+    )
     config_writer = importlib.import_module("ledgermind_local.installer.config_writer")
 
     def unexpected_profile_rewrite(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
