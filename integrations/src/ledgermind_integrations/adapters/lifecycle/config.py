@@ -52,6 +52,7 @@ class LifecycleConfig:
     delivery_base_backoff_seconds: float = DEFAULT_DELIVERY_BASE_BACKOFF_SECONDS
     delivery_max_backoff_seconds: float = DEFAULT_DELIVERY_MAX_BACKOFF_SECONDS
     drain_max_seconds: float = DEFAULT_DRAIN_MAX_SECONDS
+    semantic_language: str | None = None
 
 
 _REQUIRED = (
@@ -159,6 +160,12 @@ def load_lifecycle_config(path: str | Path) -> LifecycleConfig:
         ),
         drain_max_seconds=max(
             float(payload.get("drain_max_seconds", DEFAULT_DRAIN_MAX_SECONDS)), 0.1
+        ),
+        semantic_language=(
+            str(payload["semantic_language"]).strip()
+            if isinstance(payload.get("semantic_language"), str)
+            and str(payload["semantic_language"]).strip()
+            else None
         ),
     )
 

@@ -193,6 +193,7 @@ def _client(config: LifecycleConfig) -> LedgerMindClient:
         token_file=config.token_file or None,
         timeout=config.request_timeout_seconds,
         allow_remote=config.allow_remote,
+        semantic_language=config.semantic_language,
     )
 
 

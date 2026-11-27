@@ -65,6 +65,7 @@ class HermesConfig:
     working_directory: str | None = None
     repository_root: str | None = None
     repository_mapping: dict[str, object] = field(default_factory=dict)
+    semantic_language: str | None = None
 
 
 _REQUIRED = ("endpoint", "memory_space_id", "source_instance_id", "profile_id")
@@ -249,4 +250,5 @@ def load_config(path: str | Path) -> HermesConfig:
         working_directory=optional_text("working_directory"),
         repository_root=optional_text("repository_root"),
         repository_mapping=dict(raw_repository_mapping),
+        semantic_language=optional_text("semantic_language"),
     )

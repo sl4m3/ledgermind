@@ -112,11 +112,17 @@ class LedgerMindClient:
         token_file: str | Path | None = None,
         timeout: float = 5.0,
         allow_remote: bool = False,
+        semantic_language: str | None = None,
     ) -> None:
         self.endpoint = _validate_url(endpoint, allow_remote=allow_remote)
         self.token_file = Path(token_file).expanduser() if token_file else None
         self.timeout = max(float(timeout), 0.1)
         self._token = _read_token(self.token_file) if self.token_file else None
+        self.semantic_language = (
+            semantic_language.strip()
+            if isinstance(semantic_language, str) and semantic_language.strip()
+            else None
+        )
 
     def retrieve_context(
         self, *, memory_space_id: str, query: str, limit: int = 5,
@@ -160,10 +166,13 @@ class LedgerMindClient:
                 status=422,
                 reason="invalid_raw_round",
             ) from exc
+        request_body = validated.model_dump(mode="json", exclude_none=True)
+        if self.semantic_language and "semantic_language" not in request_body:
+            request_body["semantic_language"] = self.semantic_language
         response = self._request(
             "POST",
             "/rounds",
-            validated.model_dump(mode="json", exclude_none=True),
+            request_body,
         )
         if not response:
             # 204 No Content (and an empty body on 200/201/202) is a successful

@@ -219,6 +219,7 @@ class HermesPluginRuntime:
             token_file=config.token_file,
             timeout=config.request_timeout_seconds,
             allow_remote=config.allow_remote,
+            semantic_language=config.semantic_language,
         )
         spool = FileSpool(
             config.spool_dir,
