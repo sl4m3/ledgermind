@@ -237,7 +237,7 @@ class LedgerMindClient:
             if payload is None
             else json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
         )
-        headers = {"accept": "application/json"}
+        headers = {"accept": "application/json", "user-agent": "LedgerMind-Client/1"}
         if body is not None:
             headers["content-type"] = "application/json"
         if self._token:
