@@ -15,7 +15,7 @@ curl -fsSL https://github.com/sl4m3/ledgermind/releases/latest/download/install.
 This URL is stable and does not change with the two-repository reorganization.
 The bootstrap script selects the platform, downloads the signed installer for
 the current architecture from `releases/latest/download`, and hands the
-installation to it. Supported hosts: Linux x86_64 (5.0.4 publishes x86_64 only;
+installation to it. Supported hosts: Linux x86_64 (5.0.5 publishes x86_64 only;
 the aarch64 package is not part of this release).
 
 ## Updating & Rollback
@@ -44,7 +44,7 @@ sync by the release checklist.
 ## Verify a release manually
 
 ```bash
-version=5.0.4
+version=5.0.5
 base=https://github.com/sl4m3/ledgermind/releases/download/v${version}
 curl -fsSLO "$base/install.sh"
 curl -fsSLO "$base/ledgermind-installer-linux-x86_64"

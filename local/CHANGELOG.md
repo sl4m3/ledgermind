@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.0.5 - 2026-11-27
+
+### Added
+
+- Automatic removal of unused knowledge over time, keeping stored knowledge current without manual cleanup.
+
+### Changed
+
+- Looking up knowledge no longer increases its importance on its own.
+
 ## 5.0.4 - 2026-11-26
 
 - Redesigned the local installer web UI with the monochrome light/dark design
